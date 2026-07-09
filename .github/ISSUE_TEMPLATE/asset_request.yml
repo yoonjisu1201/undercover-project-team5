@@ -1,0 +1,58 @@
+name: "Asset Request"
+description: "아트, 사운드, 애니메이션, 이펙트, UI 리소스 제작 또는 수정, 추가를 요청합니다."
+title: "[ASSET] "
+labels: ["asset", "todo"]
+body:
+  - type: dropdown
+    id: asset_type
+    attributes:
+      label: "에셋 종류"
+      multiple: true
+      default: 0
+      options:
+        - "미정"
+        - "2D 아트"
+        - "3D 모델"
+        - "애니메이션"
+        - "SFX/BGM"
+        - "UI"
+        - "기타"
+
+  - type: textarea
+    id: request
+    attributes:
+      label: "요청 내용"
+      description: "필요한 에셋과 게임에서 사용될 상황을 적어주세요."
+      value: "필요한 에셋과 사용 상황 작성"
+
+  - type: textarea
+    id: specs
+    attributes:
+      label: "스타일/규격"
+      description: "꼭 필요한 규격만 적어주세요. 정해지지 않았다면 미정으로 두면 됩니다."
+      value: |
+        - 스타일/톤: 미정
+        - 크기/형식: 미정
+        - 길이/루프: 해당 없음
+
+  - type: input
+    id: target_location
+    attributes:
+      label: "적용 위치"
+      description: "캐릭터, UI 화면, 프리팹, 씬 등 적용될 위치를 적어주세요."
+      value: "미정"
+
+  - type: textarea
+    id: done_criteria
+    attributes:
+      label: "완료 기준"
+      value: |
+        - [ ] 프로젝트에 임포트 가능
+        - [ ] 실제 게임 화면에서 확인 가능
+
+  - type: textarea
+    id: references
+    attributes:
+      label: "참고 자료"
+      description: "레퍼런스 이미지, 영상, 사운드, 무드보드를 첨부해주세요."
+      value: "없음"

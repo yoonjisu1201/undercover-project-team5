@@ -1,0 +1,51 @@
+name: "Balance Tuning"
+description: "스테이지, 전투, 경제, 보상, 레벨 디자인 수치 조정을 요청합니다."
+title: "[BALANCE] "
+labels: ["balance", "todo"]
+body:
+  - type: textarea
+    id: target
+    attributes:
+      label: "조정 대상"
+      description: "캐릭터, 맵, 스킬, 아이템, 스테이지, 보상 등 조정 대상을 적어주세요."
+      value: "조정 대상 작성"
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "현재 문제"
+      description: "너무 쉽거나 어려운 구간, 지루한 반복, 과한 보상 등 문제를 적어주세요."
+      value: "현재 문제 작성"
+
+  - type: textarea
+    id: proposed_values
+    attributes:
+      label: "변경안"
+      description: "바꾸고 싶은 수치나 방향을 적어주세요. 표가 필요하면 사용해도 됩니다."
+      value: |
+        - 현재:
+        - 변경:
+        - 이유:
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: "확인 방법"
+      description: "플레이 테스트나 간단한 비교 기준을 적어주세요."
+      value: |
+        - [ ] 플레이 테스트로 체감 확인
+        - [ ] 필요 시 변경 전후 수치 비교
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: "영향 범위"
+      description: "다른 스테이지, 캐릭터, 아이템에 영향이 있으면 적어주세요."
+      value: "없음"
+
+  - type: textarea
+    id: references
+    attributes:
+      label: "참고 자료"
+      description: "플레이 영상, 테스트 결과, 로그, 스프레드시트를 첨부해주세요."
+      value: "없음"
