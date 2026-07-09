@@ -73,8 +73,19 @@ chore(#18) : 빌드 설정 정리
 2. `.github/ISSUE_TEMPLATE` 형식에 맞춰 제목과 본문 초안을 작성한다.
 3. 사용자에게 초안을 보여주고 확인을 받는다.
 4. 사용자가 승인하면 `gh issue create`로 생성한다.
+5. 생성한 이슈에 GitHub Project + Milestone + Iteration을 설정한다.
 
 애매한 경우에는 한두 가지 핵심 질문만 한다. 없는 정보를 임의로 지어내지 않는다.
+
+### Project / Milestone / Iteration
+
+이슈를 생성하면 제목·라벨·본문만 채우고 끝내지 않는다.
+
+- **Project**: `@UnderCover project - team5` (프로젝트 번호 1, owner `yoonjisu1201`)
+- **Milestone**: `BuildN` 마일스톤 중 현재 날짜가 속한 빌드를 기본값으로 사용한다.
+- **Iteration**: 프로젝트의 Iteration 필드(예: "1주차 (빌드 목요일)", "2주차", ...) 중 현재 날짜가 속한 주차를 기본값으로 사용한다. Milestone과 같은 기간을 가리켜야 한다.
+
+`gh issue create`는 `--milestone`, `--project`까지만 지정할 수 있다. Iteration은 생성 후 `gh project item-edit`으로 별도 설정해야 한다.
 
 ## Codex 작업 원칙
 
