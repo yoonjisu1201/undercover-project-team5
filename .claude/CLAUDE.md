@@ -56,6 +56,16 @@ chore(#18) : 빌드 설정 정리
 
 예외: 이슈 번호가 없거나 명확하지 않은 경우 `fix: Firebase 로그 메시지 정리`처럼 쓴 기록도 있다.
 
+## 이슈 생성 시 Project / Milestone / Iteration
+
+`gh issue create`로 제목·라벨·본문만 채우고 끝내지 않는다. 이슈를 생성하면 아래 세 가지를 항상 함께 설정한다.
+
+- **Project**: `@UnderCover project - team5` (프로젝트 번호 1, owner `yoonjisu1201`)
+- **Milestone**: `BuildN` 마일스톤 중 현재 날짜가 속한 빌드를 기본값으로 사용한다.
+- **Iteration**: 프로젝트의 Iteration 필드(예: "1주차 (빌드 목요일)", "2주차", ...) 중 현재 날짜가 속한 주차를 기본값으로 사용한다. Milestone과 같은 기간을 가리켜야 한다.
+
+`gh issue create`는 `--milestone`, `--project`까지만 지정할 수 있다. Iteration은 생성 후 `gh project item-edit`으로 별도 설정해야 한다.
+
 ---
 
 # CLAUDE.md
