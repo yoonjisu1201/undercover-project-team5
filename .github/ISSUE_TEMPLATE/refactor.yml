@@ -1,0 +1,33 @@
+name: "Refactor"
+description: "동작은 유지하면서 구조, 책임, 가독성을 개선합니다."
+title: "[REFACTOR] "
+labels: ["refactor", "todo"]
+body:
+  - type: textarea
+    id: target
+    attributes:
+      label: "리팩터링 대상"
+      description: "클래스, 시스템, 씬, 프리팹, 데이터 구조 등을 적어주세요."
+      value: "리팩터링 대상 작성"
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: "개선 이유"
+      description: "유지보수, 중복, 결합도, 성능 등 현재 불편한 점을 적어주세요."
+      value: "구조 개선 필요"
+
+  - type: textarea
+    id: direction
+    attributes:
+      label: "개선 방향"
+      description: "어떤 방향으로 정리할지, 유지해야 할 동작이 있으면 적어주세요."
+      value: "외부 동작은 유지하고 내부 구조만 개선"
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: "확인 방법"
+      value: |
+        - [ ] 관련 기능 실행 확인
+        - [ ] Unity 콘솔 오류 없음

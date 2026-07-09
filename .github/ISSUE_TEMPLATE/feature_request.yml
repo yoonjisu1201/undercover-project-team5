@@ -1,0 +1,45 @@
+name: "Feature"
+description: "새로운 게임 기능, 시스템, 콘텐츠 추가를 요청합니다."
+title: "[FEAT] "
+labels: ["feature", "todo"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: "기능 요약"
+      description: "추가하려는 기능을 짧게 설명해주세요."
+      value: "추가할 기능 요약"
+
+  - type: textarea
+    id: requirements
+    attributes:
+      label: "구현할 내용"
+      description: "필요한 동작, 조건, 수치, 예외 상황을 체크리스트로 적어주세요."
+      value: |
+        - [ ] 기본 동작 구현
+        - [ ] 예외 상황 처리
+        - [ ] 게임 화면에서 확인
+
+  - type: textarea
+    id: presentation
+    attributes:
+      label: "화면/피드백"
+      description: "UI, 이펙트, 사운드, 애니메이션 등 플레이어에게 보이는 부분이 있다면 적어주세요."
+      value: "없음"
+
+  - type: textarea
+    id: done_criteria
+    attributes:
+      label: "완료 기준"
+      description: "이 기능이 완료되려면 어떤 조건을 만족해야 하는지 적어주세요."
+      value: |
+        - [ ] 기획된 동작이 구현됨
+        - [ ] 관련 씬에서 플레이 확인됨
+        - [ ] Unity 콘솔 오류 없음
+
+  - type: textarea
+    id: references
+    attributes:
+      label: "참고 자료"
+      description: "레퍼런스 이미지, 영상, 문서, 유사 게임 사례를 첨부해주세요."
+      value: "없음"

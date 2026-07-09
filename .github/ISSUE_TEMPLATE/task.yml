@@ -1,0 +1,41 @@
+name: "Task"
+description: "빌드, 프로젝트 설정, 에셋 정리 등 일반 작업을 요청합니다."
+title: "[TASK] "
+labels: ["task", "todo"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: "작업 종류"
+      multiple: true
+      default: 0
+      options:
+        - "미정"
+        - "빌드/배포"
+        - "패키지/의존성"
+        - "프로젝트 설정"
+        - "에디터 설정"
+        - "코드/에셋 정리"
+        - "기타"
+
+  - type: textarea
+    id: purpose
+    attributes:
+      label: "작업 목적"
+      description: "이 작업이 필요한 이유를 짧게 적어주세요."
+      value: "작업 목적 작성"
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: "작업 내용"
+      value: |
+        - [ ] 필요한 변경 적용
+        - [ ] Unity 에디터에서 오류 없음
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: "영향 범위"
+      description: "런타임, 에디터, 빌드, 씬/프리팹 참조에 영향이 있으면 적어주세요."
+      value: "없음"
