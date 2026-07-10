@@ -58,11 +58,5 @@ public class WindowsAccessibilityDisabler : MonoBehaviour
         SystemParametersInfo(SPI_SETFILTERKEYS, _fk.cbSize, ref _fk, 0);
         SystemParametersInfo(SPI_SETTOGGLEKEYS, _tk.cbSize, ref _tk, 0);
     }
-
-    // 실행 여부를 화면 좌상단에 표시 (확인되면 이 메서드 지워도 됨)
-    void OnGUI()
-    {
-        GUI.Label(new Rect(10, 10, 800, 30), $"[AccessibilityDisabler] {_status}");
-    }
 }
 #endif
