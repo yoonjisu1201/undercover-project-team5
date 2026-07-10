@@ -441,6 +441,8 @@ GameObject:
   - component: {fileID: 6332694596868298056}
   - component: {fileID: 7720741586279402731}
   - component: {fileID: 6404656968252620606}
+  - component: {fileID: 5265496007995788044}
+  - component: {fileID: 2289025542540836660}
   m_Layer: 0
   m_Name: Character
   m_TagString: Untagged
@@ -520,6 +522,34 @@ MonoBehaviour:
   _headPivot: {fileID: 4199300442966208541}
   _minPitch: -50
   _maxPitch: 50
+--- !u!114 &5265496007995788044
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5375394888806478128}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f00b1724dee942449adf844248f3acfc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerInventory
+  _slots: []
+--- !u!114 &2289025542540836660
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5375394888806478128}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c0e900befe86e245b60d332838de26d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerInteraction
+  _playerCamera: {fileID: 5242544566798523834}
+  _interactionDistance: 2
+  _itemCatalog: {fileID: 0}
 --- !u!1 &6369000622934660210
 GameObject:
   m_ObjectHideFlags: 0
