@@ -38,8 +38,6 @@ public class PlayerMoveSample : MonoBehaviour
 	// 점프 입력 예약 (Update에서 감지 → FixedUpdate에서 힘 적용)
 	private bool _jumpRequested = false;
 
-	private bool _ShiftPressed = false;
-
 	// 만들어 둔 InputActions 파일
 	CustomInputActions _actions;
 
@@ -79,12 +77,6 @@ public class PlayerMoveSample : MonoBehaviour
 		{
 			Debug.Log($"점프 키 눌림!");
 			_jumpRequested = true;
-		}
-
-		if (_actions.Player.Shift.IsPressed())
-		{
-			Debug.Log($"Shift 키 눌림!");
-			_ShiftPressed = true;
 		}
 	}
 
