@@ -15,12 +15,12 @@ $ARGUMENTS
 
    | 타입 | 언제 | 제목 prefix | labels |
    | --- | --- | --- | --- |
-   | Feature | 새 기능·시스템·콘텐츠 추가 | `[FEAT]` | `feature`, `todo` |
-   | Bug Report | 실행 중 오류·크래시·비정상 동작 | `[BUG]` | `bug`, `todo` |
-   | Asset Request | 아트·사운드·애니메이션·UI 리소스 | `[ASSET]` | `asset`, `todo` |
-   | Balance Tuning | 수치·밸런스·레벨 디자인 조정 | `[BALANCE]` | `balance`, `todo` |
-   | Documentation | 문서 작성·수정 | `[DOCS]` | `documentation`, `todo` |
-   | Refactor | 동작 유지, 구조·가독성 개선 | `[REFACTOR]` | `refactor`, `todo` |
+   | Feature | 새 기능·시스템·콘텐츠 추가 | `[FEAT]` | `feature` |
+   | Bug Report | 실행 중 오류·크래시·비정상 동작 | `[BUG]` | `bug` |
+   | Asset Request | 아트·사운드·애니메이션·UI 리소스 | `[ASSET]` | `asset` |
+   | Balance Tuning | 수치·밸런스·레벨 디자인 조정 | `[BALANCE]` | `balance` |
+   | Documentation | 문서 작성·수정 | `[DOCS]` | `documentation` |
+   | Refactor | 동작 유지, 구조·가독성 개선 | `[REFACTOR]` | `refactor` |
    | Chore | 빌드·설정·정리 등 일반 작업 | `[CHORE]` | `chore` |
 
 2. **필드 채우기** — 선택한 타입의 필드(아래 참조)를 사용자 입력에서 채운다.
