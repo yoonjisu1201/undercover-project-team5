@@ -35,11 +35,13 @@ public class GameSessionManager : MonoBehaviour
 	{
 		try
 		{
+			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
+
 			var options = new SessionOptions
 			{
 				MaxPlayers = _maxPlayers,
-				IsPrivate = true 
-			}.WithRelayNetwork(); 
+				IsPrivate = true
+			}.WithRelayNetwork();
 
 			CurrentSession = await MultiplayerService.Instance.CreateSessionAsync(options);
 			OnSessionCreated?.Invoke(CurrentSession.Code);
@@ -55,6 +57,8 @@ public class GameSessionManager : MonoBehaviour
 	{
 		try
 		{
+			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
+
 			CurrentSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(joinCode);
 			OnSessionJoined?.Invoke();
 		}

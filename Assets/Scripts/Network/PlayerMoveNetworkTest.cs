@@ -9,7 +9,7 @@ using UnityEngine;
  * 추가 액션을 넣고 싶다면 위 경로 파일 내부 내용을 수정하면 됩니다.
  */
 
-public class PlayerMoveSample : NetworkBehaviour
+public class PlayerMoveNetworkTest : NetworkBehaviour
 {
 	[Header("이동 관련")]
 	[SerializeField] private float _moveSpeed = 5f;
@@ -27,6 +27,8 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	[Header("카메라 관련")]
 	[SerializeField] private GameObject _headPivot;
+
+	[SerializeField] private Camera _camera;
 
 	// 카메라 상하 시야 각도 제한 (위로 볼 때 최소, 아래로 볼 때 최대)
 	// 값이 작을수록(0에 가까울수록) 시야 제한이 커진다
@@ -49,10 +51,25 @@ public class PlayerMoveSample : NetworkBehaviour
 		_actions.Enable();
 	}
 
+	// 스폰될 때마다(내 캐릭터든 다른 사람 캐릭터든) 호출된다.
+	public override void OnNetworkSpawn()
+	{
+		Debug.Log($"[PlayerMoveNetworkTest] OwnerClientId = {OwnerClientId}, IsOwner = {IsOwner}");
+
+		if (!IsOwner)
+		{
+			_camera.enabled = false; // 내 캐릭터가 아니면 카메라 끄기
+        }
+	}
+
 	private void Update()
 	{
-		/// 마우스 관련 이동 적용하기
-		Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
+        if (!IsOwner)
+        {
+            return;
+        }
+        /// 마우스 관련 이동 적용하기
+        Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
 
 		// 현재 yaw, pitch에 값 적용
 		_yaw += mouseDelta.x * _rotateSpeed;
@@ -83,7 +100,12 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void FixedUpdate()
 	{
-		HandleMovement();
+        if (!IsOwner)
+        {
+            return;
+        }
+
+        HandleMovement();
 		HandleJump();
 		ApplyAirGravity();
 	}
