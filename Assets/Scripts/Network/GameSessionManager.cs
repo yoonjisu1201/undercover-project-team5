@@ -67,6 +67,7 @@ public class GameSessionManager : MonoBehaviour
 			}.WithRelayNetwork();
 
 			CurrentSession = await MultiplayerService.Instance.CreateSessionAsync(options);
+			VivoxManager.Instance.JoinSessionChannel(CurrentSession.Code);
 			SubscribeSceneEvents();
 			OnSessionCreated?.Invoke(CurrentSession.Code);
 
@@ -91,7 +92,8 @@ public class GameSessionManager : MonoBehaviour
 			PrepareConnectionApproval();
 
 			CurrentSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(joinCode);
-			SubscribeSceneEvents();
+            VivoxManager.Instance.JoinSessionChannel(CurrentSession.Code);
+            SubscribeSceneEvents();
 			OnSessionJoined?.Invoke();
 		}
 		catch (Exception e)
@@ -167,13 +169,14 @@ public class GameSessionManager : MonoBehaviour
 		if (clientId != NetworkManager.Singleton.LocalClientId) return;
 
 		LastLeaveReason = _isLeavingVoluntarily
-			? "방을 나갔습니다"
+			? "방을 나왔습니다"
 			: NetworkManager.Singleton.IsHost
 				? "연결이 끊겼습니다"
 				: "호스트가 방을 나갔습니다";
 		_isLeavingVoluntarily = false;
 
-		CurrentSession = null;
+        VivoxManager.Instance.LeaveSessionChannel();
+        CurrentSession = null;
 		SceneManager.LoadScene(_lobbySceneName);
 	}
 
