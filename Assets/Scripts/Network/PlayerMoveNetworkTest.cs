@@ -51,6 +51,12 @@ public class PlayerMoveNetworkTest : NetworkBehaviour
 		_actions.Enable();
 	}
 
+	public override void OnDestroy()
+	{
+		_actions.Disable();
+		base.OnDestroy();
+	}
+
 	// 스폰될 때마다(내 캐릭터든 다른 사람 캐릭터든) 호출된다.
 	public override void OnNetworkSpawn()
 	{

@@ -5,12 +5,13 @@ using UnityEngine.UI;
 
 // 로비 화면의 UI(방 생성 버튼, 조인코드 입력 필드, 참여 버튼)와 GameSessionManager를 코드로 연결한다.
 
-public class LobbyUI : MonoBehaviour
+public class LobbyButtonUI : MonoBehaviour
 {
 	[Header("참조")]
 	[SerializeField] private Button _createButton;
 	[SerializeField] private Button _joinButton;
 	[SerializeField] private TMP_InputField _joinCodeInputField;
+	[SerializeField] private TextMeshProUGUI _leaveReasonText;
 
 	private void Start()
 	{
@@ -20,6 +21,25 @@ public class LobbyUI : MonoBehaviour
 		GameSessionManager.Instance.OnSessionCreated += HandleSessionCreated;
 		GameSessionManager.Instance.OnSessionJoined += HandleSessionJoined;
 		GameSessionManager.Instance.OnSessionError += HandleSessionError;
+
+		ShowLeaveReasonIfAny();
+	}
+
+	// 방에서 로비로 돌아온 경우에만(자진 퇴장/호스트 퇴장/연결 끊김) 사유를 잠깐 보여준다.
+	private void ShowLeaveReasonIfAny()
+	{
+		var reason = GameSessionManager.Instance.LastLeaveReason;
+		if (string.IsNullOrEmpty(reason)) return;
+
+		GameSessionManager.Instance.LastLeaveReason = null;
+		_leaveReasonText.text = reason;
+		_leaveReasonText.gameObject.SetActive(true);
+		Invoke(nameof(HideLeaveReasonText), 2f);
+	}
+
+	private void HideLeaveReasonText()
+	{
+		_leaveReasonText.gameObject.SetActive(false);
 	}
 
 	private void OnDestroy()
@@ -42,10 +62,8 @@ public class LobbyUI : MonoBehaviour
 		GameSessionManager.Instance.JoinSessionByCode(_joinCodeInputField.text);
 	}
 
-	// 방 생성 성공 시 발급된 조인코드를 같은 입력 필드에 표시한다.
 	private void HandleSessionCreated(string joinCode)
 	{
-		_joinCodeInputField.text = joinCode;
 		ReleaseInputFocus();
 		Debug.Log($"세션 생성 완료, 조인코드: {joinCode}");
 	}
