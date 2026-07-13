@@ -65,6 +65,7 @@ public class PlayerMoveNetworkTest : NetworkBehaviour
 		if (!IsOwner)
 		{
 			_camera.enabled = false; // 내 캐릭터가 아니면 카메라 끄기
+            _camera.GetComponent<AudioListener>().enabled = false; //오디오 끄기
         }
 	}
 

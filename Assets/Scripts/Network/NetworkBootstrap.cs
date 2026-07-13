@@ -13,10 +13,19 @@ public class NetworkBootstrap : MonoBehaviour
 	// Preserve()로 여러 곳에서 반복 await 가능하게 만든다.
 	public static UniTask SignInTask { get; private set; }
 
+	private static NetworkBootstrap s_instance;
+
 	private void Awake()
 	{
+		if (s_instance != null && s_instance != this)
+		{
+			Destroy(gameObject);
+			return;
+		}
+		s_instance = this;
+
 		DontDestroyOnLoad(gameObject);
-		SignInTask = SignInAsync().Preserve();            
+		SignInTask = SignInAsync().Preserve();
 	}
 
 	private async UniTask SignInAsync()
