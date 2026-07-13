@@ -9,7 +9,7 @@ public class InventoryUI : MonoBehaviour
     [SerializeField] private RectTransform _selectionOutline;
     [SerializeField] private ItemCatalog _itemCatalog;
     [SerializeField] private TMP_Text _interactionPromptText;
-    private GameObject[] _slots;
+    private GameObject[] _slots;    // 인벤토리 슬롯 UI 오브젝트 배열
 
     private CustomInputActions _actions;
 
@@ -78,7 +78,7 @@ public class InventoryUI : MonoBehaviour
             _inventory.SelectSlot(3);
     }
 
-    public void SetInteractionPrompt(string interactionText)
+    public void SetInteractionPrompt(string interactionText)    // 상호작용 프롬프트 텍스트 설정
     {
         if (_interactionPromptText == null)
         {
