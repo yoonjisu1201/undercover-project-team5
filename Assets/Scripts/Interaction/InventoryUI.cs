@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,6 +8,7 @@ public class InventoryUI : MonoBehaviour
     [SerializeField] private Image[] _itemIcons;
     [SerializeField] private RectTransform _selectionOutline;
     [SerializeField] private ItemCatalog _itemCatalog;
+    [SerializeField] private TMP_Text _interactionPromptText;
     private GameObject[] _slots;
 
     private CustomInputActions _actions;
@@ -16,6 +18,13 @@ public class InventoryUI : MonoBehaviour
         _actions = new CustomInputActions();
         _slots = new GameObject[4];
         _itemIcons = new Image[4];
+
+        if (_interactionPromptText == null)
+        {
+            _interactionPromptText = transform.Find("InteractionPrompt")?.GetComponent<TMP_Text>();
+        }
+
+        SetInteractionPrompt(null);
 
         for (int i = 0; i < _slots.Length; i++)
         {
@@ -33,6 +42,7 @@ public class InventoryUI : MonoBehaviour
 
     private void OnEnable()
     {
+        _actions ??= new CustomInputActions();
         _actions.Enable();
 
         if (_inventory != null)
@@ -45,7 +55,7 @@ public class InventoryUI : MonoBehaviour
 
     private void OnDisable()
     {
-        _actions.Disable();
+        _actions?.Disable();
 
         if (_inventory != null)
         {
@@ -66,6 +76,22 @@ public class InventoryUI : MonoBehaviour
 
         if (_actions.Player.Slot4.WasPressedThisFrame())
             _inventory.SelectSlot(3);
+    }
+
+    public void SetInteractionPrompt(string interactionText)
+    {
+        if (_interactionPromptText == null)
+        {
+            return;
+        }
+
+        bool isVisible = !string.IsNullOrWhiteSpace(interactionText);
+        if (isVisible)
+        {
+            _interactionPromptText.text = $"{interactionText} : [E]";
+        }
+
+        _interactionPromptText.gameObject.SetActive(isVisible);
     }
 
     private void Refresh()
@@ -108,5 +134,10 @@ public class InventoryUI : MonoBehaviour
 
             _selectionOutline.anchoredPosition = selectedSlot.anchoredPosition;
         }
+    }
+
+    public void Interact(GameObject interactor)
+    {
+        throw new System.NotImplementedException();
     }
 }

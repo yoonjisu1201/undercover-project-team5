@@ -440,9 +440,11 @@ GameObject:
   m_Component:
   - component: {fileID: 6332694596868298056}
   - component: {fileID: 7720741586279402731}
+  - component: {fileID: 3144050633201103102}
   - component: {fileID: 6404656968252620606}
   - component: {fileID: 5265496007995788044}
   - component: {fileID: 2289025542540836660}
+  - component: {fileID: 330791224208392822}
   m_Layer: 0
   m_Name: Character
   m_TagString: Untagged
@@ -498,6 +500,32 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 112
   m_CollisionDetection: 0
+--- !u!114 &3144050633201103102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5375394888806478128}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 2448299408
+  InScenePlacedSourceGlobalObjectIdHash: 1255777213
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  <InScenePlaced>k__BackingField: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &6404656968252620606
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -510,6 +538,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fca087afc0a223d4986f31e4707ffec0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMoveSample
+  ShowTopMostFoldoutHeaderGroup: 1
   _moveSpeed: 5
   _rotateSpeed: 0.5
   _runMultiplier: 1.8
@@ -550,6 +579,27 @@ MonoBehaviour:
   _playerCamera: {fileID: 5242544566798523834}
   _interactionDistance: 2
   _itemCatalog: {fileID: 0}
+--- !u!135 &330791224208392822
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5375394888806478128}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 5
+  m_Center: {x: 0, y: 3.65, z: 0}
 --- !u!1 &6369000622934660210
 GameObject:
   m_ObjectHideFlags: 0

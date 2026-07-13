@@ -117,16 +117,4 @@ public class PlayerInventory : MonoBehaviour
         }
         return -1;
     }
-
-    private int FindNextOccupiedSlot(int startIndex)
-    {
-        for (int offset = 1; offset <= _slots.Length; offset++)
-        {
-            int index = (startIndex + offset) % _slots.Length;
-
-            if (!_slots[index].IsEmpty)
-                return index;
-        }
-        return -1;
-    }
 }
