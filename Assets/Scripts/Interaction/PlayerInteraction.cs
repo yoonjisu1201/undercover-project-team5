@@ -77,30 +77,24 @@ public class PlayerInteraction : MonoBehaviour
             return;
         }
 
-        Transform cameraTransform =
-            _playerCamera.transform;
+        // --- 아이템 드롭 처리 --- ///
 
-        Vector3 dropPosition =
-            cameraTransform.position +
-            cameraTransform.forward * 1.5f;
+        // 아이템을 드롭할 위치를 계산합니다.
+        Transform cameraTransform = _playerCamera.transform;
 
-        GameObject droppedObject = Instantiate(
-            itemData.WorldPrefab,
-            dropPosition,
-            Quaternion.identity
-        );
+        // 카메라 앞쪽으로 1m 떨어진 위치에 아이템을 생성합니다.
+        Vector3 dropPosition = cameraTransform.position + cameraTransform.forward * 1f;
 
-        if (droppedObject.TryGetComponent(
-                out Rigidbody rigidbody))
+        // 아이템을 생성합니다.
+        GameObject droppedObject = Instantiate(itemData.WorldPrefab, dropPosition, Quaternion.identity);
+
+        if (droppedObject.TryGetComponent(out Rigidbody rigidbody))
         {
-            Vector3 velocity =
-                cameraTransform.forward * 4f +
-                Vector3.up;
+            // 아이템이 카메라 앞쪽에서 위 방향으로 튀어오르게 하는 힘
+            Vector3 velocity = cameraTransform.forward * 2f + Vector3.up;
 
-            rigidbody.AddForce(
-                velocity,
-                ForceMode.VelocityChange
-            );
+            // Rigidbody에 힘을 가하여 아이템을 던집니다.
+            rigidbody.AddForce(velocity, ForceMode.VelocityChange);
         }
 
         _inventory.RemoveSelectedItem();
