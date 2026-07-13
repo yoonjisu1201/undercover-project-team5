@@ -54,10 +54,12 @@ public class GameSessionManager : MonoBehaviour
 	// 호스트: 방을 만들고 조인코드를 발급받는다.
 	public async void CreateSession()
 	{
+		string stage = "로그인 대기";
 		try
 		{
 			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
 
+			stage = "연결 승인 설정";
 			PrepareConnectionApproval();
 
 			var options = new SessionOptions
@@ -66,18 +68,25 @@ public class GameSessionManager : MonoBehaviour
 				IsPrivate = true
 			}.WithRelayNetwork();
 
+			stage = "세션 생성 요청";
 			CurrentSession = await MultiplayerService.Instance.CreateSessionAsync(options);
+
+			stage = "음성 채널 참가";
 			VivoxManager.Instance.JoinSessionChannel(CurrentSession.Code);
+
+			stage = "씬 이벤트 구독";
 			SubscribeSceneEvents();
 			OnSessionCreated?.Invoke(CurrentSession.Code);
 
 			if (NetworkManager.Singleton.IsServer)
 			{
+				stage = "게임플레이 씬 로드";
 				NetworkManager.Singleton.SceneManager.LoadScene(_gameplaySceneName, LoadSceneMode.Single);
 			}
 		}
 		catch (Exception e)
 		{
+			Debug.LogError($"[GameSessionManager] 세션 생성 중 '{stage}' 단계에서 오류가 발생했습니다.\n오류 내용: {e.Message}");
 			OnSessionError?.Invoke(e.Message);
 		}
 	}
@@ -85,19 +94,27 @@ public class GameSessionManager : MonoBehaviour
 	// 클라이언트: 조인코드로 방에 참가한다.
 	public async void JoinSessionByCode(string joinCode)
 	{
+		string stage = "로그인 대기";
 		try
 		{
 			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
 
+			stage = "연결 승인 설정";
 			PrepareConnectionApproval();
 
+			stage = "조인코드로 세션 참가 요청";
 			CurrentSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(joinCode);
+
+			stage = "음성 채널 참가";
             VivoxManager.Instance.JoinSessionChannel(CurrentSession.Code);
+
+			stage = "씬 이벤트 구독";
             SubscribeSceneEvents();
 			OnSessionJoined?.Invoke();
 		}
 		catch (Exception e)
 		{
+			Debug.LogError($"[GameSessionManager] 세션 참가 중 '{stage}' 단계에서 오류가 발생했습니다.\n오류 내용: {e.Message}");
 			OnSessionError?.Invoke(e.Message);
 		}
 	}
