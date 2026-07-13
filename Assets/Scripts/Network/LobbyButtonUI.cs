@@ -12,7 +12,6 @@ public class LobbyButtonUI : MonoBehaviour
 	[SerializeField] private Button _joinButton;
 	[SerializeField] private TMP_InputField _joinCodeInputField;
 	[SerializeField] private TextMeshProUGUI _leaveReasonText;
-	[SerializeField] private LoadingOverlayUI _loadingOverlay;
 
 	private void Start()
 	{
@@ -55,13 +54,11 @@ public class LobbyButtonUI : MonoBehaviour
 
 	private void HandleCreateButtonClicked()
 	{
-		_loadingOverlay.Show();
 		GameSessionManager.Instance.CreateSession();
 	}
 
 	private void HandleJoinButtonClicked()
 	{
-		_loadingOverlay.Show();
 		GameSessionManager.Instance.JoinSessionByCode(_joinCodeInputField.text);
 	}
 
