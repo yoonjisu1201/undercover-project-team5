@@ -24,6 +24,8 @@ public class GameSessionManager : MonoBehaviour
 	public event Action<string> OnSessionCreated; // 조인코드 발급 완료
 	public event Action OnSessionJoined;          // 조인코드로 참가 완료
 	public event Action<string> OnSessionError;   // 실패 사유 전달
+	public event Action OnSessionStarting;                          // 세션 생성/참가 시도 시작
+	public event Action<AsyncOperation> OnGameplaySceneLoadStarted; // 내 로컬 씬 로딩이 시작됨 (진행률 포함)
 
 	private bool _isLeavingVoluntarily;
 
@@ -48,12 +50,14 @@ public class GameSessionManager : MonoBehaviour
 
 		NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleGameplaySceneLoaded;
 		NetworkManager.Singleton.SceneManager.OnSynchronizeComplete -= HandleClientSynchronized;
+		NetworkManager.Singleton.SceneManager.OnLoad -= HandleGameplaySceneLoadStarted;
 		NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
 	}
 
 	// 호스트: 방을 만들고 조인코드를 발급받는다.
 	public async void CreateSession()
 	{
+		OnSessionStarting?.Invoke();
 		string stage = "로그인 대기";
 		try
 		{
@@ -94,6 +98,7 @@ public class GameSessionManager : MonoBehaviour
 	// 클라이언트: 조인코드로 방에 참가한다.
 	public async void JoinSessionByCode(string joinCode)
 	{
+		OnSessionStarting?.Invoke();
 		string stage = "로그인 대기";
 		try
 		{
@@ -129,23 +134,35 @@ public class GameSessionManager : MonoBehaviour
 		networkManager.ConnectionApprovalCallback = HandleConnectionApproval;
 	}
 
-	// NetworkManager.SceneManager는 시작된 후에 생성되므로, 세션 생성/참가가 끝난 뒤에 구독해야 한다.
-	// 게임플레이 씬 로드/동기화가 완료되면 서버가 직접 스폰한다.
-	private void SubscribeSceneEvents()
+    // NetworkManager.SceneManager는 시작된 후에 생성되므로, 세션 생성/참가가 끝난 뒤에 구독해야 한다.
+    // 게임플레이 씬 로드/동기화가 완료되면 서버가 직접 스폰한다.
+    private void SubscribeSceneEvents()
+    {
+        UnsubscribeSceneEvents(); // 중복 구독 방지 (기존 -= += 와 동일한 멱등성)
+        var networkManager = NetworkManager.Singleton;
+        networkManager.SceneManager.OnLoadEventCompleted += HandleGameplaySceneLoaded;
+        networkManager.SceneManager.OnSynchronizeComplete += HandleClientSynchronized;
+        networkManager.SceneManager.OnLoad += HandleGameplaySceneLoadStarted;
+        networkManager.OnClientDisconnectCallback += HandleClientDisconnected;
+    }
+    private void UnsubscribeSceneEvents()
+    {
+        var networkManager = NetworkManager.Singleton;
+        if (networkManager == null) return;
+        if (networkManager.SceneManager != null)
+        {
+            networkManager.SceneManager.OnLoadEventCompleted -= HandleGameplaySceneLoaded;
+            networkManager.SceneManager.OnSynchronizeComplete -= HandleClientSynchronized;
+            networkManager.SceneManager.OnLoad -= HandleGameplaySceneLoadStarted;
+        }
+        networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
+    }
+
+    private void HandleGameplaySceneLoadStarted(ulong clientId, string sceneName, LoadSceneMode loadSceneMode, AsyncOperation asyncOperation)
 	{
-		var networkManager = NetworkManager.Singleton;
+		if (sceneName != _gameplaySceneName || clientId != NetworkManager.Singleton.LocalClientId) return;
 
-		networkManager.SceneManager.OnLoadEventCompleted -= HandleGameplaySceneLoaded;
-		networkManager.SceneManager.OnLoadEventCompleted += HandleGameplaySceneLoaded;
-
-		// 씬 전환이 끝난 뒤 조인코드로 참가하는 클라이언트는 OnLoadEventCompleted가 아니라
-		// 이쪽(최초 동기화 완료)으로 들어온다.
-		networkManager.SceneManager.OnSynchronizeComplete -= HandleClientSynchronized;
-		networkManager.SceneManager.OnSynchronizeComplete += HandleClientSynchronized;
-
-		// 호스트가 나가서 강제로 끊기든, 내가 직접 나가기를 누르든 동일하게 로비로 돌아간다.
-		networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
-		networkManager.OnClientDisconnectCallback += HandleClientDisconnected;
+		OnGameplaySceneLoadStarted?.Invoke(asyncOperation);
 	}
 
 	private void HandleConnectionApproval(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
