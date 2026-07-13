@@ -24,7 +24,7 @@ public sealed class NpcClickMoveInput : MonoBehaviour
 
             if (Physics.Raycast(ray, out RaycastHit hit, _maxDistance, _groundMask))
             {
-                _machine.RequestMove(hit.point);
+                _machine.RequestWalk(hit.point);
             }
         }
 }

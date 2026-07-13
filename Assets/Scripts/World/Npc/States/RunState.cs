@@ -1,53 +1,61 @@
-using System;
 using UnityEngine;
 
 /// <summary>
 /// NPC를 달리기 속도로 목적지까지 이동시키고 도착하면 Idle 상태로 전환합니다.
 /// </summary>
-[Serializable]
 public sealed class RunState : INpcState
 {
-        private Vector3 _destination;
-        [SerializeField, Min(0f)] private float _speed = 4f;
-        private INpcState _idleState;
+    private readonly float _speed;
+    private Vector3? _destination;
 
-        /// <inheritdoc />
-        public NpcStateId Id => NpcStateId.Run;
+    /// <inheritdoc />
+    public NpcStateId Id => NpcStateId.Run;
 
-        /// <summary>도착 후 전환할 Idle 상태를 연결합니다.</summary>
-        /// <param name="idleState">도착 후 진입할 Idle 상태입니다.</param>
-        public void Configure(INpcState idleState)
+    /// <summary>
+    /// 달리기 상태를 생성합니다.
+    /// </summary>
+    /// <param name="speed">달리기 이동 속도입니다.</param>
+    public RunState(float speed)
+    {
+        _speed = Mathf.Max(0f, speed);
+    }
+
+    /// <summary>다음 진입 시 사용할 목적지를 저장합니다.</summary>
+    /// <param name="destination">이동할 월드 좌표입니다.</param>
+    public void SetDestination(Vector3 destination)
+    {
+        _destination = destination;
+    }
+
+    /// <inheritdoc />
+    public void Enter(NpcContext ctx)
+    {
+        if (!_destination.HasValue)
         {
-            _idleState = idleState;
+            Debug.LogError($"[NPC]{ctx.LifecycleSource.name} Run destination is not set.",
+                ctx.LifecycleSource);
+
+            return;
         }
 
-        /// <summary>다음 진입 시 사용할 목적지를 저장합니다.</summary>
-        /// <param name="destination">이동할 월드 좌표입니다.</param>
-        public void SetDestination(Vector3 destination)
+        ctx.Movement.SetSpeed(_speed);
+        ctx.Movement.MoveTo(_destination.Value);
+        Debug.Log($"[NPC]{ctx.LifecycleSource.name} Enter Run {_destination}", ctx.LifecycleSource);
+    }
+    
+    /// <inheritdoc />
+    public void Execute(NpcContext ctx)
+    {
+        if (ctx.Movement.HasArrived)
         {
-            _destination = destination;
+            ctx.StateMachine.RequestIdle();
         }
-
-        /// <inheritdoc />
-        public void Enter(NpcContext ctx)
-        {
-            ctx.Movement.SetSpeed(_speed);
-            ctx.Movement.MoveTo(_destination);
-            Debug.Log($"[NPC]{ctx.LifecycleSource.name} Enter Run {_destination}", ctx.LifecycleSource);
-        }
-
-        /// <inheritdoc />
-        public void Execute(NpcContext ctx)
-        {
-            if (ctx.Movement.HasArrived && _idleState != null)
-            {
-                ctx.StateMachine.ChangeState(_idleState);
-            }
-                
-        }
-
-        /// <inheritdoc />
-        public void Exit(NpcContext ctx)
-        {
-        }
+            
+    }
+    
+    /// <inheritdoc />
+    public void Exit(NpcContext ctx)
+    {
+        _destination = null;
+    }
 }
