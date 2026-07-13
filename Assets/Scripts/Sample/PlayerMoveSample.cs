@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Unity.VisualScripting;
+using Unity.Netcode;
 using UnityEngine;
 
 
@@ -8,7 +9,7 @@ using UnityEngine;
  * 추가 액션을 넣고 싶다면 위 경로 파일 내부 내용을 수정하면 됩니다.
  */
 
-public class PlayerMoveSample : MonoBehaviour
+public class PlayerMoveSample : NetworkBehaviour
 {
 	[Header("이동 관련")]
 	[SerializeField] private float _moveSpeed = 5f;
