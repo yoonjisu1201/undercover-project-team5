@@ -20,6 +20,11 @@ public sealed class NpcStateMachine : MonoBehaviour
     private RunState _runState;
 
     /// <summary>
+    /// 현재 상태 식별자입니다. 최초 상태 진입 전에는 null입니다.
+    /// </summary>
+    public NpcStateId? CurrentStateId => _currentState?.Id;
+
+    /// <summary>
     /// 상태 전환이 완료된 뒤 새 상태의 식별자를 전달합니다.
     /// </summary>
     public event Action<NpcStateId> StateChanged;

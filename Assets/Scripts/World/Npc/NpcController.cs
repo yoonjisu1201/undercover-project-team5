@@ -3,12 +3,15 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
+/// <summary>
+/// FSM 상태를 기준으로 Idle 대기, 목적지 예약 교체, 이동 요청과 정체 복구를 조정합니다.
+/// Scene 의존성은 Spawner에서 주입받고 비동기 작업과 예약은 활성화 수명에 맞춰 정리합니다.
+/// </summary>
 [RequireComponent(typeof(NpcStateMachine))]
 public sealed class NpcController : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private NpcStateMachine _stateMachine;
-    [SerializeField] private MapBlockController _blockController;
 
     [Header("Destination Selection")]
     [SerializeField, Min(0f)] private float _navMeshSampleDistance = 2f;
@@ -24,18 +27,17 @@ public sealed class NpcController : MonoBehaviour
     [SerializeField, Min(0f)] private float _minimumProgressDistance = 0.1f;
 
     private INpcDestinationProvider _destinationProvider;
+    private MapBlockController _blockController;
     private NpcDestination _reservedDestination;
     private CancellationTokenSource _activationCancellationSource;
 
-    private bool _hasObservedState;
-    private bool _isIdle;
     private int _idleSessionVersion;
     private bool _isMoving;
     private Vector3 _lastProgressPosition;
     private float _lastProgressTime;
 
     /// <summary>
-    /// Inspector에서 사용할 NpcStateMachine 참조를 자동으로 연결합니다.
+    /// Inspector용 StateMachine 참조를 같은 오브젝트에서 자동 연결합니다.
     /// </summary>
     private void Reset()
     {
@@ -43,7 +45,7 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 필수 참조를 보완하고 외부 Provider가 없으면 기본 Checkpoint Provider를 생성합니다.
+    /// 비어 있는 StateMachine 참조만 복구하며 Scene 의존성은 Configure로 받습니다.
     /// </summary>
     private void Awake()
     {
@@ -51,29 +53,13 @@ public sealed class NpcController : MonoBehaviour
         {
             _stateMachine = GetComponent<NpcStateMachine>();
         }
-
-        if (_blockController == null)
-        {
-            _blockController = FindFirstObjectByType<MapBlockController>();
-        }
-
-        if (_destinationProvider == null)
-        {
-            _destinationProvider = new NpcCheckpointDestinationProvider(
-                _blockController,
-                _navMeshSampleDistance,
-                _maxDestinationAttempts);
-        }
     }
 
     /// <summary>
-    /// 상태 변경 이벤트를 구독하고 Pool 재활성화마다 새로운 취소 수명과
-    /// Idle 대기 세션을 시작합니다.
+    /// 상태 구독과 활성화 수명을 새로 연결하고 재대여된 Idle NPC의 대기를 재개합니다.
     /// </summary>
     private void OnEnable()
     {
-        // 이전 활성화에서 이미 Idle을 확인했다면 세션 번호를 올리고 대기를 직접 재시작합니다.
-        // FSM은 같은 Idle 요청을 무시하므로 StateChanged가 다시 발생하지 않기 때문입니다.
         CreateActivationCancellationSource();
 
         if (_stateMachine != null)
@@ -82,7 +68,8 @@ public sealed class NpcController : MonoBehaviour
             _stateMachine.StateChanged += HandleStateChanged;
         }
 
-        if (_hasObservedState && _isIdle)
+        if (_stateMachine != null &&
+            _stateMachine.CurrentStateId == NpcStateId.Idle)
         {
             _idleSessionVersion++;
             StartWaitingForDestination();
@@ -90,7 +77,7 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 이동 상태에서 위치 진행 여부를 가볍게 확인해 정체 복구를 수행합니다.
+    /// 이동 진전만 확인해 정체를 복구하며 경로는 다시 계산하지 않습니다.
     /// </summary>
     private void Update()
     {
@@ -98,7 +85,7 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 이벤트와 활성화 수명을 정리하고 보유한 Checkpoint 예약을 한 번 해제합니다.
+    /// 활성화 수명·상태 구독·예약을 정리해 비활성 NPC의 유령 작업을 막습니다.
     /// </summary>
     private void OnDisable()
     {
@@ -115,7 +102,7 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 파괴 시 남은 이벤트 구독, 비동기 수명과 Checkpoint 예약을 정리합니다.
+    /// 파괴 시 남은 상태 구독·대기·예약을 최종 정리합니다.
     /// </summary>
     private void OnDestroy()
     {
@@ -128,16 +115,36 @@ public sealed class NpcController : MonoBehaviour
         ReleaseReservedDestination();
     }
 
+    /// <summary>
+    /// 외부 Provider를 주입해 기본 Checkpoint Provider보다 우선 사용합니다.
+    /// </summary>
     public void SetDestinationProvider(INpcDestinationProvider destinationProvider)
     {
         _destinationProvider = destinationProvider;
     }
 
     /// <summary>
-    /// Spawner가 이미 예약한 Checkpoint를 중복 예약 없이 현재 목적지로 인계받습니다.
+    /// Spawner의 Scene BlockController를 주입하고 기본 Provider를 구성합니다.
+    /// 이미 외부 Provider가 있으면 덮어쓰지 않습니다.
     /// </summary>
-    /// <param name="checkpoint">Spawner가 예약한 Checkpoint입니다.</param>
-    /// <param name="position">해당 Checkpoint 안에서 배치된 위치입니다.</param>
+    public void Configure(MapBlockController blockController)
+    {
+        _blockController = blockController;
+
+        if (_destinationProvider != null || _blockController == null)
+        {
+            return;
+        }
+
+        _destinationProvider = new NpcCheckpointDestinationProvider(
+            _blockController,
+            _navMeshSampleDistance,
+            _maxDestinationAttempts);
+    }
+
+    /// <summary>
+    /// Spawner가 확보한 Checkpoint 예약을 늘리지 않고 NPC 소유로 인계합니다.
+    /// </summary>
     public void AssignSpawnCheckpoint(NpcCheckpoint checkpoint, Vector3 position)
     {
         if (checkpoint == null)
@@ -150,7 +157,7 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 풀 반환 전에 대기 작업과 이동을 중단하고 보유한 예약을 해제합니다.
+    /// Pool 반환 전에 대기와 이동을 멈추고 보유 예약을 한 번 해제합니다.
     /// </summary>
     public void PrepareForPoolReturn()
     {
@@ -166,19 +173,13 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 새 상태를 기록하고 이전 Idle 대기를 무효화하며, 상태에 맞춰
-    /// 다음 목적지 대기 또는 이동 진행 추적을 시작합니다.
+    /// 이전 Idle 대기를 무효화하고 새 상태에 맞춰 대기 또는 정체 추적을 시작합니다.
     /// </summary>
-    /// <param name="stateId">전환이 완료된 현재 상태 식별자입니다.</param>
     private void HandleStateChanged(NpcStateId stateId)
     {
-        // - Idle이면 정체 추적을 끄고 다음 목적지 대기를 시작합니다.
-        // - Walk 또는 Run이면 현재 위치와 시간을 저장해 이동 진행을 추적합니다.
-        _hasObservedState = true;
-        _isIdle = stateId == NpcStateId.Idle;
         _idleSessionVersion++;
 
-        if (_isIdle)
+        if (stateId == NpcStateId.Idle)
         {
             _isMoving = false;
             StartWaitingForDestination();
@@ -197,7 +198,7 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 활성화 수명과 필수 의존성이 유효할 때 Idle 목적지 대기를 시작합니다.
+    /// 필수 의존성과 활성화 토큰이 유효할 때 Idle 목적지 탐색을 시작합니다.
     /// </summary>
     private void StartWaitingForDestination()
     {
@@ -213,24 +214,17 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 현재 Idle 세션이 유지되는 동안 무작위 시간만큼 기다린 뒤 목적지를 예약합니다.
-    /// 예약 실패 시 기존 예약을 유지하고 재시도하며, 성공 시 예약 교체 후 이동합니다.
-    /// 상태 변경과 오브젝트 수명 종료에 따른 취소는 정상 종료로 처리합니다.
+    /// 같은 Idle 세션에서 목적지를 재시도하고 성공 시 예약 교체 후 이동을 요청합니다.
+    /// 실패에는 기존 예약을 유지하며 상태 변경이나 비활성화 시 정상 종료합니다.
     /// </summary>
-    /// <param name="cancellationToken">현재 풀 활성화 수명에 연결된 취소 토큰입니다.</param>
     private async UniTaskVoid WaitForDestinationAsync(CancellationToken cancellationToken)
     {
-        // 2. 최소·최대 Idle 시간 사이에서 무작위로 기다린 뒤 상태를 다시 확인합니다.
-        // 3. 현재 위치와 예약 중인 Checkpoint를 Provider에 전달합니다.
-        // 4. 실패하면 기존 예약을 유지하고 다시 기다렸다가 시도합니다.
-        // 5. 성공하면 예약을 교체하고 Walk 또는 Run을 요청한 뒤 반복을 끝냅니다.
-        // OperationCanceledException은 오브젝트 수명에 따른 정상 취소로 처리합니다.
         int idleSessionVersion = _idleSessionVersion;
 
         try
         {
             while (!cancellationToken.IsCancellationRequested &&
-                _isIdle &&
+                _stateMachine.CurrentStateId == NpcStateId.Idle &&
                 idleSessionVersion == _idleSessionVersion)
             {
                 float minimumSeconds = Mathf.Max(0f, _minimumIdleSeconds);
@@ -243,7 +237,8 @@ public sealed class NpcController : MonoBehaviour
                     TimeSpan.FromSeconds(delaySeconds),
                     cancellationToken: cancellationToken);
 
-                if (!_isIdle || idleSessionVersion != _idleSessionVersion)
+                if (_stateMachine.CurrentStateId != NpcStateId.Idle ||
+                    idleSessionVersion != _idleSessionVersion)
                 {
                     return;
                 }
@@ -269,10 +264,8 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 새 목적지 예약이 성공한 뒤에만 이전 Checkpoint 예약을 해제하고 교체합니다.
-    /// 같은 Checkpoint이면 예약 수를 바꾸지 않고 위치만 교체합니다.
+    /// 새 예약 성공 후에만 기존 예약을 해제하며 같은 Checkpoint면 위치만 교체합니다.
     /// </summary>
-    /// <param name="nextDestination">새로 예약된 목적지입니다.</param>
     private void SwapReservation(NpcDestination nextDestination)
     {
         if (nextDestination == null)
@@ -290,9 +283,8 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 설정된 달리기 확률을 한 번 판정해 목적지까지 걷거나 달리도록 요청합니다.
+    /// 설정 확률을 한 번 판정해 예약 목적지까지 Walk 또는 Run을 요청합니다.
     /// </summary>
-    /// <param name="destination">이동할 예약 목적지입니다.</param>
     private void RequestMovement(NpcDestination destination)
     {
         if (UnityEngine.Random.value < Mathf.Clamp01(_runProbability))
@@ -306,8 +298,7 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 최소 이동 거리를 기준으로 진행 시간을 갱신하고, 제한 시간 동안
-    /// 진행하지 못하면 예약을 유지한 채 Idle 복귀를 요청합니다.
+    /// 제한 시간 동안 이동 진전이 없으면 예약을 유지한 채 Idle로 복귀합니다.
     /// </summary>
     private void UpdateStallRecovery()
     {
@@ -337,6 +328,9 @@ public sealed class NpcController : MonoBehaviour
         _stateMachine.RequestIdle();
     }
 
+    /// <summary>
+    /// 현재 예약을 Provider를 통해 한 번 반환하고 참조를 비웁니다.
+    /// </summary>
     private void ReleaseReservedDestination()
     {
         if (_reservedDestination == null)
@@ -356,6 +350,9 @@ public sealed class NpcController : MonoBehaviour
         _reservedDestination = null;
     }
 
+    /// <summary>
+    /// 이전 활성화 작업을 취소하고 현재 대기에 연결할 토큰을 만듭니다.
+    /// </summary>
     private void CreateActivationCancellationSource()
     {
         CancelActivationCancellationSource();
@@ -363,6 +360,9 @@ public sealed class NpcController : MonoBehaviour
             CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
     }
 
+    /// <summary>
+    /// 활성화별 대기를 취소·해제해 비활성 NPC의 후속 작업을 막습니다.
+    /// </summary>
     private void CancelActivationCancellationSource()
     {
         if (_activationCancellationSource == null)

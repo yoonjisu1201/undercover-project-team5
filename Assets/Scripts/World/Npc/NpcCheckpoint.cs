@@ -1,5 +1,8 @@
 using UnityEngine;
 
+/// <summary>
+/// NPC 스폰·목적지 예약의 수용량과 Checkpoint 반경 샘플을 담당합니다.
+/// </summary>
 public sealed class NpcCheckpoint : MonoBehaviour
 {
     [SerializeField, Min(0f)] private float _radius = 3f;
@@ -8,7 +11,7 @@ public sealed class NpcCheckpoint : MonoBehaviour
     private int _reservationCount;
 
     /// <summary>
-    /// Checkpoint가 추가 NPC를 수용할 수 있는지 나타냅니다.
+    /// 예약 수가 Checkpoint 수용량 미만인지 확인합니다.
     /// </summary>
     public bool HasAvailableSlot
     {
@@ -19,9 +22,8 @@ public sealed class NpcCheckpoint : MonoBehaviour
     }
 
     /// <summary>
-    /// 수용량이 남아 있으면 예약 수를 한 번 증가시킵니다.
+    /// 수용량이 남아 있으면 예약을 한 번 확보합니다.
     /// </summary>
-    /// <returns>예약에 성공하면 true입니다.</returns>
     public bool TryReserve()
     {
         if (!HasAvailableSlot)
@@ -34,7 +36,7 @@ public sealed class NpcCheckpoint : MonoBehaviour
     }
 
     /// <summary>
-    /// 현재 예약 수를 음수가 되지 않는 범위에서 한 번 감소시킵니다.
+    /// 예약 수가 음수가 되지 않도록 한 번 반납합니다.
     /// </summary>
     public void ReleaseReservation()
     {
@@ -45,9 +47,8 @@ public sealed class NpcCheckpoint : MonoBehaviour
     }
 
     /// <summary>
-    /// Checkpoint 중심에서 설정된 반경 안의 임의 XZ 좌표를 반환합니다.
+    /// Checkpoint의 XZ 반경 안에서 무작위 월드 좌표를 반환합니다.
     /// </summary>
-    /// <returns>Checkpoint 반경 안의 월드 좌표입니다.</returns>
     public Vector3 RandomPointInRadius()
     {
         Vector2 offset = Random.insideUnitCircle * Mathf.Max(0f, _radius);
@@ -55,10 +56,8 @@ public sealed class NpcCheckpoint : MonoBehaviour
     }
 
     /// <summary>
-    /// 지정한 월드 좌표가 Checkpoint의 XZ 반경 안에 있는지 확인합니다.
+    /// 월드 좌표가 Checkpoint의 XZ 반경 안에 있는지 확인합니다.
     /// </summary>
-    /// <param name="worldPosition">확인할 월드 좌표입니다.</param>
-    /// <returns>반경 안에 있으면 true입니다.</returns>
     public bool Contains(Vector3 worldPosition)
     {
         Vector3 offset = worldPosition - transform.position;

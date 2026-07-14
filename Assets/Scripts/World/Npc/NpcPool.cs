@@ -1,6 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// NPC를 고정 용량으로 사전 생성하고 활성·비활성 대여 수명을 관리합니다.
+/// </summary>
 public sealed class NpcPool : MonoBehaviour
 {
     [SerializeField] private NpcController _npcPrefab;
@@ -9,7 +12,7 @@ public sealed class NpcPool : MonoBehaviour
     private readonly Queue<NpcController> _availableNpcs = new();
 
     /// <summary>
-    /// 설정된 용량만큼 NPC를 미리 생성하고 비활성 대기열에 보관합니다.
+    /// 고정 용량 NPC를 미리 생성해 비활성 대기열을 준비합니다.
     /// </summary>
     private void Awake()
     {
@@ -17,10 +20,8 @@ public sealed class NpcPool : MonoBehaviour
     }
 
     /// <summary>
-    /// 고정 용량 풀에서 비활성 NPC 하나를 꺼냅니다.
+    /// 비활성 NPC 하나를 대여하며 Pool이 비어도 실행 중 증설하지 않습니다.
     /// </summary>
-    /// <param name="npc">대여에 성공한 NPC입니다.</param>
-    /// <returns>대여 가능한 NPC가 있으면 true입니다.</returns>
     public bool TryRentNpc(out NpcController npc)
     {
         while (_availableNpcs.Count > 0)
@@ -40,10 +41,8 @@ public sealed class NpcPool : MonoBehaviour
     }
 
     /// <summary>
-    /// 대여한 NPC를 지정한 위치로 옮긴 뒤 활성화합니다.
+    /// 예약이 인계된 대여 NPC를 지정 위치에 배치하고 활성화합니다.
     /// </summary>
-    /// <param name="npc">활성화할 대여 NPC입니다.</param>
-    /// <param name="position">배치할 월드 좌표입니다.</param>
     public void Activate(NpcController npc, Vector3 position)
     {
         if (npc == null ||
@@ -58,9 +57,8 @@ public sealed class NpcPool : MonoBehaviour
     }
 
     /// <summary>
-    /// NPC의 배회 수명을 정리하고 비활성 대기열로 한 번 반환합니다.
+    /// Pool 소유 NPC를 정리·비활성화하고 중복 없이 대기열에 반환합니다.
     /// </summary>
-    /// <param name="npc">반환할 NPC입니다.</param>
     public void Return(NpcController npc)
     {
         if (npc == null ||
@@ -77,8 +75,7 @@ public sealed class NpcPool : MonoBehaviour
     }
 
     /// <summary>
-    /// 고정 용량만큼 NPC를 생성해 비활성 대기열에 넣습니다.
-    /// 실행 중에는 Pool의 크기를 늘리지 않습니다.
+    /// 설정 용량만큼 NPC를 Pool 자식으로 사전 생성합니다.
     /// </summary>
     private void CreatePooledNpcs()
     {

@@ -2,6 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
+/// <summary>
+/// 해금된 Block의 Checkpoint를 탐색해 예약·NavMesh 위치·완전 경로를 검증합니다.
+/// </summary>
 public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
 {
     private readonly MapBlockController _blockController;
@@ -9,6 +12,9 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
     private readonly int _maxAttempts;
     private readonly NavMeshPath _path = new();
 
+    /// <summary>
+    /// 후보를 조회할 Controller와 NavMesh 샘플·시도 한도를 저장합니다.
+    /// </summary>
     public NpcCheckpointDestinationProvider(
         MapBlockController blockController,
         float searchRadius,
@@ -20,14 +26,9 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
     }
 
     /// <summary>
-    /// 해제된 Block의 Checkpoint를 무작위 순서로 확인하고, 예약과
-    /// PathComplete 검증에 성공한 목적지를 반환합니다. 현재 Checkpoint가 아닌
-    /// 후보를 우선하며, 다른 후보가 실패하면 현재 Checkpoint 주변을 제한적으로 재시도합니다.
+    /// 열린 Checkpoint에서 예약·반경·완전 경로를 모두 만족하는 목적지를 확보합니다.
+    /// 다른 Checkpoint를 우선하고, 실패 시 현재 Checkpoint를 재예약 없이 시도합니다.
     /// </summary>
-    /// <param name="origin">경로를 시작할 NPC의 현재 위치입니다.</param>
-    /// <param name="currentCheckpoint">NPC가 현재 예약한 Checkpoint입니다.</param>
-    /// <param name="destination">예약에 성공한 목적지와 Checkpoint입니다.</param>
-    /// <returns>유효한 목적지를 예약하면 true입니다.</returns>
     public bool TryReserveDestination(
         Vector3 origin,
         NpcCheckpoint currentCheckpoint,
@@ -84,9 +85,8 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
     }
 
     /// <summary>
-    /// 목적지가 보유한 Checkpoint 예약을 한 번 해제합니다.
+    /// 목적지가 보유한 Checkpoint 예약을 한 번 반납합니다.
     /// </summary>
-    /// <param name="destination">해제할 예약 정보입니다.</param>
     public void ReleaseDestination(NpcDestination destination)
     {
         if (destination == null || destination.Checkpoint == null)
@@ -97,6 +97,9 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
         destination.Checkpoint.ReleaseReservation();
     }
 
+    /// <summary>
+    /// 현재 Checkpoint를 제외하고 해금된 Block의 빈 Checkpoint를 수집합니다.
+    /// </summary>
     private List<NpcCheckpoint> CollectAvailableCandidates(NpcCheckpoint currentCheckpoint)
     {
         List<NpcCheckpoint> candidates = new List<NpcCheckpoint>();
@@ -132,6 +135,9 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
         return candidates;
     }
 
+    /// <summary>
+    /// 반경 샘플, NavMesh 포함 여부, PathComplete를 순서대로 검증합니다.
+    /// </summary>
     private bool TryFindValidPositionInCheckpoint(
         Vector3 origin,
         NpcCheckpoint checkpoint,
@@ -170,6 +176,9 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
         return true;
     }
 
+    /// <summary>
+    /// 후보 순서를 섞어 특정 Checkpoint 편중을 줄입니다.
+    /// </summary>
     private static void Shuffle(List<NpcCheckpoint> checkpoints)
     {
         for (int index = checkpoints.Count - 1; index > 0; index--)
