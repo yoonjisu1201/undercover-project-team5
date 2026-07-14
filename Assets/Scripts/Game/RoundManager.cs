@@ -2,6 +2,7 @@ using System;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 public enum RoundState
 {
@@ -19,6 +20,9 @@ public class RoundManager : NetworkBehaviour
     [Header("라운드 제한 시간 (초 단위, 테스트용 10분)")]
     [SerializeField] private float _round1Duration = 600f;
     [SerializeField] private float _round2Duration = 600f;
+
+    [Header("게임 종료 후 돌아갈 대기방 씬")]
+    [SerializeField] private string _waitingRoomSceneName = "WaitingRoom";
 
     private readonly NetworkVariable<RoundState> _currentState =
         new(RoundState.Waiting, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -44,6 +48,11 @@ public class RoundManager : NetworkBehaviour
     {
         _currentState.OnValueChanged += HandleStateChanged;
         OnRoundStateChanged?.Invoke(_currentState.Value); // OnValueChanged는 최초 동기화값에는 발동하지 않으므로 직접 1회 호출
+
+        if (IsServer)
+        {
+            StartRound1(); // 게임씬에 스폰되는 것 자체가 게임 시작 신호
+        }
     }
 
     public override void OnNetworkDespawn()
@@ -71,10 +80,11 @@ public class RoundManager : NetworkBehaviour
         if (NetworkManager.ServerTime.Time >= _roundEndTime.Value)
         {
             _currentState.Value = RoundState.Fail; // 시간 초과로 실패 처리
+            ReturnToWaitingRoom();
         }
     }
 
-    // 호스트가 대기방에서 "게임시작"을 눌렀을 때 서버에서 호출한다.
+    // 게임씬 스폰 시 서버에서 자동 호출한다.
     public void StartRound1()
     {
         if (!IsServer) return;
@@ -97,8 +107,15 @@ public class RoundManager : NetworkBehaviour
                 break;
             case RoundState.Round2:
                 _currentState.Value = RoundState.Success;
+                ReturnToWaitingRoom();
                 break;
         }
+    }
+
+    // 게임 종료(성공/실패) 시 서버가 대기방 씬으로 전환한다.
+    private void ReturnToWaitingRoom()
+    {
+        NetworkManager.SceneManager.LoadScene(_waitingRoomSceneName, LoadSceneMode.Single);
     }
 
     // 클라이언트 UI(시계 등)가 매 프레임 호출해서 남은 시간을 계산한다.

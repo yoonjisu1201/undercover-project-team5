@@ -9,6 +9,7 @@ public class RoundTimerDisplay : MonoBehaviour
 	private void Start()
 	{
 		RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
+		HandleRoundStateChanged(RoundManager.Instance.CurrentState);
 	}
 
 	private void OnDestroy()

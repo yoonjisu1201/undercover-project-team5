@@ -35,7 +35,7 @@ public class LoadingOverlayUI : MonoBehaviour
 	{
 		GameSessionManager.Instance.OnSessionStarting += Show;
 		GameSessionManager.Instance.OnSessionError += HandleSessionError;
-		GameSessionManager.Instance.OnGameplaySceneLoadStarted += HandleSceneLoadStarted;
+		GameSessionManager.Instance.OnWaitingRoomSceneLoadStarted += HandleSceneLoadStarted;
 
 		Hide();
 	}
@@ -46,7 +46,7 @@ public class LoadingOverlayUI : MonoBehaviour
 		{
 			GameSessionManager.Instance.OnSessionStarting -= Show;
 			GameSessionManager.Instance.OnSessionError -= HandleSessionError;
-			GameSessionManager.Instance.OnGameplaySceneLoadStarted -= HandleSceneLoadStarted;
+			GameSessionManager.Instance.OnWaitingRoomSceneLoadStarted -= HandleSceneLoadStarted;
 		}
 
 		_cts?.Cancel();
