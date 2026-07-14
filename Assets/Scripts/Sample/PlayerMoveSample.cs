@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using Unity.VisualScripting;
 using Unity.Netcode;
 using UnityEngine;
@@ -28,6 +27,11 @@ public class PlayerMoveSample : NetworkBehaviour
 	[Header("카메라 관련")]
 	[SerializeField] private GameObject _headPivot;
 	[SerializeField] private Camera _camera;
+
+	[Header("지면 판정")]
+	[SerializeField] private Transform _groundCheck;
+	[SerializeField, Min(0.01f)] private float _groundCheckRadius = 0.3f;
+	[SerializeField] private LayerMask _jumpableSurfaceMask;
 
 	// 카메라 상하 시야 각도 제한 (위로 볼 때 최소, 아래로 볼 때 최대)
 	// 값이 작을수록(0에 가까울수록) 시야 제한이 커진다
@@ -165,9 +169,10 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private bool IsGrounded()
 	{
-		// pivot의 y를 범위(_groundMinY ~ _groundMaxY)로 clamp 했을 때
-		// 원래 값과 같으면 → 범위 안 → 땅에 있다고 판단
-		float y = transform.position.y;
-		return Mathf.Clamp(y, _groundMinY, _groundMaxY) == y;
+		return _groundCheck != null && Physics.CheckSphere(
+			_groundCheck.position,
+			_groundCheckRadius,
+			_jumpableSurfaceMask,
+			QueryTriggerInteraction.Ignore);
 	}
 }
