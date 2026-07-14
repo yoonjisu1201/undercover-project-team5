@@ -65,6 +65,11 @@ public class InventoryUI : MonoBehaviour
 
     private void Update()
     {
+        if (_inventory == null)
+        {
+            return;
+        }
+
         if (_actions.Player.Slot1.WasPressedThisFrame())
             _inventory.SelectSlot(0);
 
@@ -76,6 +81,28 @@ public class InventoryUI : MonoBehaviour
 
         if (_actions.Player.Slot4.WasPressedThisFrame())
             _inventory.SelectSlot(3);
+    }
+
+    public void BindInventory(PlayerInventory inventory)    // 인벤토리 UI에 플레이어 인벤토리 연결
+    {
+        if (_inventory == inventory)
+        {
+            return;
+        }
+
+        if (_inventory != null)
+        {
+            _inventory.InventoryChanged -= Refresh;
+        }
+
+        _inventory = inventory;
+
+        if (_inventory != null && isActiveAndEnabled)
+        {
+            _inventory.InventoryChanged += Refresh;
+        }
+
+        Refresh();
     }
 
     public void SetInteractionPrompt(string interactionText)    // 상호작용 프롬프트 텍스트 설정
