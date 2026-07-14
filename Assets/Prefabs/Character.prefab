@@ -224,6 +224,37 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &3684214028284483726
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4243713916264914239}
+  m_Layer: 0
+  m_Name: GroundCheck
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4243713916264914239
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3684214028284483726}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.05, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6332694596868298056}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4199300442966208541
 GameObject:
   m_ObjectHideFlags: 0
@@ -519,6 +550,7 @@ Transform:
   - {fileID: 2654615041499997615}
   - {fileID: 8175693637920398514}
   - {fileID: 2920650755882106941}
+  - {fileID: 4243713916264914239}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &7720741586279402731
@@ -598,6 +630,11 @@ MonoBehaviour:
   _rigidbody: {fileID: 7720741586279402731}
   _headPivot: {fileID: 4199300442966208541}
   _camera: {fileID: 5242544566798523834}
+  _groundCheck: {fileID: 4243713916264914239}
+  _groundCheckRadius: 0.3
+  _jumpableSurfaceMask:
+    serializedVersion: 2
+    m_Bits: 72
   _minPitch: -50
   _maxPitch: 50
 --- !u!114 &5265496007995788044
@@ -612,6 +649,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f00b1724dee942449adf844248f3acfc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerInventory
+  ShowTopMostFoldoutHeaderGroup: 1
   _slots: []
 --- !u!114 &2289025542540836660
 MonoBehaviour:
@@ -877,7 +915,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 0.01
   far clip plane: 1000
   field of view: 60
   orthographic: 0
