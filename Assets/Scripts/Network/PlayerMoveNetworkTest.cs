@@ -65,18 +65,24 @@ public class PlayerMoveNetworkTest : NetworkBehaviour
 		if (!IsOwner)
 		{
 			_camera.enabled = false; // 내 캐릭터가 아니면 카메라 끄기
-            _camera.GetComponent<AudioListener>().enabled = false; //오디오 끄기
-        }
+			_camera.GetComponent<AudioListener>().enabled = false; //오디오 끄기
+		}
 	}
 
 	private void Update()
 	{
-        if (!IsOwner)
-        {
-            return;
-        }
-        /// 마우스 관련 이동 적용하기
-        Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
+		if (!IsOwner)
+		{
+			return;
+		}
+
+		if (GameplayUiMode.IsActive)    // UI 조작 중에는 이동, 점프, 시점 입력을 받지 않음
+		{
+			_jumpRequested = false;
+			return;
+		}
+		/// 마우스 관련 이동 적용하기
+		Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
 
 		// 현재 yaw, pitch에 값 적용
 		_yaw += mouseDelta.x * _rotateSpeed;
@@ -107,12 +113,18 @@ public class PlayerMoveNetworkTest : NetworkBehaviour
 
 	private void FixedUpdate()
 	{
-        if (!IsOwner)
-        {
-            return;
-        }
+		if (!IsOwner)
+		{
+			return;
+		}
 
-        HandleMovement();
+		if (GameplayUiMode.IsActive)
+		{
+			_jumpRequested = false;
+			return;
+		}
+
+		HandleMovement();
 		HandleJump();
 		ApplyAirGravity();
 	}
