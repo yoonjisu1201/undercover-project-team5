@@ -1,6 +1,7 @@
 using Unity.VisualScripting;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 
 /* InputActions를 활용하여 Input을 처리하는 방법 샘플입니다.
@@ -57,7 +58,8 @@ public class PlayerMoveSample : NetworkBehaviour
 	public override void OnDestroy()
 	{
 		_actions.Disable();
-		base.OnDestroy();
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        base.OnDestroy();
 	}
 
 	// 스폰될 때마다(내 캐릭터든 다른 사람 캐릭터든) 호출된다.
@@ -69,10 +71,31 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_camera.enabled = false; // 내 캐릭터가 아니면 카메라 끄기
 			_camera.GetComponent<AudioListener>().enabled = false; //오디오 끄기
-		}
-	}
+            return;
+        }
 
-	private void Update()
+        DisableOtherCameras();
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+    }
+    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        DisableOtherCameras();
+    }
+    private void DisableOtherCameras()
+    {
+        foreach (var camera in Camera.allCameras)
+        {
+            if (camera == _camera) continue;
+
+            camera.enabled = false;
+            if (camera.TryGetComponent(out AudioListener listener))
+            {
+                listener.enabled = false;
+            }
+        }
+    }
+
+    private void Update()
 	{
 		if (!IsOwner)
 		{
