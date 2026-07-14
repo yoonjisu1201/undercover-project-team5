@@ -1,7 +1,8 @@
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
-public class PlayerInteraction : MonoBehaviour
+public class PlayerInteraction : NetworkBehaviour
 {
     [Header("상호작용 설정")]
     [SerializeField] private Camera _playerCamera;
@@ -21,11 +22,6 @@ public class PlayerInteraction : MonoBehaviour
     {
         _actions = new CustomInputActions();
         _inventory = GetComponent<PlayerInventory>();
-
-        if (_inventoryUI == null)
-        {
-            _inventoryUI = FindFirstObjectByType<InventoryUI>();
-        }
     }
 
     private void OnEnable()
@@ -40,8 +36,34 @@ public class PlayerInteraction : MonoBehaviour
         _actions?.Disable();
     }
 
+    public override void OnNetworkSpawn()
+    {
+        if (_itemCatalog == null)
+        {
+            _itemCatalog = FindFirstObjectByType<ItemCatalog>();
+        }
+
+        if (!IsOwner)
+        {
+            _actions.Disable();
+            return;
+        }
+
+        if (_inventoryUI == null)
+        {
+            _inventoryUI = FindFirstObjectByType<InventoryUI>();
+        }
+
+        _inventoryUI?.BindInventory(_inventory);
+    }
+
     private void OnTriggerEnter(Collider other) // SphereCollider에 들어온 아이템을 nearbyItems에 추가
     {
+        if (!IsOwner)
+        {
+            return;
+        }
+
         PickupItem pickupItem = other.GetComponentInParent<PickupItem>();
         if (pickupItem != null)
         {
@@ -51,6 +73,11 @@ public class PlayerInteraction : MonoBehaviour
 
     private void OnTriggerExit(Collider other)  // SphereCollider에서 나간 아이템을 nearbyItems에서 제거
     {
+        if (!IsOwner)
+        {
+            return;
+        }
+
         PickupItem pickupItem = other.GetComponentInParent<PickupItem>();
         if (pickupItem == null)
         {
@@ -66,6 +93,11 @@ public class PlayerInteraction : MonoBehaviour
 
     private void Update()
     {
+        if (!IsOwner)
+        {
+            return;
+        }
+
         UpdateCurrentTarget();
 
         if (_actions.Player.Interact.WasPressedThisFrame()) // 상호작용 버튼이 눌렸을 때
@@ -102,34 +134,53 @@ public class PlayerInteraction : MonoBehaviour
         if (!_itemCatalog.TryGet(itemId, out ItemData itemData)) { Debug.Log($"ItemCatalog에 '{itemId}'가 없습니다."); return; }
         if (itemData.WorldPrefab == null) { Debug.Log($"'{itemId}'의 WorldPrefab이 없습니다."); return; }
 
-        // --- 아이템 드롭 처리 --- ///
-
-        // 아이템을 드롭할 위치를 계산합니다.
         Transform cameraTransform = _playerCamera.transform;
-
-        // 카메라 앞쪽으로 1m 떨어진 위치에 아이템을 생성합니다.
         Vector3 dropPosition = cameraTransform.position + cameraTransform.forward * 1f;
+        Vector3 dropVelocity = cameraTransform.forward * 2f + Vector3.up;
 
-        // 아이템을 생성합니다.
+        RequestDropRpc(itemId, dropPosition, dropVelocity);
+    }
+
+    [Rpc(SendTo.Server)]
+    private void RequestDropRpc(string itemId, Vector3 dropPosition, Vector3 dropVelocity)
+    {
+        if (_inventory == null || _itemCatalog == null)
+        {
+            return;
+        }
+
+        if (!_itemCatalog.TryGet(itemId, out ItemData itemData) || itemData.WorldPrefab == null)
+        {
+            return;
+        }
+
+        if (!_inventory.TryRemoveSelectedItemOnServer(itemId))
+        {
+            return;
+        }
+
         GameObject droppedObject = Instantiate(itemData.WorldPrefab, dropPosition, Quaternion.identity);
 
-        if (droppedObject.TryGetComponent(out PickupItem droppedItem))  // 드롭 한 후 바로 상호작용 차단
+        if (!droppedObject.TryGetComponent(out NetworkObject droppedNetworkObject))
+        {
+            Debug.LogError($"'{itemData.WorldPrefab.name}' 프리팹에 NetworkObject가 없습니다.");
+            Destroy(droppedObject);
+            return;
+        }
+
+        if (droppedObject.TryGetComponent(out PickupItem droppedItem))
         {
             droppedItem.BlockInteraction(_dropInteractionDelay);
         }
 
+        droppedNetworkObject.Spawn();
+
         if (droppedObject.TryGetComponent(out Rigidbody rigidbody))
         {
-            // 아이템이 카메라 앞쪽에서 위 방향으로 튀어오르게 하는 힘
-            Vector3 velocity = cameraTransform.forward * 2f + Vector3.up;
-
-            // 얇은 아이템이 바닥을 관통하지 않도록 연속 충돌 검사를 사용합니다.
             rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
-            rigidbody.linearVelocity = velocity;
+            rigidbody.linearVelocity = dropVelocity;
         }
-
-        _inventory.RemoveSelectedItem();
     }
 
     private void UpdateCurrentTarget()

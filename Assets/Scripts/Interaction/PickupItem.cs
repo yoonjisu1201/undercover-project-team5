@@ -1,8 +1,9 @@
 using DG.Tweening;
 using EPOOutline;
+using Unity.Netcode;
 using UnityEngine;
 
-public class PickupItem : MonoBehaviour, IInteractable
+public class PickupItem : NetworkBehaviour, IInteractable
 {
     [SerializeField] private ItemData _itemData;
 
@@ -84,7 +85,6 @@ public class PickupItem : MonoBehaviour, IInteractable
         SetOutline(false);
     }
 
-    //--- 기존 코드 ---//
     public void Interact(GameObject interactor)
     {
         if (!CanInteract || _itemData == null)
@@ -92,17 +92,13 @@ public class PickupItem : MonoBehaviour, IInteractable
             return;
         }
 
-        PlayerInventory inventory = interactor.GetComponent<PlayerInventory>();
-
-        if (inventory == null)
+        if (!IsSpawned)
         {
+            Debug.LogWarning($"'{name}'이 NetworkObject로 스폰되지 않았습니다.");
             return;
         }
 
-        if (inventory.TryAddItem(_itemData.ItemId))
-        {
-            Destroy(gameObject);
-        }
+        RequestPickupRpc();
     }
 
     //--- 외곽선 색, Alpha 값 적용 ---//
@@ -121,8 +117,89 @@ public class PickupItem : MonoBehaviour, IInteractable
         _outlinable.BackParameters.Color = backOutlineColor;
     }
 
-    private void OnDestroy()
+    public override void OnDestroy()
     {
         _outlineTween?.Kill();
+        base.OnDestroy();
+    }
+
+    //--- 서버에서 아이템 줍기 요청 처리 Rpc 관련 코드 ---//
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestPickupRpc(RpcParams rpcParams = default)
+    {
+        if (!IsSpawned || _itemData == null)
+        {
+            return;
+        }
+
+        ulong senderClientId = rpcParams.Receive.SenderClientId;
+
+        if (!NetworkManager.ConnectedClients.TryGetValue(senderClientId, out NetworkClient senderClient))
+        {
+            return;
+        }
+
+        NetworkObject playerObject = senderClient.PlayerObject;
+
+        if (playerObject == null)
+        {
+            return;
+        }
+
+        SphereCollider interactionCollider = playerObject.GetComponent<SphereCollider>();
+
+        if (interactionCollider == null)
+        {
+            return;
+        }
+
+        if (!IsOverlappingInteractionCollider(interactionCollider))
+        {
+            return;
+        }
+
+        PlayerInventory inventory = playerObject.GetComponent<PlayerInventory>();
+
+        if (inventory == null)
+        {
+            return;
+        }
+
+        // 서버에서 인벤토리 공간을 확인하고 아이템을 추가
+        if (!inventory.TryAddItemOnServer(_itemData.ItemId))
+        {
+            return;
+        }
+
+        // 모든 클라이언트에서 아이템 제거
+        NetworkObject.Despawn();
+    }
+
+    private bool IsOverlappingInteractionCollider(SphereCollider interactionCollider)
+    {
+        Collider[] itemColliders = GetComponentsInChildren<Collider>();
+
+        foreach (Collider itemCollider in itemColliders)
+        {
+            if (!itemCollider.enabled || itemCollider == interactionCollider)
+            {
+                continue;
+            }
+
+            if (Physics.ComputePenetration(
+                    interactionCollider,
+                    interactionCollider.transform.position,
+                    interactionCollider.transform.rotation,
+                    itemCollider,
+                    itemCollider.transform.position,
+                    itemCollider.transform.rotation,
+                    out _,
+                    out _))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
