@@ -11,10 +11,6 @@ public sealed class NpcStateMachine : MonoBehaviour
     [SerializeField, Min(0f)] private float _walkSpeed = 2f;
     [SerializeField, Min(0f)] private float _runSpeed = 4f;
 
-    [Header("Test Settings")]
-    [SerializeField]
-    private Vector3 _initialDestination = new Vector3(3f, 0f, 3f);
-
     private NpcMovement _movement;
     private NpcContext _context;
     private INpcState _currentState;
@@ -47,7 +43,6 @@ public sealed class NpcStateMachine : MonoBehaviour
     private void Start()
     {
         RequestIdle();
-        RequestWalk(_initialDestination);
     }
 
     private void Update()
