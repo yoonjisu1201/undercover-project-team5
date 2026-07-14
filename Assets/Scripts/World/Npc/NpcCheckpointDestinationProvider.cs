@@ -5,24 +5,24 @@ using UnityEngine.AI;
 public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
 {
     private readonly MapBlockController _blockController;
-    private readonly float _sampleDistance;
+    private readonly float _searchRadius;
     private readonly int _maxAttempts;
     private readonly NavMeshPath _path = new();
 
     public NpcCheckpointDestinationProvider(
         MapBlockController blockController,
-        float sampleDistance,
+        float searchRadius,
         int maxAttempts)
     {
         _blockController = blockController;
-        _sampleDistance = Mathf.Max(0f, sampleDistance);
+        _searchRadius = Mathf.Max(0f, searchRadius);
         _maxAttempts = Mathf.Max(1, maxAttempts);
     }
 
     /// <summary>
-    /// 해제된 Block의 Checkpoint를 무작위 순서로 확인하고, 점유와
-    /// PathComplete 검증에 성공한 목적지를 예약합니다. 다른 Checkpoint를
-    /// 우선하며 실패하면 현재 Checkpoint 반경을 제한된 횟수만큼 재시도합니다.
+    /// 해제된 Block의 Checkpoint를 무작위 순서로 확인하고, 예약과
+    /// PathComplete 검증에 성공한 목적지를 반환합니다. 현재 Checkpoint가 아닌
+    /// 후보를 우선하며, 다른 후보가 실패하면 현재 Checkpoint 주변을 제한적으로 재시도합니다.
     /// </summary>
     /// <param name="origin">경로를 시작할 NPC의 현재 위치입니다.</param>
     /// <param name="currentCheckpoint">NPC가 현재 예약한 Checkpoint입니다.</param>
@@ -40,27 +40,27 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
             return false;
         }
 
-        List<NpcCheckpoint> candidates = CollectOtherCandidates(currentCheckpoint);
+        List<NpcCheckpoint> candidates = CollectAvailableCandidates(currentCheckpoint);
         Shuffle(candidates);
 
-        int otherAttemptCount = Mathf.Min(_maxAttempts, candidates.Count);
+        int candidateAttemptCount = Mathf.Min(_maxAttempts, candidates.Count);
 
-        for (int attempt = 0; attempt < otherAttemptCount; attempt++)
+        for (int attempt = 0; attempt < candidateAttemptCount; attempt++)
         {
             NpcCheckpoint checkpoint = candidates[attempt];
 
-            if (!checkpoint.TryOccupy())
+            if (!checkpoint.TryReserve())
             {
                 continue;
             }
 
-            if (TryFindReachablePosition(origin, checkpoint, out Vector3 position))
+            if (TryFindValidPositionInCheckpoint(origin, checkpoint, out Vector3 position))
             {
                 destination = new NpcDestination(position, checkpoint);
                 return true;
             }
 
-            checkpoint.Release();
+            checkpoint.ReleaseReservation();
         }
 
         if (currentCheckpoint == null)
@@ -70,7 +70,7 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
 
         for (int attempt = 0; attempt < _maxAttempts; attempt++)
         {
-            if (TryFindReachablePosition(
+            if (TryFindValidPositionInCheckpoint(
                     origin,
                     currentCheckpoint,
                     out Vector3 fallbackPosition))
@@ -94,12 +94,12 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
             return;
         }
 
-        destination.Checkpoint.Release();
+        destination.Checkpoint.ReleaseReservation();
     }
 
-    private List<NpcCheckpoint> CollectOtherCandidates(NpcCheckpoint currentCheckpoint)
+    private List<NpcCheckpoint> CollectAvailableCandidates(NpcCheckpoint currentCheckpoint)
     {
-        List<NpcCheckpoint> candidates = new();
+        List<NpcCheckpoint> candidates = new List<NpcCheckpoint>();
         IReadOnlyList<MapBlock> availableBlocks = _blockController.AvailableBlocks;
 
         for (int blockIndex = 0; blockIndex < availableBlocks.Count; blockIndex++)
@@ -119,7 +119,7 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
 
                 if (checkpoint == null ||
                     checkpoint == currentCheckpoint ||
-                    !checkpoint.HasVacancy ||
+                    !checkpoint.HasAvailableSlot ||
                     candidates.Contains(checkpoint))
                 {
                     continue;
@@ -132,7 +132,7 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
         return candidates;
     }
 
-    private bool TryFindReachablePosition(
+    private bool TryFindValidPositionInCheckpoint(
         Vector3 origin,
         NpcCheckpoint checkpoint,
         out Vector3 position)
@@ -143,7 +143,7 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
         if (!NavMesh.SamplePosition(
                 randomPoint,
                 out NavMeshHit hit,
-                _sampleDistance,
+                _searchRadius,
                 NavMesh.AllAreas))
         {
             return false;
@@ -166,6 +166,7 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
         }
 
         position = hit.position;
+
         return true;
     }
 
@@ -174,8 +175,11 @@ public sealed class NpcCheckpointDestinationProvider : INpcDestinationProvider
         for (int index = checkpoints.Count - 1; index > 0; index--)
         {
             int swapIndex = Random.Range(0, index + 1);
-            (checkpoints[index], checkpoints[swapIndex]) =
-                (checkpoints[swapIndex], checkpoints[index]);
+
+            NpcCheckpoint temporaryCheckpoint = checkpoints[index];
+
+            checkpoints[index] = checkpoints[swapIndex];
+            checkpoints[swapIndex] = temporaryCheckpoint;
         }
     }
 }

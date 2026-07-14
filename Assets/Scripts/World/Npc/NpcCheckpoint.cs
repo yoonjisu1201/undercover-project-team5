@@ -3,44 +3,44 @@ using UnityEngine;
 public sealed class NpcCheckpoint : MonoBehaviour
 {
     [SerializeField, Min(0f)] private float _radius = 3f;
-    [SerializeField, Min(1)] private int _maxOccupancy = 10;
+    [SerializeField, Min(1)] private int _capacity = 10;
 
-    private int _currentOccupancy;
+    private int _reservationCount;
 
     /// <summary>
     /// Checkpoint가 추가 NPC를 수용할 수 있는지 나타냅니다.
     /// </summary>
-    public bool HasVacancy
+    public bool HasAvailableSlot
     {
         get
         {
-            return _currentOccupancy < _maxOccupancy;
+            return _reservationCount < _capacity;
         }
     }
 
     /// <summary>
-    /// 수용량이 남아 있으면 점유 수를 한 번 증가시킵니다.
+    /// 수용량이 남아 있으면 예약 수를 한 번 증가시킵니다.
     /// </summary>
-    /// <returns>점유에 성공하면 true입니다.</returns>
-    public bool TryOccupy()
+    /// <returns>예약에 성공하면 true입니다.</returns>
+    public bool TryReserve()
     {
-        if (!HasVacancy)
+        if (!HasAvailableSlot)
         {
             return false;
         }
 
-        _currentOccupancy++;
+        _reservationCount++;
         return true;
     }
 
     /// <summary>
-    /// 현재 점유 수를 음수가 되지 않는 범위에서 한 번 감소시킵니다.
+    /// 현재 예약 수를 음수가 되지 않는 범위에서 한 번 감소시킵니다.
     /// </summary>
-    public void Release()
+    public void ReleaseReservation()
     {
-        if (_currentOccupancy > 0)
+        if (_reservationCount > 0)
         {
-            _currentOccupancy--;
+            _reservationCount--;
         }
     }
 

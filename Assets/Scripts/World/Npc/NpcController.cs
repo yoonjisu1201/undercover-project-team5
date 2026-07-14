@@ -67,11 +67,13 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// 상태 변경 이벤트를 구독하고 풀 재활성화마다 새로운 취소 수명과
+    /// 상태 변경 이벤트를 구독하고 Pool 재활성화마다 새로운 취소 수명과
     /// Idle 대기 세션을 시작합니다.
     /// </summary>
     private void OnEnable()
     {
+        // 이전 활성화에서 이미 Idle을 확인했다면 세션 번호를 올리고 대기를 직접 재시작합니다.
+        // FSM은 같은 Idle 요청을 무시하므로 StateChanged가 다시 발생하지 않기 때문입니다.
         CreateActivationCancellationSource();
 
         if (_stateMachine != null)
@@ -132,9 +134,9 @@ public sealed class NpcController : MonoBehaviour
     }
 
     /// <summary>
-    /// Spawner가 이미 점유한 Checkpoint를 중복 점유 없이 현재 예약으로 인계받습니다.
+    /// Spawner가 이미 예약한 Checkpoint를 중복 예약 없이 현재 목적지로 인계받습니다.
     /// </summary>
-    /// <param name="checkpoint">Spawner가 점유한 Checkpoint입니다.</param>
+    /// <param name="checkpoint">Spawner가 예약한 Checkpoint입니다.</param>
     /// <param name="position">해당 Checkpoint 안에서 배치된 위치입니다.</param>
     public void AssignSpawnCheckpoint(NpcCheckpoint checkpoint, Vector3 position)
     {
@@ -170,6 +172,8 @@ public sealed class NpcController : MonoBehaviour
     /// <param name="stateId">전환이 완료된 현재 상태 식별자입니다.</param>
     private void HandleStateChanged(NpcStateId stateId)
     {
+        // - Idle이면 정체 추적을 끄고 다음 목적지 대기를 시작합니다.
+        // - Walk 또는 Run이면 현재 위치와 시간을 저장해 이동 진행을 추적합니다.
         _hasObservedState = true;
         _isIdle = stateId == NpcStateId.Idle;
         _idleSessionVersion++;
@@ -216,6 +220,11 @@ public sealed class NpcController : MonoBehaviour
     /// <param name="cancellationToken">현재 풀 활성화 수명에 연결된 취소 토큰입니다.</param>
     private async UniTaskVoid WaitForDestinationAsync(CancellationToken cancellationToken)
     {
+        // 2. 최소·최대 Idle 시간 사이에서 무작위로 기다린 뒤 상태를 다시 확인합니다.
+        // 3. 현재 위치와 예약 중인 Checkpoint를 Provider에 전달합니다.
+        // 4. 실패하면 기존 예약을 유지하고 다시 기다렸다가 시도합니다.
+        // 5. 성공하면 예약을 교체하고 Walk 또는 Run을 요청한 뒤 반복을 끝냅니다.
+        // OperationCanceledException은 오브젝트 수명에 따른 정상 취소로 처리합니다.
         int idleSessionVersion = _idleSessionVersion;
 
         try
@@ -261,7 +270,7 @@ public sealed class NpcController : MonoBehaviour
 
     /// <summary>
     /// 새 목적지 예약이 성공한 뒤에만 이전 Checkpoint 예약을 해제하고 교체합니다.
-    /// 같은 Checkpoint이면 점유 수를 바꾸지 않고 위치만 교체합니다.
+    /// 같은 Checkpoint이면 예약 수를 바꾸지 않고 위치만 교체합니다.
     /// </summary>
     /// <param name="nextDestination">새로 예약된 목적지입니다.</param>
     private void SwapReservation(NpcDestination nextDestination)
@@ -341,7 +350,7 @@ public sealed class NpcController : MonoBehaviour
         }
         else if (_reservedDestination.Checkpoint != null)
         {
-            _reservedDestination.Checkpoint.Release();
+            _reservedDestination.Checkpoint.ReleaseReservation();
         }
 
         _reservedDestination = null;

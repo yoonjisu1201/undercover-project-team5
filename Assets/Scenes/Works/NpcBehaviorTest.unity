@@ -243,7 +243,7 @@ Transform:
   m_GameObject: {fileID: 196441977}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.95, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -454,7 +454,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcCheckpoint
   _radius: 3
-  _maxOccupancy: 10
+  _capacity: 10
 --- !u!1 &675408671
 GameObject:
   m_ObjectHideFlags: 0
@@ -488,7 +488,7 @@ MonoBehaviour:
   _spawner: {fileID: 675408673}
   _blockController: {fileID: 155906777}
   _blockToUnlock: {fileID: 196441978}
-  _unlockDelaySeconds: 5
+  _unlockDelaySeconds: 10
 --- !u!114 &675408673
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -680,7 +680,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcCheckpoint
   _radius: 3
-  _maxOccupancy: 10
+  _capacity: 10
 --- !u!1 &919084577
 GameObject:
   m_ObjectHideFlags: 0
@@ -726,7 +726,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcCheckpoint
   _radius: 3
-  _maxOccupancy: 10
+  _capacity: 10
 --- !u!134 &1014651456
 PhysicsMaterial:
   m_ObjectHideFlags: 0
@@ -816,7 +816,7 @@ Transform:
   m_GameObject: {fileID: 1213704160}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0.95, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -995,7 +995,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcCheckpoint
   _radius: 3
-  _maxOccupancy: 10
+  _capacity: 10
 --- !u!1 &1434995526
 GameObject:
   m_ObjectHideFlags: 0
@@ -1041,7 +1041,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcCheckpoint
   _radius: 3
-  _maxOccupancy: 10
+  _capacity: 10
 --- !u!1 &1631620711
 GameObject:
   m_ObjectHideFlags: 0
@@ -1087,7 +1087,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcCheckpoint
   _radius: 3
-  _maxOccupancy: 10
+  _capacity: 10
 --- !u!1 &1725155528
 GameObject:
   m_ObjectHideFlags: 0
@@ -1150,8 +1150,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshLink
   m_SerializedVersion: 1
   m_AgentTypeID: 0
-  m_StartPoint: {x: -1.7, y: 0.08, z: 0}
-  m_EndPoint: {x: 1.7, y: 0.08, z: 0}
+  m_StartPoint: {x: -1, y: 0.08, z: 0}
+  m_EndPoint: {x: 1, y: 0.08, z: 0}
   m_StartTransform: {fileID: 0}
   m_EndTransform: {fileID: 0}
   m_Activated: 1

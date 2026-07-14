@@ -16,8 +16,8 @@ public sealed class NpcSpawner : MonoBehaviour
 
     /// <summary>
     /// 라운드 시작 시 한 번만 실행되어 해제된 Block의 Checkpoint 안에
-    /// 목표 수만큼 NPC를 배치합니다. Checkpoint 점유, NavMesh 좌표,
-    /// NPC 간 최소 간격과 고정 풀 용량을 만족하지 못한 수는 한 번만 기록합니다.
+    /// 목표 수만큼 NPC를 배치합니다. Checkpoint 예약, NavMesh 좌표,
+    /// NPC 간 최소 간격과 고정 Pool 용량을 만족하지 못한 수는 한 번만 기록합니다.
     /// </summary>
     public void SpawnRound()
     {
@@ -45,9 +45,9 @@ public sealed class NpcSpawner : MonoBehaviour
                 continue;
             }
 
-            if (!_pool.TryRent(out NpcController npc))
+            if (!_pool.TryRentNpc(out NpcController npc))
             {
-                checkpoint.Release();
+                checkpoint.ReleaseReservation();
                 break;
             }
 
@@ -61,7 +61,7 @@ public sealed class NpcSpawner : MonoBehaviour
     }
 
     /// <summary>
-    /// 현재 라운드에서 활성화한 NPC를 풀에 반환하고 다음 라운드 배치를 허용합니다.
+    /// 현재 라운드에서 활성화한 NPC를 Pool에 반환하고 다음 라운드 배치를 허용합니다.
     /// </summary>
     public void ReturnRound()
     {
@@ -93,7 +93,7 @@ public sealed class NpcSpawner : MonoBehaviour
             int candidateIndex = Random.Range(0, candidates.Count);
             NpcCheckpoint candidate = candidates[candidateIndex];
 
-            if (!candidate.TryOccupy())
+            if (!candidate.TryReserve())
             {
                 candidates.RemoveAt(candidateIndex);
                 continue;
@@ -106,7 +106,7 @@ public sealed class NpcSpawner : MonoBehaviour
                 return true;
             }
 
-            candidate.Release();
+            candidate.ReleaseReservation();
         }
 
         return false;
@@ -141,7 +141,7 @@ public sealed class NpcSpawner : MonoBehaviour
                 NpcCheckpoint checkpoint = blockCheckpoints[checkpointIndex];
 
                 if (checkpoint != null &&
-                    checkpoint.HasVacancy &&
+                    checkpoint.HasAvailableSlot &&
                     !checkpoints.Contains(checkpoint))
                 {
                     checkpoints.Add(checkpoint);

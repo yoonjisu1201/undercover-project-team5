@@ -13,7 +13,7 @@ public sealed class NpcPool : MonoBehaviour
     /// </summary>
     private void Awake()
     {
-        Prewarm();
+        CreatePooledNpcs();
     }
 
     /// <summary>
@@ -21,7 +21,7 @@ public sealed class NpcPool : MonoBehaviour
     /// </summary>
     /// <param name="npc">대여에 성공한 NPC입니다.</param>
     /// <returns>대여 가능한 NPC가 있으면 true입니다.</returns>
-    public bool TryRent(out NpcController npc)
+    public bool TryRentNpc(out NpcController npc)
     {
         while (_availableNpcs.Count > 0)
         {
@@ -76,7 +76,11 @@ public sealed class NpcPool : MonoBehaviour
         _availableNpcs.Enqueue(npc);
     }
 
-    private void Prewarm()
+    /// <summary>
+    /// 고정 용량만큼 NPC를 생성해 비활성 대기열에 넣습니다.
+    /// 실행 중에는 Pool의 크기를 늘리지 않습니다.
+    /// </summary>
+    private void CreatePooledNpcs()
     {
         if (_npcPrefab == null)
         {
