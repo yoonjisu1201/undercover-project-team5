@@ -27,6 +27,13 @@ public class RoundManager : NetworkBehaviour
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     public RoundState CurrentState => _currentState.Value;
+    
+    // HQ 타이머 UI가 남은 시간 비율(색상 변화 등)을 계산하려면 라운드별 총 시간이 필요해서 노출
+    public float RoundDuration => CurrentState switch {
+        RoundState.Round1 => _round1Duration,
+        RoundState.Round2 => _round2Duration,
+        _ => 0f
+    };
 
     public event Action<RoundState> OnRoundStateChanged; // 라운드 상태가 바뀔 때마다 전달 (늦참 클라이언트는 스폰 시 현재 상태로 1회 발동)
 
