@@ -145,6 +145,7 @@ public class GameSessionManager : MonoBehaviour
         UnsubscribeSceneEvents(); // 중복 구독 방지 (기존 -= += 와 동일한 멱등성)
         var networkManager = NetworkManager.Singleton;
         networkManager.SceneManager.OnLoadEventCompleted += HandleWaitingRoomSceneLoaded;
+        networkManager.SceneManager.OnLoadEventCompleted += HandleGameSceneLoaded;
         networkManager.SceneManager.OnSynchronizeComplete += HandleClientSynchronized;
         networkManager.SceneManager.OnLoad += HandleWaitingRoomSceneLoadStarted;
         networkManager.OnClientDisconnectCallback += HandleClientDisconnected;
@@ -156,6 +157,7 @@ public class GameSessionManager : MonoBehaviour
         if (networkManager.SceneManager != null)
         {
             networkManager.SceneManager.OnLoadEventCompleted -= HandleWaitingRoomSceneLoaded;
+            networkManager.SceneManager.OnLoadEventCompleted -= HandleGameSceneLoaded;
             networkManager.SceneManager.OnSynchronizeComplete -= HandleClientSynchronized;
             networkManager.SceneManager.OnLoad -= HandleWaitingRoomSceneLoadStarted;
         }
@@ -182,6 +184,47 @@ public class GameSessionManager : MonoBehaviour
 		foreach (var clientId in clientsCompleted)
 		{
 			SpawnPlayerForClient(clientId);
+		}
+	}
+
+	// 플레이어 오브젝트는 대기방(WaitingRoom_T)에서 스폰된 채로 게임씬(GameScene_T) 전환에도
+	// 파괴되지 않고 그대로 유지된다. 그래서 PlayerInteraction.OnNetworkSpawn()은 대기방에 있을 때
+	// 딱 한 번만 실행되고, 그 시점엔 게임씬에만 있는 InventoryUI(InventoryCanvas)를 찾을 수 없어
+	// _inventoryUI가 null로 남는다. 게임씬 로드가 끝난 지금 시점에 다시 호출해주면
+	// InventoryUI를 정상적으로 찾아 인벤토리를 바인딩할 수 있다.
+	// (PlayerInteraction/InventoryUI 스크립트는 건드리지 않고 이 씬 전환 스크립트에서만 처리한다.)
+	private void HandleGameSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+	{
+		if (sceneName != _gameSceneName) return;
+
+		// 같은 플레이어라도 머신마다 별도의 PlayerInteraction 복제본을 가진다.
+		// 서버(호스트)에 있는 복제본 - RequestDropRpc 같은 [Rpc(SendTo.Server)] 로직이 참조하는,
+		// "서버 판정용" 복제본 - 과 각 클라이언트 자기 컴퓨터에 있는,
+		// 자기 화면의 인벤토리 UI를 그리는 데 쓰이는 "각자 화면 표시용" 복제본은 서로 다른 인스턴스라서
+		// 아래 두 처리를 각각 따로 해줘야 한다. (호스트는 이 둘이 같은 인스턴스라 우연히 같이 고쳐졌던 것)
+
+		// 1) 서버 판정용 복제본 처리: 서버에서만 실행. 접속한 모든 플레이어의 "서버에 있는 복제본"을
+		//    다시 스폰시켜서 _itemCatalog를 다시 찾게 한다. 이게 안 되어 있으면 호스트가 아닌 다른
+		//    클라이언트가 드롭 등 서버 판정이 필요한 상호작용을 할 때 서버측에서 조용히 막힌다.
+		if (NetworkManager.Singleton.IsServer)
+		{
+			foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+			{
+				if (client.PlayerObject != null && client.PlayerObject.TryGetComponent(out PlayerInteraction serverSidePlayerInteraction))
+				{
+					serverSidePlayerInteraction.OnNetworkSpawn();
+				}
+			}
+		}
+
+		// 2) 각자 화면 표시용 복제본 처리: 이 코드는 호스트/클라이언트 각자의 컴퓨터에서 개별적으로
+		//    실행되므로, LocalClient.PlayerObject는 항상 "지금 이 코드를 실행 중인 컴퓨터 자신의
+		//    캐릭터"를 가리킨다. 그 복제본을 다시 스폰시켜서 InventoryUI(아이콘/프롬프트 텍스트)를
+		//    다시 바인딩한다.
+		var localPlayerObject = NetworkManager.Singleton.LocalClient?.PlayerObject;
+		if (localPlayerObject != null && localPlayerObject.TryGetComponent(out PlayerInteraction localPlayerInteraction))
+		{
+			localPlayerInteraction.OnNetworkSpawn();
 		}
 	}
 
