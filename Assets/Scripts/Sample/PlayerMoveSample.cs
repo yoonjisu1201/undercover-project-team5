@@ -28,6 +28,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	[Header("카메라 관련")]
 	[SerializeField] private GameObject _headPivot;
 	[SerializeField] private Camera _camera;
+	[SerializeField] private Transform _headBone;
 
 	[Header("지면 판정")]
 	[SerializeField] private Transform _groundCheck;
@@ -41,6 +42,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private float _yaw = 0f;
 	private float _pitch = 0f;
+	private Quaternion _headBoneBaseRotation;
 
 	// 점프 입력 예약 (Update에서 감지 → FixedUpdate에서 힘 적용)
 	private bool _jumpRequested = false;
@@ -53,6 +55,11 @@ public class PlayerMoveSample : NetworkBehaviour
 		// Awake에서 새로 생성
 		_actions = new CustomInputActions();
 		_actions.Enable();
+
+		if (_headBone != null)
+		{
+			_headBoneBaseRotation = _headBone.localRotation;
+		}
 	}
 
 	public override void OnDestroy()
@@ -95,7 +102,7 @@ public class PlayerMoveSample : NetworkBehaviour
         }
     }
 
-    private void Update()
+	private void Update()
 	{
 		if (!IsOwner)
 		{
@@ -136,6 +143,17 @@ public class PlayerMoveSample : NetworkBehaviour
 			Debug.Log($"점프 키 눌림!");
 			_jumpRequested = true;
 		}
+	}
+
+	private void LateUpdate()
+	{
+		if (!IsOwner || _headBone == null)
+		{
+			return;
+		}
+
+		// 기준 회전에서 현재 시야각을 계산해 매 프레임 회전이 누적되지 않게 한다.
+		_headBone.localRotation = _headBoneBaseRotation * Quaternion.Euler(_pitch, 0f, 0f);
 	}
 
 	private void FixedUpdate()
