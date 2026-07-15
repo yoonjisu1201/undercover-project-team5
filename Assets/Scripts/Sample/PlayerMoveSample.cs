@@ -44,6 +44,10 @@ public class PlayerMoveSample : NetworkBehaviour
 	private float _pitch = 0f;
 	private Quaternion _headBoneBaseRotation;
 
+	// 오너가 갱신하는 pitch 값. 다른 클라이언트는 이 값을 읽어 헤드 본을 회전시킨다.
+	private readonly NetworkVariable<float> _networkPitch =
+		new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
 	// 점프 입력 예약 (Update에서 감지 → FixedUpdate에서 힘 적용)
 	private bool _jumpRequested = false;
 
@@ -141,6 +145,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		// 회전 적용
 		transform.rotation = Quaternion.Euler(0, _yaw, 0f);
 		_headPivot.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+		_networkPitch.Value = _pitch;
 
 		/// 버튼 입력 방식 적용하기
 		// Player - Interact라는 행동이 이번 프레임에 눌렸는지 확인한다.
@@ -160,13 +165,16 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void LateUpdate()
 	{
-		if (!IsOwner || _headBone == null)
+		if (_headBone == null)
 		{
 			return;
 		}
 
+		// 오너는 로컬 _pitch(지연 없음)를, 다른 클라이언트는 동기화된 값을 사용한다.
+		float pitch = IsOwner ? _pitch : _networkPitch.Value;
+
 		// 기준 회전에서 현재 시야각을 계산해 매 프레임 회전이 누적되지 않게 한다.
-		_headBone.localRotation = _headBoneBaseRotation * Quaternion.Euler(_pitch, 0f, 0f);
+		_headBone.localRotation = _headBoneBaseRotation * Quaternion.Euler(pitch, 0f, 0f);
 	}
 
 	private void FixedUpdate()
