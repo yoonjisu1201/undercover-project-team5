@@ -7,6 +7,8 @@ using UnityEngine;
 [RequireComponent(typeof(NpcMovement))]
 public sealed class NpcStateMachine : MonoBehaviour
 {
+    private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
+
     [Header("Movement Settings")]
     [SerializeField, Min(0f)] private float _walkSpeed = 2f;
     [SerializeField, Min(0f)] private float _runSpeed = 4f;
@@ -24,6 +26,7 @@ public sealed class NpcStateMachine : MonoBehaviour
     // ================================================
 
     private NpcMovement _movement;
+    private Animator _animator;
     private NpcContext _context;
     private INpcState _currentState;
 
@@ -39,6 +42,7 @@ public sealed class NpcStateMachine : MonoBehaviour
     private void Awake()
     {
         _movement = GetComponent<NpcMovement>();
+        _animator = GetComponentInChildren<Animator>(true);
 
         _context = new NpcContext
         {
@@ -165,6 +169,11 @@ public sealed class NpcStateMachine : MonoBehaviour
 
         _currentState = nextState;
         _currentState.Enter(_context);
+
+        if (_animator != null)
+        {
+            _animator.SetBool(IsMovingHash, _currentState.Id != NpcStateId.Idle);
+        }
 
         StateChanged?.Invoke(_currentState.Id);
     }
