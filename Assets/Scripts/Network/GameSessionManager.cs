@@ -4,6 +4,7 @@ using Unity.Netcode;
 using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 
 /* 조인코드로만 입장 가능한 세션(방)을 만들고 참가하는 기능.
  * 랜덤 매칭, 빠른 시작(QuickJoin), 공개 세션 목록 조회는 사용하지 않는다.
@@ -14,8 +15,11 @@ public class GameSessionManager : MonoBehaviour
 
 	[Header("세션 설정")]
 	[SerializeField] private int _maxPlayers = 4;
-	[SerializeField] private string _gameplaySceneName = "TestRoom1";
-	[SerializeField] private string _lobbySceneName = "Lobby";
+	[FormerlySerializedAs("_gameplaySceneName")]
+	[SerializeField] private string _waitingRoomSceneName = "WaitingRoom";
+	[SerializeField] private string _lobbySceneName = "Lobby2";
+	[FormerlySerializedAs("_roundSceneName")]
+	[SerializeField] private string _gameSceneName = "GameScene";
 
 	public ISession CurrentSession { get; private set; }
 	public string JoinCode => CurrentSession?.Code;
@@ -24,8 +28,8 @@ public class GameSessionManager : MonoBehaviour
 	public event Action<string> OnSessionCreated; // 조인코드 발급 완료
 	public event Action OnSessionJoined;          // 조인코드로 참가 완료
 	public event Action<string> OnSessionError;   // 실패 사유 전달
-	public event Action OnSessionStarting;                          // 세션 생성/참가 시도 시작
-	public event Action<AsyncOperation> OnGameplaySceneLoadStarted; // 내 로컬 씬 로딩이 시작됨 (진행률 포함)
+	public event Action OnSessionStarting;                            // 세션 생성/참가 시도 시작
+	public event Action<AsyncOperation> OnWaitingRoomSceneLoadStarted; // 내 로컬 씬 로딩이 시작됨 (진행률 포함)
 
 	private bool _isLeavingVoluntarily;
 
@@ -48,9 +52,9 @@ public class GameSessionManager : MonoBehaviour
 
 		if (NetworkManager.Singleton.SceneManager == null) return;
 
-		NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleGameplaySceneLoaded;
+		NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleWaitingRoomSceneLoaded;
 		NetworkManager.Singleton.SceneManager.OnSynchronizeComplete -= HandleClientSynchronized;
-		NetworkManager.Singleton.SceneManager.OnLoad -= HandleGameplaySceneLoadStarted;
+		NetworkManager.Singleton.SceneManager.OnLoad -= HandleWaitingRoomSceneLoadStarted;
 		NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
 	}
 
@@ -84,8 +88,8 @@ public class GameSessionManager : MonoBehaviour
 
 			if (NetworkManager.Singleton.IsServer)
 			{
-				stage = "게임플레이 씬 로드";
-				NetworkManager.Singleton.SceneManager.LoadScene(_gameplaySceneName, LoadSceneMode.Single);
+				stage = "대기방 씬 로드";
+				NetworkManager.Singleton.SceneManager.LoadScene(_waitingRoomSceneName, LoadSceneMode.Single);
 			}
 		}
 		catch (Exception e)
@@ -135,14 +139,14 @@ public class GameSessionManager : MonoBehaviour
 	}
 
     // NetworkManager.SceneManager는 시작된 후에 생성되므로, 세션 생성/참가가 끝난 뒤에 구독해야 한다.
-    // 게임플레이 씬 로드/동기화가 완료되면 서버가 직접 스폰한다.
+    // 대기방 씬 로드/동기화가 완료되면 서버가 직접 스폰한다.
     private void SubscribeSceneEvents()
     {
         UnsubscribeSceneEvents(); // 중복 구독 방지 (기존 -= += 와 동일한 멱등성)
         var networkManager = NetworkManager.Singleton;
-        networkManager.SceneManager.OnLoadEventCompleted += HandleGameplaySceneLoaded;
+        networkManager.SceneManager.OnLoadEventCompleted += HandleWaitingRoomSceneLoaded;
         networkManager.SceneManager.OnSynchronizeComplete += HandleClientSynchronized;
-        networkManager.SceneManager.OnLoad += HandleGameplaySceneLoadStarted;
+        networkManager.SceneManager.OnLoad += HandleWaitingRoomSceneLoadStarted;
         networkManager.OnClientDisconnectCallback += HandleClientDisconnected;
     }
     private void UnsubscribeSceneEvents()
@@ -151,18 +155,18 @@ public class GameSessionManager : MonoBehaviour
         if (networkManager == null) return;
         if (networkManager.SceneManager != null)
         {
-            networkManager.SceneManager.OnLoadEventCompleted -= HandleGameplaySceneLoaded;
+            networkManager.SceneManager.OnLoadEventCompleted -= HandleWaitingRoomSceneLoaded;
             networkManager.SceneManager.OnSynchronizeComplete -= HandleClientSynchronized;
-            networkManager.SceneManager.OnLoad -= HandleGameplaySceneLoadStarted;
+            networkManager.SceneManager.OnLoad -= HandleWaitingRoomSceneLoadStarted;
         }
         networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
     }
 
-    private void HandleGameplaySceneLoadStarted(ulong clientId, string sceneName, LoadSceneMode loadSceneMode, AsyncOperation asyncOperation)
+    private void HandleWaitingRoomSceneLoadStarted(ulong clientId, string sceneName, LoadSceneMode loadSceneMode, AsyncOperation asyncOperation)
 	{
-		if (sceneName != _gameplaySceneName || clientId != NetworkManager.Singleton.LocalClientId) return;
+		if (sceneName != _waitingRoomSceneName || clientId != NetworkManager.Singleton.LocalClientId) return;
 
-		OnGameplaySceneLoadStarted?.Invoke(asyncOperation);
+		OnWaitingRoomSceneLoadStarted?.Invoke(asyncOperation);
 	}
 
 	private void HandleConnectionApproval(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
@@ -171,9 +175,9 @@ public class GameSessionManager : MonoBehaviour
 		response.CreatePlayerObject = false;
 	}
 
-	private void HandleGameplaySceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+	private void HandleWaitingRoomSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
 	{
-		if (sceneName != _gameplaySceneName || !NetworkManager.Singleton.IsServer) return;
+		if (sceneName != _waitingRoomSceneName || !NetworkManager.Singleton.IsServer) return;
 
 		foreach (var clientId in clientsCompleted)
 		{
@@ -184,7 +188,7 @@ public class GameSessionManager : MonoBehaviour
 	private void HandleClientSynchronized(ulong clientId)
 	{
 		if (!NetworkManager.Singleton.IsServer) return;
-		if (SceneManager.GetActiveScene().name != _gameplaySceneName) return;
+		if (SceneManager.GetActiveScene().name != _waitingRoomSceneName) return;
 
 		SpawnPlayerForClient(clientId);
 	}
@@ -220,5 +224,13 @@ public class GameSessionManager : MonoBehaviour
 
 		_isLeavingVoluntarily = true;
 		await CurrentSession.LeaveAsync();
+	}
+
+	// 방장이 대기방에서 "게임 시작"을 눌렀을 때 호출한다.
+	public void StartGame()
+	{
+		if (!NetworkManager.Singleton.IsServer) return;
+
+		NetworkManager.Singleton.SceneManager.LoadScene(_gameSceneName, LoadSceneMode.Single);
 	}
 }
