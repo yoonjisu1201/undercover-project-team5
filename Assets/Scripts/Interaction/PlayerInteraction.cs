@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class PlayerInteraction : NetworkBehaviour
 {
+    // 인스펙터에서 연결하는 참조와 상호작용 범위를 조절하는 값.
     [Header("상호작용 설정")]
     [SerializeField] private Camera _playerCamera;
     [Range(0.01f, 0.5f)]
@@ -12,8 +13,9 @@ public class PlayerInteraction : NetworkBehaviour
     [SerializeField] private ItemCatalog _itemCatalog;
     [SerializeField] private InventoryUI _inventoryUI;
 
-    private readonly HashSet<PickupItem> _nearbyItems = new();  // SphereCollider 안에 있는 아이템
-    private IInteractable _currentTarget;  // 현재 상호작용 가능한 대상
+    // 상호작용 범위 안의 후보 목록과, 그중 현재 조준된 대상.
+    private readonly HashSet<InteractableBase> _nearbyInteractables = new();  // SphereCollider 안에 있는 상호작용 가능 오브젝트
+    private InteractableBase _currentTarget;  // 현재 상호작용 가능한 대상
 
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
@@ -38,6 +40,7 @@ public class PlayerInteraction : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        // 입력과 UI는 이 플레이어를 조작하는 클라이언트에서만 초기화한다.
         if (_itemCatalog == null)
         {
             _itemCatalog = FindFirstObjectByType<ItemCatalog>();
@@ -57,35 +60,37 @@ public class PlayerInteraction : NetworkBehaviour
         _inventoryUI?.BindInventory(_inventory);
     }
 
-    private void OnTriggerEnter(Collider other) // SphereCollider에 들어온 아이템을 nearbyItems에 추가
+    // 상호작용 범위에 들어온 대상을 후보 목록에 추가한다.
+    private void OnTriggerEnter(Collider other) // SphereCollider에 들어온 아이템을 nearbyInteractables에 추가
     {
         if (!IsOwner)
         {
             return;
         }
 
-        PickupItem pickupItem = other.GetComponentInParent<PickupItem>();
-        if (pickupItem != null)
+        InteractableBase newTarget = other.GetComponentInParent<InteractableBase>();
+        if (newTarget != null)
         {
-            _nearbyItems.Add(pickupItem);
+            _nearbyInteractables.Add(newTarget);
         }
     }
 
-    private void OnTriggerExit(Collider other)  // SphereCollider에서 나간 아이템을 nearbyItems에서 제거
+    // 범위를 벗어난 대상을 제거하고, 선택 중이었다면 선택도 해제한다.
+    private void OnTriggerExit(Collider other)  // SphereCollider에서 나간 상호작용 대상을 nearbyInteractables에서 제거
     {
         if (!IsOwner)
         {
             return;
         }
 
-        PickupItem pickupItem = other.GetComponentInParent<PickupItem>();
-        if (pickupItem == null)
+        InteractableBase outTarget = other.GetComponentInParent<InteractableBase>();
+        if (outTarget == null)
         {
             return;
         }
 
-        _nearbyItems.Remove(pickupItem);
-        if (ReferenceEquals(pickupItem, _currentTarget))
+        _nearbyInteractables.Remove(outTarget);
+        if (ReferenceEquals(outTarget, _currentTarget))
         {
             SetCurrentTarget(null);
         }
@@ -100,6 +105,7 @@ public class PlayerInteraction : NetworkBehaviour
 
         UpdateCurrentTarget();
 
+        // 조준 대상을 갱신한 뒤 상호작용과 드롭 입력을 처리한다.
         if (_actions.Player.Interact.WasPressedThisFrame()) // 상호작용 버튼이 눌렸을 때
         {
             TryInteract();
@@ -117,6 +123,7 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
+        // 선택을 먼저 해제해 아웃라인과 안내 문구를 즉시 갱신한다.
         IInteractable target = _currentTarget;
         SetCurrentTarget(null);
         target.Interact(gameObject);
@@ -129,6 +136,7 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
+        // 로컬에서 드롭 가능 여부를 확인하고, 실제 생성과 인벤토리 차감은 서버에 요청한다.
         //--- 선택한 슬롯에 아이템이 있는지 확인 ---//
         if (!_inventory.TryGetSelectedItem(out string itemId)) { Debug.Log("선택한 슬롯에 아이템이 없습니다."); return; }
         if (!_itemCatalog.TryGet(itemId, out ItemData itemData)) { Debug.Log($"ItemCatalog에 '{itemId}'가 없습니다."); return; }
@@ -144,6 +152,7 @@ public class PlayerInteraction : NetworkBehaviour
     [Rpc(SendTo.Server)]
     private void RequestDropRpc(string itemId, Vector3 dropPosition, Vector3 dropVelocity)
     {
+        // 클라이언트 요청을 신뢰하지 않고 서버에서도 다시 검증한다.
         if (_inventory == null || _itemCatalog == null)
         {
             return;
@@ -159,6 +168,7 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
+        // 서버가 월드 아이템을 생성하고 네트워크 오브젝트로 스폰한다.
         GameObject droppedObject = Instantiate(itemData.WorldPrefab, dropPosition, Quaternion.identity);
 
         if (!droppedObject.TryGetComponent(out NetworkObject droppedNetworkObject))
@@ -168,6 +178,7 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
+        // 방금 버린 아이템을 바로 다시 줍지 못하도록 잠시 막는다.
         if (droppedObject.TryGetComponent(out PickupItem droppedItem))
         {
             droppedItem.BlockInteraction(_dropInteractionDelay);
@@ -175,6 +186,7 @@ public class PlayerInteraction : NetworkBehaviour
 
         droppedNetworkObject.Spawn();
 
+        // 플레이어가 바라보는 방향으로 초기 속도를 적용한다.
         if (droppedObject.TryGetComponent(out Rigidbody rigidbody))
         {
             rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
@@ -191,34 +203,42 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
-        _nearbyItems.RemoveWhere(item => item == null); // null인 아이템 제거
+        _nearbyInteractables.RemoveWhere(target => target == null); // 파괴된 대상 제거
+        // 파괴된 대상을 정리한 뒤, 가장 가까운 후보를 찾는다.
 
-        PickupItem closestItem = null;
+        InteractableBase closestTarget = null;
         float closestDistanceSqr = float.MaxValue;
 
         Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+        // 화면 중앙과의 거리를 기준으로 조준 대상을 비교한다.
 
         float radiusPixels = Screen.height * _screenCenterRadius;
         float radiusSqr = radiusPixels * radiusPixels;
 
-        foreach (PickupItem item in _nearbyItems)
+        foreach (InteractableBase target in _nearbyInteractables)
         {
-            if (!item.CanInteract)  // 상호작용이 차단된 아이템은 무시
+            if (target == null)
             {
                 continue;
             }
 
-            Vector3 screenPos = _playerCamera.WorldToScreenPoint(item.transform.position);
+            if (!target.CanInteract)  // 상호작용이 차단된 대상은 무시
+            {
+                continue;
+            }
+
+            Vector3 screenPos = _playerCamera.WorldToScreenPoint(target.transform.position);
 
             if (screenPos.z < 0)
             {
-                continue; // 아이템이 카메라 뒤에 있는 경우 무시
+                continue; // 대상이 카메라 뒤에 있는 경우 무시
             }
 
-            Vector2 itemScreenPos = new Vector2(screenPos.x, screenPos.y);
+            Vector2 targetScreenPos = new Vector2(screenPos.x, screenPos.y);
 
-            // 화면 중심과 아이템의 스크린 좌표 간의 거리 제곱 계산
-            float distanceSqr = (itemScreenPos - screenCenter).sqrMagnitude;
+            // 화면 중심과 대상의 스크린 좌표 간의 거리 제곱 계산
+            // 제곱 거리를 사용해 불필요한 제곱근 계산을 피한다.
+            float distanceSqr = (targetScreenPos - screenCenter).sqrMagnitude;
 
             if (distanceSqr > radiusSqr)
             {
@@ -228,30 +248,24 @@ public class PlayerInteraction : NetworkBehaviour
             if (distanceSqr < closestDistanceSqr)
             {
                 closestDistanceSqr = distanceSqr;
-                closestItem = item;
+                closestTarget = target;
             }
         }
-        SetCurrentTarget(closestItem);
+        SetCurrentTarget(closestTarget);
     }
 
-    private void SetCurrentTarget(IInteractable nextTarget)
+    private void SetCurrentTarget(InteractableBase nextTarget)
     {
         if (ReferenceEquals(_currentTarget, nextTarget))
         {
             return;
         }
 
-        if (_currentTarget is PickupItem previousPickupItem)
-        {
-            previousPickupItem.SetOutline(false);
-        }
+        // 이전에 선택된 대상의 아웃라인을 끈다.
+        _currentTarget?.SetOutline(false);
 
         _currentTarget = nextTarget;
-
-        if (_currentTarget is PickupItem currentPickupItem)
-        {
-            currentPickupItem.SetOutline(true);
-        }
+        _currentTarget?.SetOutline(true);
 
         string interactionText = _currentTarget?.InteractionText;
         _inventoryUI?.SetInteractionPrompt(interactionText);
