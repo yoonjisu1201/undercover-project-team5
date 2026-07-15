@@ -5,10 +5,15 @@ public class RoundTimerDisplay : MonoBehaviour
 {
 	[SerializeField] private TMP_Text _timerText;
 	[SerializeField] private TMP_Text _roundText;
+	
+	protected TMP_Text TimerText => _timerText;
+	protected TMP_Text RoundText => _roundText;
 
-	private void Start()
+	protected virtual void Start()
 	{
 		RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
+		
+		// 이벤트 구독 전에 이미 라운드가 시작됐을 수도 있으므로 현재 상태 즉시 반영
 		HandleRoundStateChanged(RoundManager.Instance.CurrentState);
 	}
 
@@ -20,7 +25,7 @@ public class RoundTimerDisplay : MonoBehaviour
 		}
 	}
 
-	private void Update()
+	protected virtual void Update()
 	{
 		if (RoundManager.Instance == null) return;
 
@@ -30,7 +35,7 @@ public class RoundTimerDisplay : MonoBehaviour
 		_timerText.text = $"{minutes:00}:{seconds:00}";
 	}
 
-	private void HandleRoundStateChanged(RoundState state)
+	protected virtual void HandleRoundStateChanged(RoundState state)
 	{
 		_roundText.text = state switch
 		{
