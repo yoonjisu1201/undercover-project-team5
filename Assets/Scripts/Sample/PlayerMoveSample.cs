@@ -48,13 +48,25 @@ public class PlayerMoveSample : NetworkBehaviour
 	private bool _jumpRequested = false;
 
 	// 만들어 둔 InputActions 파일
-	CustomInputActions _actions;
+	private CustomInputActions _actions;
+
+	public void SetActionEnableState(bool state)
+	{
+		if (state)
+		{
+			_actions.Enable();
+		}
+		else
+		{
+			_actions.Disable();
+		}
+	}
 
 	private void Awake()
 	{
 		// Awake에서 새로 생성
 		_actions = new CustomInputActions();
-		_actions.Enable();
+		SetActionEnableState(true);
 
 		if (_headBone != null)
 		{

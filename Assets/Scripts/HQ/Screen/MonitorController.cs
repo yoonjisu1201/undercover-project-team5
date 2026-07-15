@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,9 +15,10 @@ public class MonitorController : MonoBehaviour {
 	[Header("=== 힌트 화면 및 버튼 등록 ===")] 
 	[SerializeField] private ScreenBase _hintScreen;
 	[SerializeField] private Button _hintButton;
-
 	[SerializeField] private Button _closeButton;
 	
+	public event Action OnScreenClosed;
+
 	private readonly List<ScreenBase> _screens = new List<ScreenBase>();
 	
 	// Awake에서 스크린들 모아서 Screens로 합쳐두기.
@@ -60,6 +62,7 @@ public class MonitorController : MonoBehaviour {
 	
 	private void OnCloseButtonClicked() {
 		gameObject.SetActive(false);
+		OnScreenClosed?.Invoke();
 	}
 	
 	// 모든 스크린 한번에 끄기
