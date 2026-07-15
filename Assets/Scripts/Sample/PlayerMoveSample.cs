@@ -92,7 +92,8 @@ public class PlayerMoveSample : NetworkBehaviour
     {
         foreach (var camera in Camera.allCameras)
         {
-            if (camera == _camera) continue;
+            // 다른 플레이어 카메라만 끄고 CCTV와 미니맵 카메라는 유지한다.
+            if (camera == _camera || camera.GetComponentInParent<PlayerMoveSample>() == null) continue;
 
             camera.enabled = false;
             if (camera.TryGetComponent(out AudioListener listener))
