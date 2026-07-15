@@ -10,6 +10,7 @@ using UnityEngine.UI;
 public sealed class GameSettingsMenu : MonoBehaviour
 {
     private const string BgmVolumeKey = "BgmVolume";
+    private const string SfxVolumeKey = "SfxVolume";
     private const string VoiceVolumeKey = "VoiceVolume";
     private const string MicVolumeKey = "MicVolume";
 
@@ -22,12 +23,14 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [Header("Volume")]
     [SerializeField] private AudioMixer _audioMixer;
     [SerializeField] private Slider _bgmSlider;
+    [SerializeField] private Slider _sfxSlider;
     [SerializeField] private Slider _voiceSlider;
     [SerializeField] private Slider _micSlider;
 
     private void Awake()
     {
         _bgmSlider.onValueChanged.AddListener(SetBgmVolume);
+        _sfxSlider.onValueChanged.AddListener(SetSfxVolume);
         _voiceSlider.onValueChanged.AddListener(SetVoiceVolume);
         _micSlider.onValueChanged.AddListener(SetMicVolume);
 
@@ -38,14 +41,17 @@ public sealed class GameSettingsMenu : MonoBehaviour
     {
         // PlayerPrefs에서 저장된 볼륨 값을 가져와서 슬라이더에 적용
         float bgmVolume = PlayerPrefs.GetFloat(BgmVolumeKey, 1f);
+        float sfxVolume = PlayerPrefs.GetFloat(SfxVolumeKey, 1f);
         float voiceVolume = PlayerPrefs.GetFloat(VoiceVolumeKey, 1f);
         float micVolume = PlayerPrefs.GetFloat(MicVolumeKey, 1f);
 
         _bgmSlider.SetValueWithoutNotify(bgmVolume);
+        _sfxSlider.SetValueWithoutNotify(sfxVolume);
         _voiceSlider.SetValueWithoutNotify(voiceVolume);
         _micSlider.SetValueWithoutNotify(micVolume);
 
         SetBgmVolume(bgmVolume);
+        SetSfxVolume(sfxVolume);
     }
 
     private void SetBgmVolume(float value)
@@ -54,6 +60,14 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
         _audioMixer.SetFloat("BgmVolume", decibel);
         PlayerPrefs.SetFloat(BgmVolumeKey, value);
+    }
+
+    private void SetSfxVolume(float value)
+    {
+        float decibel = value <= 0.0001f ? -80f : Mathf.Log10(value) * 20f;
+
+        _audioMixer.SetFloat("SfxVolume", decibel);
+        PlayerPrefs.SetFloat(SfxVolumeKey, value);
     }
 
     private void SetVoiceVolume(float value)
@@ -123,6 +137,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private void OnDestroy()
     {
         _bgmSlider.onValueChanged.RemoveListener(SetBgmVolume);
+        _sfxSlider.onValueChanged.RemoveListener(SetSfxVolume);
         _voiceSlider.onValueChanged.RemoveListener(SetVoiceVolume);
         _micSlider.onValueChanged.RemoveListener(SetMicVolume);
     }
