@@ -215,9 +215,33 @@ public class GameSessionManager : MonoBehaviour
 					serverSidePlayerInteraction.OnNetworkSpawn();
 				}
 			}
+
+			// 2) 서버에서 역할별 스폰 위치를 정하고 각 플레이어 소유 클라이언트에 이동을 요청한다.
+			SpawnPointHub spawnHub = FindAnyObjectByType<SpawnPointHub>();
+			if (spawnHub == null)
+			{
+				Debug.LogError("PlayScene에서 SpawnPointHub를 찾을 수 없습니다.");
+			}
+			else
+			{
+				foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+				{
+					if (client.PlayerObject == null || !client.PlayerObject.TryGetComponent(out PlayerMoveSample player))
+					{
+						continue;
+					}
+
+					// 역할 시스템이 완성되기 전까지 호스트는 본부, 나머지는 현장으로 배치한다.
+					Transform targetSpawnPoint = client.ClientId == NetworkManager.ServerClientId
+						? spawnHub.HQSpawnPoint
+						: spawnHub.SiteSpawnPoint;
+
+					player.TeleportToPositionRpc(targetSpawnPoint.position, targetSpawnPoint.rotation);
+				}
+			}
 		}
 
-		// 2) 각자 화면 표시용 복제본 처리: 이 코드는 호스트/클라이언트 각자의 컴퓨터에서 개별적으로
+		// 3) 각자 화면 표시용 복제본 처리: 이 코드는 호스트/클라이언트 각자의 컴퓨터에서 개별적으로
 		//    실행되므로, LocalClient.PlayerObject는 항상 "지금 이 코드를 실행 중인 컴퓨터 자신의
 		//    캐릭터"를 가리킨다. 그 복제본을 다시 스폰시켜서 InventoryUI(아이콘/프롬프트 텍스트)를
 		//    다시 바인딩한다.
