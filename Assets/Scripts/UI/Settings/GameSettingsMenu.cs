@@ -13,8 +13,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private const string SfxVolumeKey = "SfxVolume";
     private const string VoiceVolumeKey = "VoiceVolume";
     private const string MicVolumeKey = "MicVolume";
-
-
+    
     [Header("Device Settings")]
     [SerializeField] private TMP_Text _inputDeviceText;
     [SerializeField] private TMP_Text _outputDeviceText;

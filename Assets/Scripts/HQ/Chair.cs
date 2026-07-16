@@ -16,6 +16,8 @@ public class Chair : InteractableBase {
 		// 플레이어의 움직임 막기(콘솔 조작 동안)
 		_occupiedPlayer = interactor.GetComponent<PlayerMoveSample>();
 		_occupiedPlayer.SetActionEnableState(false);
+		Cursor.lockState = CursorLockMode.None;
+		Cursor.visible = true;
 
 		_consoleUi.gameObject.SetActive(true);
 		_consoleUi.OnScreenClosed += UnOccupiedPlayer;
@@ -23,8 +25,11 @@ public class Chair : InteractableBase {
 
 	public void UnOccupiedPlayer() {
 		_consoleUi.OnScreenClosed -= UnOccupiedPlayer;
+		
 		// 콘솔 조작 끝나면 다시 열어주기
 		_occupiedPlayer.SetActionEnableState(true);
+		Cursor.visible = false;
+		Cursor.lockState = CursorLockMode.Locked;
 		_occupiedPlayer = null;
 	}
 }

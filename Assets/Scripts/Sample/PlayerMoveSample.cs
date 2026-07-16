@@ -74,7 +74,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		// Awake에서 새로 생성
 		_actions = new CustomInputActions();
-		SetActionEnableState(true);
+		_actions.Enable();
 
 		if (_headBone != null)
 		{
