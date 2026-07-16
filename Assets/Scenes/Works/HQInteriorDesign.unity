@@ -3044,8 +3044,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameSessionManager
   _maxPlayers: 4
-  _gameplaySceneName: TestRoom1
+  _waitingRoomSceneName: TestRoom1
   _lobbySceneName: Lobby
+  _gameSceneName: GameScene
 --- !u!114 &403380764
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3858,6 +3859,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _round1Duration: 10
   _round2Duration: 10
+  _waitingRoomSceneName: WaitingRoom
 --- !u!1 &488190262
 GameObject:
   m_ObjectHideFlags: 0
@@ -7018,7 +7020,7 @@ GameObject:
   - component: {fileID: 1073415458}
   - component: {fileID: 1073415459}
   m_Layer: 0
-  m_Name: CCTVTest
+  m_Name: CCTVHub
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
