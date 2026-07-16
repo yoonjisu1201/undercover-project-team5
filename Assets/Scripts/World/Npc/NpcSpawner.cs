@@ -1,4 +1,7 @@
+using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Checkpoint 위치에 NPC를 생성하고
@@ -13,8 +16,29 @@ public sealed class NpcSpawner : MonoBehaviour
     [Header("Checkpoint Settings")]
     [SerializeField] private Transform[] _checkpoints;
 
-    private void Start()
+    // 이 스포너가 속한 씬의 네트워크 씬 로드가 완료되면(=접속자 전원이 씬 로드를 마치면)
+    // 서버만 스폰한다. GameSessionManager 등 다른 매니저에 의존하지 않고 스스로 트리거한다.
+    private void OnEnable()
     {
+        if (NetworkManager.Singleton == null) return;
+
+        NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += HandleSceneLoaded;
+    }
+
+    private void OnDisable()
+    {
+        if (NetworkManager.Singleton == null || NetworkManager.Singleton.SceneManager == null) return;
+
+        NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleSceneLoaded;
+    }
+
+    private void HandleSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+    {
+        if (sceneName != gameObject.scene.name || !NetworkManager.Singleton.IsServer)
+        {
+            return;
+        }
+
         Spawn();
     }
 
@@ -54,6 +78,7 @@ public sealed class NpcSpawner : MonoBehaviour
                 spawnCheckpoint.rotation);
 
             npc.Configure(_checkpoints);
+            npc.GetComponent<NetworkObject>().Spawn(destroyWithScene: true);
         }
     }
 }
