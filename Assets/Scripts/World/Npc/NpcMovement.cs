@@ -1,3 +1,4 @@
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Serialization;
@@ -45,6 +46,14 @@ public class NpcMovement : MonoBehaviour
             if (_agent == null)
             {
                 _agent = GetComponent<NavMeshAgent>();
+            }
+
+            // 서버가 아닌 인스턴스는 NavMeshAgent가 스스로 Transform을 갱신하지 않게 해서
+            // NetworkTransform이 동기화한 값과 충돌하지 않게 한다.
+            if (!NetworkManager.Singleton.IsServer)
+            {
+                _agent.updatePosition = false;
+                _agent.updateRotation = false;
             }
         }
 

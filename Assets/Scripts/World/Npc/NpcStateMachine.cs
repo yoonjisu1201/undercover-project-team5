@@ -1,4 +1,5 @@
 using System;
+using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
@@ -63,6 +64,11 @@ public sealed class NpcStateMachine : MonoBehaviour
 
     private void Update()
     {
+        if (!NetworkManager.Singleton.IsServer)
+        {
+            return;
+        }
+
         _currentState?.Execute(_context);
 
         // ==================== [추가] ====================
