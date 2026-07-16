@@ -55,8 +55,12 @@ public class PlayerMoveSample : NetworkBehaviour
 	private CustomInputActions _actions;
 
 	private Animator _animator;
-    private NpcStateMachine _currentState;
     private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
+    private readonly NetworkVariable<bool> _networkIsMoving =
+    new NetworkVariable<bool>(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Owner);
 
     public void SetActionEnableState(bool state)
 	{
@@ -70,13 +74,17 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 	}
 
-	private void Awake()
+    private void Awake()
 	{
 		// Awake에서 새로 생성
 		_actions = new CustomInputActions();
 		_actions.Enable();
 
-		if (_headBone != null)
+        //추가------
+        _animator = GetComponent<Animator>();
+        //------
+
+        if (_headBone != null)
 		{
 			_headBoneBaseRotation = _headBone.localRotation;
 		}
@@ -89,12 +97,51 @@ public class PlayerMoveSample : NetworkBehaviour
         base.OnDestroy();
 	}
 
-	// 스폰될 때마다(내 캐릭터든 다른 사람 캐릭터든) 호출된다.
-	public override void OnNetworkSpawn()
+    //추가------
+    private void ApplyMovingAnimation(bool isMoving)
+    {
+        if (_animator != null)
+        {
+            _animator.SetBool(IsMovingHash, isMoving);
+        }
+    }
+
+    private void SetMovingState(bool isMoving)
+    {
+        // 내 화면에 즉시 적용
+        ApplyMovingAnimation(isMoving);
+
+        // 다른 클라이언트에 전달
+        if (IsSpawned &&
+            IsOwner &&
+            _networkIsMoving.Value != isMoving)
+        {
+            _networkIsMoving.Value = isMoving;
+        }
+    }
+
+    private void HandleMovingChanged(
+        bool previousValue,
+        bool newValue)
+    {
+        ApplyMovingAnimation(newValue);
+    }
+
+
+    //------
+
+    // 스폰될 때마다(내 캐릭터든 다른 사람 캐릭터든) 호출된다.
+    public override void OnNetworkSpawn()
 	{
 		Debug.Log($"[PlayerMoveNetworkTest] OwnerClientId = {OwnerClientId}, IsOwner = {IsOwner}");
 
-		if (!IsOwner)
+        //추가------
+        _networkIsMoving.OnValueChanged += HandleMovingChanged;
+
+        ApplyMovingAnimation(_networkIsMoving.Value);
+        //------
+
+        if (!IsOwner)
 		{
 			_camera.enabled = false; // 내 캐릭터가 아니면 카메라 끄기
 			_camera.GetComponent<AudioListener>().enabled = false; //오디오 끄기
@@ -133,7 +180,15 @@ public class PlayerMoveSample : NetworkBehaviour
 		if (GameplayUiMode.IsActive)    // UI 조작 중에는 이동, 점프, 시점 입력을 받지 않음
 		{
 			_jumpRequested = false;
-			return;
+
+            //추가------
+            if (_animator != null)
+            {
+                SetMovingState(false);
+            }
+            //------
+
+            return;
 		}
 
 		/// 마우스 관련 이동 적용하기
@@ -191,7 +246,10 @@ public class PlayerMoveSample : NetworkBehaviour
 		if (GameplayUiMode.IsActive)    // UI 조작 중에는 이동, 점프, 시점 입력을 받지 않음
 		{
 			_jumpRequested = false;
-			return;
+			//추가-------------
+            SetMovingState(false);
+            //-------------
+            return;
 		}
 
 		HandleMovement();
@@ -202,16 +260,16 @@ public class PlayerMoveSample : NetworkBehaviour
 	// 입력 방향(바라보는 방향 기준)으로 Rigidbody를 물리적으로 이동시킨다
 	private void HandleMovement()
 	{
-        if (_animator != null)
-        {
-            _animator.SetBool(
-                IsMovingHash,
-                false);
-        }
         Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
 
-		// forward/right에서 y를 제거해 수평 이동만 남긴다
-		Vector3 forward = transform.forward;
+        bool isMoving = move.sqrMagnitude > 0.01f;
+
+        //추가------
+        SetMovingState(isMoving);
+        //------
+
+        // forward/right에서 y를 제거해 수평 이동만 남긴다
+        Vector3 forward = transform.forward;
 		Vector3 right = transform.right;
 		forward.y = 0;
 		right.y = 0;
