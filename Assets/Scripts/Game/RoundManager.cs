@@ -87,7 +87,6 @@ public class RoundManager : NetworkBehaviour
         if (NetworkManager.ServerTime.Time >= _roundEndTime.Value)
         {
             _currentState.Value = RoundState.Fail; // 시간 초과로 실패 처리
-            ReturnToWaitingRoom();
         }
     }
 
@@ -114,9 +113,17 @@ public class RoundManager : NetworkBehaviour
                 break;
             case RoundState.Round2:
                 _currentState.Value = RoundState.Success;
-                ReturnToWaitingRoom();
                 break;
         }
+    }
+
+    // 결과 패널의 "확인" 버튼을 누르면 클라이언트가 호출한다. 서버가 대기방 씬으로 전환한다.
+    [Rpc(SendTo.Server)]
+    public void ConfirmResultServerRpc()
+    {
+        if (_currentState.Value != RoundState.Fail && _currentState.Value != RoundState.Success) return;
+
+        ReturnToWaitingRoom();
     }
 
     // 게임 종료(성공/실패) 시 서버가 대기방 씬으로 전환한다.
