@@ -183,7 +183,15 @@ public class GameSessionManager : MonoBehaviour
 
 		foreach (var clientId in clientsCompleted)
 		{
-			SpawnPlayerForClient(clientId);
+			var playerObject = NetworkManager.Singleton.ConnectedClients[clientId].PlayerObject;
+			if (playerObject == null)
+			{
+				SpawnPlayerForClient(clientId);
+			}
+			else if (playerObject.TryGetComponent(out PlayerMoveSample player))
+			{
+				player.TeleportToPositionRpc(Vector3.zero, playerObject.transform.rotation);
+			}
 		}
 	}
 
