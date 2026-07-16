@@ -177,7 +177,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		if (GameplayUiMode.IsActive)    // UI 조작 중에는 이동, 점프, 시점 입력을 받지 않음
+		if (GameplayUiMode.IsActive)    // UI 조작 중에는 점프와 시점 입력을 받지 않음
 		{
 			_jumpRequested = false;
 
@@ -243,7 +243,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		if (GameplayUiMode.IsActive)    // UI 조작 중에는 이동, 점프, 시점 입력을 받지 않음
+		if (GameplayUiMode.IsMovementBlocked)    // UI 조작 중에는 이동을 받지 않음
 		{
 			_jumpRequested = false;
 			//추가-------------

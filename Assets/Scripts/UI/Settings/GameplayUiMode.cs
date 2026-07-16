@@ -2,39 +2,43 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 
-//--- ESC 버튼을 눌러서 게임 플레이 UI 모드를 활성화/비활성화하는 기능을 구현하는 클래스
+// 커서 표시와 플레이어 입력 제한을 관리하는 클래스
 [RequireComponent(typeof(SceneCursorSettings))]
 public class GameplayUiMode : MonoBehaviour
 {
     public static GameplayUiMode Instance { get; private set; }
-    public static bool IsActive { get; private set; } // 게임 플레이 UI 모드가 활성화되어 있는지 확인하는 변수
+    public static bool IsActive { get; private set; } // 화면 회전을 제한하는 상태
+    public static bool IsMovementBlocked { get; private set; } // 플레이어 이동을 제한하는 상태
     CustomInputActions _actions;
     private SceneCursorSettings _sceneCursorSettings;
     private int _clicksUntilCursorLock;
-
-    [SerializeField] private GameObject _settingsMenu;
+    private int _cursorActivationCount;
 
     private void Awake()
     {
         Instance = this;
-        _actions = new CustomInputActions();
-        _sceneCursorSettings = GetComponent<SceneCursorSettings>();
+        EnsureInitialized();
         IsActive = false;
-        _settingsMenu.SetActive(false);
+        IsMovementBlocked = false;
         _sceneCursorSettings.ApplyDefaultCursorState();
     }
 
     private void OnEnable()
     {
-        _actions.Enable();
-        _actions.System.Escape.performed += OnEscape;
+        EnsureInitialized();
     }
 
     private void OnDisable()
     {
-        _actions.System.Escape.performed -= OnEscape;
-        _actions.Disable();
+        if (_actions != null)
+        {
+            _actions.Disable();
+        }
+
         _clicksUntilCursorLock = 0;
+        _cursorActivationCount = 0;
+        IsActive = false;
+        IsMovementBlocked = false;
     }
 
     private void Update()
@@ -44,7 +48,7 @@ public class GameplayUiMode : MonoBehaviour
             return;
         }
 
-        if (!Mouse.current.leftButton.wasReleasedThisFrame)
+        if (!Mouse.current.leftButton.wasReleasedThisFrame) //  마우스 왼쪽 버튼이 이번 프레임에 해제되지 않았으면 아무 작업도 수행하지 않음
         {
             return;
         }
@@ -54,51 +58,58 @@ public class GameplayUiMode : MonoBehaviour
         if (_clicksUntilCursorLock == 0)    // 클릭 횟수가 0이 되면 게임 플레이 UI 모드를 비활성화하고 플레이어 입력을 활성화하며 커서 상태를 기본 상태로 적용
         {
             IsActive = false;
+            IsMovementBlocked = false;
             _actions.Player.Enable();
-            _sceneCursorSettings.ApplyDefaultCursorState();
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
         }
     }
 
-    private void OnEscape(InputAction.CallbackContext context)
+    public void ActivateCursor()
     {
-        SetActive(!_settingsMenu.activeSelf);   // ESC 버튼을 눌렀을 때 설정 메뉴 활성화/비활성화
-    }
-
-    public void CloseSettingsMenu()
-    {
-        SetActive(false);
-    }
-
-    private void SetActive(bool active)
-    {
-        _settingsMenu.SetActive(active);
-
-        // ESC는 항상 받을 수 있도록 System 맵 유지
+        EnsureInitialized();
+        _cursorActivationCount++;
+        IsActive = true;
+        IsMovementBlocked = true;
+        _clicksUntilCursorLock = 0;
         _actions.System.Enable();
+        _actions.Player.Disable();
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+    }
 
-        if (active) // 설정창 열렸을 때
+    public void DeactivateCursor()
+    {
+        EnsureInitialized();
+
+        if (_cursorActivationCount > 0)
+        {
+            _cursorActivationCount--;
+        }
+
+        if (_cursorActivationCount > 0)
         {
             IsActive = true;
-            _actions.Player.Disable();
+            IsMovementBlocked = true;
             _clicksUntilCursorLock = 0;
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
+            return;
         }
-        else if (_sceneCursorSettings.CursorVisibleByDefault)   // CursorVisibleByDefault이 true이면 설정창 닫았을 때 플레이어 입력을 활성화하고 커서 상태를 기본 상태로 적용
-        {
-            IsActive = false;
-            _actions.Player.Enable();
-            _clicksUntilCursorLock = 0; // 클릭 횟수가 0이 되면 게임 플레이 UI 모드를 비활성화하고 플레이어 입력을 활성화하며 커서 상태를 기본 상태로 적용
-            _sceneCursorSettings.ApplyDefaultCursorState();
-        }
-        else    // 설정창 닫았을 때
-        {
-            IsActive = true;
-            _actions.Player.Disable();
-            _clicksUntilCursorLock = 2; // 남은 클릭 횟수
-            Cursor.visible = true;
-            Cursor.lockState = CursorLockMode.None;
-        }
+
+        IsActive = true;
+        IsMovementBlocked = false;
+        _clicksUntilCursorLock = 2;
+        _actions.System.Enable();
+        _actions.Player.Enable();
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+    }
+
+    private void EnsureInitialized()
+    {
+        _actions ??= new CustomInputActions();
+        _sceneCursorSettings ??= GetComponent<SceneCursorSettings>();
     }
 
     private void OnDestroy()

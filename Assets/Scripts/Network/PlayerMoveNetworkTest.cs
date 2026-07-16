@@ -118,7 +118,7 @@ public class PlayerMoveNetworkTest : NetworkBehaviour
 			return;
 		}
 
-		if (GameplayUiMode.IsActive)
+		if (GameplayUiMode.IsMovementBlocked)
 		{
 			_jumpRequested = false;
 			return;

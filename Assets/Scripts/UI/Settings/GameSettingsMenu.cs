@@ -5,6 +5,7 @@ using Unity.Services.Lobbies.Models;
 using Unity.Services.Vivox;
 using UnityEngine;
 using UnityEngine.Audio;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public sealed class GameSettingsMenu : MonoBehaviour
@@ -13,7 +14,10 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private const string SfxVolumeKey = "SfxVolume";
     private const string VoiceVolumeKey = "VoiceVolume";
     private const string MicVolumeKey = "MicVolume";
-    
+
+    [Header("Menu")]
+    [SerializeField] private GameObject _settingsPanel;
+
     [Header("Device Settings")]
     [SerializeField] private TMP_Text _inputDeviceText;
     [SerializeField] private TMP_Text _outputDeviceText;
@@ -26,8 +30,13 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [SerializeField] private Slider _voiceSlider;
     [SerializeField] private Slider _micSlider;
 
+    private CustomInputActions _actions;
+
     private void Awake()
     {
+        _actions = new CustomInputActions();
+        _settingsPanel.SetActive(false);
+
         _bgmSlider.onValueChanged.AddListener(SetBgmVolume);
         _sfxSlider.onValueChanged.AddListener(SetSfxVolume);
         _voiceSlider.onValueChanged.AddListener(SetVoiceVolume);
@@ -53,6 +62,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
         SetSfxVolume(sfxVolume);
     }
 
+    //--- 볼륨 설정 메서드 ---//
     private void SetBgmVolume(float value)
     {
         float decibel = value <= 0.0001f ? -80f : Mathf.Log10(value) * 20f;
@@ -99,7 +109,6 @@ public sealed class GameSettingsMenu : MonoBehaviour
         return Mathf.RoundToInt(Mathf.Lerp(-50f, 0f, value));
     }
 
-
     private async UniTaskVoid ApplyVivoxVolumesAsync()
     {
         await VivoxManager.LoginTask;
@@ -108,12 +117,11 @@ public sealed class GameSettingsMenu : MonoBehaviour
         SetMicVolume(_micSlider.value);
     }
 
+    //--- MonoBehaviour 이벤트 메서드 ---//
     private void OnEnable()
     {
-        if (VivoxManager.Instance == null)
-        {
-            return;
-        }
+        _actions.System.Enable();
+        _actions.System.Escape.performed += OnEscape;
 
         VivoxManager.Instance.AudioDevicesChanged += RefreshDeviceNames;
         VivoxManager.Instance.MicTestStateChanged += RefreshMicTestButtonText;
@@ -124,10 +132,9 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     private void OnDisable()
     {
-        if (VivoxManager.Instance == null)
-        {
-            return;
-        }
+        _actions.System.Escape.performed -= OnEscape;
+        _actions.Disable();
+
         VivoxManager.Instance.AudioDevicesChanged -= RefreshDeviceNames;
         VivoxManager.Instance.MicTestStateChanged -= RefreshMicTestButtonText;
         VivoxManager.Instance.StopMicTest();
@@ -142,6 +149,25 @@ public sealed class GameSettingsMenu : MonoBehaviour
     }
 
     //--- OnClick 이벤트 핸들러 ---//
+    private void OnEscape(InputAction.CallbackContext context)
+    {
+        SetMenuActive(!_settingsPanel.activeSelf);
+    }
+
+    private void SetMenuActive(bool active)
+    {
+        _settingsPanel.SetActive(active);
+
+        if (active)
+        {
+            GameplayUiMode.Instance?.ActivateCursor();  // 커서 활성화
+        }
+        else
+        {
+            GameplayUiMode.Instance?.DeactivateCursor();    // 커서 비활성화
+        }
+    }
+
     public void SelectPreviousInputDevice()
     {
         VivoxManager.Instance.SelectInputDeviceAsync(-1).Forget();
@@ -183,7 +209,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     public void ReturnToGame()
     {
-        GameplayUiMode.Instance?.CloseSettingsMenu();
+        SetMenuActive(false);
     }
 
     public void GameEnd()
