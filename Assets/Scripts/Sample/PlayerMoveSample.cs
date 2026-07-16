@@ -54,7 +54,11 @@ public class PlayerMoveSample : NetworkBehaviour
 	// 만들어 둔 InputActions 파일
 	private CustomInputActions _actions;
 
-	public void SetActionEnableState(bool state)
+	private Animator _animator;
+    private NpcStateMachine _currentState;
+    private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
+
+    public void SetActionEnableState(bool state)
 	{
 		if (state)
 		{
@@ -198,7 +202,13 @@ public class PlayerMoveSample : NetworkBehaviour
 	// 입력 방향(바라보는 방향 기준)으로 Rigidbody를 물리적으로 이동시킨다
 	private void HandleMovement()
 	{
-		Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
+        if (_animator != null)
+        {
+            _animator.SetBool(
+                IsMovingHash,
+                false);
+        }
+        Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
 
 		// forward/right에서 y를 제거해 수평 이동만 남긴다
 		Vector3 forward = transform.forward;
