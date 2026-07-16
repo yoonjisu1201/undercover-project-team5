@@ -230,4 +230,16 @@ public class PlayerMoveSample : NetworkBehaviour
 			_jumpableSurfaceMask,
 			QueryTriggerInteraction.Ignore);
 	}
+
+	/// <summary>
+	/// 플레이어 소유 클라이언트에서 Rigidbody 위치와 회전을 스폰 포인트로 이동한다.
+	/// </summary>
+	[Rpc(SendTo.Owner)]
+	public void TeleportToPositionRpc(Vector3 position, Quaternion rotation)
+	{
+		_rigidbody.linearVelocity = Vector3.zero;
+		_rigidbody.angularVelocity = Vector3.zero;
+		_rigidbody.position = position;
+		_rigidbody.rotation = rotation;
+	}
 }
