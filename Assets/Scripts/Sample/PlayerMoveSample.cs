@@ -97,12 +97,12 @@ public class PlayerMoveSample : NetworkBehaviour
             return;
         }
 
-        DisableOtherCameras();
+        // DisableOtherCameras();
         SceneManager.sceneLoaded += HandleSceneLoaded;
     }
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        DisableOtherCameras();
+        // DisableOtherCameras();
     }
     private void DisableOtherCameras()
     {
