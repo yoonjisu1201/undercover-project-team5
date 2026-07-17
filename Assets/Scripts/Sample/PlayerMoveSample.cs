@@ -44,13 +44,25 @@ public class PlayerMoveSample : NetworkBehaviour
 	private float _pitch = 0f;
 	private Quaternion _headBoneBaseRotation;
 
+	// 오너가 갱신하는 pitch 값. 다른 클라이언트는 이 값을 읽어 헤드 본을 회전시킨다.
+	private readonly NetworkVariable<float> _networkPitch =
+		new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
 	// 점프 입력 예약 (Update에서 감지 → FixedUpdate에서 힘 적용)
 	private bool _jumpRequested = false;
 
 	// 만들어 둔 InputActions 파일
 	private CustomInputActions _actions;
 
-	public void SetActionEnableState(bool state)
+	private Animator _animator;
+    private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
+    private readonly NetworkVariable<bool> _networkIsMoving =
+    new NetworkVariable<bool>(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Owner);
+
+    public void SetActionEnableState(bool state)
 	{
 		if (state)
 		{
@@ -62,13 +74,17 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 	}
 
-	private void Awake()
+    private void Awake()
 	{
 		// Awake에서 새로 생성
 		_actions = new CustomInputActions();
-		SetActionEnableState(true);
+		_actions.Enable();
 
-		if (_headBone != null)
+        //추가------
+        _animator = GetComponent<Animator>();
+        //------
+
+        if (_headBone != null)
 		{
 			_headBoneBaseRotation = _headBone.localRotation;
 		}
@@ -81,24 +97,63 @@ public class PlayerMoveSample : NetworkBehaviour
         base.OnDestroy();
 	}
 
-	// 스폰될 때마다(내 캐릭터든 다른 사람 캐릭터든) 호출된다.
-	public override void OnNetworkSpawn()
+    //추가------
+    private void ApplyMovingAnimation(bool isMoving)
+    {
+        if (_animator != null)
+        {
+            _animator.SetBool(IsMovingHash, isMoving);
+        }
+    }
+
+    private void SetMovingState(bool isMoving)
+    {
+        // 내 화면에 즉시 적용
+        ApplyMovingAnimation(isMoving);
+
+        // 다른 클라이언트에 전달
+        if (IsSpawned &&
+            IsOwner &&
+            _networkIsMoving.Value != isMoving)
+        {
+            _networkIsMoving.Value = isMoving;
+        }
+    }
+
+    private void HandleMovingChanged(
+        bool previousValue,
+        bool newValue)
+    {
+        ApplyMovingAnimation(newValue);
+    }
+
+
+    //------
+
+    // 스폰될 때마다(내 캐릭터든 다른 사람 캐릭터든) 호출된다.
+    public override void OnNetworkSpawn()
 	{
 		Debug.Log($"[PlayerMoveNetworkTest] OwnerClientId = {OwnerClientId}, IsOwner = {IsOwner}");
 
-		if (!IsOwner)
+        //추가------
+        _networkIsMoving.OnValueChanged += HandleMovingChanged;
+
+        ApplyMovingAnimation(_networkIsMoving.Value);
+        //------
+
+        if (!IsOwner)
 		{
 			_camera.enabled = false; // 내 캐릭터가 아니면 카메라 끄기
 			_camera.GetComponent<AudioListener>().enabled = false; //오디오 끄기
             return;
         }
 
-        DisableOtherCameras();
+        // DisableOtherCameras();
         SceneManager.sceneLoaded += HandleSceneLoaded;
     }
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        DisableOtherCameras();
+        // DisableOtherCameras();
     }
     private void DisableOtherCameras()
     {
@@ -122,10 +177,18 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		if (GameplayUiMode.IsActive)    // UI 조작 중에는 이동, 점프, 시점 입력을 받지 않음
+		if (GameplayUiMode.IsActive)    // UI 조작 중에는 점프와 시점 입력을 받지 않음
 		{
 			_jumpRequested = false;
-			return;
+
+            //추가------
+            if (_animator != null)
+            {
+                SetMovingState(false);
+            }
+            //------
+
+            return;
 		}
 
 		/// 마우스 관련 이동 적용하기
@@ -141,6 +204,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		// 회전 적용
 		transform.rotation = Quaternion.Euler(0, _yaw, 0f);
 		_headPivot.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+		_networkPitch.Value = _pitch;
 
 		/// 버튼 입력 방식 적용하기
 		// Player - Interact라는 행동이 이번 프레임에 눌렸는지 확인한다.
@@ -160,13 +224,16 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void LateUpdate()
 	{
-		if (!IsOwner || _headBone == null)
+		if (_headBone == null)
 		{
 			return;
 		}
 
+		// 오너는 로컬 _pitch(지연 없음)를, 다른 클라이언트는 동기화된 값을 사용한다.
+		float pitch = IsOwner ? _pitch : _networkPitch.Value;
+
 		// 기준 회전에서 현재 시야각을 계산해 매 프레임 회전이 누적되지 않게 한다.
-		_headBone.localRotation = _headBoneBaseRotation * Quaternion.Euler(_pitch, 0f, 0f);
+		_headBone.localRotation = _headBoneBaseRotation * Quaternion.Euler(pitch, 0f, 0f);
 	}
 
 	private void FixedUpdate()
@@ -176,10 +243,13 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		if (GameplayUiMode.IsActive)    // UI 조작 중에는 이동, 점프, 시점 입력을 받지 않음
+		if (GameplayUiMode.IsMovementBlocked)    // UI 조작 중에는 이동을 받지 않음
 		{
 			_jumpRequested = false;
-			return;
+			//추가-------------
+            SetMovingState(false);
+            //-------------
+            return;
 		}
 
 		HandleMovement();
@@ -190,10 +260,16 @@ public class PlayerMoveSample : NetworkBehaviour
 	// 입력 방향(바라보는 방향 기준)으로 Rigidbody를 물리적으로 이동시킨다
 	private void HandleMovement()
 	{
-		Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
+        Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
 
-		// forward/right에서 y를 제거해 수평 이동만 남긴다
-		Vector3 forward = transform.forward;
+        bool isMoving = move.sqrMagnitude > 0.01f;
+
+        //추가------
+        SetMovingState(isMoving);
+        //------
+
+        // forward/right에서 y를 제거해 수평 이동만 남긴다
+        Vector3 forward = transform.forward;
 		Vector3 right = transform.right;
 		forward.y = 0;
 		right.y = 0;
