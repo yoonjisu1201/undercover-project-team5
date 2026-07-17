@@ -28,6 +28,8 @@ public class RoundTimerDisplay : MonoBehaviour
 	protected virtual void Update()
 	{
 		if (RoundManager.Instance == null) return;
+		if (RoundManager.Instance.CurrentState != RoundState.Round1 && 
+			RoundManager.Instance.CurrentState != RoundState.Round2) return;
 
 		float remaining = RoundManager.Instance.GetRemainingTime();
 		int minutes = Mathf.FloorToInt(remaining / 60f);
