@@ -13,7 +13,7 @@ public class ClueUI : MonoBehaviour
     [SerializeField] private TMP_Text _discriptionHint; // 단서 힌트 텍스트
 
     [Header("Clue Image")]
-    [SerializeField] private Image _clueImage;  // 단서 이미지를 표시할 이미지 UI
+    [SerializeField] private RawImage _clueImage;  // 단서 이미지를 표시할 이미지 UI
     [SerializeField] private GameObject _magnifiedMark; // 단서 이미지가 없는 경우 표시되는 확대 표시 마크
     [SerializeField] private TMP_Text _imageLabel;  // 단서 종류 라벨 텍스트
 
@@ -54,14 +54,13 @@ public class ClueUI : MonoBehaviour
     }
 
 
-    public void ShowClueImage(Sprite clueSprite, string clueType)
+    public void ShowClueImage(Texture clueTexture, string clueType)
     {
-        bool hasImage = clueSprite != null;
+        bool hasImage = clueTexture != null;
 
         if (_clueImage != null)
         {
-            _clueImage.sprite = clueSprite;
-            _clueImage.preserveAspect = true;
+            _clueImage.texture = clueTexture;
         }
 
         if (_magnifiedMark != null) // 단서 이미지가 없는 경우 확대 표시 마크를 활성화하고, 단서 이미지가 있는 경우 비활성화
