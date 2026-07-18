@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Checkpoint 위치에 NPC를 생성하고
-/// 배회에 사용할 Checkpoint 목록을 전달합니다.
+/// 배회 Controller에 사용할 Checkpoint 목록을 전달합니다.
 /// </summary>
 public sealed class NpcSpawner : MonoBehaviour
 {
@@ -16,8 +16,6 @@ public sealed class NpcSpawner : MonoBehaviour
     [Header("Checkpoint Settings")]
     [SerializeField] private Transform[] _checkpoints;
 
-    // 이 스포너가 속한 씬의 네트워크 씬 로드가 완료되면(=접속자 전원이 씬 로드를 마치면)
-    // 서버만 스폰한다. GameSessionManager 등 다른 매니저에 의존하지 않고 스스로 트리거한다.
     private void OnEnable()
     {
         if (NetworkManager.Singleton == null) return;
@@ -77,7 +75,17 @@ public sealed class NpcSpawner : MonoBehaviour
                 spawnCheckpoint.position,
                 spawnCheckpoint.rotation);
 
-            npc.Configure(_checkpoints);
+            //추가----------------------
+            NpcWanderController wanderController = npc.GetComponent<NpcWanderController>();
+
+            if (wanderController == null)
+            {
+                Debug.LogError( "[NPC] Prefab에 NpcWanderController가 없습니다.", npc);
+                Destroy(npc.gameObject);
+                return;
+            }
+            //----------------------
+            wanderController.Configure(_checkpoints);
             npc.GetComponent<NetworkObject>().Spawn(destroyWithScene: true);
         }
     }

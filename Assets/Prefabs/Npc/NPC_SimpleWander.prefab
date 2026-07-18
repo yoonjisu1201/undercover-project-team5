@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 7510282543702730878}
   - component: {fileID: 4972450261692656175}
   - component: {fileID: 5832881131759200260}
+  - component: {fileID: 1263890928023690421}
   - component: {fileID: 6552073571720317892}
   - component: {fileID: -6046950246958914675}
   - component: {fileID: 7596727362190153896}
@@ -110,7 +111,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NpcStateMachine
   _walkSpeed: 2
   _runSpeed: 4
+--- !u!114 &1263890928023690421
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4117841426632770008}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1b8b913d1044df4a2749e0bf6a9472c, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::NpcWanderController
   _idleDurationSeconds: 1
+  _scatterRadius: 2
+  _navMeshSampleDistance: 1
 --- !u!114 &6552073571720317892
 MonoBehaviour:
   m_ObjectHideFlags: 0
