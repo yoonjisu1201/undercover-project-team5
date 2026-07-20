@@ -26,12 +26,12 @@ public class ClueUI : MonoBehaviour
     private void Awake()
     {
         EnsureInitialized();    // 씬 커서 설정 초기화
-        _closeButton.onClick.AddListener(Close);
     }
 
     private void OnEnable()
     {
         EnsureInitialized();    // 씬 커서 설정 초기화
+        _closeButton.onClick.AddListener(Close);
         GameplayUiMode.Instance?.ActivateCursor();
     }
 

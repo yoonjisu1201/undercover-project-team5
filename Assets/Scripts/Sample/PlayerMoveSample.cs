@@ -165,18 +165,11 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		if (GameplayUiMode.IsActive)    // UI 조작 중에는 점프와 시점 입력을 받지 않음
+		if (GameplayUiMode.IsActive)
 		{
 			_jumpRequested = false;
-
-            //추가------
-            if (_animator != null)
-            {
-                SetMovingState(false);
-            }
-            //------
-
-            return;
+			SetMovingState(false);
+			return;
 		}
 
 		/// 마우스 관련 이동 적용하기

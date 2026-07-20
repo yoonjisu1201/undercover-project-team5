@@ -76,11 +76,12 @@ public class PlayerMoveNetworkTest : NetworkBehaviour
 			return;
 		}
 
-		if (GameplayUiMode.IsActive)    // UI 조작 중에는 이동, 점프, 시점 입력을 받지 않음
+		if (GameplayUiMode.IsActive)
 		{
 			_jumpRequested = false;
 			return;
 		}
+
 		/// 마우스 관련 이동 적용하기
 		Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
 
