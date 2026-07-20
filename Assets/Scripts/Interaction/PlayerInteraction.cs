@@ -238,6 +238,12 @@ public class PlayerInteraction : NetworkBehaviour
         // 서버가 월드 아이템을 생성하고 네트워크 오브젝트로 스폰한다.
         GameObject droppedObject = Instantiate(itemData.WorldPrefab, dropPosition, Quaternion.identity);
 
+        //--- 드롭한 단서가 기존 단서 번호를 유지하도록 데이터 전달 ---//
+        if (droppedObject.TryGetComponent(out PickupItem droppedPickupItem))
+        {
+            droppedPickupItem.Configure(itemData);
+        }
+
         if (!droppedObject.TryGetComponent(out NetworkObject droppedNetworkObject))
         {
             Debug.LogError($"'{itemData.WorldPrefab.name}' 프리팹에 NetworkObject가 없습니다.");
