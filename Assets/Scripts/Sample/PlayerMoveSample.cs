@@ -62,18 +62,6 @@ public class PlayerMoveSample : NetworkBehaviour
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Owner);
 
-    public void SetActionEnableState(bool state)
-	{
-		if (state)
-		{
-			_actions.Enable();
-		}
-		else
-		{
-			_actions.Disable();
-		}
-	}
-
     private void Awake()
 	{
 		// Awake에서 새로 생성
