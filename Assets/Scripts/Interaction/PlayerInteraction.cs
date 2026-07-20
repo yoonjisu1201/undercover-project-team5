@@ -128,7 +128,9 @@ public class PlayerInteraction : NetworkBehaviour
         {
             TryDropSelectedItem();
         }
-        if (Mouse.current?.leftButton.wasPressedThisFrame == true)
+        if (Mouse.current?.leftButton.wasPressedThisFrame == true &&
+            !GameplayUiMode.IsActive &&
+            !ClueUI.WasClosedThisFrame)
         {
             TryShowSelectedClue();
         }
