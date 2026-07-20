@@ -288,6 +288,7 @@ GameObject:
   - component: {fileID: 190270487}
   - component: {fileID: 190270486}
   - component: {fileID: 190270488}
+  - component: {fileID: 190270489}
   m_Layer: 0
   m_Name: UIManager
   m_TagString: Untagged
@@ -335,6 +336,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f5a9466e3a3b9c47bf91cb5d13635b2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameplayUiMode
+--- !u!114 &190270489
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 190270485}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d462054bd6b51904b80a6bbd6cddf9b1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameSceneUI
+  _micMuteButton: {fileID: 418629311}
+  _outputMuteButton: {fileID: 418629310}
 --- !u!1 &224421897
 GameObject:
   m_ObjectHideFlags: 0
@@ -712,6 +727,22 @@ PrefabInstance:
       propertyPath: m_AnchorMax.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2448871031062319444, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2448871031062319444, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2448871031062319444, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2448871031062319444, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2914968382128093305, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -860,6 +891,22 @@ PrefabInstance:
       propertyPath: m_AnchorMin.x
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7082576906053063708, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7082576906053063708, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7082576906053063708, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7082576906053063708, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8197592739761634879, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0
@@ -917,6 +964,28 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+--- !u!114 &418629310 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6499100067266829632, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+  m_PrefabInstance: {fileID: 418629309}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
+--- !u!114 &418629311 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7600948269499582450, guid: a0ba72b38841b1c43be6e130f4c25f1d, type: 3}
+  m_PrefabInstance: {fileID: 418629309}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
 --- !u!1 &512501931
 GameObject:
   m_ObjectHideFlags: 0

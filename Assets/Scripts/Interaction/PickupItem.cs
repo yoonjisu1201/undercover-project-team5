@@ -9,6 +9,12 @@ public class PickupItem : InteractableBase
     public override bool CanInteract => Time.time >= _interactionBlockedUntil;   // 상호작용 가능 여부
     private float _interactionBlockedUntil;
 
+    //--- 런타임에 생성된 픽업 아이템의 고유 데이터 설정 ---//
+    public void Configure(ItemData itemData)
+    {
+        _itemData = itemData;
+    }
+
     public void BlockInteraction(float duration)    // duration초 동안 상호작용 차단
     {
         _interactionBlockedUntil = Time.time + Mathf.Max(0f, duration);

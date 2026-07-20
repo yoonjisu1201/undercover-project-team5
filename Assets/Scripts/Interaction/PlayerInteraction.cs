@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class PlayerInteraction : NetworkBehaviour
 {
@@ -12,6 +13,7 @@ public class PlayerInteraction : NetworkBehaviour
     [SerializeField, Min(0f)] private float _dropInteractionDelay = 1.5f;   // 드롭 후 상호작용 차단 시간
     [SerializeField] private ItemCatalog _itemCatalog;
     [SerializeField] private InventoryUI _inventoryUI;
+    [SerializeField] private string _clueItemIdPrefix = "Clue";
 
     // 상호작용 범위 안의 후보 목록과, 그중 현재 조준된 대상.
     private readonly HashSet<InteractableBase> _nearbyInteractables = new();  // SphereCollider 안에 있는 상호작용 가능 오브젝트
@@ -58,6 +60,18 @@ public class PlayerInteraction : NetworkBehaviour
         }
 
         _inventoryUI?.BindInventory(_inventory);
+        if (_inventory != null)
+        {
+            _inventory.ItemAdded += HandleItemAdded;
+        }
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        if (_inventory != null)
+        {
+            _inventory.ItemAdded -= HandleItemAdded;
+        }
     }
 
     // 상호작용 범위에 들어온 대상을 후보 목록에 추가한다.
@@ -114,6 +128,61 @@ public class PlayerInteraction : NetworkBehaviour
         {
             TryDropSelectedItem();
         }
+        if (Mouse.current?.leftButton.wasPressedThisFrame == true &&
+            !GameplayUiMode.IsActive &&
+            !ClueUI.WasClosedThisFrame)
+        {
+            TryShowSelectedClue();
+        }
+    }
+
+    private void HandleItemAdded(string itemId, int _)
+    {
+        if (TryGetClueIndex(itemId, out int clueIndex))
+        {
+            ShowClue(clueIndex);
+        }
+    }
+
+    private void TryShowSelectedClue()
+    {
+        if (_inventory == null || !_inventory.TryGetSelectedItem(out string itemId))
+        {
+            return;
+        }
+
+        if (TryGetClueIndex(itemId, out int clueIndex))
+        {
+            ShowClue(clueIndex);
+        }
+    }
+
+    private bool TryGetClueIndex(string itemId, out int clueIndex)
+    {
+        clueIndex = -1;
+
+        if (string.IsNullOrWhiteSpace(itemId) || !itemId.StartsWith(_clueItemIdPrefix))
+        {
+            return false;
+        }
+
+        string numberText = itemId[_clueItemIdPrefix.Length..].Trim();
+        return int.TryParse(numberText, out int clueNumber) &&
+               (clueIndex = clueNumber - 1) >= 0;
+    }
+
+    private void ShowClue(int clueIndex)
+    {
+        ClueUI[] clueDisplays = FindObjectsByType<ClueUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        System.Array.Sort(clueDisplays, (left, right) => string.CompareOrdinal(left.name, right.name));
+
+        if (clueIndex >= clueDisplays.Length)
+        {
+            Debug.LogWarning($"표시할 ClueDisplay가 부족합니다. 단서 번호: {clueIndex + 1}");
+            return;
+        }
+
+        clueDisplays[clueIndex].gameObject.SetActive(true);
     }
 
     private void TryInteract()
@@ -170,6 +239,12 @@ public class PlayerInteraction : NetworkBehaviour
 
         // 서버가 월드 아이템을 생성하고 네트워크 오브젝트로 스폰한다.
         GameObject droppedObject = Instantiate(itemData.WorldPrefab, dropPosition, Quaternion.identity);
+
+        //--- 드롭한 단서가 기존 단서 번호를 유지하도록 데이터 전달 ---//
+        if (droppedObject.TryGetComponent(out PickupItem droppedPickupItem))
+        {
+            droppedPickupItem.Configure(itemData);
+        }
 
         if (!droppedObject.TryGetComponent(out NetworkObject droppedNetworkObject))
         {

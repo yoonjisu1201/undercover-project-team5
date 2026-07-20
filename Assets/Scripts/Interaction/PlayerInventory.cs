@@ -16,6 +16,7 @@ public class PlayerInventory : NetworkBehaviour
     public bool IsFull => FindEmptySlot() < 0;
 
     public event Action InventoryChanged;
+    public event Action<string, int> ItemAdded;
 
     private void Awake()
     {
@@ -75,6 +76,7 @@ public class PlayerInventory : NetworkBehaviour
             _selectedIndex = emptyIndex;
 
         InventoryChanged?.Invoke();
+        ItemAdded?.Invoke(itemId, emptyIndex);
         Debug.Log($"Slot{emptyIndex + 1}에 '{itemId}' 추가");
         return true;
     }
