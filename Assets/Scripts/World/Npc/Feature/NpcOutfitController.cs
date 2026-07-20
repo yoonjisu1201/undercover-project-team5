@@ -1,4 +1,5 @@
 using Unity.Netcode;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class NpcOutfitController : MonoBehaviour {
@@ -116,5 +117,27 @@ public class NpcOutfitController : MonoBehaviour {
 		SetActivePart(_pantsList, feature.PantsNumber);
 		SetActivePart(_shoesList, feature.ShoesNumber);
 		SetActivePart(_torsoList, feature.TorsoNumber);
+	}
+
+	public void GetEquippedModules(OutfitFeature feature, List<GameObject> results) {
+		results.Clear();
+
+		AddModuleAt(_beardList, feature.BeardNumber, results);
+		AddModuleAt(_eyebrowList, feature.EyebrowsNumber, results);
+		AddModuleAt(_glassesList, feature.GlassesNumber, results);
+		AddModuleAt(_hairList, feature.HairNumber, results);
+		AddModuleAt(_hatList, feature.HatNumber, results);
+		AddModuleAt(_headPhoneList, feature.HeadphoneNumber, results);
+		AddModuleAt(_leftArmList, feature.ArmNumber, results);
+		AddModuleAt(_maskList, feature.MaskNumber, results);
+		AddModuleAt(_pantsList, feature.PantsNumber, results);
+		AddModuleAt(_shoesList, feature.ShoesNumber, results);
+		AddModuleAt(_torsoList, feature.TorsoNumber, results);
+	}
+
+	private static void AddModuleAt(GameObject[] modules, int index, List<GameObject> results) {
+		if (index >= 0 && index < modules.Length && modules[index] != null) {
+			results.Add(modules[index]);
+		}
 	}
 }

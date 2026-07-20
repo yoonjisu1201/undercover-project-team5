@@ -97,6 +97,17 @@ public class GameplayUiMode : MonoBehaviour
             return;
         }
 
+        if (_sceneCursorSettings.CursorVisibleByDefault)
+        {
+            IsActive = false;
+            IsMovementBlocked = false;
+            _clicksUntilCursorLock = 0;
+            _actions.System.Enable();
+            _actions.Player.Enable();
+            _sceneCursorSettings.ApplyDefaultCursorState();
+            return;
+        }
+
         IsActive = true;
         IsMovementBlocked = false;
         _clicksUntilCursorLock = 2;

@@ -2953,7 +2953,7 @@ MonoBehaviour:
   m_text: "\uC124\uC815"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
-  m_sharedMaterial: {fileID: 0}
+  m_sharedMaterial: {fileID: -2647956062019823955, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
   m_fontSharedMaterials:
   - {fileID: 0}
   m_fontMaterial: {fileID: 0}
@@ -5363,19 +5363,7 @@ MonoBehaviour:
   m_FormatArguments: []
   m_UpdateString:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2347305678655242469}
-        m_TargetAssemblyTypeName: TMPro.TextMeshProUGUI, Unity.TextMeshPro
-        m_MethodName: SetText
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   references:
     version: 2
     RefIds: []
@@ -6965,6 +6953,7 @@ GameObject:
   - component: {fileID: 2739127220656426163}
   - component: {fileID: 6718045994792167511}
   - component: {fileID: 5671259183674594438}
+  - component: {fileID: 4330223798246679619}
   m_Layer: 5
   m_Name: SettingsCanvas
   m_TagString: Untagged
@@ -7067,6 +7056,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5e521aea51291c47a3d7ab952c4611a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameSettingsMenu
+  _settingsPanel: {fileID: 4973844905776054541}
   _inputDeviceText: {fileID: 1623615987022583955}
   _outputDeviceText: {fileID: 5544951101328208760}
   _micTestButtonText: {fileID: 6296656907310582128}
@@ -7104,3 +7094,26 @@ MonoBehaviour:
   _dangerColor: {r: 1, g: 0.25, b: 0.2, a: 1}
   _riseSpeed: 15
   _fallSpeed: 5
+--- !u!114 &4330223798246679619
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8957069321335320152}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 006beb027fab52e48975b991d80a6d97, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Components.LocalizeTextureEvent
+  m_LocalizedAssetReference:
+    m_TableReference:
+      m_TableCollectionName: 
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key: 
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+  m_UpdateAsset:
+    m_PersistentCalls:
+      m_Calls: []

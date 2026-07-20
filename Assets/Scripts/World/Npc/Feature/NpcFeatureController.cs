@@ -28,4 +28,8 @@ public class NpcFeatureController : NetworkBehaviour {
 		_outfitController.ApplyOutfit(_feature.Value.Outfit);
 	}
 
+	public void SendFeatureTo(CriminalNpcManager criminalManager) {
+		criminalManager.SetCriminalFeature(_feature.Value);
+	}
+
 }

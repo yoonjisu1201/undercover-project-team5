@@ -31,6 +31,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [SerializeField] private Slider _micSlider;
 
     private CustomInputActions _actions;
+    private bool _vivoxEventsSubscribed;
 
     private void Awake()
     {
@@ -123,11 +124,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
         _actions.System.Enable();
         _actions.System.Escape.performed += OnEscape;
 
-        VivoxManager.Instance.AudioDevicesChanged += RefreshDeviceNames;
-        VivoxManager.Instance.MicTestStateChanged += RefreshMicTestButtonText;
-        RefreshDeviceNames();
-        RefreshMicTestButtonText(VivoxManager.Instance.IsMicTesting);
-        ApplyVivoxVolumesAsync().Forget();
+        InitializeVivoxSettingsAsync().Forget();
     }
 
     private void OnDisable()
@@ -135,9 +132,32 @@ public sealed class GameSettingsMenu : MonoBehaviour
         _actions.System.Escape.performed -= OnEscape;
         _actions.Disable();
 
-        VivoxManager.Instance.AudioDevicesChanged -= RefreshDeviceNames;
-        VivoxManager.Instance.MicTestStateChanged -= RefreshMicTestButtonText;
-        VivoxManager.Instance.StopMicTest();
+        if (_vivoxEventsSubscribed && VivoxManager.Instance != null)
+        {
+            VivoxManager.Instance.AudioDevicesChanged -= RefreshDeviceNames;
+            VivoxManager.Instance.MicTestStateChanged -= RefreshMicTestButtonText;
+            VivoxManager.Instance.StopMicTest();
+            _vivoxEventsSubscribed = false;
+        }
+    }
+
+    private async UniTaskVoid InitializeVivoxSettingsAsync()
+    {
+        await UniTask.WaitUntil(() => VivoxManager.Instance != null);
+        await UniTask.Yield(); // VivoxManager.Start에서 LoginTask가 생성될 때까지 대기
+
+        if (!isActiveAndEnabled || _vivoxEventsSubscribed)
+        {
+            return;
+        }
+
+        VivoxManager.Instance.AudioDevicesChanged += RefreshDeviceNames;
+        VivoxManager.Instance.MicTestStateChanged += RefreshMicTestButtonText;
+        _vivoxEventsSubscribed = true;
+
+        RefreshDeviceNames();
+        RefreshMicTestButtonText(VivoxManager.Instance.IsMicTesting);
+        ApplyVivoxVolumesAsync().Forget();
     }
 
     private void OnDestroy()
@@ -190,6 +210,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     public void MicTestButtonPressed()
     {
+        RefreshMicTestButtonText(!VivoxManager.Instance.IsMicTesting);
         VivoxManager.Instance.ToggleMicTest();
     }
 
