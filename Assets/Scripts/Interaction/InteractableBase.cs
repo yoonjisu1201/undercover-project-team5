@@ -10,6 +10,9 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
     public abstract bool CanInteract { get; }
     public abstract void Interact(GameObject interactor);
 
+    // 화면 중심 조준 판정 반경에 곱해지는 배율. 기본은 1(PlayerInteraction의 공통 반경 그대로 사용).
+    public virtual float AimRadiusMultiplier => 1f;
+
     [Header("외곽선 설정")]
     [SerializeField, Min(0f)] private float _outlineFadeDuration = 0.15f;   // 외곽선 페이드 지속 시간
     private Outlinable _outlinable;

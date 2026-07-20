@@ -287,9 +287,6 @@ public class PlayerInteraction : NetworkBehaviour
         Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
         // 화면 중앙과의 거리를 기준으로 조준 대상을 비교한다.
 
-        float radiusPixels = Screen.height * _screenCenterRadius;
-        float radiusSqr = radiusPixels * radiusPixels;
-
         foreach (InteractableBase target in _nearbyInteractables)
         {
             if (target == null)
@@ -314,6 +311,10 @@ public class PlayerInteraction : NetworkBehaviour
             // 화면 중심과 대상의 스크린 좌표 간의 거리 제곱 계산
             // 제곱 거리를 사용해 불필요한 제곱근 계산을 피한다.
             float distanceSqr = (targetScreenPos - screenCenter).sqrMagnitude;
+
+            // 대상별 배율(AimRadiusMultiplier)을 반영해 판정 반경을 계산한다 (예: 계속 움직이는 NPC는 더 넓게).
+            float radiusPixels = Screen.height * _screenCenterRadius * target.AimRadiusMultiplier;
+            float radiusSqr = radiusPixels * radiusPixels;
 
             if (distanceSqr > radiusSqr)
             {

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public enum ArrestVoteState
 {
@@ -56,6 +55,12 @@ public class ArrestVoteManager : NetworkBehaviour
     private readonly NetworkVariable<int> _submittedCount =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    // 현재 검거 후보로 지정된 NPC (NPC 상호작용에서 서버가 검증 후 고정)
+    private readonly NetworkVariable<NetworkObjectReference> _arrestCandidateReference =
+        new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    public NetworkObject ArrestCandidate { get; private set; }
+
     // GetRemainingVoteTime()이 Voting 상태가 아닐 때도 재계산 없이 반환할 마지막 값
     private float _cachedRemainingVoteTime;
 
@@ -93,6 +98,8 @@ public class ArrestVoteManager : NetworkBehaviour
         _remainingVoteAttempts.OnValueChanged += HandleRemainingVoteAttemptsChanged;
         _currentVoteState.OnValueChanged += HandleVoteStateChanged;
         _submittedCount.OnValueChanged += HandleSubmittedCountChanged;
+        _arrestCandidateReference.OnValueChanged += HandleArrestCandidateChanged;
+        ResolveArrestCandidate(_arrestCandidateReference.Value);
 
         // 라운드별 투표 횟수 리셋 타이밍을 잡기위해 OnRoundStateChanged를 구독
         if (IsServer && RoundManager.Instance != null)
@@ -103,12 +110,6 @@ public class ArrestVoteManager : NetworkBehaviour
 
     private void Update()
     {
-        //임시 투표 요청 테스트용: 실제 NPC 상호작용/확인 UI가 생기면 제거
-        if (IsSpawned && Keyboard.current != null && Keyboard.current.f3Key.wasPressedThisFrame)
-        {
-            RequestStartVoteServerRpc();
-        }
-
         if (!IsSpawned || !IsServer) return;
 
         switch (_currentVoteState.Value)
@@ -123,6 +124,7 @@ public class ArrestVoteManager : NetworkBehaviour
             case ArrestVoteState.Rejected:
                 if (NetworkManager.ServerTime.Time >= _returnToIdleTime.Value)
                 {
+                    ArrestCandidate?.GetComponent<NpcMovement>()?.Resume(); // 멈춰뒀던 후보 NPC 이동을 재개
                     _currentVoteState.Value = ArrestVoteState.Idle; // 결과 표시 시간이 끝나 다음 투표를 받을 수 있게 리셋
                 }
                 break;
@@ -134,6 +136,7 @@ public class ArrestVoteManager : NetworkBehaviour
         _remainingVoteAttempts.OnValueChanged -= HandleRemainingVoteAttemptsChanged;
         _currentVoteState.OnValueChanged -= HandleVoteStateChanged;
         _submittedCount.OnValueChanged -= HandleSubmittedCountChanged;
+        _arrestCandidateReference.OnValueChanged -= HandleArrestCandidateChanged;
 
         if (IsServer && RoundManager.Instance != null)
         {
@@ -156,6 +159,20 @@ public class ArrestVoteManager : NetworkBehaviour
         OnSubmittedCountChanged?.Invoke(current);
     }
 
+    //검거 후보자가 변경될때마다 각 클라이언트들에 후보npc를 동기화한다.
+    private void HandleArrestCandidateChanged(NetworkObjectReference previous, NetworkObjectReference current)
+    {
+        ResolveArrestCandidate(current);
+    }
+
+    private void ResolveArrestCandidate(NetworkObjectReference reference)
+    {
+        if (reference.TryGet(out NetworkObject candidate))
+        {
+            ArrestCandidate = candidate;
+        }
+    }
+
     // Round1 또는 Round2가 "새로" 시작될 때마다 남은 투표 횟수를 최대치(5)로 되돌린다.
     private void HandleRoundStateChanged(RoundState state)
     {
@@ -175,6 +192,22 @@ public class ArrestVoteManager : NetworkBehaviour
         if (_remainingVoteAttempts.Value <= 0) return false;
 
         _remainingVoteAttempts.Value--;
+        return true;
+    }
+
+    // NPC 상호작용(ArrestCandidateInteractable)에서 거리 재검사까지 마친 뒤 호출하는 진입점.
+    // 투표 중이거나 이미 진행 중인 상태에서는 대상이 바뀌지 않도록 거절한다.
+    public bool TrySetArrestCandidate(NetworkObject npc)
+    {
+        if (!IsServer) return false;
+        if (_currentVoteState.Value != ArrestVoteState.Idle) return false;
+        if (npc == null || !npc.IsSpawned) return false;
+
+        _arrestCandidateReference.Value = npc;
+
+        // 투표가 진행되는 동안 후보 NPC가 자리를 벗어나지 않도록 이동을 멈춘다.
+        // (상호작용 시점에 이미 멈춰있는 게 보통이지만, 안전하게 한 번 더 보장한다.)
+        npc.GetComponent<NpcMovement>()?.Pause();
         return true;
     }
 
