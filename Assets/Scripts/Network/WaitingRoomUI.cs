@@ -19,8 +19,8 @@ public class WaitingRoomUI : MonoBehaviour
     private static readonly Color MutedColor = new Color(1f, 0f, 0f, 0.5f);
 	private static readonly Color UnmutedColor = new Color(0f, 1f, 0f, 0.5f);
 
-    // 준비 전(옅은 회색) / 준비 완료(옅은 초록) 버튼 색상
-    private static readonly Color NotReadyColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+    // 준비 전(흰색, 나가기 버튼과 동일) / 준비 완료(옅은 초록) 버튼 색상
+    private static readonly Color NotReadyColor = Color.white;
     private static readonly Color ReadyColor = new Color(0f, 1f, 0f, 0.5f);
 
     private bool _isHost;

@@ -44,6 +44,10 @@ public class RoundManager : NetworkBehaviour
     // GetRemainingTime()이 Fail/Success 이후에도 재계산 없이 반환할 마지막 남은 시간 (성공/실패 시점 값 고정용)
     private float _cachedRemainingTime;
 
+    // 검거 투표가 진행되는 동안 라운드 타이머를 멈추기 위한 상태 (서버만 사용)
+    private bool _isPausedForVote;
+    private double _votePauseStartTime;
+
     public RoundState CurrentState => _currentState.Value;
     
     // HQ 타이머 UI가 남은 시간 비율(색상 변화 등)을 계산하려면 라운드별 총 시간이 필요해서 노출
@@ -82,12 +86,45 @@ public class RoundManager : NetworkBehaviour
         if (IsServer)
         {
             StartRound1(); // 게임씬에 스폰되는 것 자체가 게임 시작 신호
+
+            if (ArrestVoteManager.Instance != null)
+            {
+                ArrestVoteManager.Instance.OnVoteStateChanged += HandleArrestVoteStateChanged;
+            }
         }
     }
 
     public override void OnNetworkDespawn()
     {
         _currentState.OnValueChanged -= HandleStateChanged;
+
+        if (IsServer && ArrestVoteManager.Instance != null)
+        {
+            ArrestVoteManager.Instance.OnVoteStateChanged -= HandleArrestVoteStateChanged;
+        }
+    }
+
+    // 검거 투표 시작부터 결과(가결/부결) 표시가 끝날 때까지 라운드 타이머를 멈추고,
+    // Idle로 돌아가는 순간 멈춰있던 만큼 종료 시각을 뒤로 밀어서 재개한다.
+    private void HandleArrestVoteStateChanged(ArrestVoteState state)
+    {
+        if (!IsServer) return;
+
+        bool shouldBePaused = state == ArrestVoteState.Voting
+            || state == ArrestVoteState.Passed
+            || state == ArrestVoteState.Rejected;
+
+        if (shouldBePaused && !_isPausedForVote)
+        {
+            _isPausedForVote = true;
+            _votePauseStartTime = NetworkManager.ServerTime.Time;
+        }
+        else if (!shouldBePaused && _isPausedForVote)
+        {
+            _isPausedForVote = false;
+            double pausedDuration = NetworkManager.ServerTime.Time - _votePauseStartTime;
+            _roundEndTime.Value += pausedDuration;
+        }
     }
 
     //최신 값으로 동기화
@@ -110,6 +147,7 @@ public class RoundManager : NetworkBehaviour
         }
 
         if (!IsSpawned || !IsServer) return;
+        if (_isPausedForVote) return; // 검거 투표 진행 중에는 시간초과 판정도 멈춘다
         if (NetworkManager.ServerTime.Time < _roundEndTime.Value) return;
 
         switch (_currentState.Value)
@@ -184,8 +222,15 @@ public class RoundManager : NetworkBehaviour
     {
         if (!IsSpawned) return 0f;
 
-        if (_currentState.Value == RoundState.Round1 || _currentState.Value == RoundState.Round2 ||
-            _currentState.Value == RoundState.Round1Clear)
+        // 검거 투표 시작부터 결과 표시가 끝날 때까지, 서버/클라이언트 모두 남은 시간 계산을 멈춰서 타이머가 멎어 보이게 한다.
+        ArrestVoteState? arrestVoteState = ArrestVoteManager.Instance?.CurrentVoteState;
+        bool isVotingInProgress = arrestVoteState == ArrestVoteState.Voting
+            || arrestVoteState == ArrestVoteState.Passed
+            || arrestVoteState == ArrestVoteState.Rejected;
+
+        if (!isVotingInProgress &&
+            (_currentState.Value == RoundState.Round1 || _currentState.Value == RoundState.Round2 ||
+             _currentState.Value == RoundState.Round1Clear))
         {
             _cachedRemainingTime = Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));
         }
