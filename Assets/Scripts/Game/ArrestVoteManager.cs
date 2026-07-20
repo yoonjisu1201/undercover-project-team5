@@ -29,8 +29,9 @@ public class ArrestVoteManager : NetworkBehaviour
     // 결과(가결/부결) 표시 후 Idle로 돌아가기까지 대기 시간 (초 단위)
     private const float ResultHoldSeconds = 3f;
 
-    // 결과를 Idle로 되돌릴 시각 (ServerTime 기준). 서버만 사용하므로 동기화하지 않는다.
-    private double _returnToIdleTime;
+    // 결과를 Idle로 되돌릴 시각 (ServerTime 기준). 결과 화면 카운트다운 표시를 위해 클라이언트도 읽을 수 있게 동기화한다.
+    private readonly NetworkVariable<double> _returnToIdleTime =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     // 남은 투표 시작 가능 횟수
     private readonly NetworkVariable<int> _remainingVoteAttempts =
@@ -57,6 +58,9 @@ public class ArrestVoteManager : NetworkBehaviour
 
     // GetRemainingVoteTime()이 Voting 상태가 아닐 때도 재계산 없이 반환할 마지막 값
     private float _cachedRemainingVoteTime;
+
+    // GetRemainingResultTime()이 Passed/Rejected 상태가 아닐 때도 재계산 없이 반환할 마지막 값
+    private float _cachedRemainingResultTime;
 
     // UI 등 외부에서 남은 횟수를 읽기 전용으로 참조하기 위한 프로퍼티
     public int RemainingVoteAttempts => _remainingVoteAttempts.Value;
@@ -117,7 +121,7 @@ public class ArrestVoteManager : NetworkBehaviour
                 break;
             case ArrestVoteState.Passed:
             case ArrestVoteState.Rejected:
-                if (NetworkManager.ServerTime.Time >= _returnToIdleTime)
+                if (NetworkManager.ServerTime.Time >= _returnToIdleTime.Value)
                 {
                     _currentVoteState.Value = ArrestVoteState.Idle; // 결과 표시 시간이 끝나 다음 투표를 받을 수 있게 리셋
                 }
@@ -218,7 +222,7 @@ public class ArrestVoteManager : NetworkBehaviour
 
         bool passed = yesCount >= PassThreshold;
         _currentVoteState.Value = passed ? ArrestVoteState.Passed : ArrestVoteState.Rejected;
-        _returnToIdleTime = NetworkManager.ServerTime.Time + ResultHoldSeconds;
+        _returnToIdleTime.Value = NetworkManager.ServerTime.Time + ResultHoldSeconds;
 
         if (passed)
         {
@@ -237,5 +241,18 @@ public class ArrestVoteManager : NetworkBehaviour
         }
 
         return _cachedRemainingVoteTime;
+    }
+
+    // 결과(가결/부결) 화면의 카운트다운 표시용. Voting의 GetRemainingVoteTime()과 동일한 패턴.
+    public float GetRemainingResultTime()
+    {
+        if (!IsSpawned) return 0f;
+
+        if (_currentVoteState.Value == ArrestVoteState.Passed || _currentVoteState.Value == ArrestVoteState.Rejected)
+        {
+            _cachedRemainingResultTime = Mathf.Max(0f, (float)(_returnToIdleTime.Value - NetworkManager.ServerTime.Time));
+        }
+
+        return _cachedRemainingResultTime;
     }
 }
