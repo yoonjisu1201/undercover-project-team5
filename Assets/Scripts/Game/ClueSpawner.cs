@@ -20,7 +20,9 @@ public sealed class ClueSpawner : MonoBehaviour
     [SerializeField, Min(0f)] private float _raycastHeight = 10f;
     [SerializeField, Min(0f)] private float _raycastDistance = 30f;
     [SerializeField, Min(0f)] private float _surfaceOffset = 0.04f;
-    [SerializeField, Min(0f)] private float _minimumClueDistance = 2f;
+    [SerializeField, Min(0f)] private float _minimumClueDistance = 5f;
+    [SerializeField, Min(0f)] private float _maximumClueDistance = 40f;
+    [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 1f;
 
     private readonly List<Vector3> _spawnedPositions = new();
     private bool _hasSpawned;
@@ -128,12 +130,21 @@ public sealed class ClueSpawner : MonoBehaviour
             return false;
         }
 
+        foreach (ClueSpawnArea area in _spawnAreas)
+        {
+            if (area == null || !area.IsConfigured)
+            {
+                Debug.LogError("[ClueSpawner] 모든 스폰 영역에 MapBlockController와 MapBlock을 연결해야 합니다.", this);
+                return false;
+            }
+        }
+
         return true;
     }
 
+    //--- 현재 활성화되고 해금된 영역만 선별 ---//
     private List<ClueSpawnArea> GetUnlockedAreas()
     {
-        //--- 현재 활성화되고 해금된 영역만 선별 ---//
         var unlockedAreas = new List<ClueSpawnArea>();
 
         foreach (ClueSpawnArea area in _spawnAreas)
@@ -147,15 +158,54 @@ public sealed class ClueSpawner : MonoBehaviour
         return unlockedAreas;
     }
 
+    private bool TryFindSpawnPosition2(List<ClueSpawnArea> areas, out Vector3 position)
+    {
+        //--- 해금된 영역에서 스폰 가능한 바닥 위치 탐색 ---//
+        for (int attempt = 0; attempt < _maxAttemptsPerClue; attempt++)
+        {
+
+            ClueSpawnArea area = areas[Random.Range(0, areas.Count)];
+            if (!area.TryGetRandomNavMeshPoint(
+                    _navMeshSampleDistance,
+                    _maximumClueDistance,
+                    out Vector3 navMeshPoint))
+            {
+                continue;
+            }
+            position = navMeshPoint + Vector3.up * _surfaceOffset;
+            // Vector3 rayOrigin = navMeshPoint + Vector3.up * _raycastHeight;
+            // if (!Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, _raycastDistance, _groundLayer, QueryTriggerInteraction.Ignore))
+            // {
+            //     continue;
+            // }
+
+            // position = hit.point + hit.normal * _surfaceOffset;
+            return true;
+        }
+
+        position = default;
+        return false;
+    }
+
     private bool TryFindSpawnPosition(List<ClueSpawnArea> areas, out Vector3 position)
     {
         //--- 영역 안의 임의 지점에서 Ground 레이어 탐색 ---//
         float minimumDistanceSquared = _minimumClueDistance * _minimumClueDistance;
+        Vector3 bestCandidate = default;
+        float bestNearestDistanceSquared = -1f;
 
         for (int attempt = 0; attempt < _maxAttemptsPerClue; attempt++)
         {
             ClueSpawnArea area = areas[Random.Range(0, areas.Count)];
-            Vector3 rayOrigin = area.GetRandomPointOnTop() + Vector3.up * _raycastHeight;
+            if (!area.TryGetRandomNavMeshPoint(
+                    _navMeshSampleDistance,
+                    _maximumClueDistance,
+                    out Vector3 navMeshPoint))
+            {
+                continue;
+            }
+
+            Vector3 rayOrigin = navMeshPoint + Vector3.up * _raycastHeight;
 
             // Raycast로 Ground 레이어를 탐색하여 단서가 놓일 위치를 결정한다.
             if (!Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, _raycastDistance, _groundLayer, QueryTriggerInteraction.Ignore))
@@ -164,15 +214,32 @@ public sealed class ClueSpawner : MonoBehaviour
             }
 
             Vector3 candidate = hit.point + hit.normal * _surfaceOffset;
-            // 단서가 한곳에 겹쳐 생성되지 않도록 기존 위치와 최소 거리를 검사한다.
-            bool overlapsAnotherClue = _spawnedPositions.Exists(spawned => (spawned - candidate).sqrMagnitude < minimumDistanceSquared);
-
-            if (overlapsAnotherClue)
+            if (_spawnedPositions.Count == 0)
             {
-                continue;
+                position = candidate;
+                return true;
             }
 
-            position = candidate;
+            //--- 여러 후보 중 기존 단서들과 가장 멀리 떨어진 위치 선택 ---//
+            float nearestDistanceSquared = float.MaxValue;
+            foreach (Vector3 spawnedPosition in _spawnedPositions)
+            {
+                float distanceSquared = (spawnedPosition - candidate).sqrMagnitude;
+                nearestDistanceSquared = Mathf.Min(nearestDistanceSquared, distanceSquared);
+
+            }
+
+            if (nearestDistanceSquared >= minimumDistanceSquared &&
+                nearestDistanceSquared > bestNearestDistanceSquared)
+            {
+                bestCandidate = candidate;
+                bestNearestDistanceSquared = nearestDistanceSquared;
+            }
+        }
+
+        if (bestNearestDistanceSquared >= 0f)
+        {
+            position = bestCandidate;
             return true;
         }
 
