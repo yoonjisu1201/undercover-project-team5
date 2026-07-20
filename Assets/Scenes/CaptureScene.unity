@@ -6222,6 +6222,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaptureManager
   _captureCamera: {fileID: 2028753712}
+  _renderTexture: {fileID: 0}
   Beard: {fileID: 1620408245}
   Eyebrows: {fileID: 1313397818}
   Glasses: {fileID: 1722907409}
@@ -6233,6 +6234,7 @@ MonoBehaviour:
   Arms: {fileID: 1211037810}
   Shoes: {fileID: 411940476}
   Torso: {fileID: 1469649056}
+  _id: 0
 --- !u!1001 &433901566
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -16650,7 +16652,7 @@ RenderTexture:
   m_TextureSettings:
     serializedVersion: 2
     m_FilterMode: 1
-    m_Aniso: 1
+    m_Aniso: 0
     m_MipBias: 0
     m_WrapU: 1
     m_WrapV: 1
@@ -31325,6 +31327,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2838c3393fdb45bbb1acda9259a301b1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CaptureCamera
+  _camera: {fileID: 0}
+  _renderTexture: {fileID: 0}
+  _texture: {fileID: 0}
 --- !u!1001 &2031862877
 PrefabInstance:
   m_ObjectHideFlags: 0
