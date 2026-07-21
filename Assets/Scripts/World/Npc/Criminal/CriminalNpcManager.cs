@@ -24,11 +24,30 @@ public class CriminalNpcManager : NetworkBehaviour
     {
         _criminalNpcReference.OnValueChanged += HandleCriminalNpcChanged;
         ResolveCriminalNpc(_criminalNpcReference.Value);
+
+        if (IsServer && RoundManager.Instance != null)
+        {
+            RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
+        }
     }
 
     public override void OnNetworkDespawn()
     {
         _criminalNpcReference.OnValueChanged -= HandleCriminalNpcChanged;
+
+        if (IsServer && RoundManager.Instance != null)
+        {
+            RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
+        }
+    }
+
+    // Round2가 시작되면 1라운드에서 잡힌 이전 범인은 제외하고 새 범인을 다시 지정한다.
+    private void HandleRoundStateChanged(RoundState state)
+    {
+        if (!IsServer) return;
+        if (state != RoundState.Round2) return;
+
+        AssignRandomCriminal(CriminalNpc);
     }
 
     private void OnEnable()
@@ -65,6 +84,12 @@ public class CriminalNpcManager : NetworkBehaviour
     {
         await UniTask.NextFrame(cancellationToken); // 다음 프레임까지 대기하여 모든 NPC가 스폰될 시간을 확보합니다.
 
+        AssignRandomCriminal(null);
+    }
+
+    // 범인 NPC를 랜덤으로 지정한다. exclude가 지정되면 해당 NPC는 후보에서 제외한다(Round2 재지정 시 이전 범인 제외용).
+    private void AssignRandomCriminal(NetworkObject exclude)
+    {
         NpcStateMachine[] npcs = FindObjectsByType<NpcStateMachine>(FindObjectsSortMode.None);  // 씬에 존재하는 모든 NpcStateMachine을 찾습니다.
 
         if (npcs.Length == 0)
@@ -73,8 +98,13 @@ public class CriminalNpcManager : NetworkBehaviour
             return;
         }
 
-        int randomIndex = Random.Range(0, npcs.Length); // 랜덤 인덱스를 생성하여 범인 NPC를 선택합니다.
-        NpcStateMachine selectedNpc = npcs[randomIndex];    // 선택된 NPC를 가져옵니다.
+        // NPC가 항상 exclude 한 마리보다 훨씬 많으므로, 뽑았다가 exclude면 다시 뽑는 방식으로 처리한다.
+        NpcStateMachine selectedNpc;
+        do
+        {
+            int randomIndex = Random.Range(0, npcs.Length); // 랜덤 인덱스를 생성하여 범인 NPC를 선택합니다.
+            selectedNpc = npcs[randomIndex];
+        } while (exclude != null && selectedNpc.TryGetComponent(out NetworkObject excludedCheck) && excludedCheck == exclude);
 
         if (!selectedNpc.TryGetComponent(out NetworkObject networkObject))
         {

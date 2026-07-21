@@ -28,6 +28,9 @@ public sealed class NpcRandomWander : MonoBehaviour
     private float _nextMoveTime;
     private bool _hasRequestedMove;
 
+    // 배회 영역으로 쓰는 콜라이더. 상호작용 트리거 판정(PlayerInteraction)에서 이 콜라이더는 제외하기 위해 노출한다.
+    public Collider WanderAreaCollider => _wanderArea;
+
     // NPC가 생성된 구역을 배회 가능 범위로 설정합니다.
     public void Initialize(MapRegion spawnRegion)
     {
