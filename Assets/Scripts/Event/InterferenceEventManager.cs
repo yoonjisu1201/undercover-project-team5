@@ -169,7 +169,7 @@ public sealed class InterferenceEventManager : NetworkBehaviour
         EndEventRpc(eventId, eventEndTime);
     }
 
-    [Rpc(SendTo.NotServer)]
+    [Rpc(SendTo.ClientsAndHost)]
     private void StartEventRpc(InterferenceEventId eventId, double activeStartTime, double eventEndTime)
     {
         double serverTime = NetworkManager.ServerTime.Time;
@@ -194,7 +194,7 @@ public sealed class InterferenceEventManager : NetworkBehaviour
         UpdateLocalEvent(serverTime);
     }
 
-    [Rpc(SendTo.NotServer)]
+    [Rpc(SendTo.ClientsAndHost)]
     private void EndEventRpc(InterferenceEventId eventId, double eventEndTime)
     {
         if (_localEventId != eventId || _localEventEndTime != eventEndTime)
