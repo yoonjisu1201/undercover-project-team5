@@ -190,7 +190,7 @@ public class GameSessionManager : MonoBehaviour
 			}
 			else if (playerObject.TryGetComponent(out PlayerMoveSample player))
 			{
-				player.TeleportToPositionRpc(Vector3.zero, playerObject.transform.rotation);
+				player.TeleportToPosition(Vector3.zero, playerObject.transform.rotation);
 			}
 		}
 	}
@@ -244,7 +244,7 @@ public class GameSessionManager : MonoBehaviour
 						Transform hqSpawnPoint = spawnHub.HQSpawnPoint;
 						if (hqSpawnPoint != null)
 						{
-							player.TeleportToPositionRpc(hqSpawnPoint.position, hqSpawnPoint.rotation);
+							player.TeleportToPosition(hqSpawnPoint.position, hqSpawnPoint.rotation);
 						}
 						else
 						{
@@ -256,7 +256,7 @@ public class GameSessionManager : MonoBehaviour
 
 					if (spawnHub.TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation))
 					{
-						player.TeleportToPositionRpc(position, rotation);
+						player.TeleportToPosition(position, rotation);
 					}
 					else
 					{

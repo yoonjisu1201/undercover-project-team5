@@ -301,11 +301,26 @@ public class PlayerMoveSample : NetworkBehaviour
 			QueryTriggerInteraction.Ignore);
 	}
 
-	/// <summary>
-	/// 플레이어 소유 클라이언트에서 Rigidbody 위치와 회전을 스폰 포인트로 이동한다.
-	/// </summary>
+	// 서버에서 지정한 스폰 위치로 이동한다.
+	public void TeleportToPosition(Vector3 position, Quaternion rotation)
+	{
+		// 호스트는 서버와 오너가 같은 인스턴스이므로 RPC를 거치지 않고 즉시 적용한다.
+		if (IsOwner)
+		{
+			ApplyTeleport(position, rotation);
+			return;
+		}
+
+		TeleportToPositionRpc(position, rotation);
+	}
+
 	[Rpc(SendTo.Owner)]
-	public void TeleportToPositionRpc(Vector3 position, Quaternion rotation)
+	private void TeleportToPositionRpc(Vector3 position, Quaternion rotation)
+	{
+		ApplyTeleport(position, rotation);
+	}
+
+	private void ApplyTeleport(Vector3 position, Quaternion rotation)
 	{
 		_rigidbody.linearVelocity = Vector3.zero;
 		_rigidbody.angularVelocity = Vector3.zero;
