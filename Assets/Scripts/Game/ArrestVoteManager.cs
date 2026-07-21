@@ -115,6 +115,12 @@ public class ArrestVoteManager : NetworkBehaviour
         switch (_currentVoteState.Value)
         {
             case ArrestVoteState.Voting:
+                if (ArrestCandidate == null || !ArrestCandidate.IsSpawned)
+                {
+                    ForceRejectDueToMissingCandidate(); // 투표 중 대상 NPC가 사라짐. 득표 계산 없이 즉시 부결 처리
+                    break;
+                }
+
                 if (NetworkManager.ServerTime.Time >= _voteEndTime.Value)
                 {
                     ResolveVote(); // 제한 시간 경과. 미제출자는 표에 없으므로 자동으로 X 취급된다.
@@ -125,6 +131,7 @@ public class ArrestVoteManager : NetworkBehaviour
                 if (NetworkManager.ServerTime.Time >= _returnToIdleTime.Value)
                 {
                     ArrestCandidate?.GetComponent<NpcMovement>()?.Resume(); // 멈춰뒀던 후보 NPC 이동을 재개
+                    _arrestCandidateReference.Value = default; // 다음 투표를 위해 검거 후보를 초기화
                     _currentVoteState.Value = ArrestVoteState.Idle; // 결과 표시 시간이 끝나 다음 투표를 받을 수 있게 리셋
                 }
                 break;
@@ -167,10 +174,7 @@ public class ArrestVoteManager : NetworkBehaviour
 
     private void ResolveArrestCandidate(NetworkObjectReference reference)
     {
-        if (reference.TryGet(out NetworkObject candidate))
-        {
-            ArrestCandidate = candidate;
-        }
+        ArrestCandidate = reference.TryGet(out NetworkObject candidate) ? candidate : null;
     }
 
     // Round1 또는 Round2가 "새로" 시작될 때마다 남은 투표 횟수를 최대치(5)로 되돌린다.
@@ -242,6 +246,14 @@ public class ArrestVoteManager : NetworkBehaviour
         {
             ResolveVote(); // 참여 인원 전원이 제출했으므로 기다리지 않고 즉시 계산
         }
+    }
+
+    // 투표 중 대상 NPC가 파괴/디스폰되어 더 이상 존재하지 않을 때 즉시 부결 처리한다.
+    private void ForceRejectDueToMissingCandidate()
+    {
+        _currentVoteState.Value = ArrestVoteState.Rejected;
+        _returnToIdleTime.Value = NetworkManager.ServerTime.Time + ResultHoldSeconds;
+        _arrestCandidateReference.Value = default;
     }
 
     // O표 수가 PassThreshold 이상이면 가결, 아니면 부결로 상태를 확정한다.
