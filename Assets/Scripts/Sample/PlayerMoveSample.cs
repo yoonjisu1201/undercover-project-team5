@@ -1,7 +1,5 @@
-using Unity.VisualScripting;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 
 /* InputActions를 활용하여 Input을 처리하는 방법 샘플입니다.
@@ -55,34 +53,29 @@ public class PlayerMoveSample : NetworkBehaviour
 	private CustomInputActions _actions;
 
 	private Animator _animator;
-    private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
-    private readonly NetworkVariable<bool> _networkIsMoving =
-    new NetworkVariable<bool>(
-        false,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Owner);
+	private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
+	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
+	private readonly NetworkVariable<bool> _networkIsMoving =
+		new NetworkVariable<bool>(
+			false,
+			NetworkVariableReadPermission.Everyone,
+			NetworkVariableWritePermission.Owner);
+	private readonly NetworkVariable<bool> _networkIsJumping =
+		new NetworkVariable<bool>(
+			false,
+			NetworkVariableReadPermission.Everyone,
+			NetworkVariableWritePermission.Owner);
 
-    private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
+	private bool _isJumping;
 
-    private bool _isJumping;
-
-    private readonly NetworkVariable<bool> _networkIsJumping =
-        new NetworkVariable<bool>(
-            false,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner);
-
-    private void Awake()
+	private void Awake()
 	{
-		// Awake에서 새로 생성
 		_actions = new CustomInputActions();
 		_actions.Enable();
 
-        //추가------
-        _animator = GetComponent<Animator>();
-        //------
+		_animator = GetComponent<Animator>();
 
-        if (_headBone != null)
+		if (_headBone != null)
 		{
 			_headBoneBaseRotation = _headBone.localRotation;
 		}
@@ -91,111 +84,85 @@ public class PlayerMoveSample : NetworkBehaviour
 	public override void OnDestroy()
 	{
 		_actions.Disable();
-        SceneManager.sceneLoaded -= HandleSceneLoaded;
-        base.OnDestroy();
+		base.OnDestroy();
 	}
 
-    //추가------
-    private void ApplyAnimatorBool(int hash, bool value)
-    {
-        _animator?.SetBool(hash, value);
-    }
+	private void ApplyAnimatorBool(int hash, bool value)
+	{
+		_animator?.SetBool(hash, value);
+	}
 
-    private void SyncAnimatorBool(
-        int hash,
-        NetworkVariable<bool> networkState,
-        bool value)
-    {
-        ApplyAnimatorBool(hash, value);
+	private void SyncAnimatorBool(
+		int hash,
+		NetworkVariable<bool> networkState,
+		bool value)
+	{
+		ApplyAnimatorBool(hash, value);
 
-        if (IsSpawned &&
-            IsOwner &&
-            networkState.Value != value)
-        {
-            networkState.Value = value;
-        }
-    }
+		if (IsSpawned &&
+			IsOwner &&
+			networkState.Value != value)
+		{
+			networkState.Value = value;
+		}
+	}
 
-    private void SetMovingState(bool value)
-    {
-        SyncAnimatorBool(
-            IsMovingHash,
-            _networkIsMoving,
-            value);
-    }
+	private void SetMovingState(bool value)
+	{
+		SyncAnimatorBool(IsMovingHash, _networkIsMoving, value);
+	}
 
-    private void SetJumpingState(bool value)
-    {
-        _isJumping = value;
+	private void SetJumpingState(bool value)
+	{
+		_isJumping = value;
+		SyncAnimatorBool(IsJumpingHash, _networkIsJumping, value);
+	}
 
-        SyncAnimatorBool(
-            IsJumpingHash,
-            _networkIsJumping,
-            value);
-    }
+	private void HandleMovingChanged(bool _, bool value)
+	{
+		ApplyAnimatorBool(IsMovingHash, value);
+	}
 
-    private void HandleMovingChanged(bool _, bool value)
-    {
-        ApplyAnimatorBool(IsMovingHash, value);
-    }
+	private void HandleJumpingChanged(bool _, bool value)
+	{
+		_isJumping = value;
+		ApplyAnimatorBool(IsJumpingHash, value);
+	}
 
-    private void HandleJumpingChanged(bool _, bool value)
-    {
-        _isJumping = value;
-        ApplyAnimatorBool(IsJumpingHash, value);
-    }
+	private void UpdateJumpAnimation()
+	{
+		if (_isJumping && _rigidbody.linearVelocity.y <= 0f && IsGrounded())
+		{
+			SetJumpingState(false);
+		}
+	}
 
-    private void UpdateJumpAnimation()
-    {
-        if (_isJumping && _rigidbody.linearVelocity.y <= 0f && IsGrounded())
-        {
-            SetJumpingState(false);
-        }
-    }
-
-    //------
-
-    // 스폰될 때마다(내 캐릭터든 다른 사람 캐릭터든) 호출된다.
-    public override void OnNetworkSpawn()
+	// 스폰될 때마다(내 캐릭터든 다른 사람 캐릭터든) 호출된다.
+	public override void OnNetworkSpawn()
 	{
 		Debug.Log($"[PlayerMoveNetworkTest] OwnerClientId = {OwnerClientId}, IsOwner = {IsOwner}");
 
-        //추가------
-        _networkIsMoving.OnValueChanged += HandleMovingChanged;
-        _networkIsJumping.OnValueChanged += HandleJumpingChanged;
+		_networkIsMoving.OnValueChanged += HandleMovingChanged;
+		_networkIsJumping.OnValueChanged += HandleJumpingChanged;
 
-        HandleMovingChanged(false, _networkIsMoving.Value);
-        HandleJumpingChanged(false, _networkIsJumping.Value);
-        //------
+		HandleMovingChanged(false, _networkIsMoving.Value);
+		HandleJumpingChanged(false, _networkIsJumping.Value);
 
-        if (!IsOwner)
+		if (!IsOwner)
 		{
 			_camera.enabled = false; // 내 캐릭터가 아니면 카메라 끄기
 			_camera.GetComponent<AudioListener>().enabled = false; //오디오 끄기
-            return;
-        }
+			return;
+		}
 
-        // DisableOtherCameras();
-        SceneManager.sceneLoaded += HandleSceneLoaded;
-    }
-    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
-    {
-        // DisableOtherCameras();
-    }
-    private void DisableOtherCameras()
-    {
-        foreach (var camera in Camera.allCameras)
-        {
-            // 다른 플레이어 카메라만 끄고 CCTV와 미니맵 카메라는 유지한다.
-            if (camera == _camera || camera.GetComponentInParent<PlayerMoveSample>() == null) continue;
+	}
 
-            camera.enabled = false;
-            if (camera.TryGetComponent(out AudioListener listener))
-            {
-                listener.enabled = false;
-            }
-        }
-    }
+	public override void OnNetworkDespawn()
+	{
+		_networkIsMoving.OnValueChanged -= HandleMovingChanged;
+		_networkIsJumping.OnValueChanged -= HandleJumpingChanged;
+		base.OnNetworkDespawn();
+	}
 
 	private void Update()
 	{
@@ -229,15 +196,9 @@ public class PlayerMoveSample : NetworkBehaviour
 		/// 버튼 입력 방식 적용하기
 		// Player - Interact라는 행동이 이번 프레임에 눌렸는지 확인한다.
 		// Keyboard.current.eKey.wasPressedThisFrame와 비슷하게 동작함
-		if (_actions.Player.Interact.WasPressedThisFrame())
-		{
-			Debug.Log($"상호작용 키 눌림!");
-		}
-
 		// 점프 입력은 Update에서 감지(입력 놓침 방지)하고, 실제 힘은 FixedUpdate에서 적용
 		if (_actions.Player.Jump.WasPressedThisFrame() && IsGrounded())
 		{
-			Debug.Log($"점프 키 눌림!");
 			_jumpRequested = true;
 		}
 	}
@@ -263,15 +224,13 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-        UpdateJumpAnimation();
+		UpdateJumpAnimation();
 
-        if (GameplayUiMode.IsMovementBlocked)    // UI 조작 중에는 이동을 받지 않음
+		if (GameplayUiMode.IsMovementBlocked)    // UI 조작 중에는 이동을 받지 않음
 		{
 			_jumpRequested = false;
-			//추가-------------
-            SetMovingState(false);
-            //-------------
-            return;
+			SetMovingState(false);
+			return;
 		}
 
 		HandleMovement();
@@ -282,16 +241,14 @@ public class PlayerMoveSample : NetworkBehaviour
 	// 입력 방향(바라보는 방향 기준)으로 Rigidbody를 물리적으로 이동시킨다
 	private void HandleMovement()
 	{
-        Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
+		Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
 
-        bool isMoving = move.sqrMagnitude > 0.01f;
+		bool isMoving = move.sqrMagnitude > 0.01f;
 
-        //추가------
-        SetMovingState(isMoving);
-        //------
+		SetMovingState(isMoving);
 
-        // forward/right에서 y를 제거해 수평 이동만 남긴다
-        Vector3 forward = transform.forward;
+		// forward/right에서 y를 제거해 수평 이동만 남긴다
+		Vector3 forward = transform.forward;
 		Vector3 right = transform.right;
 		forward.y = 0;
 		right.y = 0;
@@ -312,9 +269,9 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		if (!_jumpRequested) return;
 
-        SetJumpingState(true);
+		SetJumpingState(true);
 
-        Vector3 v = _rigidbody.linearVelocity;
+		Vector3 v = _rigidbody.linearVelocity;
 		v.y = _jumpPower;   // _jumpPower가 곧 상승 속도(m/s)
 		_rigidbody.linearVelocity = v;
 		_jumpRequested = false;

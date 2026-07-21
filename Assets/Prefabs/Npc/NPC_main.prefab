@@ -20,6 +20,8 @@ GameObject:
   - component: {fileID: -5934287379106585781}
   - component: {fileID: 5424859209972509726}
   - component: {fileID: -8526289625462226399}
+  - component: {fileID: 5679666744788918099}
+  - component: {fileID: 372783244129752030}
   m_Layer: 0
   m_Name: NPC_main
   m_TagString: Untagged
@@ -52,7 +54,7 @@ NavMeshAgent:
   m_GameObject: {fileID: 4117841426632770008}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 1
+  m_Radius: 0.5
   m_Speed: 2
   m_Acceleration: 8
   avoidancePriority: 50
@@ -62,9 +64,9 @@ NavMeshAgent:
   m_AutoBraking: 1
   m_AutoRepath: 1
   m_Height: 1.8
-  m_BaseOffset: 0
+  m_BaseOffset: 0.1
   m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 0
+  m_ObstacleAvoidanceType: 2
 --- !u!65 &7510282543702730878
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -100,6 +102,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NpcMovement
   _agent: {fileID: 7025927409923100008}
   _arrivalExtraDistance: 0.1
+  _obstacleAvoidanceType: 2
+  _minimumAvoidancePriority: 30
+  _maximumAvoidancePriority: 70
 --- !u!114 &5832881131759200260
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -113,8 +118,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcStateMachine
   _walkSpeed: 2
-  _runSpeed: 4
-  _idleDurationSeconds: 1
+  _longTravelDistanceThreshold: 20
+  _restIntervalDistance: 10
+  _minimumRestSeconds: 1
+  _maximumRestSeconds: 3
 --- !u!114 &-6353674599839067019
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -667,7 +674,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2885793439
+  GlobalObjectIdHash: 3461942607
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -6618,6 +6625,50 @@ MonoBehaviour:
   _outlineFadeDuration: 0.15
   _aimRadiusMultiplier: 3
   _rangeTolerance: 1
+--- !u!135 &5679666744788918099
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4117841426632770008}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 50
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &372783244129752030
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4117841426632770008}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c1443551cfb40e43be0a05944cc1245, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::NpcRandomWander
+  _wanderArea: {fileID: 5679666744788918099}
+  _groundLayer:
+    serializedVersion: 2
+    m_Bits: 8
+  _maxAttempts: 20
+  _raycastHeight: 10
+  _raycastDistance: 30
+  _navMeshSampleDistance: 1
+  _minimumMoveDistance: 2
+  _minimumIdleSeconds: 1
+  _maximumIdleSeconds: 3
 --- !u!1001 &4647163316118681920
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8392,7 +8443,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7911203386545139107, guid: c73e03d9b9803ba4a84c045a2e04813e, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7930902251132601493, guid: c73e03d9b9803ba4a84c045a2e04813e, type: 3}
       propertyPath: m_IsActive

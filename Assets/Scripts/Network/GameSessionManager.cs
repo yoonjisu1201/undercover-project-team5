@@ -224,7 +224,7 @@ public class GameSessionManager : MonoBehaviour
 				}
 			}
 
-			// 2) 서버에서 역할별 스폰 위치를 정하고 각 플레이어 소유 클라이언트에 이동을 요청한다.
+			// 2) 서버 플레이어는 본부에, 나머지 플레이어는 활성화된 필드에 배치한다.
 			SpawnPointHub spawnHub = FindAnyObjectByType<SpawnPointHub>();
 			if (spawnHub == null)
 			{
@@ -239,12 +239,29 @@ public class GameSessionManager : MonoBehaviour
 						continue;
 					}
 
-					// 역할 시스템이 완성되기 전까지 호스트는 본부, 나머지는 현장으로 배치한다.
-					Transform targetSpawnPoint = client.ClientId == NetworkManager.ServerClientId
-						? spawnHub.HQSpawnPoint
-						: spawnHub.SiteSpawnPoint;
+					if (client.ClientId == NetworkManager.ServerClientId)
+					{
+						Transform hqSpawnPoint = spawnHub.HQSpawnPoint;
+						if (hqSpawnPoint != null)
+						{
+							player.TeleportToPositionRpc(hqSpawnPoint.position, hqSpawnPoint.rotation);
+						}
+						else
+						{
+							Debug.LogError("본부 HQSpawnPoint가 설정되지 않았습니다.");
+						}
 
-					player.TeleportToPositionRpc(targetSpawnPoint.position, targetSpawnPoint.rotation);
+						continue;
+					}
+
+					if (spawnHub.TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation))
+					{
+						player.TeleportToPositionRpc(position, rotation);
+					}
+					else
+					{
+						Debug.LogError("활성화된 현장 스폰 구역에서 플레이어 스폰 위치를 찾지 못했습니다.");
+					}
 				}
 			}
 		}
