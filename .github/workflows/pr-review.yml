@@ -1,0 +1,250 @@
+name: PR Auto Review
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+# 같은 PR에 연속 push가 오면 진행 중인 리뷰를 취소하고 마지막 것만 실행
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # git log 히스토리 분석에 필요
+
+      - name: Build review context
+        id: ctx
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          EVENT_ACTION: ${{ github.event.action }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          CTX=/tmp/ctx
+          mkdir -p "$CTX"
+          EXCLUDE=(':!*.meta' ':!*.unity' ':!*.prefab' ':!*.asset' ':!*.anim' ':!*.controller' ':!*.mat')
+
+          # 1) 전체 변경 파일 목록 (에셋 포함)
+          git diff --name-status "$BASE"...HEAD > "$CTX/changed_files.txt"
+
+          # 2) 코드 diff — Unity 직렬화 파일 제외
+          git diff "$BASE"...HEAD -- . "${EXCLUDE[@]}" > "$CTX/review.diff"
+
+          # 3) 전역 공유 설정 diff — 직렬화 필터의 유일한 예외
+          #    레이어/태그/물리/렌더 설정과 패키지는 팀 전체가 공유하는 자원이라 리뷰 대상
+          git diff "$BASE"...HEAD -- \
+            'ProjectSettings/' 'Packages/manifest.json' 'Packages/packages-lock.json' \
+            'Assets/Settings/' > "$CTX/global_settings_full.diff"
+          head -c 40000 "$CTX/global_settings_full.diff" > "$CTX/global_settings.diff"
+          if [ "$(wc -c < "$CTX/global_settings_full.diff")" -gt 40000 ]; then
+            printf '\n# TRUNCATED: 40KB 초과분은 잘렸습니다. 필요하면 git diff로 직접 확인하세요.\n' >> "$CTX/global_settings.diff"
+          fi
+
+          # 4) synchronize 델타 diff (마지막 push 기준. force-push 등으로 계산 불가 시 빈 파일)
+          : > "$CTX/delta.diff"
+          if [ "$EVENT_ACTION" = "synchronize" ] && [ -n "$BEFORE_SHA" ] && git cat-file -e "$BEFORE_SHA" 2>/dev/null; then
+            git diff "$BEFORE_SHA"..HEAD -- . "${EXCLUDE[@]}" > "$CTX/delta.diff" || : > "$CTX/delta.diff"
+          fi
+
+          # 5) 커밋 이력: PR 커밋 목록 / 변경 .cs별 과거 이력 / base 최근 흐름 / C# 인벤토리
+          git log --oneline "$BASE"..HEAD > "$CTX/pr_commits.txt"
+          : > "$CTX/file_history.txt"
+          git diff --name-only "$BASE"...HEAD -- '*.cs' > "$CTX/_changed_cs.txt" || true
+          head -30 "$CTX/_changed_cs.txt" | while read -r f; do
+            { echo "### $f"; git log --follow --oneline -n 5 "$BASE" -- "$f"; echo; } >> "$CTX/file_history.txt"
+          done
+          git log --oneline -n 15 "$BASE" > "$CTX/recent_commits.txt"
+          git ls-files | grep -E '^Assets/.*\.cs$' | grep -v '^Assets/Imported/' > "$CTX/cs_inventory.txt" || true
+
+          # 6) PR 본문 + 연결 이슈 본문 사전 조회 (모델이 gh 호출에 턴을 쓰지 않도록)
+          gh pr view "$PR" --json title,body,author,headRefName > "$CTX/pr.json"
+          jq -r '"# PR: \(.title)\n- 작성자: \(.author.login) / 브랜치: \(.headRefName)\n\n\(.body // "(본문 없음)")"' \
+            "$CTX/pr.json" > "$CTX/pr_context.md"
+          ISSUES=$(grep -oE '#[0-9]+' "$CTX/pr_context.md" | grep -oE '[0-9]+' | sort -un | head -5 || true)
+          for n in $ISSUES; do
+            gh issue view "$n" --json title,body 2>/dev/null \
+              | jq -r --arg n "$n" '"\n---\n## 연결 이슈 #\($n): \(.title)\n\n\(.body // "")"' \
+              >> "$CTX/pr_context.md" || true
+          done
+
+          echo "code_bytes=$(wc -c < "$CTX/review.diff")" >> "$GITHUB_OUTPUT"
+          echo "settings_bytes=$(wc -c < "$CTX/global_settings_full.diff")" >> "$GITHUB_OUTPUT"
+
+      - name: Claude review
+        id: review
+        if: steps.ctx.outputs.code_bytes != '0' || steps.ctx.outputs.settings_bytes != '0'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}   # Claude GitHub App 대신 워크플로우 토큰 사용
+          track_progress: true                # 트래킹 코멘트 1개 생성 + PR 코멘트 전체를 컨텍스트에 포함
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(gh pr comment:*),Bash(git log:*),Bash(git show:*),Bash(git diff:*),mcp__github_comment__update_claude_comment"
+            --max-turns 35
+            --model ${{ vars.PR_REVIEW_MODEL || 'claude-sonnet-5' }}
+            --append-system-prompt "너는 Undercover 프로젝트(Unity로 만드는 변장/잠입 소셜 딕션 게임)를 기술적으로 리드하는 시니어 게임 개발자다. 리뷰의 존재 이유는 규칙 위반 찾기가 아니라, 팀원들이 병렬로 만드는 시스템들이 하나의 게임으로 매끄럽게 통합되도록 지금 방향을 잡아주는 것이다. 모든 출력은 한국어. 사실 주장(파일:라인, API 시그니처, 기획 문서 조항)은 반드시 도구로 직접 확인한 것만 쓴다. 세부 결함은 확신 있는 것만 지적하되, 아키텍처·통합 방향 제시는 근거를 명시하면 확신이 100%가 아니어도 낸다 — 단 '제안'임을 명시한다."
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            EVENT: ${{ github.event.action }}
+            AUTHOR: ${{ github.event.pull_request.user.login }}
+            HEAD SHA: ${{ github.event.pull_request.head.sha }}
+            BEFORE SHA: ${{ github.event.before }}
+
+            이 PR을 시니어 게임 개발자 관점으로 리뷰하라.
+            문서-코드 일치 점검은 하지 마라 — 이 팀은 구현 후 문서를 코드에 맞춰 갱신하므로 둘은
+            항상 일치하며, 작성자 본인이 이 PR에서 갱신한 문서는 검증 근거가 아니다.
+            대신 "이 문서+코드 세트 자체가 팀과 기획 방향 관점에서 올바른가"를 본다.
+
+            [입력 데이터 — 전부 사전 준비됨. 탐색에 턴을 쓰지 말고 Read로 바로 읽어라]
+            - /tmp/ctx/pr_context.md : PR 제목/본문 + 연결 이슈 본문
+            - /tmp/ctx/review.diff : 코드 diff (Unity 직렬화 파일 제외. 크면 offset/limit으로 분할)
+            - /tmp/ctx/global_settings.diff : ProjectSettings(레이어/태그/물리/렌더)·패키지 설정 diff.
+              비어있지 않으면 반드시 검토 — 레이어는 32개 한정, 전부 팀 전체 공유 전역 자원이다.
+            - /tmp/ctx/delta.diff : (synchronize일 때만) 마지막 push의 델타 diff
+            - /tmp/ctx/changed_files.txt : 전체 변경 파일 목록. 씬/프리팹/에셋 변경은 요약에 한 줄만
+            - /tmp/ctx/pr_commits.txt, file_history.txt, recent_commits.txt : 커밋 이력
+            - /tmp/ctx/cs_inventory.txt : 저장소 C# 파일 전체 목록 (시스템 지도 탐색용)
+
+            [0단계 — 리뷰 모드 결정]
+            EVENT가 synchronize이면 델타 리뷰 모드, 아니면 전체 리뷰 모드.
+            델타 리뷰 모드:
+            1. 컨텍스트에 포함된 이전 리뷰 코멘트에서 마지막 줄 "리뷰 기준 커밋: <sha>"를 찾는다.
+               (컨텍스트에 없으면 gh pr view --comments로 조회.) 그래도 없으면 전체 리뷰 모드로 전환.
+            2. 그 sha가 BEFORE SHA와 같으면 /tmp/ctx/delta.diff가 검토 대상이다. 다르면(리뷰 없이
+               지나간 push 존재) git diff <sha>..HEAD -- . ':!*.meta' ':!*.unity' ':!*.prefab'
+               ':!*.asset' ':!*.anim' ':!*.controller' ':!*.mat' 로 직접 델타를 얻는다.
+            3. 이전 지적(🔴/🟠)이 *올바르게* 수정됐는지 하나씩 검증한다 — 반영/부분 반영/미반영.
+               지적을 피상적으로 회피한 수정(예: 문제를 다른 잘못된 위치로 옮김)은 다시 지적한다.
+            4. 델타만 4관점(아래)으로 압축 검토하고, 코멘트는 "🔁 재리뷰" 형식으로 짧게 쓴다.
+
+            [1단계 — 의도 파악]
+            /tmp/ctx/pr_context.md로 PR 의도와 연결 이슈를 파악한다. 이슈의 완료 기준과 실제 구현
+            범위가 어긋나면(미완료 이슈를 Closes로 자동 종료하는 경우 포함) 지적한다.
+
+            [2단계 — 변경 읽기]
+            /tmp/ctx/review.diff와 /tmp/ctx/global_settings.diff를 읽는다. diff만으로 파악이 어려운
+            파일은 저장소에서 전체 파일을 Read로 읽는다.
+
+            [3단계 — 컨텍스트 수집 (이 리뷰의 핵심. 생략 금지)]
+            a. Docs/Review/SystemMap.md, Docs/Review/WatchList.md (있으면 필수, 없으면 c~e로 대체) —
+               SystemMap은 시스템 지도·공개 API·접점 매트릭스·팀 계약, WatchList는 과거 리뷰에서
+               누적된 미해결 이슈 원장(WL-번호)이다. 존재하면 이 PR이 어떤 시스템/접점을 건드리는지,
+               WatchList 항목을 해결/악화/신설하는지 대조한다. 둘 다 없으면 "문서 없음"이라고만
+               적고 c~e 단계의 직접 코드 검토로 통합 리스크를 판단한다.
+            b. 팀원별 코드 직접 확인 — 이 PR이 새 API·데이터 구조·매니저·enum·용어를 도입하면,
+               같은 개념이 저장소 다른 폴더에 이미 존재하는지 Grep/Glob으로 먼저 검색한다.
+               (예: 새 데이터 구조 → 기존 ScriptableObject/데이터 클래스 검색, 새 매니저 →
+               기존 매니저 네이밍/싱글턴 패턴 검색, UI 상태 → 기존 화면 전환 로직 검색)
+               중복 발명이면 지적하고, 기존 것을 어디서 찾았는지 파일:라인으로 근거를 남긴다.
+            c. 기획 문서 대조 — Docs/5팀_0706_기획서.docx(가능하면 Read로 시도, 실패하면 생략하고
+               그 사실을 명시), Docs/5팀 빌드 0 빌드 노트.md, Docs/5팀 빌드 0 빌드 결과 보고서.md,
+               Docs/5팀 빌드 0 다음 빌드 계획.md 를 읽고 다음 빌드 계획과 이 PR의 방향이 맞는지 본다.
+            d. 히스토리 — /tmp/ctx/file_history.txt를 보고, 필요하면 git log/show로 파고든다.
+               과거 커밋(특히 fix)이 고친 문제를 이 PR이 되돌리지 않는지 본다.
+
+            [4단계 — 4관점 분석 (우선순위 순)]
+            ① 통합(다른 팀원 시스템) — 최우선.
+               - 이 PR의 산출물(API/이벤트/데이터)이 그것을 소비할 다른 시스템 입장에서 쓸 수 있는
+                 형태인가? (예: 목록을 만들면 순서 있는 공개 API인가, private/HashSet인가)
+               - 같은 문제를 푸는 코드·데이터 경로가 이미 있는데 새로 발명하고 있지 않은가?
+               - 전역 공유 자원(레이어, 네임스페이스, 용어, 씬 이름, ProjectSettings)을 합의 없이
+                 점유/변경하는가?
+            ② 미래 설계 충돌(기획 문서)
+               - 기획 문서/빌드 계획이 예정한 미구현 시스템과 나중에 충돌할 구조인가?
+               - 기획 문서에 없는 신규 디자인 결정(새 규칙, 새 용어, 새 화면 흐름)이 코드로 들어오면
+                 팀 합의가 필요함을 명시한다.
+               - 밸런싱 수치가 코드/인스펙터에 하드코딩되어 있으면 데이터 테이블 분리를 제안한다.
+            ③ 아키텍처 일관성(과거)
+               - 저장소 안에서 반복되는 기존 컨벤션(매니저 수명주기, 네임스페이스, 에셋 로딩 방식)과
+                 일관적인가? 다른 방식 도입이면 개선인지 드리프트인지 판단한다.
+               - WatchList가 있고 반복 이슈가 재발하면 "(WL-번호, N번째 재발)"로 표기하고 심각도를 올린다.
+            ④ 정확성·Unity 함정
+               - NRE(SO 미할당, Instance null, Mouse.current null), 수명주기 순서, 매 프레임 할당,
+                 이벤트 구독 해제 누락, 씬 전환/도메인 리로드 시 끊어지는 참조.
+
+            [5단계 — 출력]
+            mcp__github_comment__update_claude_comment 로 트래킹 코멘트를 아래 형식으로 갱신한다.
+            이 도구가 실패하면 gh pr comment로 같은 내용을 게시한다. 인라인 코멘트는 만들지 않는다.
+
+            전체 리뷰 형식:
+            ## 📋 구현 요약
+            (3~6줄. 씬/에셋 변경 1줄, 연결 이슈 충족 여부 포함)
+            ## 🔗 통합 리뷰 — 다른 시스템과의 접점
+            (접점별로: 무엇과 만나는지 → 현재 상태 → 판정. 실제로 읽은 관련 코드 파일:라인 근거 필수)
+            ## 🔮 미래 설계 충돌 — 기획 문서 대조
+            (기획 문서/빌드 계획 인용. 충돌 없으면 "충돌 없음" 한 줄)
+            ## 🏛️ 아키텍처 일관성 — 히스토리·컨벤션
+            ## 🐛 세부 결함
+            ## 🧩 다음 통합 지점
+            (이 PR 이후 팀이 맞물려야 할 작업 1~3개, "누가 — 무엇을" 형식)
+            ## 📒 WatchList 갱신 제안
+            (Docs/Review/WatchList.md가 존재할 때만. 해결된 항목/새 항목을 그 파일 형식 그대로 —
+            팀원이 복사해 커밋할 수 있게. 문서가 없으면 섹션 생략)
+            ## ✅ 종합 판정
+            (🔴 N / 🟠 N / 🟡 N 요약 + 머지 권고: "머지 가능" / "🔴 해결 후 머지" / "팀 논의 필요".
+            잘한 점 1~2줄 포함)
+
+            리뷰 기준 커밋: <HEAD SHA를 그대로 적는다>
+
+            델타 리뷰 형식:
+            ## 🔁 재리뷰 (커밋 <short sha>까지)
+            이전 지적 N건 중: 반영 N / 부분 반영 N / 미반영 N (각 항목 한 줄 판정)
+            ## 새 변경 검토
+            (새 지적이 있으면 아래 지적 형식으로, 없으면 "특이사항 없음")
+            ## ✅ 종합 판정
+            리뷰 기준 커밋: <HEAD SHA>
+
+            [지적 항목 형식 — 🔗/🔮/🏛️/🐛 섹션 공통]
+            - **[🔴|🟠|🟡|🔵]** `파일:라인` — 한 줄 요약
+              - 근거: 코드/기획 문서 조항/관련 시스템 파일:라인/WL-번호
+              - 시나리오: 이대로 가면 언제, 무엇이 깨지는가
+              - 제안: 구체적 대안 한 가지
+
+            [심각도 기준]
+            - 🔴 Blocker: 머지 전 수정 필수 — 확실한 버그, 팀 계약 위반, 다른 시스템을 즉시 깨뜨리는 변경
+            - 🟠 통합 리스크: 머지는 가능하나 방치하면 통합 시 재작업 확정 — 관련 부분을 구체적으로
+              명시하고 합의를 요청한다. WatchList 등재 대상
+            - 🟡 방향 제안: 지금 결정하면 싸게 먹히는 아키텍처/설계 방향 (근거 명시, 강제 아님)
+            - 🔵 참고: 알아두면 좋은 정보 (최대 2건)
+
+            [규칙]
+            - 지적은 전 섹션 합쳐 최대 8개. 확신 없는 지적과 사소한 스타일은 버려라. 단, 지금 정하지
+              않으면 재작업이 커지는 결정(공개 API 시그니처, 데이터 소유권, 레이어, 네임스페이스)은
+              스타일이 아니라 설계다 — 근거가 있으면 반드시 제기하라.
+            - 모든 지적에 근거(파일:라인, 기획 문서 조항, WatchList 항목, git 커밋)를 명시한다.
+              존재를 확인하지 않은 코드를 인용하지 마라.
+            - 다른 부분의 문제를 발견하면 이 PR 작성자의 책임이 아님을 명시하고
+              "🧩 다음 통합 지점"에서 다뤄라.
+            - 지적할 것이 없는 섹션은 "위배 없음"이 아니라 무엇을 확인했는지 한 줄로 쓴다.
+            - 칭찬은 짧게 — 그러나 잘 설계된 부분(좋은 계약, 테스트 친화 구조)은 반드시 1회 언급한다.
+              팀이 지킬 기준이 된다.
+
+      - name: Review failure note
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "🤖 ⚠️ 자동 리뷰 실행이 실패했습니다. Actions 로그를 확인하고, 필요하면 코멘트로 \`@claude 리뷰해줘\` 를 남겨 재시도하세요."
+
+      - name: Asset-only skip note
+        if: |
+          steps.ctx.outputs.code_bytes == '0' && steps.ctx.outputs.settings_bytes == '0'
+          && github.event.action != 'synchronize'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "🤖 코드/전역 설정 변경이 없는 에셋 전용 PR이라 자동 리뷰를 생략했습니다. 필요하면 코멘트로 \`@claude 리뷰해줘\` 라고 요청하세요."
