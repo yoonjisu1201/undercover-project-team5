@@ -62,6 +62,16 @@ public class PlayerMoveSample : NetworkBehaviour
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Owner);
 
+    private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
+
+    private bool _isJumping;
+
+    private readonly NetworkVariable<bool> _networkIsJumping =
+        new NetworkVariable<bool>(
+            false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner);
+
     private void Awake()
 	{
 		// Awake에서 새로 생성
@@ -86,35 +96,62 @@ public class PlayerMoveSample : NetworkBehaviour
 	}
 
     //추가------
-    private void ApplyMovingAnimation(bool isMoving)
+    private void ApplyAnimatorBool(int hash, bool value)
     {
-        if (_animator != null)
-        {
-            _animator.SetBool(IsMovingHash, isMoving);
-        }
+        _animator?.SetBool(hash, value);
     }
 
-    private void SetMovingState(bool isMoving)
+    private void SyncAnimatorBool(
+        int hash,
+        NetworkVariable<bool> networkState,
+        bool value)
     {
-        // 내 화면에 즉시 적용
-        ApplyMovingAnimation(isMoving);
+        ApplyAnimatorBool(hash, value);
 
-        // 다른 클라이언트에 전달
         if (IsSpawned &&
             IsOwner &&
-            _networkIsMoving.Value != isMoving)
+            networkState.Value != value)
         {
-            _networkIsMoving.Value = isMoving;
+            networkState.Value = value;
         }
     }
 
-    private void HandleMovingChanged(
-        bool previousValue,
-        bool newValue)
+    private void SetMovingState(bool value)
     {
-        ApplyMovingAnimation(newValue);
+        SyncAnimatorBool(
+            IsMovingHash,
+            _networkIsMoving,
+            value);
     }
 
+    private void SetJumpingState(bool value)
+    {
+        _isJumping = value;
+
+        SyncAnimatorBool(
+            IsJumpingHash,
+            _networkIsJumping,
+            value);
+    }
+
+    private void HandleMovingChanged(bool _, bool value)
+    {
+        ApplyAnimatorBool(IsMovingHash, value);
+    }
+
+    private void HandleJumpingChanged(bool _, bool value)
+    {
+        _isJumping = value;
+        ApplyAnimatorBool(IsJumpingHash, value);
+    }
+
+    private void UpdateJumpAnimation()
+    {
+        if (_isJumping && _rigidbody.linearVelocity.y <= 0f && IsGrounded())
+        {
+            SetJumpingState(false);
+        }
+    }
 
     //------
 
@@ -125,8 +162,10 @@ public class PlayerMoveSample : NetworkBehaviour
 
         //추가------
         _networkIsMoving.OnValueChanged += HandleMovingChanged;
+        _networkIsJumping.OnValueChanged += HandleJumpingChanged;
 
-        ApplyMovingAnimation(_networkIsMoving.Value);
+        HandleMovingChanged(false, _networkIsMoving.Value);
+        HandleJumpingChanged(false, _networkIsJumping.Value);
         //------
 
         if (!IsOwner)
@@ -224,7 +263,9 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		if (GameplayUiMode.IsMovementBlocked)    // UI 조작 중에는 이동을 받지 않음
+        UpdateJumpAnimation();
+
+        if (GameplayUiMode.IsMovementBlocked)    // UI 조작 중에는 이동을 받지 않음
 		{
 			_jumpRequested = false;
 			//추가-------------
@@ -271,7 +312,9 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		if (!_jumpRequested) return;
 
-		Vector3 v = _rigidbody.linearVelocity;
+        SetJumpingState(true);
+
+        Vector3 v = _rigidbody.linearVelocity;
 		v.y = _jumpPower;   // _jumpPower가 곧 상승 속도(m/s)
 		_rigidbody.linearVelocity = v;
 		_jumpRequested = false;
