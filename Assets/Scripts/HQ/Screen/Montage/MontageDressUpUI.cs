@@ -6,34 +6,34 @@ using UnityEngine.UI;
 
 public class MontageDressUpUI : ScreenBase {
 	// 항상 탭에 같은 순서로 등장하도록 하기 위해 순서 지정
-	private readonly List<SilhouetteParts> _partOrder = new()
+	private readonly List<MontageParts> _partOrder = new()
 	{
-		SilhouetteParts.Hair,
-		SilhouetteParts.Eyebrows,
-		SilhouetteParts.Beard,
-		SilhouetteParts.Hats,
-		SilhouetteParts.Headphones,
-		SilhouetteParts.Glasses,
-		SilhouetteParts.Masks,
-		SilhouetteParts.Torso,
-		SilhouetteParts.Pants,
-		SilhouetteParts.Arms,
-		SilhouetteParts.Shoes
+		MontageParts.Hair,
+		MontageParts.Eyebrows,
+		MontageParts.Beard,
+		MontageParts.Hats,
+		MontageParts.Headphones,
+		MontageParts.Glasses,
+		MontageParts.Masks,
+		MontageParts.Torso,
+		MontageParts.Pants,
+		MontageParts.Arms,
+		MontageParts.Shoes
 	};
 	
 	// 탭/레코드 UI에 표시할 파츠별 한글 라벨
-	private static readonly Dictionary<SilhouetteParts, string> PartLabels = new Dictionary<SilhouetteParts, string> {
-	   { SilhouetteParts.Torso, "상의" },
-	   { SilhouetteParts.Arms, "팔" },
-	   { SilhouetteParts.Pants, "바지" },
-	   { SilhouetteParts.Shoes, "신발" },
-	   { SilhouetteParts.Hair, "헤어" },
-	   { SilhouetteParts.Hats, "모자" },
-	   { SilhouetteParts.Glasses, "안경" },
-	   { SilhouetteParts.Eyebrows, "눈썹" },
-	   { SilhouetteParts.Beard, "수염" },
-	   { SilhouetteParts.Masks, "마스크" },
-	   { SilhouetteParts.Headphones, "헤드폰" },
+	private static readonly Dictionary<MontageParts, string> PartLabels = new Dictionary<MontageParts, string> {
+	   { MontageParts.Torso, "상의" },
+	   { MontageParts.Arms, "팔" },
+	   { MontageParts.Pants, "바지" },
+	   { MontageParts.Shoes, "신발" },
+	   { MontageParts.Hair, "헤어" },
+	   { MontageParts.Hats, "모자" },
+	   { MontageParts.Glasses, "안경" },
+	   { MontageParts.Eyebrows, "눈썹" },
+	   { MontageParts.Beard, "수염" },
+	   { MontageParts.Masks, "마스크" },
+	   { MontageParts.Headphones, "헤드폰" },
 	};
 
 	[Header("=== 상단 ===")]
@@ -55,15 +55,15 @@ public class MontageDressUpUI : ScreenBase {
 	[SerializeField] private Montage montageObject;
 
 	// 파츠별 탭 버튼의 배경 이미지 (활성/비활성 색상 전환용)
-	private readonly Dictionary<SilhouetteParts, Image> _tabBackgrounds = new Dictionary<SilhouetteParts, Image>();
+	private readonly Dictionary<MontageParts, Image> _tabBackgrounds = new Dictionary<MontageParts, Image>();
 	// 현재 활성 탭에서 생성된 레코드 행 목록 (탭 전환 시 파괴 후 재생성)
 	private readonly List<MontageRecordRow> _spawnedRows = new List<MontageRecordRow>();
 	// 파츠별로 마지막에 장착(할당)한 옷의 id (탭을 넘어가도 유지되는 영속 상태)
-	private readonly Dictionary<SilhouetteParts, int> _assignedIds = new Dictionary<SilhouetteParts, int>();
+	private readonly Dictionary<MontageParts, int> _assignedIds = new Dictionary<MontageParts, int>();
 
 	[Header("=== 디 버 그 용 ===")] 
-	[SerializeField] private Dictionary<SilhouetteParts, List<SilhouetteClothData>> _dataByParts = new Dictionary<SilhouetteParts, List<SilhouetteClothData>>();
-	[SerializeField] private SilhouetteParts _activePart = SilhouetteParts.Hair;
+	[SerializeField] private Dictionary<MontageParts, List<MontageClothData>> _dataByParts = new Dictionary<MontageParts, List<MontageClothData>>();
+	[SerializeField] private MontageParts _activePart = MontageParts.Hair;
 	
 	// 탭 버튼은 한 번만 생성하면 되므로 중복 생성을 막기 위한 플래그
 	private bool _tabsBuilt;
@@ -77,10 +77,10 @@ public class MontageDressUpUI : ScreenBase {
 	
 	// Resources.Load를 통해 필요한 데이터 로드하기
 	private void LoadDatas() { 
-		foreach (SilhouetteParts part in _partOrder) {
+		foreach (MontageParts part in _partOrder) {
 			_dataByParts.Add(
 				part,
-				Resources.LoadAll<SilhouetteClothData>(
+				Resources.LoadAll<MontageClothData>(
 					$"Montage/ClothData/{part.ToString()}"
 				).ToList()
 			);
@@ -104,7 +104,7 @@ public class MontageDressUpUI : ScreenBase {
 	   _tabsBuilt = true;
 
 	   // 순서 맞춰서 기반으로 탭 생성
-	   foreach (SilhouetteParts part in _partOrder) {
+	   foreach (MontageParts part in _partOrder) {
 	      GameObject tabObj = Instantiate(_tabButtonPrefab, _tabContainer);
 	      tabObj.name = $"Tab_{part}";
 	      tabObj.SetActive(true);
@@ -122,11 +122,11 @@ public class MontageDressUpUI : ScreenBase {
 	   }
 	}
 
-	private void SetActiveTab(SilhouetteParts part) {
+	private void SetActiveTab(MontageParts part) {
 	   _activePart = part;
 
 	   // 선택된 탭만 활성 색상으로, 나머지는 비활성 색상으로 표시
-	   foreach (KeyValuePair<SilhouetteParts, Image> pair in _tabBackgrounds) {
+	   foreach (KeyValuePair<MontageParts, Image> pair in _tabBackgrounds) {
 	      pair.Value.color = pair.Key == part ? _tabActiveColor : _tabInactiveColor;
 	   }
 
@@ -141,7 +141,7 @@ public class MontageDressUpUI : ScreenBase {
 	   _spawnedRows.Clear();
 
 	   // 현재 활성 파츠에 해당하는 데이터만 필터링해 행으로 생성
-	   foreach (SilhouetteClothData data in _dataByParts[_activePart]) {
+	   foreach (MontageClothData data in _dataByParts[_activePart]) {
 	      string recordId = $"{_activePart.ToString()}\n{data.id:00}";
 
 	      MontageRecordRow row = Instantiate(_recordRowPrefab, _recordContainer);

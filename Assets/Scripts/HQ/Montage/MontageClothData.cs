@@ -2,11 +2,11 @@
 using UnityEngine;
 
 [CreateAssetMenu(
-	fileName = "SilhouetteClothData",
+	fileName = "MontageClothData",
 	menuName = "Montage")]
-public class SilhouetteClothData : ScriptableObject {
+public class MontageClothData : ScriptableObject {
 	public int id;
-	public SilhouetteParts Part;
+	public MontageParts Part;
 	public Sprite ClothThumbnail;
 	public GameObject ClothPrefabs;
 }

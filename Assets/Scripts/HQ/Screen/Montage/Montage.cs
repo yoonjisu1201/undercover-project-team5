@@ -3,16 +3,16 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 public class Montage : MonoBehaviour {
-	private Dictionary<SilhouetteParts, GameObject> _clothByParts;
+	private Dictionary<MontageParts, GameObject> _clothByParts;
 
 	[Header("=== 옷을 생성할 부모 Transform ===")]
 	[SerializeField] private Transform _clothParent;
 	public void Initialize() {
-		_clothByParts = new Dictionary<SilhouetteParts, GameObject>();
+		_clothByParts = new Dictionary<MontageParts, GameObject>();
 	}
 	
 	// 옷입히기
-	public void WearCloth(SilhouetteParts part, GameObject cloth) {
+	public void WearCloth(MontageParts part, GameObject cloth) {
 		// 이미 존재하면 갈아입혀야 함.
 		if (_clothByParts.TryGetValue(part, out _)) { RemoveCloth(part); }
 		
@@ -23,7 +23,7 @@ public class Montage : MonoBehaviour {
 	}
 	
 	// 옷벗기기
-	public void RemoveCloth(SilhouetteParts part) {
+	public void RemoveCloth(MontageParts part) {
 		if (!_clothByParts.ContainsKey(part)) {
 			Debug.LogError($"[Montage] 입고 있지 않은 부위를 탈착하려 함");
 		}

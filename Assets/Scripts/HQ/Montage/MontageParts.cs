@@ -1,4 +1,4 @@
-﻿public enum SilhouetteParts {
+﻿public enum MontageParts {
 	Beard,
 	Eyebrows,
 	Glasses,

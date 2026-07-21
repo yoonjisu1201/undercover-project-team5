@@ -14,11 +14,11 @@ public class MontageRecordRow : MonoBehaviour {
 	[SerializeField] private Color _offColor = new Color(0.106f, 0.161f, 0.161f, 1f);
 	[SerializeField] private Color _onColor = new Color(0.231f, 0.910f, 0.659f, 0.16f);
 
-	private SilhouetteClothData _data;
+	private MontageClothData _data;
 	private Action<MontageRecordRow> _onClicked;
 	private bool _isOn;
 
-	public SilhouetteClothData Data => _data;
+	public MontageClothData Data => _data;
 
 	private void Awake() {
 		_button.onClick.AddListener(HandleClicked);
@@ -28,7 +28,7 @@ public class MontageRecordRow : MonoBehaviour {
 		_button.onClick.RemoveListener(HandleClicked);
 	}
 
-public void Setup(SilhouetteClothData data, string recordId, bool isOn, Action<MontageRecordRow> onClicked) {
+public void Setup(MontageClothData data, string recordId, bool isOn, Action<MontageRecordRow> onClicked) {
 		_data = data;
 		_onClicked = onClicked;
 

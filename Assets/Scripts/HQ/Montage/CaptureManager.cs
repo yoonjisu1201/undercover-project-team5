@@ -26,21 +26,21 @@ public class CaptureManager : MonoBehaviour {
 	private int _id = 0;
 	
 	// 각 부위별로 썸네일 만들기 위해서는 어느 정도의 거리에서 캡쳐해야 하는가?
-	private readonly Dictionary<SilhouetteParts, float> SizeByParts = new Dictionary<SilhouetteParts, float>() {
-		{ SilhouetteParts.Beard, 0.1f },
-		{ SilhouetteParts.Eyebrows, 0.1f },
-		{ SilhouetteParts.Glasses, 0.15f },
-		{ SilhouetteParts.Hair, 0.4f},
-		{ SilhouetteParts.Hats, 0.4f},
-		{ SilhouetteParts.Pants, 0.4f},
-		{ SilhouetteParts.Headphones, 0.4f},
-		{ SilhouetteParts.Masks, 0.4f},
-		{ SilhouetteParts.Arms, 0.2f},
-		{ SilhouetteParts.Shoes, 0.2f},
-		{ SilhouetteParts.Torso, 0.4f}
+	private readonly Dictionary<MontageParts, float> SizeByParts = new Dictionary<MontageParts, float>() {
+		{ MontageParts.Beard, 0.1f },
+		{ MontageParts.Eyebrows, 0.1f },
+		{ MontageParts.Glasses, 0.15f },
+		{ MontageParts.Hair, 0.4f},
+		{ MontageParts.Hats, 0.4f},
+		{ MontageParts.Pants, 0.4f},
+		{ MontageParts.Headphones, 0.4f},
+		{ MontageParts.Masks, 0.4f},
+		{ MontageParts.Arms, 0.2f},
+		{ MontageParts.Shoes, 0.2f},
+		{ MontageParts.Torso, 0.4f}
 	};
 	
-	private readonly Dictionary<SilhouetteParts, Transform> Parts = new Dictionary<SilhouetteParts, Transform>();
+	private readonly Dictionary<MontageParts, Transform> Parts = new Dictionary<MontageParts, Transform>();
 	
 	[ContextMenu("Generate ClothDatas")]
 	private void MakeAllSprites() {
@@ -62,20 +62,20 @@ public class CaptureManager : MonoBehaviour {
 		_id = 0;
 		
 		Parts.Clear();
-		Parts.Add(SilhouetteParts.Beard, Beard);
-		Parts.Add(SilhouetteParts.Eyebrows, Eyebrows);
-		Parts.Add(SilhouetteParts.Glasses, Glasses);
-		Parts.Add(SilhouetteParts.Hair, Hair);
-		Parts.Add(SilhouetteParts.Hats, Hats);
-		Parts.Add(SilhouetteParts.Pants, Pants);
-		Parts.Add(SilhouetteParts.Headphones, Headphones);
-		Parts.Add(SilhouetteParts.Masks, Masks);
-		Parts.Add(SilhouetteParts.Arms, Arms);
-		Parts.Add(SilhouetteParts.Shoes, Shoes);
-		Parts.Add(SilhouetteParts.Torso, Torso);
+		Parts.Add(MontageParts.Beard, Beard);
+		Parts.Add(MontageParts.Eyebrows, Eyebrows);
+		Parts.Add(MontageParts.Glasses, Glasses);
+		Parts.Add(MontageParts.Hair, Hair);
+		Parts.Add(MontageParts.Hats, Hats);
+		Parts.Add(MontageParts.Pants, Pants);
+		Parts.Add(MontageParts.Headphones, Headphones);
+		Parts.Add(MontageParts.Masks, Masks);
+		Parts.Add(MontageParts.Arms, Arms);
+		Parts.Add(MontageParts.Shoes, Shoes);
+		Parts.Add(MontageParts.Torso, Torso);
 	}
 	
-	private void MakeClothDatas(SilhouetteParts part) {
+	private void MakeClothDatas(MontageParts part) {
 		// OrthographicSize 설정
 		_captureCamera.Camera.orthographicSize = SizeByParts[part];
 		
@@ -93,7 +93,7 @@ public class CaptureManager : MonoBehaviour {
 			string assetPath = Capture(part, item.name);
 			// 캡쳐된 이미지 Sprite로 변경
 			ConfigureImageToSprite(assetPath);
-			// SilhouetteClothData 생성
+			// MontageClothData 생성
 			CreateClothData(part, item.gameObject, assetPath);
 			
 			// 비활성화
@@ -101,7 +101,7 @@ public class CaptureManager : MonoBehaviour {
 		}
 	}
 	
-	private string Capture(SilhouetteParts part, string fileName) {
+	private string Capture(MontageParts part, string fileName) {
 		if (_captureCamera == null) {
 			Debug.LogError($"[CaptureManager] 캡쳐용 카메라 없음");
 			return null;
@@ -145,7 +145,7 @@ public class CaptureManager : MonoBehaviour {
 	/// <summary>
 	/// ClothData를 직접 생성한다
 	/// </summary>
-	private void CreateClothData(SilhouetteParts part, GameObject instance, string assetPath) {
+	private void CreateClothData(MontageParts part, GameObject instance, string assetPath) {
 		// 저장 경로 설정
 		string dataFolderPath = Path.Combine(_clothDataSavePath, part.ToString()).Replace('\\', '/');
 		string dataPath = Path.Combine(dataFolderPath, $"{instance.name}.asset").Replace('\\', '/');
@@ -158,9 +158,9 @@ public class CaptureManager : MonoBehaviour {
 		GameObject prefab = PrefabUtility.GetCorrespondingObjectFromSource(instance);
 		
 		// 에셋 불러오기, 없다면 생성
-		SilhouetteClothData data = AssetDatabase.LoadAssetAtPath<SilhouetteClothData>(dataPath);
+		MontageClothData data = AssetDatabase.LoadAssetAtPath<MontageClothData>(dataPath);
 		if (data == null) {
-			data = ScriptableObject.CreateInstance<SilhouetteClothData>();
+			data = ScriptableObject.CreateInstance<MontageClothData>();
 			AssetDatabase.CreateAsset(data, dataPath);
 		}
 		
