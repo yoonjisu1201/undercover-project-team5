@@ -3,9 +3,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Serialization;
 
-/// <summary>
-/// NavMeshAgent에 목적지와 속도를 적용하고 도착 여부를 판정합니다.
-/// </summary>
+// NavMeshAgent에 목적지와 속도를 적용하고 도착 여부를 판정합니다.
 [RequireComponent(typeof(NavMeshAgent))]
 public class NpcMovement : MonoBehaviour
 {
@@ -13,9 +11,13 @@ public class NpcMovement : MonoBehaviour
         [FormerlySerializedAs("_arrivalThreshold")]
         [SerializeField, Min(0f)] private float _arrivalExtraDistance = 0.1f;
 
-        /// <summary>
-        /// 경로 계산이 끝났고 정지 거리 안에서 이동이 끝났는지 여부를 가져옵니다.
-        /// </summary>
+        [Header("Avoidance Settings")]
+        [SerializeField] private ObstacleAvoidanceType _obstacleAvoidanceType =
+            ObstacleAvoidanceType.MedQualityObstacleAvoidance;
+        [SerializeField, Range(0, 99)] private int _minimumAvoidancePriority = 30;
+        [SerializeField, Range(0, 99)] private int _maximumAvoidancePriority = 70;
+
+        // 경로 계산이 끝났고 정지 거리 안에서 이동이 끝났는지 여부를 가져옵니다.
         public bool HasArrived
         {
             get
@@ -50,17 +52,21 @@ public class NpcMovement : MonoBehaviour
 
             // 서버가 아닌 인스턴스는 NavMeshAgent가 스스로 Transform을 갱신하지 않게 해서
             // NetworkTransform이 동기화한 값과 충돌하지 않게 한다.
-            if (!NetworkManager.Singleton.IsServer)
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
             {
                 _agent.updatePosition = false;
                 _agent.updateRotation = false;
+                return;
             }
+
+            _agent.obstacleAvoidanceType = _obstacleAvoidanceType;
+
+            int minimumPriority = Mathf.Min(_minimumAvoidancePriority, _maximumAvoidancePriority);
+            int maximumPriority = Mathf.Max(_minimumAvoidancePriority, _maximumAvoidancePriority);
+            _agent.avoidancePriority = Random.Range(minimumPriority, maximumPriority + 1);
         }
 
-        /// <summary>
-        /// 활성화되어 NavMesh에 배치된 Agent에 목적지를 설정합니다.
-        /// </summary>
-        /// <param name="worldPos">이동할 월드 좌표입니다.</param>
+        // 활성화되어 NavMesh에 배치된 Agent에 목적지를 설정합니다.
         public void MoveTo(Vector3 worldPos)
         {
             if (_agent == null || !_agent.enabled || !_agent.isOnNavMesh)
@@ -69,10 +75,7 @@ public class NpcMovement : MonoBehaviour
             _agent.SetDestination(worldPos);
         }
 
-        /// <summary>
-        /// Agent의 최대 이동 속도를 0 이상의 값으로 설정합니다.
-        /// </summary>
-        /// <param name="speed">적용할 이동 속도입니다.</param>
+        // Agent의 최대 이동 속도를 0 이상의 값으로 설정합니다.
         public void SetSpeed(float speed)
         {
             if (_agent != null)
@@ -81,21 +84,18 @@ public class NpcMovement : MonoBehaviour
             }
         }
 
-        /// <summary>
-        /// 현재 경로를 제거하고 이동 속도를 0으로 설정합니다.
-        /// </summary>
+        // 현재 경로를 제거하고 이동 속도를 0으로 설정합니다.
         public void Stop()
         {
             if (_agent != null && _agent.enabled && _agent.isOnNavMesh)
             {
+                _agent.isStopped = false;
                 _agent.ResetPath();
             }
             SetSpeed(0f);
         }
 
-        /// <summary>
-        /// NPC 이동을 일시 정지합니다. 현재 경로는 유지되어 Resume() 호출 시 이어서 이동합니다.
-        /// </summary>
+        // NPC 이동을 일시 정지합니다. 현재 경로는 유지되어 Resume() 호출 시 이어서 이동합니다.
         public void Pause()
         {
             if (_agent != null && _agent.enabled && _agent.isOnNavMesh)
@@ -104,9 +104,7 @@ public class NpcMovement : MonoBehaviour
             }
         }
 
-        /// <summary>
-        /// 일시 정지된 NPC 이동을 재개합니다.
-        /// </summary>
+        // 일시 정지된 NPC 이동을 재개합니다.
         public void Resume()
         {
             if (_agent != null && _agent.enabled && _agent.isOnNavMesh)
