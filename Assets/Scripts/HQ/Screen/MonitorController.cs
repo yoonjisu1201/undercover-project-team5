@@ -12,9 +12,9 @@ public class MonitorController : MonoBehaviour {
 	[SerializeField] private ScreenBase _mapScreen;
 	[SerializeField] private Button _mapButton;
 
-	[Header("=== 힌트 화면 및 버튼 등록 ===")] 
-	[SerializeField] private ScreenBase _hintScreen;
-	[SerializeField] private Button _hintButton;
+	[Header("=== 몽타주 화면 및 버튼 등록 ===")] 
+	[SerializeField] private ScreenBase _montageScreen;
+	[SerializeField] private Button _montageButton;
 	[SerializeField] private Button _closeButton;
 	
 	public event Action OnScreenClosed;
@@ -26,14 +26,19 @@ public class MonitorController : MonoBehaviour {
 	private void Awake() {
 		_screens.Add(_cctvScreen);
 		_screens.Add(_mapScreen);
-		_screens.Add(_hintScreen);
+		_screens.Add(_montageScreen);
+		
+		// 처음 시작 시에 CCTV 스크린으로 시작. 이 패널은 비활성화 상태로
+		_cctvScreen.gameObject.SetActive(true);
+		_mapScreen.gameObject.SetActive(false);
+		_montageScreen.gameObject.SetActive(false);
 	}
 
 	// 버튼 등록
 	private void OnEnable() {
 		_cctvButton.onClick.AddListener(OnCctvButtonClicked);
 		_mapButton.onClick.AddListener(OnMapButtonClicked);
-		_hintButton.onClick.AddListener(OnHintButtonClicked);
+		_montageButton.onClick.AddListener(OnMontageButtonClicked);
 		_closeButton.onClick.AddListener(OnCloseButtonClicked);
 	}
 
@@ -41,7 +46,7 @@ public class MonitorController : MonoBehaviour {
 	private void OnDisable() {
 		_cctvButton.onClick.RemoveListener(OnCctvButtonClicked);
 		_mapButton.onClick.RemoveListener(OnMapButtonClicked);
-		_hintButton.onClick.RemoveListener(OnHintButtonClicked);
+		_montageButton.onClick.RemoveListener(OnMontageButtonClicked);
 		_closeButton.onClick.RemoveListener(OnCloseButtonClicked);
 	}
 
@@ -55,9 +60,9 @@ public class MonitorController : MonoBehaviour {
 		_mapScreen.ActivateScreen();
 	}
 	
-	private void OnHintButtonClicked() {
+	private void OnMontageButtonClicked() {
 		DisableAllScreens();
-		_hintScreen.ActivateScreen();
+		_montageScreen.ActivateScreen();
 	}
 	
 	private void OnCloseButtonClicked() {
