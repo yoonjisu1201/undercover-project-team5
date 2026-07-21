@@ -28,8 +28,12 @@ public class ArrestVoteUI : MonoBehaviour
     [SerializeField] private GameObject _voteAreaRejectedPanel;  //부결 결과 패널 (Generated_VoteArea를 가리고 표시)
     [SerializeField] private TMP_Text _resultCountdownText;      //투표 결과 화면에서 Idle로 돌아가기까지 남은 시간(3,2,1) 표시
 
+    [SerializeField] private ArrestCandidatePortrait _candidatePortrait; //검거 후보 NPC 실시간 이미지
     // 커서를 풀어준 상태인지. GameplayUiMode의 Activate/Deactivate를 정확히 짝 맞춰 호출하기 위해 기록해둔다.
     private bool _cursorActivated;
+
+    // 이번 투표 사이클에서 후보 이미지를 이미 캡처했는지. NetworkVariable 동기화 순서에 상관없이 한 번만 캡처하기 위함.
+    private bool _hasCapturedForCurrentVote;
 
     // 확인 패널이 열려있는 동안 어떤 NPC를 검거 후보로 요청할지 기억해둔다.
     private ArrestCandidateInteractable _pendingCandidate;
@@ -60,6 +64,15 @@ public class ArrestVoteUI : MonoBehaviour
     private void Update()
     {
         if (ArrestVoteManager.Instance == null) return;
+
+        // 상태 변경 콜백 시점엔 ArrestCandidate가 아직 동기화 전일 수 있어서, 매 프레임 조건이 갖춰졌는지 확인해서 캡처한다.
+        if (ArrestVoteManager.Instance.CurrentVoteState == ArrestVoteState.Voting
+            && !_hasCapturedForCurrentVote
+            && ArrestVoteManager.Instance.ArrestCandidate != null)
+        {
+            _candidatePortrait.ShowCandidate(ArrestVoteManager.Instance.ArrestCandidate);
+            _hasCapturedForCurrentVote = true;
+        }
 
         switch (ArrestVoteManager.Instance.CurrentVoteState)
         {
@@ -112,6 +125,9 @@ public class ArrestVoteUI : MonoBehaviour
         _pendingCandidate = candidate;
         _startVotePanel.SetActive(true);
         UpdateCursorState();
+
+        // 확인 패널이 뜨는 시점에 캡처해서 투표 화면까지 이어서 쓴다.
+        _candidatePortrait.ShowCandidate(candidate.NetworkObject);
     }
 
     // 확인 패널에서 [네]를 누르면 검거 후보를 고정한 뒤 서버에 투표 시작을 요청하고 확인 패널을 닫는다.
@@ -132,6 +148,8 @@ public class ArrestVoteUI : MonoBehaviour
         _pendingCandidate = null;
         _startVotePanel.SetActive(false);
         UpdateCursorState();
+
+        _candidatePortrait.Clear(); // 투표를 시작하지 않았으니 캡처해둔 이미지삭제
     }
 
     // 이번 라운드 검거 투표 횟수가 소진됐을 때 안내 문구를 2초간 띄운다.
@@ -190,6 +208,11 @@ public class ArrestVoteUI : MonoBehaviour
             || state == ArrestVoteState.Rejected;
         _votePanel.SetActive(panelVisible);
         UpdateCursorState();
+
+        if (state != ArrestVoteState.Voting)
+        {
+            _hasCapturedForCurrentVote = false; // 다음 투표를 위해 리셋
+        }
 
         // 투표 중일 때만 O/X 버튼 영역을 보여주고, 가결/부결 결과 패널로 그 영역을 가린다.
         _voteAreaPanel.SetActive(state == ArrestVoteState.Voting);
