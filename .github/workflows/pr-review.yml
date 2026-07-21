@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      actions: read
       pull-requests: write
       issues: read
     steps:
@@ -86,7 +87,7 @@ jobs:
         if: steps.ctx.outputs.code_bytes != '0' || steps.ctx.outputs.settings_bytes != '0'
         uses: anthropics/claude-code-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}   # Claude GitHub App 대신 워크플로우 토큰 사용
           track_progress: true                # 트래킹 코멘트 1개 생성 + PR 코멘트 전체를 컨텍스트에 포함
           claude_args: |
