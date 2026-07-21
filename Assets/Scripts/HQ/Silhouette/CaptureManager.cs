@@ -21,8 +21,8 @@ public class CaptureManager : MonoBehaviour {
 	[SerializeField] private Transform Shoes;
 	[SerializeField] private Transform Torso;
 	
-	private readonly string _captureImageSavePath = "Assets/Resources/Silhouette/Thumbnails";
-	private readonly string _clothDataSavePath = "Assets/Resources/Silhouette/ClothData";
+	private readonly string _captureImageSavePath = "Assets/Resources/Montage/Thumbnails";
+	private readonly string _clothDataSavePath = "Assets/Resources/Montage/ClothData";
 	private int _id = 0;
 	
 	// 각 부위별로 썸네일 만들기 위해서는 어느 정도의 거리에서 캡쳐해야 하는가?
@@ -35,7 +35,7 @@ public class CaptureManager : MonoBehaviour {
 		{ SilhouetteParts.Pants, 0.4f},
 		{ SilhouetteParts.Headphones, 0.4f},
 		{ SilhouetteParts.Masks, 0.4f},
-		{ SilhouetteParts.Arms, 0.4f},
+		{ SilhouetteParts.Arms, 0.2f},
 		{ SilhouetteParts.Shoes, 0.2f},
 		{ SilhouetteParts.Torso, 0.4f}
 	};
@@ -165,7 +165,8 @@ public class CaptureManager : MonoBehaviour {
 		}
 		
 		data.id = _id++;
-		data.ClothPrefab = prefab;
+		// 장갑이면, 두 부위 모두 넣어줘야 함
+		data.ClothPrefabs = prefab;
 		data.ClothThumbnail = sprite;
 		data.Part = part;
 
