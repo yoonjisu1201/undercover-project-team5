@@ -1,10 +1,7 @@
-using System;
 using Unity.Netcode;
 using UnityEngine;
 
-/// <summary>
-/// NPC 상태를 생성하고 현재 상태의 수명 주기와 상태 전환을 관리합니다.
-/// </summary>
+// NPC 상태를 생성하고 현재 상태의 수명 주기와 상태 전환을 관리합니다.
 [RequireComponent(typeof(NpcMovement))]
 public sealed class NpcStateMachine : MonoBehaviour
 {
@@ -12,49 +9,28 @@ public sealed class NpcStateMachine : MonoBehaviour
 
     [Header("Movement Settings")]
     [SerializeField, Min(0f)] private float _walkSpeed = 2f;
-    [SerializeField, Min(0f)] private float _runSpeed = 4f;
 
-    // ==================== [추가] ====================
-    // NPC가 Idle 상태에서 기다릴 시간입니다.
-    [Header("Wander Settings")]
-    [SerializeField, Min(0f)] private float _idleDurationSeconds = 1f;
-
-    // Spawner가 전달한 Scene Checkpoint 목록입니다.
-    private Transform[] _checkpoints = Array.Empty<Transform>();
-
-    // 현재 Idle 상태에서 누적된 시간입니다.
-    private float _idleElapsedSeconds;
-    // ================================================
+    [Header("긴 시간 이동시 휴식 설정")]
+    [SerializeField, Min(0f)] private float _longTravelDistanceThreshold = 20f; // 20M 이상 이동할 때 휴식이 발생합니다.
+    [SerializeField, Min(0.1f)] private float _restIntervalDistance = 10f;  // 10M 이동할 때마다 휴식이 발생합니다.
+    [SerializeField, Min(0f)] private float _minimumRestSeconds = 1f; // 휴식의 최소 지속 시간
+    [SerializeField, Min(0f)] private float _maximumRestSeconds = 3f; // 휴식의 최대 지속 시간
 
     private NpcMovement _movement;
     private Animator _animator;
-    private NpcContext _context;
-    private INpcState _currentState;
 
-    private IdleState _idleState;
-    private WalkState _walkState;
-    private RunState _runState;
+    private Vector3 _lastTravelSamplePosition;
+    private float _distanceSinceRest;
+    private float _restEndTime;
+    private bool _shouldRestDuringTravel;
+    private bool _isResting;
+    private bool _isWalking;
 
-    /// <summary>
-    /// 상태 전환이 완료된 뒤 새 상태의 식별자를 전달합니다.
-    /// </summary>
-    public event Action<NpcStateId> StateChanged;
 
     private void Awake()
     {
         _movement = GetComponent<NpcMovement>();
         _animator = GetComponentInChildren<Animator>(true);
-
-        _context = new NpcContext
-        {
-            StateMachine = this,
-            Movement = _movement,
-            LifecycleSource = this,
-        };
-
-        _idleState = new IdleState();
-        _walkState = new WalkState(_walkSpeed);
-        _runState = new RunState(_runSpeed);
     }
 
     private void Start()
@@ -64,184 +40,112 @@ public sealed class NpcStateMachine : MonoBehaviour
 
     private void Update()
     {
-        if (!NetworkManager.Singleton.IsServer)
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
         {
             return;
         }
 
-        _currentState?.Execute(_context);
+        if (_isResting)
+        {
+            UpdateRest();
+            return;
+        }
 
-        // ==================== [추가] ====================
-        // 현재 상태가 Idle이면 배회 대기 시간을 계산합니다.
-        UpdateWander();
-        // ================================================
+        if (_isWalking && _movement.HasArrived)
+        {
+            RequestIdle();
+            return;
+        }
+
+        UpdateTravelRest();
     }
 
-    private void OnDestroy()
-    {
-        _currentState?.Exit(_context);
-
-        _currentState = null;
-        _context = null;
-        _movement = null;
-
-        _idleState = null;
-        _walkState = null;
-        _runState = null;
-
-        // ==================== [추가] ====================
-        // 배회에 사용한 런타임 데이터를 정리합니다.
-        _checkpoints = new Transform[0];
-        _idleElapsedSeconds = 0f;
-        // ================================================
-
-        StateChanged = null;
-    }
-
-    // ==================== [추가] ====================
-
-    /// <summary>
-    /// NPC가 배회할 Checkpoint 목록을 설정합니다.
-    /// Spawner가 NPC를 생성한 직후 호출합니다.
-    /// </summary>
-    /// <param name="checkpoints">
-    /// 목적지로 사용할 Scene Transform 목록입니다.
-    /// </param>
-    public void Configure(Transform[] checkpoints)
-    {
-        _checkpoints = checkpoints ?? new Transform[0];
-    }
-
-    // ================================================
-
-    /// <summary>
-    /// NPC를 Idle 상태로 전환하도록 요청합니다.
-    /// </summary>
+    // NPC를 Idle 상태로 전환하도록 요청합니다.
     public void RequestIdle()
     {
-        ChangeState(_idleState);
+        ResetTravelRest();
+        _isWalking = false;
+        _movement.Stop();
+        SetMovingAnimation(false);
     }
 
-    /// <summary>
-    /// 지정한 위치로 걷도록 요청합니다.
-    /// 이미 걷는 중이면 상태를 재진입하지 않고 목적지만 변경합니다.
-    /// </summary>
-    /// <param name="worldPos">새 걷기 목적지입니다.</param>
+    // 지정한 위치로 걷도록 요청합니다.
     public void RequestWalk(Vector3 worldPos)
     {
-        _walkState.SetDestination(worldPos);
-
-        if (ReferenceEquals(_currentState, _walkState))
-        {
-            _movement.MoveTo(worldPos);
-            return;
-        }
-
-        ChangeState(_walkState);
+        BeginTravel(worldPos);
+        _isWalking = true;
+        _movement.SetSpeed(_walkSpeed);
+        _movement.MoveTo(worldPos);
+        SetMovingAnimation(true);
     }
 
-    /// <summary>
-    /// 지정한 위치로 달리도록 요청합니다.
-    /// 이미 달리는 중이면 상태를 재진입하지 않고 목적지만 변경합니다.
-    /// </summary>
-    /// <param name="worldPos">새 달리기 목적지입니다.</param>
-    public void RequestRun(Vector3 worldPos)
+    private void BeginTravel(Vector3 destination)
     {
-        _runState.SetDestination(worldPos);
-
-        if (ReferenceEquals(_currentState, _runState))
-        {
-            _movement.MoveTo(worldPos);
-            return;
-        }
-
-        ChangeState(_runState);
+        _isResting = false;
+        _movement.Resume();
+        _lastTravelSamplePosition = transform.position;
+        _distanceSinceRest = 0f;
+        _shouldRestDuringTravel =
+            Vector3.Distance(transform.position, destination) >= _longTravelDistanceThreshold;
     }
 
-    /// <summary>
-    /// 현재 상태를 종료하고 다음 상태에 진입한 뒤
-    /// 상태 변경 이벤트를 발생시킵니다.
-    /// </summary>
-    /// <param name="nextState">전환할 상태 인스턴스입니다.</param>
-    private void ChangeState(INpcState nextState)
+    private void UpdateTravelRest()
     {
-        if (nextState == null ||
-            ReferenceEquals(_currentState, nextState))
+        if (!_shouldRestDuringTravel ||
+            !_isWalking ||
+            _movement.HasArrived)
         {
             return;
         }
 
-        _currentState?.Exit(_context);
+        Vector3 currentPosition = transform.position;
+        _distanceSinceRest += Vector3.Distance(_lastTravelSamplePosition, currentPosition);
+        _lastTravelSamplePosition = currentPosition;
 
-        _currentState = nextState;
-        _currentState.Enter(_context);
+        if (_distanceSinceRest < _restIntervalDistance)
+        {
+            return;
+        }
 
+        _distanceSinceRest = 0f;
+        _isResting = true;
+        _movement.Pause();
+
+        float minimum = Mathf.Min(_minimumRestSeconds, _maximumRestSeconds);
+        float maximum = Mathf.Max(_minimumRestSeconds, _maximumRestSeconds);
+        _restEndTime = Time.time + UnityEngine.Random.Range(minimum, maximum);
+
+        SetMovingAnimation(false);
+    }
+
+    private void UpdateRest()
+    {
+        if (Time.time < _restEndTime)
+        {
+            return;
+        }
+
+        _isResting = false;
+        _lastTravelSamplePosition = transform.position;
+        _movement.Resume();
+
+        SetMovingAnimation(_isWalking);
+    }
+
+    private void ResetTravelRest()
+    {
+        _isResting = false;
+        _shouldRestDuringTravel = false;
+        _distanceSinceRest = 0f;
+        _movement.Resume();
+    }
+
+    private void SetMovingAnimation(bool isMoving)
+    {
         if (_animator != null)
         {
-            _animator.SetBool(IsMovingHash, _currentState.Id != NpcStateId.Idle);
+            _animator.SetBool(IsMovingHash, isMoving);
         }
-
-        StateChanged?.Invoke(_currentState.Id);
     }
 
-    // ==================== [추가] ====================
-
-    /// <summary>
-    /// Idle 상태에서 시간을 누적하고 대기가 끝나면
-    /// 무작위 Checkpoint로 Walk를 요청합니다.
-    /// </summary>
-    private void UpdateWander()
-    {
-        //_currentState와 _idleState가 동일한 객체가 아니라면 if 내부를 실행
-        if (!ReferenceEquals(_currentState, _idleState))
-        {
-            _idleElapsedSeconds = 0f;
-            return;
-        }
-
-        _idleElapsedSeconds += Time.deltaTime;
-
-        if (_idleElapsedSeconds < _idleDurationSeconds)
-        {
-            return;
-        }
-
-        _idleElapsedSeconds = 0f;
-
-        if (!TryGetRandomDestination(out Vector3 destination))
-        {
-            return;
-        }
-
-        RequestWalk(destination);
-    }
-
-    /// <summary>
-    /// Checkpoint 목록 중 하나의 월드 위치를 무작위로 가져옵니다.
-    /// </summary>
-    private bool TryGetRandomDestination(out Vector3 destination)
-    {
-        destination = default;
-
-        if (_checkpoints.Length == 0)
-        {
-            return false;
-        }
-
-        int checkpointIndex = UnityEngine.Random.Range(
-            0,
-            _checkpoints.Length);
-
-        Transform checkpoint = _checkpoints[checkpointIndex];
-
-        if (checkpoint == null)
-        {
-            return false;
-        }
-
-        destination = checkpoint.position;
-        return true;
-    }
-
-    // ================================================
 }
