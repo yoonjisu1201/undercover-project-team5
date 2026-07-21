@@ -94,16 +94,24 @@ public class NpcMovement : MonoBehaviour
         }
 
         /// <summary>
-        /// NPC 이동을 일시 정지합니다. 후속 이슈에서 동작이 구현됩니다.
+        /// NPC 이동을 일시 정지합니다. 현재 경로는 유지되어 Resume() 호출 시 이어서 이동합니다.
         /// </summary>
         public void Pause()
         {
+            if (_agent != null && _agent.enabled && _agent.isOnNavMesh)
+            {
+                _agent.isStopped = true;
+            }
         }
 
         /// <summary>
-        /// 일시 정지된 NPC 이동을 재개합니다. 후속 이슈에서 동작이 구현됩니다.
+        /// 일시 정지된 NPC 이동을 재개합니다.
         /// </summary>
         public void Resume()
         {
+            if (_agent != null && _agent.enabled && _agent.isOnNavMesh)
+            {
+                _agent.isStopped = false;
+            }
         }
 }

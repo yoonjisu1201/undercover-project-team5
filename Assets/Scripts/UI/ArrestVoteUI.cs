@@ -3,7 +3,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class ArrestVoteUI : MonoBehaviour
@@ -32,6 +31,9 @@ public class ArrestVoteUI : MonoBehaviour
     // 커서를 풀어준 상태인지. GameplayUiMode의 Activate/Deactivate를 정확히 짝 맞춰 호출하기 위해 기록해둔다.
     private bool _cursorActivated;
 
+    // 확인 패널이 열려있는 동안 어떤 NPC를 검거 후보로 요청할지 기억해둔다.
+    private ArrestCandidateInteractable _pendingCandidate;
+
     private void Start()
     {
         _startVotePanel.SetActive(false);
@@ -58,22 +60,6 @@ public class ArrestVoteUI : MonoBehaviour
     private void Update()
     {
         if (ArrestVoteManager.Instance == null) return;
-
-        // 검거 투표 시작 확인 패널을 여는 임시 키. 실제 NPC 상호작용 UI가 생기면 그쪽에서 열도록 교체한다.
-        if (Keyboard.current != null && Keyboard.current.f2Key.wasPressedThisFrame
-            && ArrestVoteManager.Instance.CurrentVoteState == ArrestVoteState.Idle
-            && !_startVotePanel.activeSelf)
-        {
-            if (ArrestVoteManager.Instance.RemainingVoteAttempts <= 0)
-            {
-                ShowVoteExhaustedNotice();
-            }
-            else
-            {
-                _startVotePanel.SetActive(true);
-                UpdateCursorState();
-            }
-        }
 
         switch (ArrestVoteManager.Instance.CurrentVoteState)
         {
@@ -110,17 +96,40 @@ public class ArrestVoteUI : MonoBehaviour
         }
     }
 
-    // 확인 패널에서 [네]를 누르면 서버에 투표 시작을 요청하고 확인 패널을 닫는다.
+    // NPC 상호작용(ArrestCandidateInteractable)에서 검거 후보 지정 시 호출. 이미 투표 중이거나 횟수가 소진됐으면 패널 대신 안내만 띄운다.
+    public void RequestOpenStartVotePanel(ArrestCandidateInteractable candidate)
+    {
+        if (ArrestVoteManager.Instance == null) return;
+        if (ArrestVoteManager.Instance.CurrentVoteState != ArrestVoteState.Idle) return;
+        if (_startVotePanel.activeSelf) return;
+
+        if (ArrestVoteManager.Instance.RemainingVoteAttempts <= 0)
+        {
+            ShowVoteExhaustedNotice();
+            return;
+        }
+
+        _pendingCandidate = candidate;
+        _startVotePanel.SetActive(true);
+        UpdateCursorState();
+    }
+
+    // 확인 패널에서 [네]를 누르면 검거 후보를 고정한 뒤 서버에 투표 시작을 요청하고 확인 패널을 닫는다.
     private void ConfirmStartYes()
     {
+        _pendingCandidate?.ConfirmArrestCandidate();
+        _pendingCandidate = null;
+
         ArrestVoteManager.Instance.RequestStartVoteServerRpc();
         _startVotePanel.SetActive(false);
         UpdateCursorState();
     }
 
-    // 확인 패널에서 [아니요]를 누르면 서버 요청 없이 패널만 닫는다.
+    // 확인 패널에서 [아니요]를 누르면 멈춰뒀던 NPC 이동을 재개하고 패널만 닫는다.
     private void ConfirmStartNo()
     {
+        _pendingCandidate?.CancelPendingConfirmation();
+        _pendingCandidate = null;
         _startVotePanel.SetActive(false);
         UpdateCursorState();
     }
