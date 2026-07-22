@@ -1,4 +1,5 @@
 using TMPro;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,6 +13,8 @@ public class RoundResultPanelUI : MonoBehaviour
     [SerializeField] private TMP_Text _countdownText;
     [SerializeField] private GameObject _nextRoundText;
     [SerializeField] private TMP_Text _confirmedCountText; // "확인한 인원/총 인원" 표시용
+    [SerializeField] private ArrestCandidatePortrait _criminalPortrait; // 검거 투표 때 쓰는 것을 그대로 재사용
+    [SerializeField] private CriminalNpcManager _criminalNpcManager; // static Instance가 없어 인스펙터에서 직접 연결
 
     private void Start()
     {
@@ -86,6 +89,22 @@ public class RoundResultPanelUI : MonoBehaviour
         _inventoryCanvas.SetActive(false);
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
+        CaptureCriminalPortrait();
+    }
+
+    // 1라운드 클리어/성공/실패 결과창을 띄우는 시점마다 범인 NPC를 촬영해서 보여준다.
+    private void CaptureCriminalPortrait()
+    {
+        if (_criminalPortrait == null) return;
+
+        NetworkObject criminalNpc = _criminalNpcManager?.CriminalNpc;
+        if (criminalNpc == null)
+        {
+            Debug.LogError("[RoundResultPanelUI] CriminalNpcManager에서 범인 NPC를 찾지 못했습니다.");
+            return;
+        }
+
+        _criminalPortrait.ShowCandidate(criminalNpc);
     }
 
     private void HandleConfirmButtonClicked()
