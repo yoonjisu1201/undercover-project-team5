@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -9,9 +11,14 @@ public sealed class NpcSpawner : MonoBehaviour
     [Header("Spawn Settings")]
     [SerializeField] private NpcStateMachine _npcPrefab;
     [SerializeField, Min(1)] private int _spawnCount = 150;
+    // 몇 마리 스폰할 때마다 한 프레임씩 양보할지 (로딩 패널이 화면에 그려질 틈을 주기 위함).
+    [SerializeField, Min(1)] private int _spawnBatchSize = 10;
 
     [Header("Region Spawn Settings")]
     [SerializeField] private MapRegionController _regionController;
+
+    // 스폰 목표 수. 다른 스크립트가 읽을 수 있게 노출한다 (RoundManager의 스폰 완료 확인용).
+    public int SpawnCount => _spawnCount;
 
     // 이 스포너가 속한 씬의 네트워크 씬 로드가 완료되면(=접속자 전원이 씬 로드를 마치면)
     // 서버만 스폰한다. GameSessionManager 등 다른 매니저에 의존하지 않고 스스로 트리거한다.
@@ -36,11 +43,11 @@ public sealed class NpcSpawner : MonoBehaviour
             return;
         }
 
-        Spawn();
+        SpawnAsync(this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     // 설정된 수만큼 NPC를 생성합니다.
-    public void Spawn()
+    public async UniTask SpawnAsync(CancellationToken cancellationToken)
     {
         if (_npcPrefab == null)
         {
@@ -80,6 +87,12 @@ public sealed class NpcSpawner : MonoBehaviour
             }
 
             networkObject.Spawn(destroyWithScene: true);
+
+            // 배치 단위로 한 프레임 양보해서, 로딩 패널이 화면에 그려질 틈을 준다.
+            if ((index + 1) % _spawnBatchSize == 0)
+            {
+                await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+            }
         }
     }
 
