@@ -10,7 +10,7 @@ public class PlayerNamePresenter : MonoBehaviour {
 	[Header("=== 미니맵 마커 ===")] 
 	[SerializeField] private Image _minimapMarker;
 
-	// 플레이어 카메라에선 안 보이게 만들어주기
+	// 플레이어 카메라에서는 미니맵 마커, 미니맵 이름표 안 보이게 만들어주기
 	private void Awake() {
 		_minimapNameText.gameObject.layer = Layers.MinimapOnly;
 		_minimapMarker.gameObject.layer = Layers.MinimapOnly; 
