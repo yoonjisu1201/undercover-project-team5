@@ -21,6 +21,9 @@ public class ClueModulePreview : MonoBehaviour
     private readonly List<Texture2D> _capturedTextures = new();
     private ClueModuleCapture _moduleCapture;
 
+    // 결과 패널 등 외부에서 촬영된 단서 이미지를 읽기 전용으로 참조하기 위한 프로퍼티
+    public IReadOnlyList<Texture2D> CapturedTextures => _capturedTextures;
+
     private void Start()
     {
         // ClueModuleCapture를 초기화하고 범인 단서 촬영을 시작한다.

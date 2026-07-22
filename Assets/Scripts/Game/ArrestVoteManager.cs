@@ -254,6 +254,8 @@ public class ArrestVoteManager : NetworkBehaviour
         _currentVoteState.Value = ArrestVoteState.Rejected;
         _returnToIdleTime.Value = NetworkManager.ServerTime.Time + ResultHoldSeconds;
         _arrestCandidateReference.Value = default;
+
+        TryFailRoundIfVoteAttemptsExhausted();
     }
 
     // O표 수가 PassThreshold 이상이면 가결, 아니면 부결로 상태를 확정한다.
@@ -273,6 +275,18 @@ public class ArrestVoteManager : NetworkBehaviour
         {
             OnVotePassed?.Invoke();  // 실제 검거 로직이 구독할 이벤트
         }
+        else
+        {
+            TryFailRoundIfVoteAttemptsExhausted();
+        }
+    }
+
+    // 남은 투표 횟수를 모두 소진했는데 이번 투표도 부결(또는 대상 소실로 강제 부결)로 끝났다면
+    // 더 이상 기회가 없으므로 결과 대기 없이 즉시 라운드를 실패 처리한다.
+    private void TryFailRoundIfVoteAttemptsExhausted()
+    {
+        if (_remainingVoteAttempts.Value > 0) return;
+        RoundManager.Instance?.ForceFail();
     }
 
     // 투표 UI가 매 프레임 호출해서 남은 시간을 계산한다. RoundManager.GetRemainingTime()과 동일한 패턴.
