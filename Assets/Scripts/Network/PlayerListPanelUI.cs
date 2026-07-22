@@ -72,7 +72,17 @@ public sealed class PlayerListPanelUI : MonoBehaviour
             var slot = slots[i];
             bool isHost = slot.ClientId == NetworkManager.ServerClientId; // 방장의 로컬 클라이언트 ID는 항상 0
             
-            _playerNameTexts[i].text = $"Player {i + 1}";
+            // 실제 이름 기준으로 이름 작성
+            foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList) {
+                if (client.ClientId == slot.ClientId) {
+                    client.PlayerObject.TryGetComponent(out Player player);
+                    if (player == null) {
+                        Debug.LogError($"Player Prefab에 Player Script가 존재하지 않습니다");
+                    }
+
+                    _playerNameTexts[i].text = player.PlayerName ?? $"Player {i + 1}";
+                }
+            }
             _stateIconImages[i].enabled = true;
             _stateIconImages[i].sprite = isHost
                 ? _hostIconSprite
