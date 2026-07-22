@@ -2,6 +2,7 @@
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 [RequireComponent(typeof(PlayerMoveSample), typeof(PlayerInventory), typeof(PlayerInteraction))]
 public class Player : NetworkBehaviour {
@@ -9,7 +10,7 @@ public class Player : NetworkBehaviour {
 	[HideInInspector] public PlayerMoveSample PlayerMove;
 	[HideInInspector] public PlayerInventory PlayerInventory;
 	[HideInInspector] public PlayerInteraction PlayerInteraction;
-	[HideInInspector] public PlayerNamePresenter PlayerNamePresenter;
+	[HideInInspector] public PlayerInfoPresenter playerInfoPresenter;
 	
 	private bool _isNetworkStarted => NetworkManager != null && NetworkManager.Singleton.IsListening;
 
@@ -20,20 +21,34 @@ public class Player : NetworkBehaviour {
 		NetworkVariableWritePermission.Owner
 	);
 	
+	// 플레이어가 사용할 색상
+	private readonly NetworkVariable<Color> _playerColor =  new NetworkVariable<Color>(
+		Color.white,
+		NetworkVariableReadPermission.Everyone,
+		NetworkVariableWritePermission.Owner
+	);
+	
 	private void Awake() {
 		PlayerMove = GetComponent<PlayerMoveSample>();
 		PlayerInventory = GetComponent<PlayerInventory>();
 		PlayerInteraction = GetComponent<PlayerInteraction>();
-		PlayerNamePresenter = GetComponent<PlayerNamePresenter>();
+		playerInfoPresenter = GetComponent<PlayerInfoPresenter>();
 		
 		// 메인 카메라는 MinimapOnly인 레이어를 보지 못하도록
 		Layers.HideLayerFromCamera(GetComponentInChildren<Camera>(), Layers.MinimapOnly);
 	}
 
 	public override void OnNetworkSpawn() {
-		_playerName.OnValueChanged += PlayerNamePresenter.HandlePlayerNameChanged;
+		// 색상은 처음 스폰 시에 랜덤하게 정한다. 추후 설정할 수 있게 해도 됨
+		if (IsOwner) {
+			_playerColor.Value = Random.ColorHSV();
+		}
 		
-		PlayerNamePresenter.HandlePlayerNameChanged(null, PlayerName);
+		_playerName.OnValueChanged += playerInfoPresenter.HandlePlayerNameChanged;
+		_playerColor.OnValueChanged += playerInfoPresenter.HandlePlayerColorChanged;
+		
+		playerInfoPresenter.HandlePlayerColorChanged(Color.white, _playerColor.Value);
+		playerInfoPresenter.HandlePlayerNameChanged(null, PlayerName);
 	}
 
 	// PlayerName을 가져오도록 하는 Property. 닉네임을 설정했으면 설정한 닉네임을 제공하고, 설정되지 않았다면 Player 1같은 값을 반환한다.
