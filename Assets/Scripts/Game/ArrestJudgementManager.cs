@@ -36,6 +36,7 @@ public class ArrestJudgementManager : NetworkBehaviour
         if (IsServer && ArrestVoteManager.Instance != null)
         {
             ArrestVoteManager.Instance.OnVotePassed += HandleVotePassed;
+            ArrestVoteManager.Instance.OnVoteStateChanged += HandleVoteStateChanged;
         }
     }
 
@@ -44,6 +45,16 @@ public class ArrestJudgementManager : NetworkBehaviour
         if (IsServer && ArrestVoteManager.Instance != null)
         {
             ArrestVoteManager.Instance.OnVotePassed -= HandleVotePassed;
+            ArrestVoteManager.Instance.OnVoteStateChanged -= HandleVoteStateChanged;
+        }
+    }
+
+    // 새 투표가 시작되면 이전 라운드의 판정 결과를 지운다.
+    private void HandleVoteStateChanged(ArrestVoteState state)
+    {
+        if (state == ArrestVoteState.Voting)
+        {
+            _arrestResult.Value = ArrestResult.None;
         }
     }
 
@@ -52,7 +63,16 @@ public class ArrestJudgementManager : NetworkBehaviour
     {
         NetworkObject candidate = ArrestVoteManager.Instance.ArrestCandidate;
 
-        bool isCriminal = _criminalNpcManager != null && _criminalNpcManager.IsCriminal(candidate);
+        if (candidate == null) return;
+        if (!IsServer) return;
+
+        if (_criminalNpcManager == null)
+        {
+            Debug.LogError("[ArrestJudgementManager] CriminalNpcManager 참조가 없어 검거 판정을 할 수 없습니다.");
+            return;
+        }
+
+        bool isCriminal = _criminalNpcManager.IsCriminal(candidate);
 
         if (!isCriminal)
         {
@@ -74,5 +94,15 @@ public class ArrestJudgementManager : NetworkBehaviour
         }
 
         RoundManager.Instance.ReportArrestServerRpc();
+    }
+
+    public override void OnDestroy()
+    {
+        base.OnDestroy();
+
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 }
