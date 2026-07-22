@@ -24,7 +24,8 @@ public class Player : NetworkBehaviour {
 		PlayerInventory = GetComponent<PlayerInventory>();
 		PlayerInteraction = GetComponent<PlayerInteraction>();
 		PlayerNamePresenter = GetComponent<PlayerNamePresenter>();
-
+		
+		// 메인 카메라는 MinimapOnly인 레이어를 보지 못하게 수정
 		Layers.HideLayerFromCamera(GetComponentInChildren<Camera>(), Layers.MinimapOnly);
 	}
 
