@@ -19,7 +19,12 @@ public class ArrestJudgementManager : NetworkBehaviour
     private readonly NetworkVariable<ArrestResult> _arrestResult =
         new(ArrestResult.None, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    // 현재 라운드에서 발생한 오검거 횟수. Round1/Round2가 새로 시작될 때마다 리셋된다.
+    private readonly NetworkVariable<int> _wrongArrestCount =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     public ArrestResult CurrentArrestResult => _arrestResult.Value;
+    public int WrongArrestCount => _wrongArrestCount.Value;
 
     private void Awake()
     {
@@ -38,6 +43,11 @@ public class ArrestJudgementManager : NetworkBehaviour
             ArrestVoteManager.Instance.OnVotePassed += HandleVotePassed;
             ArrestVoteManager.Instance.OnVoteStateChanged += HandleVoteStateChanged;
         }
+
+        if (IsServer && RoundManager.Instance != null)
+        {
+            RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
+        }
     }
 
     public override void OnNetworkDespawn()
@@ -47,6 +57,11 @@ public class ArrestJudgementManager : NetworkBehaviour
             ArrestVoteManager.Instance.OnVotePassed -= HandleVotePassed;
             ArrestVoteManager.Instance.OnVoteStateChanged -= HandleVoteStateChanged;
         }
+
+        if (IsServer && RoundManager.Instance != null)
+        {
+            RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
+        }
     }
 
     // 새 투표가 시작되면 이전 라운드의 판정 결과를 지운다.
@@ -55,6 +70,16 @@ public class ArrestJudgementManager : NetworkBehaviour
         if (state == ArrestVoteState.Voting)
         {
             _arrestResult.Value = ArrestResult.None;
+        }
+    }
+
+    // Round1 또는 Round2가 새로 시작될 때마다 오검거 횟수를 리셋한다.
+    private void HandleRoundStateChanged(RoundState state)
+    {
+        if (!IsServer) return;
+        if (state == RoundState.Round1 || state == RoundState.Round2)
+        {
+            _wrongArrestCount.Value = 0;
         }
     }
 
@@ -77,6 +102,13 @@ public class ArrestJudgementManager : NetworkBehaviour
         if (!isCriminal)
         {
             _arrestResult.Value = ArrestResult.WrongTarget;
+            _wrongArrestCount.Value++;
+
+            // 오검거이고 남은 투표 횟수도 없다면 더 이상 기회가 없으므로 즉시 실패 처리한다.
+            if (ArrestVoteManager.Instance.RemainingVoteAttempts <= 0)
+            {
+                RoundManager.Instance.ForceFail();
+            }
             return;
         }
 

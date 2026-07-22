@@ -48,7 +48,14 @@ public class RoundManager : NetworkBehaviour
     private readonly NetworkVariable<int> _totalPlayerCount =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    // GetRemainingTime()이 Fail/Success 이후에도 재계산 없이 반환할 마지막 남은 시간 (성공/실패 시점 값 고정용)
+    // Round1이 클리어되는 순간의 Round1 잔여 시간 스냅샷.
+    // Round1Clear 상태에서는 _roundEndTime이 "2라운드 자동 시작까지 남은 시간"으로 재사용되어
+    // GetRemainingTime()으로는 원래 Round1의 남은 시간을 구할 수 없으므로 별도로 기록해둔다.
+    // (Success/Fail은 GetRemainingTime()의 _cachedRemainingTime이 전환 시점 값을 그대로 유지하므로 별도 스냅샷이 필요 없다)
+    private readonly NetworkVariable<float> _round1RemainingTimeAtClear =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    // GetRemainingTime()이 Fail/Success 이후에도 재계산 없이 반환할 마지막 남은 시간 (최종성공/실패 시점 값 고정용)
     private float _cachedRemainingTime;
 
     // 검거 투표가 진행되는 동안 라운드 타이머를 멈추기 위한 상태 (서버만 사용)
@@ -74,6 +81,12 @@ public class RoundManager : NetworkBehaviour
     // 결과 패널에 "확인한 인원/총 인원"을 표시하기 위한 값
     public int ConfirmedCount => _confirmedClients.Count;
     public int TotalPlayerCount => _totalPlayerCount.Value;
+
+    // Success/Fail 전환 시점에 멈춰있는 남은 시간을 그대로 읽기 위한 프로퍼티 (GetRemainingTime()의 재계산 분기를 타지 않음)
+    public float CachedRemainingTime => _cachedRemainingTime;
+
+    // 결과 패널에서 "Round1 클리어 시점의 Round1 남은 시간"을 표시하기 위한 값
+    public float Round1RemainingTimeAtClear => _round1RemainingTimeAtClear.Value;
 
     public event Action<RoundState> OnRoundStateChanged; // 라운드 상태가 바뀔 때마다 전달 (늦참 클라이언트는 스폰 시 현재 상태로 1회 발동)
     public event Action<RoundState> OnRoundResult; // 결과 패널을 띄워야 하는 상태(Round1Clear/Fail/Success) 진입 시 발동
@@ -221,6 +234,8 @@ public class RoundManager : NetworkBehaviour
         switch (_currentState.Value)
         {
             case RoundState.Round1:
+                // _roundEndTime을 Round1Clear 대기시간으로 덮어쓰기 전에 Round1 남은 시간을 스냅샷으로 남긴다.
+                _round1RemainingTimeAtClear.Value = _cachedRemainingTime;
                 _roundEndTime.Value = NetworkManager.ServerTime.Time + _round1ClearDuration;
                 _currentState.Value = RoundState.Round1Clear;
                 break;
@@ -228,6 +243,15 @@ public class RoundManager : NetworkBehaviour
                 _currentState.Value = RoundState.Success;
                 break;
         }
+    }
+
+    // 검거 투표 횟수를 모두 소진했는데 마지막 결과도 성공(가결+범인)이 아니면 결과 대기 없이 즉시 실패 처리한다.
+    public void ForceFail()
+    {
+        if (!IsServer) return;
+        if (_currentState.Value != RoundState.Round1 && _currentState.Value != RoundState.Round2) return;
+
+        _currentState.Value = RoundState.Fail;
     }
 
     // 결과 패널의 "확인" 버튼을 누르면 클라이언트가 호출한다. 접속 중인 전원이 확인하면 서버가 대기방 씬으로 전환한다.
