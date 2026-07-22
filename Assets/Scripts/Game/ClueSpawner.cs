@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 // Box Collider로 나눈 구역의 통합 NavMesh 위에 8개 단서를 서버 권한으로 생성하는 클래스
 public sealed class ClueSpawner : MonoBehaviour
 {
-    private const int RequiredClueCount = 8;
+    public const int RequiredClueCount = 8;
 
     [Header("단서 데이터")]
     [SerializeField] private ItemData[] _clues;
