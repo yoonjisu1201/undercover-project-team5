@@ -1,6 +1,5 @@
 using System;
 using Unity.Netcode;
-using UnityEngine;
 
 // 대기방 좌석과 준비 상태를 서버가 관리한다.
 // WaitingRoom 씬이 로드될 때마다 (최초 생성/게임 종료 후 재입장) 새로 스폰되며 상태가 자동 초기화된다.
@@ -14,8 +13,6 @@ public class WaitingRoomReadyManager : NetworkBehaviour
 
         public bool Equals(PlayerSlot other) => ClientId == other.ClientId && IsReady == other.IsReady;
     }
-
-    public static WaitingRoomReadyManager Instance { get; private set; }
 
     public const int MinPlayersToStart = 1; // TODO: 테스트용 임시 변경, 테스트 끝나면 3으로 되돌릴 것
 
@@ -37,16 +34,6 @@ public class WaitingRoomReadyManager : NetworkBehaviour
             }
             return true;
         }
-    }
-
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
     }
 
     public override void OnNetworkSpawn()

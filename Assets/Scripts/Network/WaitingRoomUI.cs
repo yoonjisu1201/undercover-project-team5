@@ -14,6 +14,7 @@ public class WaitingRoomUI : MonoBehaviour
 	[SerializeField] private Button _outputMuteButton;
     [SerializeField] private Button _startGameButton;
     [SerializeField] private Button _readyButton;
+    [SerializeField] private WaitingRoomReadyManager _readyManager;
 
     // 옅은 붉은색(뮤트) / 옅은 녹색(언뮤트): 투명도를 낮춰서 옅게 보이도록 한다.
     private static readonly Color MutedColor = new Color(1f, 0f, 0f, 0.5f);
@@ -42,7 +43,7 @@ public class WaitingRoomUI : MonoBehaviour
 
         if (_isHost)
         {
-            WaitingRoomReadyManager.Instance.Slots.OnListChanged += HandleSlotsChanged;
+            _readyManager.Slots.OnListChanged += HandleSlotsChanged;
             UpdateStartButtonInteractable(); // OnListChanged는 구독 이후 변경만 알려주므로 현재 상태를 직접 1회 반영
         }
         else
@@ -67,9 +68,9 @@ public class WaitingRoomUI : MonoBehaviour
             GameSessionManager.Instance.OnSessionJoined -= UpdateJoinCodeText;
         }
 
-        if (_isHost && WaitingRoomReadyManager.Instance != null)
+        if (_isHost && _readyManager != null)
         {
-            WaitingRoomReadyManager.Instance.Slots.OnListChanged -= HandleSlotsChanged;
+            _readyManager.Slots.OnListChanged -= HandleSlotsChanged;
         }
     }
 
@@ -108,7 +109,7 @@ public class WaitingRoomUI : MonoBehaviour
     private void HandleReadyButtonClicked()
     {
         _isReady = !_isReady;
-        WaitingRoomReadyManager.Instance.SetReadyServerRpc(_isReady);
+        _readyManager.SetReadyServerRpc(_isReady);
         UpdateReadyButtonColor();
     }
 
@@ -124,7 +125,7 @@ public class WaitingRoomUI : MonoBehaviour
 
     private void UpdateStartButtonInteractable()
     {
-        _startGameButton.interactable = WaitingRoomReadyManager.Instance.CanStart;
+        _startGameButton.interactable = _readyManager.CanStart;
     }
 
     private void HandleStartGameButtonClicked()

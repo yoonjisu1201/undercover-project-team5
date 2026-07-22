@@ -17,16 +17,17 @@ public sealed class PlayerListPanelUI : MonoBehaviour
     [SerializeField] private Sprite _hostIconSprite;
     [SerializeField] private Sprite _readyIconSprite;
     [SerializeField] private Sprite _notReadyIconSprite;
+    
+    [Header("=== RoomManager 넣기 ===")]
+    [SerializeField] private WaitingRoomReadyManager _manager;
 
     private static readonly Color HostColor = Color.yellow;
     private static readonly Color ReadyColor = Color.green;
     private static readonly Color NotReadyColor = Color.gray;
 
-    private WaitingRoomReadyManager _manager;
 
     private void Start()
     {
-        _manager = WaitingRoomReadyManager.Instance;
         if (_manager == null)
         {
             Debug.LogWarning("WaitingRoomReadyManager를 찾을 수 없습니다.", this);
@@ -70,8 +71,18 @@ public sealed class PlayerListPanelUI : MonoBehaviour
             // slots[i]가 곧 i번 좌석: WaitingRoomReadyManager가 ClientId 오름차순으로 정렬을 유지해준다.
             var slot = slots[i];
             bool isHost = slot.ClientId == NetworkManager.ServerClientId; // 방장의 로컬 클라이언트 ID는 항상 0
+            
+            // 실제 이름 기준으로 이름 작성
+            foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList) {
+                if (client.ClientId == slot.ClientId) {
+                    client.PlayerObject.TryGetComponent(out Player player);
+                    if (player == null) {
+                        Debug.LogError($"Player Prefab에 Player Script가 존재하지 않습니다");
+                    }
 
-            _playerNameTexts[i].text = $"Player {i + 1}";
+                    _playerNameTexts[i].text = player.PlayerName ?? $"Player {i + 1}";
+                }
+            }
             _stateIconImages[i].enabled = true;
             _stateIconImages[i].sprite = isHost
                 ? _hostIconSprite
