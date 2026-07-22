@@ -82,6 +82,11 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
+        if (IsWanderAreaCollider(other))
+        {
+            return; // NPC 배회 반경 콜라이더는 상호작용 판정 대상이 아니다
+        }
+
         InteractableBase newTarget = other.GetComponentInParent<InteractableBase>();
         if (newTarget != null)
         {
@@ -97,6 +102,11 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
+        if (IsWanderAreaCollider(other))
+        {
+            return;
+        }
+
         InteractableBase outTarget = other.GetComponentInParent<InteractableBase>();
         if (outTarget == null)
         {
@@ -108,6 +118,12 @@ public class PlayerInteraction : NetworkBehaviour
         {
             SetCurrentTarget(null);
         }
+    }
+
+    // NPC의 배회 반경 콜라이더인지 확인한다. 같은 오브젝트에 다른 콜라이더(몸체 등)가 있을 수 있으므로 참조까지 비교한다.
+    private static bool IsWanderAreaCollider(Collider other)
+    {
+        return other.TryGetComponent(out NpcRandomWander wander) && wander.WanderAreaCollider == other;
     }
 
     private void Update()

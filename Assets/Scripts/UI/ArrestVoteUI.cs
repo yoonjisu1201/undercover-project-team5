@@ -28,6 +28,8 @@ public class ArrestVoteUI : MonoBehaviour
     [SerializeField] private GameObject _voteAreaRejectedPanel;  //부결 결과 패널 (Generated_VoteArea를 가리고 표시)
     [SerializeField] private TMP_Text _resultCountdownText;      //투표 결과 화면에서 Idle로 돌아가기까지 남은 시간(3,2,1) 표시
 
+    [SerializeField] private GameObject _wrongTargetPanel;       //가결됐지만 오검거였을 때만 노출하는 임시 안내 패널
+
     [SerializeField] private ArrestCandidatePortrait _candidatePortrait; //검거 후보 NPC 실시간 이미지
     // 커서를 풀어준 상태인지. GameplayUiMode의 Activate/Deactivate를 정확히 짝 맞춰 호출하기 위해 기록해둔다.
     private bool _cursorActivated;
@@ -44,6 +46,8 @@ public class ArrestVoteUI : MonoBehaviour
         _voteExhaustedPanel.SetActive(false);
         _voteAreaPassedPanel.SetActive(false);
         _voteAreaRejectedPanel.SetActive(false);
+        _resultCountdownText.gameObject.SetActive(false);
+        _wrongTargetPanel.SetActive(false);
 
         //검거 횟수가 변경될때마다 UI 변경하기 위한 이벤트 구독
         ArrestVoteManager.Instance.OnRemainingVoteAttemptsChanged += HandleRemainingVoteAttemptsChanged;
@@ -86,6 +90,12 @@ public class ArrestVoteUI : MonoBehaviour
                 _resultCountdownText.text = Mathf.CeilToInt(ArrestVoteManager.Instance.GetRemainingResultTime()).ToString();
                 break;
         }
+
+        // 가결됐지만 실제 범인이 아니었을 때만 오검거 안내 패널을 띄운다.
+        _wrongTargetPanel.SetActive(
+            ArrestVoteManager.Instance.CurrentVoteState == ArrestVoteState.Passed
+            && ArrestJudgementManager.Instance != null
+            && ArrestJudgementManager.Instance.CurrentArrestResult == ArrestResult.WrongTarget);
     }
 
     private void OnDestroy()
@@ -136,7 +146,6 @@ public class ArrestVoteUI : MonoBehaviour
         _pendingCandidate?.ConfirmArrestCandidate();
         _pendingCandidate = null;
 
-        ArrestVoteManager.Instance.RequestStartVoteServerRpc();
         _startVotePanel.SetActive(false);
         UpdateCursorState();
     }
@@ -218,6 +227,9 @@ public class ArrestVoteUI : MonoBehaviour
         _voteAreaPanel.SetActive(state == ArrestVoteState.Voting);
         _voteAreaPassedPanel.SetActive(state == ArrestVoteState.Passed);
         _voteAreaRejectedPanel.SetActive(state == ArrestVoteState.Rejected);
+
+        // 투표 결과(가결/부결) 화면일 때만 카운트다운 텍스트를 보여준다.
+        _resultCountdownText.gameObject.SetActive(state == ArrestVoteState.Passed || state == ArrestVoteState.Rejected);
 
         // 새 투표가 시작될 때마다 O/X 버튼을 다시 눌러진 상태로 되돌린다.
         if (state == ArrestVoteState.Voting)

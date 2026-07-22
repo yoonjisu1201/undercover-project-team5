@@ -92,7 +92,12 @@ public class ArrestCandidateInteractable : InteractableBase
             return;
         }
 
-        ArrestVoteManager.Instance?.TrySetArrestCandidate(NetworkObject);
+        // 후보 지정이 성공했을 때만 같은 흐름에서 바로 투표를 시작해서, 후보 미지정 상태로 투표가 시작되는 경쟁 상태를 막는다.
+        // 투표 시작패널에서 [네] 클릭후 바로 부결처리가 되는 원인
+        if (ArrestVoteManager.Instance != null && ArrestVoteManager.Instance.TrySetArrestCandidate(NetworkObject))
+        {
+            ArrestVoteManager.Instance.RequestStartVoteServerRpc();
+        }
     }
 
     private bool TryGetInteractionCollider(ulong senderClientId, out SphereCollider interactionCollider)
