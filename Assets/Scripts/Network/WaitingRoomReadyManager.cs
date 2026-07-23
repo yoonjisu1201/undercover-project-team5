@@ -51,7 +51,7 @@ public class WaitingRoomReadyManager : NetworkBehaviour
     }
 
     // 접속 인원이 최소 인원 이상이고, 방장을 제외한 전원이 준비를 마쳤을 때 시작 가능하다.
-    // 본부 인원 지정 여부는 검사하지 않는다 (HaveHqAgent에서 별도로 확인)
+    // 전체가 준비했는지 확인
     public bool IsAllReady
     {
         get
@@ -66,7 +66,8 @@ public class WaitingRoomReadyManager : NetworkBehaviour
             return true;
         }
     }
-    
+
+    // 본부 요원이 지정되었는지 확인
     public bool HaveHqAgent {
         get {
             foreach (var slot in _slots) {
