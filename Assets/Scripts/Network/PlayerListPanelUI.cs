@@ -71,6 +71,7 @@ public sealed class PlayerListPanelUI : MonoBehaviour
             // slots[i]가 곧 i번 좌석: WaitingRoomReadyManager가 ClientId 오름차순으로 정렬을 유지해준다.
             var slot = slots[i];
             bool isHost = slot.ClientId == NetworkManager.ServerClientId; // 방장의 로컬 클라이언트 ID는 항상 0
+            string roleText = slot.Role == Role.Headquarter ? "HQ" : "Field";
             
             // 실제 이름 기준으로 이름 작성
             foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList) {
@@ -88,8 +89,10 @@ public sealed class PlayerListPanelUI : MonoBehaviour
                 ? _hostIconSprite
                 : slot.IsReady ? _readyIconSprite : _notReadyIconSprite;
             _stateTexts[i].text = isHost
-                ? "방장"
-                : slot.IsReady ? "준비 완료" : "준비 중";
+                ? $"방장 · {roleText}"
+                : slot.IsReady
+                    ? $"준비 완료 · {roleText}"
+                    : $"준비 중 · {roleText}";
 
             Color stateColor = isHost ? HostColor : slot.IsReady ? ReadyColor : NotReadyColor;
             _stateIconImages[i].color = stateColor;

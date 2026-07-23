@@ -223,47 +223,6 @@ public class GameSessionManager : MonoBehaviour
 					serverSidePlayerInteraction.OnNetworkSpawn();
 				}
 			}
-
-			// 2) 서버 플레이어는 본부에, 나머지 플레이어는 활성화된 필드에 배치한다.
-			SpawnPointHub spawnHub = FindAnyObjectByType<SpawnPointHub>();
-			if (spawnHub == null)
-			{
-				Debug.LogError("PlayScene에서 SpawnPointHub를 찾을 수 없습니다.");
-			}
-			else
-			{
-				foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
-				{
-					if (client.PlayerObject == null || !client.PlayerObject.TryGetComponent(out PlayerMoveSample player))
-					{
-						continue;
-					}
-
-					if (client.ClientId == NetworkManager.ServerClientId)
-					{
-						Transform hqSpawnPoint = spawnHub.HQSpawnPoint;
-						if (hqSpawnPoint != null)
-						{
-							player.TeleportToPosition(hqSpawnPoint.position, hqSpawnPoint.rotation);
-						}
-						else
-						{
-							Debug.LogError("본부 HQSpawnPoint가 설정되지 않았습니다.");
-						}
-
-						continue;
-					}
-
-					if (spawnHub.TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation))
-					{
-						player.TeleportToPosition(position, rotation);
-					}
-					else
-					{
-						Debug.LogError("활성화된 현장 스폰 구역에서 플레이어 스폰 위치를 찾지 못했습니다.");
-					}
-				}
-			}
 		}
 
 		// 3) 각자 화면 표시용 복제본 처리: 이 코드는 호스트/클라이언트 각자의 컴퓨터에서 개별적으로

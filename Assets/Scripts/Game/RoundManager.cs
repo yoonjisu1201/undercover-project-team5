@@ -35,6 +35,9 @@ public class RoundManager : NetworkBehaviour
     [SerializeField] private NpcSpawner _npcSpawner;
     [SerializeField] private ClueSpawner _clueSpawner;
 
+    [Header("캐릭터 스폰 담당하는 클래스 (게임 시작하면서 캐릭터를 적절한 위치에 스폰함)")] 
+    [SerializeField] private PlayerSpawner _playerSpawner;
+
     private readonly NetworkVariable<RoundState> _currentState =
         new(RoundState.Waiting, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -220,6 +223,9 @@ public class RoundManager : NetworkBehaviour
     {
         if (!IsServer) return;
         if (_currentState.Value != RoundState.Waiting) return;
+        
+        // 게임 시작 시 모든 플레이어를 적절한 위치로 이동시킨다
+        _playerSpawner.SpawnClients();
 
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _round1Duration;
