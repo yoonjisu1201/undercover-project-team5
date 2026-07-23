@@ -6,6 +6,9 @@ public class CCTVHub : MonoBehaviour {
 	private readonly List<Transform> _cctvPoints = new List<Transform>();
 	[SerializeField] private Camera _cctvCamera;
 
+	[Header("=== CCTV 위치 리스트 ===")]
+	[SerializeField] private Transform[] _cctvAreas;
+
 	// CCTV를 특정 포인트들로 옮겨가면서 여러 위치의 CCTV를 구현
 	private int _usingCctvNumber;
 	public int UsingCctvNumber => _usingCctvNumber;
@@ -13,8 +16,10 @@ public class CCTVHub : MonoBehaviour {
 	public event Action<int> OnCctvNumberChanged;
 	
 	private void Awake() {
-		foreach (Transform point in transform) {
-			_cctvPoints.Add(point);
+		foreach (Transform area in _cctvAreas) {
+			foreach (Transform point in area) {
+				_cctvPoints.Add(point);	
+			}
 		}
 		
 		_usingCctvNumber = 0;
