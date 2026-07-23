@@ -10,8 +10,8 @@ public class PlayerSpawner : MonoBehaviour
     [Header("HQ Spawn Settings")]
     [SerializeField] private Transform _hqSpawnPoint;
 
-    // 현재 활성화된 현장 구역의 실제 지면 위에서 무작위 스폰 위치를 구합니다.
-    private bool TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation)
+    // 일반 스폰과 긴급 탈출에서 함께 사용할 현장 지면 위치를 구합니다.
+    public bool TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation)
     {
         if (_regionController != null &&
             _regionController.RefreshSpawnAreas() &&

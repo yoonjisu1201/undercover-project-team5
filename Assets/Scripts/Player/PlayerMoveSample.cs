@@ -67,7 +67,11 @@ public class PlayerMoveSample : NetworkBehaviour
 			NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> ae6222e (feat(#222) : 긴급 탈출 로직 분리 및 버튼 복구)
 	private void Awake()
 	{
 		_actions = new CustomInputActions();
@@ -219,7 +223,11 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void FixedUpdate()
 	{
+<<<<<<< HEAD
 		if (!IsOwner)
+=======
+        if (!IsOwner)
+>>>>>>> ae6222e (feat(#222) : 긴급 탈출 로직 분리 및 버튼 복구)
 		{
 			return;
 		}
@@ -292,7 +300,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		_rigidbody.linearVelocity += Vector3.up * Physics.gravity.y * multiplier * Time.fixedDeltaTime;
 	}
 
-	private bool IsGrounded()
+	// 긴급 탈출 컴포넌트도 이동 코드와 같은 지면 판정을 재사용한다.
+	public bool IsGrounded()
 	{
 		return _groundCheck != null && Physics.CheckSphere(
 			_groundCheck.position,

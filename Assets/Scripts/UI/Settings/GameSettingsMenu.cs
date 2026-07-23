@@ -1,6 +1,7 @@
 using System;
 using Cysharp.Threading.Tasks;
 using TMPro;
+using Unity.Netcode;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Vivox;
 using UnityEngine;
@@ -228,6 +229,21 @@ public sealed class GameSettingsMenu : MonoBehaviour
         _outputDeviceText.text = VivoxManager.Instance.CurrentOutputDeviceName;
     }
 
+    // 로컬 플레이어에게 긴급 탈출을 요청하고 설정 메뉴를 닫는다.
+    public void EmergencyEscape()
+    {
+        // 현재 클라이언트가 소유한 플레이어 오브젝트를 가져온다.
+        var playerObject = NetworkManager.Singleton.LocalClient?.PlayerObject;
+
+        // 긴급 탈출 컴포넌트가 있을 때만 서버에 탈출을 요청한다.
+        if (playerObject != null &&
+            playerObject.TryGetComponent(out PlayerEmergencyEscape emergencyEscape))
+        {
+            emergencyEscape.RequestEmergencyEscape();
+            // 긴급 탈출 요청 후 게임 화면으로 돌아간다.
+            ReturnToGame();
+        }
+    }
     public void ReturnToGame()
     {
         SetMenuActive(false);
