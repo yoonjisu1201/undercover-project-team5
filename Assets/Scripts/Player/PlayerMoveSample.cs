@@ -67,7 +67,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
-
+    
 	private void Awake()
 	{
 		_actions = new CustomInputActions();
@@ -219,7 +219,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void FixedUpdate()
 	{
-		if (!IsOwner)
+        if (!IsOwner)
 		{
 			return;
 		}
@@ -292,7 +292,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		_rigidbody.linearVelocity += Vector3.up * Physics.gravity.y * multiplier * Time.fixedDeltaTime;
 	}
 
-	private bool IsGrounded()
+	// 긴급 탈출 컴포넌트도 이동 코드와 같은 지면 판정을 재사용한다.
+	public bool IsGrounded()
 	{
 		return _groundCheck != null && Physics.CheckSphere(
 			_groundCheck.position,
