@@ -151,6 +151,9 @@ public class RoundManager : NetworkBehaviour
                 && FindObjectsByType<PickupItem>(FindObjectsSortMode.None).Length >= _clueSpawner.SpawnCount,
             cancellationToken: cancellationToken);
 
+        // 나를 적절한 위치로 스폰시킨다
+        _playerSpawner.SpawnPlayer(NetworkManager.Singleton.LocalClient.PlayerObject);
+
         // 몽타주 관련 데이터 로딩한다
         await _montageDressUpUi.InitializeAsync();
 
@@ -240,9 +243,6 @@ public class RoundManager : NetworkBehaviour
     {
         if (!IsServer) return;
         if (_currentState.Value != RoundState.Waiting) return;
-
-        // 게임 시작 시 모든 플레이어를 적절한 위치로 이동시킨다
-        _playerSpawner.SpawnClients();
 
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _round1Duration;

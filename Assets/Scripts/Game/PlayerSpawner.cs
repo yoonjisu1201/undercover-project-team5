@@ -28,38 +28,31 @@ public class PlayerSpawner : MonoBehaviour
         return false;
     }
     
-    // 클라이언트들을 적당한 자리에 배치하기
-    // 예전에는 서버(호스트) 플레이어를 항상 본부로 고정 배치했으나,
-    // 대기실에서 선택한 역할(Player.PlayerRole)을 기준으로 배치하도록 바뀌었다.
-    public void SpawnClients() {
-        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+    // 요청한 클라이언트의 역할을 보고, 적절한 위치에 배치한다.
+    public void SpawnPlayer(NetworkObject playerObject) {
+        // PlayerObject가 아직 스폰 전이거나 필요한 컴포넌트가 없으면 스폰 배치를 건너뛴다(NRE 방지).
+        if (playerObject == null ||
+            !playerObject.TryGetComponent(out PlayerMoveSample move) ||
+            !playerObject.TryGetComponent(out Player player))
         {
-            NetworkObject playerObject = client.PlayerObject;
-            // PlayerObject가 아직 스폰 전이거나 필요한 컴포넌트가 없으면 스폰 배치를 건너뛴다(NRE 방지).
-            if (playerObject == null ||
-                !playerObject.TryGetComponent(out PlayerMoveSample move) ||
-                !playerObject.TryGetComponent(out Player player))
-            {
-                continue;
-            }
+            Debug.LogError($"[PlayerSpawner] 아직 캐릭터가 스폰되지 않았습니다.");
+            return;
+        }
 
-            if (player.PlayerRole == Role.Headquarter) {
-                if (_hqSpawnPoint != null) {
-                    move.TeleportToPosition(_hqSpawnPoint.position, _hqSpawnPoint.rotation);
-                }
-                else {
-                    Debug.LogError("본부 HQSpawnPoint가 설정되지 않았습니다.");
-                }
+        if (player.PlayerRole == Role.Headquarter) {
+            if (_hqSpawnPoint == null) {
+                Debug.LogError("[PlayerSpawner] 본부 HQSpawnPoint가 설정되지 않았습니다.");
+                return;
+            }
+            move.TeleportToPosition(_hqSpawnPoint.position, _hqSpawnPoint.rotation);
+            return;
+        }
 
-                continue;
-            }
-
-            if (TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation)) {
-                move.TeleportToPosition(position, rotation);
-            }
-            else {
-                Debug.LogError("활성화된 현장 스폰 구역에서 플레이어 스폰 위치를 찾지 못했습니다.");
-            }
+        if (TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation)) {
+            move.TeleportToPosition(position, rotation);
+        }
+        else {
+            Debug.LogError("[PlayerSpawner] 활성화된 현장 스폰 구역에서 플레이어 스폰 위치를 찾지 못했습니다.");
         }
     }
 }
