@@ -47,7 +47,14 @@ public class CriminalNpcManager : NetworkBehaviour
         if (!IsServer) return;
         if (state != RoundState.Round2) return;
 
-        AssignRandomCriminal(CriminalNpc);
+        NetworkObject previousCriminal = CriminalNpc;
+
+        AssignRandomCriminal(previousCriminal);
+
+        if (previousCriminal != null && previousCriminal.IsSpawned)
+        {
+            previousCriminal.Despawn(destroy: true);  // 이전 범인 NPC를 제거한다. (Round2에서는 새로운 범인을 지정하므로 이전 범인은 제거)
+        }
     }
 
     private void OnEnable()
