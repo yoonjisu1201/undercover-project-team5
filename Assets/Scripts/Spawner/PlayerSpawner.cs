@@ -24,6 +24,11 @@ public class PlayerSpawner : MonoBehaviour, IRoundSpawner
     public int SpawnCount => NetworkManager.Singleton?.ConnectedClientsList.Count ?? 0;
     public SpawnRule Rule => _spawnRule;
 
+    public bool TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation)
+    {
+        return TryGetSiteSpawnPose(_spawnCoordinator, out position, out rotation);
+    }
+
     // 현재 활성화된 현장 구역의 실제 지면 위에서 무작위 스폰 위치를 구합니다.
     public bool TryGetSiteSpawnPose(RoundSpawnCoordinator coordinator, out Vector3 position, out Quaternion rotation)
     {
