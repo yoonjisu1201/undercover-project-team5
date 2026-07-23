@@ -51,13 +51,14 @@ public class WaitingRoomReadyManager : NetworkBehaviour
     }
 
     // 접속 인원이 최소 인원 이상이고, 방장을 제외한 전원이 준비를 마쳤을 때 시작 가능하다.
+    public bool CanStart => HasEnoughPlayers && IsAllReady && HaveHqAgent;
+    // 인원수 확인
+    public bool HasEnoughPlayers => _slots.Count >= MinPlayersToStart;
     // 전체가 준비했는지 확인
     public bool IsAllReady
     {
         get
         {
-            if (_slots.Count < MinPlayersToStart) return false;
-
             foreach (var slot in _slots)
             {
                 if (slot.ClientId == NetworkManager.ServerClientId) continue;

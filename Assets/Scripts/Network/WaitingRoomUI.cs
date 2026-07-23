@@ -30,8 +30,9 @@ public class WaitingRoomUI : MonoBehaviour
     [SerializeField] private LocalizedString _headquarterSelectedText;
     [SerializeField] private LocalizedString _hqAlreadyExistsText;
     [SerializeField] private LocalizedString _hqAvailableText;
-    [SerializeField] private LocalizedString _startInfoNeedHq;
+    [SerializeField] private LocalizedString _startInfoNeedsHq;
     [SerializeField] private LocalizedString _startInfoAllReady;
+    [SerializeField] private LocalizedString _startInfoNeedsMorePlayer;
 
     // 옅은 붉은색(뮤트) / 옅은 녹색(언뮤트): 투명도를 낮춰서 옅게 보이도록 한다.
     private static readonly Color MutedColor = new Color(1f, 0f, 0f, 0.5f);
@@ -223,23 +224,28 @@ public class WaitingRoomUI : MonoBehaviour
     // 시작 버튼 및 알림 텍스트 갱신한다.
     private void UpdateStartButtonAndText()
     {
-	    // 모두 준비했고, 본부 요원도 한 명 있으면 시작 가능하다
-	    bool startable = _readyManager.IsAllReady && _readyManager.HaveHqAgent;
-        _startGameButton.interactable = startable;
+	    // 시작 가능한지 확인
+        _startGameButton.interactable = _readyManager.CanStart; 
 
         // 시작 가능한 경우 설명 텍스트 제거
-        if (startable) {
+        if (_readyManager.CanStart) {
 	        _startGameButtonInfoText.text = "";
 	        return;
         }
 
-        // 시작 불가능한 이유를 안내한다. IsAllReady가 false면 그것이 이유이고,
-        // startable이 false인데 IsAllReady가 true라면 남은 이유는 HaveHqAgent뿐이다.
-        if (_startGameButtonInfoLocalize == null) return;
-
-        _startGameButtonInfoLocalize.StringReference = !_readyManager.IsAllReady
-	        ? _startInfoAllReady
-	        : _startInfoNeedHq;
+        // 시작 불가능한 이유를 안내한다.
+        if (!_readyManager.HasEnoughPlayers) {
+	        // 사람 부족해서 시작 못하는 경우
+	        _startGameButtonInfoLocalize.StringReference = _startInfoNeedsMorePlayer;
+	        _startGameButtonInfoLocalize.StringReference.Arguments = new object[] { WaitingRoomReadyManager.MinPlayersToStart };
+        } else if (!_readyManager.IsAllReady) {
+	        // 레디 다 안해서 시작 못하는 경우
+	        _startGameButtonInfoLocalize.StringReference = _startInfoAllReady;
+        } else if (!_readyManager.HaveHqAgent) {
+	        // 본부 요원 없어서 시작 못하는 경우
+	        _startGameButtonInfoLocalize.StringReference = _startInfoNeedsHq;
+        }
+        
         _startGameButtonInfoLocalize.RefreshString();
     }
 
