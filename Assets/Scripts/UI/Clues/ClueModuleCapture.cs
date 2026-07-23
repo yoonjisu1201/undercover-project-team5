@@ -15,6 +15,7 @@ public sealed class ClueModuleCapture : IDisposable
     private readonly Camera _clueCamera;
     private readonly RenderTexture _renderTexture;
     private readonly float _baseFieldOfView;
+    private readonly Vector3 _frontViewDirection;
 
     private GameObject _createdModule;
     private Mesh _createdMesh;
@@ -27,6 +28,7 @@ public sealed class ClueModuleCapture : IDisposable
         _clueCamera = clueCamera;
         _renderTexture = renderTexture;
         _baseFieldOfView = clueCamera.fieldOfView;
+        _frontViewDirection = (moduleSpawnPoint.position - clueCamera.transform.position).normalized;
 
         InitializeCamera();
     }
@@ -101,7 +103,7 @@ public sealed class ClueModuleCapture : IDisposable
     // 카메라를 파츠의 단서 UI 프레임에 맞게 위치시키고 스케일을 조정한다.
     private void PositionCamera(Bounds bounds)
     {
-        Vector3 viewDirection = (_moduleSpawnPoint.position - _clueCamera.transform.position).normalized;
+        Vector3 viewDirection = _frontViewDirection;
         if (viewDirection == Vector3.zero)
         {
             viewDirection = Vector3.forward;
@@ -113,7 +115,9 @@ public sealed class ClueModuleCapture : IDisposable
         float distance = (Mathf.Max(verticalDistance, horizontalDistance) + bounds.extents.z) * FramingMargin;
         float zoom = UnityEngine.Random.Range(MinZoom, MaxZoom);
 
-        _clueCamera.transform.position = bounds.center - viewDirection * Mathf.Max(distance, 0.1f);
+        // 기존 카메라가 바라보던 반대편에 고정해 모듈의 앞면을 촬영한다.
+        // 매 촬영마다 현재 카메라 위치로 방향을 다시 계산하면 앞/뒤가 번갈아 바뀔 수 있다.
+        _clueCamera.transform.position = bounds.center + viewDirection * Mathf.Max(distance, 0.1f);
         _clueCamera.transform.LookAt(bounds.center);
         _clueCamera.fieldOfView = _baseFieldOfView / zoom;
     }

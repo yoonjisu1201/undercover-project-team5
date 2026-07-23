@@ -3,13 +3,13 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Box Collider로 나눈 구역의 통합 NavMesh 위에 8개 단서를 서버 권한으로 생성하는 클래스
+// Box Collider로 나눈 구역의 통합 NavMesh 위에 등록된 단서를 서버 권한으로 생성하는 클래스
 public sealed class ClueSpawner : MonoBehaviour
 {
-    public const int RequiredClueCount = 8;
-
     [Header("단서 데이터")]
     [SerializeField] private ItemData[] _clues;
+
+    public int SpawnCount => _clues?.Length ?? 0;
 
     [Header("스폰 영역")]
     [SerializeField] private MapRegionController _regionController;
@@ -104,9 +104,9 @@ public sealed class ClueSpawner : MonoBehaviour
 
     private bool ValidateSettings()
     {
-        if (_clues == null || _clues.Length != RequiredClueCount)
+        if (_clues == null || _clues.Length == 0)
         {
-            Debug.LogError($"[ClueSpawner] 단서 데이터는 정확히 {RequiredClueCount}개가 필요합니다.", this);
+            Debug.LogError("[ClueSpawner] 단서 데이터를 하나 이상 등록해야 합니다.", this);
             return false;
         }
 

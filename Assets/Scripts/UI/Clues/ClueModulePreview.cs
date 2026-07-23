@@ -49,13 +49,15 @@ public class ClueModulePreview : MonoBehaviour
 
         //--- 2. 단서 UI 슬롯 탐색 ---//
         List<(ClueUI clueUi, RawImage clueImage)> clueSlots = FindClueSlots();
-        int clueCount = Mathf.Min(_equippedModules.Count, clueSlots.Count);
+        int clueCount = clueSlots.Count;
 
         //--- 3. 범인 파츠 촬영 ---//
         for (int i = 0; i < clueCount; i++)
         {
             //--- 4. 카메라/텍스처 처리는 ClueModuleCapture가 담당 ---//
-            Texture2D texture = await _moduleCapture.CaptureAsync(_equippedModules[i], cancellationToken);
+            // UI 슬롯을 최대한 채우고, 착용 모듈보다 슬롯이 많으면 처음부터 다시 사용한다.
+            GameObject module = _equippedModules[i % _equippedModules.Count];
+            Texture2D texture = await _moduleCapture.CaptureAsync(module, cancellationToken);
 
             if (texture != null)
             {
