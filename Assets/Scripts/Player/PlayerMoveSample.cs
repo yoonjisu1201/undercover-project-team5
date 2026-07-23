@@ -67,11 +67,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
-<<<<<<< HEAD
-
-=======
     
->>>>>>> ae6222e (feat(#222) : 긴급 탈출 로직 분리 및 버튼 복구)
 	private void Awake()
 	{
 		_actions = new CustomInputActions();
@@ -223,11 +219,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void FixedUpdate()
 	{
-<<<<<<< HEAD
-		if (!IsOwner)
-=======
         if (!IsOwner)
->>>>>>> ae6222e (feat(#222) : 긴급 탈출 로직 분리 및 버튼 복구)
 		{
 			return;
 		}
