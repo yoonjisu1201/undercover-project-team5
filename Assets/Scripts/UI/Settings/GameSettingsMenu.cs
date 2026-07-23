@@ -7,7 +7,6 @@ using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
-using Unity.Netcode;
 
 public sealed class GameSettingsMenu : MonoBehaviour
 {
@@ -228,19 +227,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
         _outputDeviceText.text = VivoxManager.Instance.CurrentOutputDeviceName;
     }
-    //추가-----------------------
-    public void EmergencyEscape()
-    {
-        var playerObject = NetworkManager.Singleton.LocalClient?.PlayerObject;
 
-        if (playerObject != null &&
-            playerObject.TryGetComponent(out PlayerMoveSample playerMove))
-        {
-            playerMove.RequestEmergencyEscape();
-            ReturnToGame();
-        }
-    }
-    //-------------------------------
     public void ReturnToGame()
     {
         SetMenuActive(false);
