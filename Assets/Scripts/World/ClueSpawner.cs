@@ -24,6 +24,8 @@ public sealed class ClueSpawner : MonoBehaviour
 
     private readonly List<Vector3> _spawnedPositions = new();
     private bool _hasSpawned;
+    private readonly List<NetworkObject> _spawnedClues = new();
+    private const string ClueItemIdPrefix = "Clue";
 
     private void OnEnable()
     {
@@ -98,6 +100,7 @@ public sealed class ClueSpawner : MonoBehaviour
 
             pickupItem.Configure(clueData);
             networkObject.Spawn(destroyWithScene: true);
+            _spawnedClues.Add(networkObject);
             _spawnedPositions.Add(spawnPosition);
         }
     }
@@ -174,5 +177,55 @@ public sealed class ClueSpawner : MonoBehaviour
         }
 
         return true;
+    }
+
+    public void RespawnClues()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        {
+            Debug.LogWarning("[ClueSpawner] 서버에서만 단서를 재생성할 수 있습니다.", this);
+            return;
+        }
+
+        ClearPlayerInventories();
+        DespawnAllFieldClues();
+
+        _spawnedClues.Clear();
+        _spawnedPositions.Clear();
+        _hasSpawned = false;
+
+        SpawnClues();
+    }
+
+    private void ClearPlayerInventories()
+    {
+        PlayerInventory[] inventories = FindObjectsByType<PlayerInventory>(FindObjectsSortMode.None);
+
+        foreach (PlayerInventory inventory in inventories)
+        {
+            inventory.RemoveClueItemsOnServer(ClueItemIdPrefix);
+        }
+    }
+
+    private void DespawnAllFieldClues()
+    {
+        // 최초 스폰 단서뿐만 아니라 플레이어가 다시 버린 단서까지 찾는다.
+        PickupItem[] fieldItems = FindObjectsByType<PickupItem>(FindObjectsSortMode.None);
+
+        foreach (PickupItem fieldItem in fieldItems)
+        {
+            if (string.IsNullOrEmpty(fieldItem.ItemId) || !fieldItem.ItemId.StartsWith(ClueItemIdPrefix, System.StringComparison.Ordinal))
+            {
+                // 단서가 아닌 아이템은 무시
+                continue;
+            }
+
+            NetworkObject networkObject = fieldItem.NetworkObject;
+
+            if (networkObject != null && networkObject.IsSpawned)
+            {
+                networkObject.Despawn(destroy: true);
+            }
+        }
     }
 }

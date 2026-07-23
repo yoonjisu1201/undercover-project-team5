@@ -5,6 +5,7 @@ public class PickupItem : InteractableBase
 {
     [SerializeField] private ItemData _itemData;
 
+    public string ItemId => _itemData != null ? _itemData.ItemId : null;
     public override string InteractionText => _itemData != null ? $"{_itemData.DisplayName} 줍기" : "줍기";
     public override bool CanInteract => Time.time >= _interactionBlockedUntil;   // 상호작용 가능 여부
     private float _interactionBlockedUntil;
