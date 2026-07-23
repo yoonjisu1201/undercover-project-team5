@@ -67,12 +67,6 @@ public class PlayerMoveSample : NetworkBehaviour
 			NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
-
-    [SerializeField] private float _safePositionRecordInterval = 25f;
-    private float _safePositionRecordElapsed;
-
-    private Vector3 _safePosition;
-    private bool _hasSafePosition = false;
     
 	private void Awake()
 	{
@@ -225,19 +219,6 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void FixedUpdate()
 	{
-        //플레이어 이동 경로 기반으로 땅에 닿아있으면 자기 경로를 저장하여 안전한 지점으로 활용
-        if (IsServer)
-        {
-            _safePositionRecordElapsed += Time.fixedDeltaTime;
-
-            if (_safePositionRecordElapsed >= _safePositionRecordInterval && IsGrounded())
-            {
-                _safePosition = transform.position;
-                _hasSafePosition = true;
-                _safePositionRecordElapsed = 0f;
-            }
-        }
-
         if (!IsOwner)
 		{
 			return;
@@ -311,7 +292,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		_rigidbody.linearVelocity += Vector3.up * Physics.gravity.y * multiplier * Time.fixedDeltaTime;
 	}
 
-	private bool IsGrounded()
+	// 긴급 탈출 컴포넌트도 이동 코드와 같은 지면 판정을 재사용한다.
+	public bool IsGrounded()
 	{
 		return _groundCheck != null && Physics.CheckSphere(
 			_groundCheck.position,
@@ -319,38 +301,6 @@ public class PlayerMoveSample : NetworkBehaviour
 			_jumpableSurfaceMask,
 			QueryTriggerInteraction.Ignore);
 	}
-
-    // 로컬 플레이어만 긴급 탈출을 요청한다.
-    public void RequestEmergencyEscape()
-    {
-        if (IsOwner)
-        {
-            RequestEmergencyEscapeRpc();
-        }
-    }
-
-    // 실제 탈출 위치 결정과 이동은 서버에서 처리한다.
-    [Rpc(SendTo.Server)]
-    private void RequestEmergencyEscapeRpc()
-    {
-        // 기록된 안전 위치가 있으면 해당 위치로 이동한다.
-        if (_hasSafePosition)
-        {
-            TeleportToPosition(_safePosition, transform.rotation);
-            return;
-        }
-
-        // 안전 위치가 없으면 스폰 지점 중 하나를 대체 위치로 사용한다.
-        SpawnPointHub spawnHub = FindAnyObjectByType<SpawnPointHub>();
-
-        if (spawnHub.TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation))
-        {
-            TeleportToPosition(position, rotation);
-            return;
-        }
-
-        Debug.LogWarning("긴급탈출 위치를 찾지 못했습니다.");
-    }
 
 	// 서버에서 지정한 스폰 위치로 이동한다.
 	public void TeleportToPosition(Vector3 position, Quaternion rotation)
