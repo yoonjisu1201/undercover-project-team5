@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class PlayerInteraction : NetworkBehaviour
 {
@@ -138,18 +137,46 @@ public class PlayerInteraction : NetworkBehaviour
         // 조준 대상을 갱신한 뒤 상호작용과 드롭 입력을 처리한다.
         if (_actions.Player.Interact.WasPressedThisFrame()) // 상호작용 버튼이 눌렸을 때
         {
-            TryInteract();
+            HandleInteractInput();
         }
         if (_actions.Player.Drop.WasPressedThisFrame()) // 드롭 버튼이 눌렸을 때
         {
             TryDropSelectedItem();
         }
-        if (Mouse.current?.leftButton.wasPressedThisFrame == true &&
-            !GameplayUiMode.IsActive &&
-            !ClueUI.WasClosedThisFrame)
+    }
+
+    private void HandleInteractInput()
+    {
+        // 조준 중인 대상이 있으면 단서 UI보다 필드 상호작용을 우선한다.
+        if (_currentTarget != null)
         {
-            TryShowSelectedClue();
+            TryInteract();
+            return;
         }
+
+        if (TryCloseVisibleClue())
+        {
+            return;
+        }
+
+        TryShowSelectedClue();
+    }
+
+    private static bool TryCloseVisibleClue()
+    {
+        ClueUI[] clueDisplays = FindObjectsByType<ClueUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (ClueUI clueDisplay in clueDisplays)
+        {
+            if (!clueDisplay.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            clueDisplay.Close();
+            return true;
+        }
+
+        return false;
     }
 
     private void HandleItemAdded(string itemId, int _)
@@ -232,6 +259,7 @@ public class PlayerInteraction : NetworkBehaviour
         Vector3 dropVelocity = cameraTransform.forward * 2f + Vector3.up;
 
         RequestDropRpc(itemId, dropPosition, dropVelocity);
+        TryCloseVisibleClue();
     }
 
     [Rpc(SendTo.Server)]
