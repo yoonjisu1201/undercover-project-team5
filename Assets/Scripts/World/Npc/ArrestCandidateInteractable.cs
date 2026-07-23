@@ -14,7 +14,9 @@ public class ArrestCandidateInteractable : InteractableBase
     public override float AimRadiusMultiplier => _aimRadiusMultiplier;
 
     // 서버 재검사 시 네트워크 지연으로 인한 위치 오차를 흡수하기 위한 여유 거리.
-    [SerializeField, Min(0f)] private float _rangeTolerance = 0.5f;
+    // NPC는 RPC 왕복 시간(상호작용 → 서버 처리) 동안에도 계속 이동하므로,
+    // 그 사이 이동 가능한 거리를 여유 있게 흡수할 수 있는 값으로 잡는다.
+    [SerializeField, Min(0f)] private float _rangeTolerance = 2f;
 
     public override void Interact(GameObject interactor)
     {
@@ -60,7 +62,7 @@ public class ArrestCandidateInteractable : InteractableBase
             return;
         }
 
-        GetComponent<NpcMovement>()?.Pause();
+        GetComponent<NpcMovement>()?.HoldExternally();
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
@@ -71,7 +73,7 @@ public class ArrestCandidateInteractable : InteractableBase
             return;
         }
 
-        GetComponent<NpcMovement>()?.Resume();
+        GetComponent<NpcMovement>()?.ReleaseExternalHold();
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]

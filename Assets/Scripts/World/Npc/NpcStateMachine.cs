@@ -45,6 +45,8 @@ public sealed class NpcStateMachine : MonoBehaviour
             return;
         }
 
+        if (_movement.IsHeldExternally) return; // 외부에서 붙잡아 둔 동안은 휴식 타이머 등 내부 상태 갱신도 멈춘다
+
         if (_isResting)
         {
             UpdateRest();

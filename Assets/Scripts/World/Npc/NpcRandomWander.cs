@@ -71,6 +71,8 @@ public sealed class NpcRandomWander : MonoBehaviour
             return;
         }
 
+        if (_movement.IsHeldExternally) return; // 외부에서 붙잡아 둔 동안은 배회 로직을 멈춘다
+
         if (_hasRequestedMove)
         {
             if (!_movement.HasArrived)
