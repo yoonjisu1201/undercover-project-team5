@@ -130,7 +130,7 @@ public class ArrestVoteManager : NetworkBehaviour
             case ArrestVoteState.Rejected:
                 if (NetworkManager.ServerTime.Time >= _returnToIdleTime.Value)
                 {
-                    ArrestCandidate?.GetComponent<NpcMovement>()?.Resume(); // 멈춰뒀던 후보 NPC 이동을 재개
+                    ArrestCandidate?.GetComponent<NpcMovement>()?.ReleaseExternalHold(); // 멈춰뒀던 후보 NPC 이동을 재개
                     _arrestCandidateReference.Value = default; // 다음 투표를 위해 검거 후보를 초기화
                     _currentVoteState.Value = ArrestVoteState.Idle; // 결과 표시 시간이 끝나 다음 투표를 받을 수 있게 리셋
                 }
@@ -211,7 +211,7 @@ public class ArrestVoteManager : NetworkBehaviour
 
         // 투표가 진행되는 동안 후보 NPC가 자리를 벗어나지 않도록 이동을 멈춘다.
         // (상호작용 시점에 이미 멈춰있는 게 보통이지만, 안전하게 한 번 더 보장한다.)
-        npc.GetComponent<NpcMovement>()?.Pause();
+        npc.GetComponent<NpcMovement>()?.HoldExternally();
         return true;
     }
 

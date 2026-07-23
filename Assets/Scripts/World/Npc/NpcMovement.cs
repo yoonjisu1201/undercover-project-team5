@@ -112,4 +112,21 @@ public class NpcMovement : MonoBehaviour
                 _agent.isStopped = false;
             }
         }
+
+        // 검거 확인 패널/투표처럼 외부 시스템이 NPC를 붙잡아 둘 때 사용한다.
+        // 랜덤 배회 로직이 이 상태를 확인해서 이동을 재개하지 않도록 한다.
+        // (Pause()/Resume()은 NPC 내부 로직(장거리 이동 중 휴식)도 함께 쓰기 때문에 구분해서 관리한다)
+        public bool IsHeldExternally { get; private set; }
+
+        public void HoldExternally()
+        {
+            IsHeldExternally = true;
+            Pause();
+        }
+
+        public void ReleaseExternalHold()
+        {
+            IsHeldExternally = false;
+            Resume();
+        }
 }
