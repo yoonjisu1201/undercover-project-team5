@@ -68,6 +68,14 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private bool _isJumping;
 
+    // 추가 --------------------------
+    [SerializeField] private float _safePositionRecordInterval = 25f;
+    private float _safePositionRecordElapsed;
+
+    private Vector3 _safePosition;
+    private bool _hasSafePosition = false;
+	//------------------------------------
+    
 	private void Awake()
 	{
 		_actions = new CustomInputActions();
@@ -219,7 +227,21 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void FixedUpdate()
 	{
-		if (!IsOwner)
+        //추가---------------------
+        if (IsServer)
+        {
+            _safePositionRecordElapsed += Time.fixedDeltaTime;
+
+            if (_safePositionRecordElapsed >= _safePositionRecordInterval && IsGrounded())
+            {
+                _safePosition = transform.position;
+                _hasSafePosition = true;
+                _safePositionRecordElapsed = 0f;
+            }
+        }
+        //--------------------------
+
+        if (!IsOwner)
 		{
 			return;
 		}
@@ -301,11 +323,47 @@ public class PlayerMoveSample : NetworkBehaviour
 			QueryTriggerInteraction.Ignore);
 	}
 
+    //추가---------------------------
+    public void RequestEmergencyEscape()
+    {
+        if (IsOwner)
+        {
+            RequestEmergencyEscapeRpc();
+        }
+    }
+
+    [Rpc(SendTo.Server)]
+    private void RequestEmergencyEscapeRpc()
+    {
+        if (_hasSafePosition)
+        {
+            TeleportToPosition(_safePosition, transform.rotation);
+            return;
+        }
+
+        SpawnPointHub spawnHub = FindAnyObjectByType<SpawnPointHub>();
+
+        if (spawnHub.TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation))
+        {
+            TeleportToPosition(position, rotation);
+            return;
+        }
+
+        Debug.LogWarning("긴급탈출 위치를 찾지 못했습니다.");
+    }
+
+    //-------------------------
+
 	// 서버에서 지정한 스폰 위치로 이동한다.
-	public void TeleportToPosition(Vector3 position, Quaternion rotation)
+    public void TeleportToPosition(Vector3 position, Quaternion rotation)
 	{
-		// 호스트는 서버와 오너가 같은 인스턴스이므로 RPC를 거치지 않고 즉시 적용한다.
-		if (IsOwner)
+        if (IsServer)
+        {
+            _hasSafePosition = false;
+        }
+
+        // 호스트는 서버와 오너가 같은 인스턴스이므로 RPC를 거치지 않고 즉시 적용한다.
+        if (IsOwner)
 		{
 			ApplyTeleport(position, rotation);
 			return;
