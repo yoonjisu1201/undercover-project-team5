@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Cysharp.Threading.Tasks;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
@@ -69,12 +70,12 @@ public class MontageDressUpUI : ScreenBase {
 	// 탭 버튼은 한 번만 생성하면 되므로 중복 생성을 막기 위한 플래그
 	private bool _initialized;
 	
-	private void OnEnable() {
-		Initialize();
+	private async void OnEnable() {
+		await InitializeAsync();
 		SetActiveTab(_activePart);
 	}
 
-	public void Initialize() {
+	public async UniTask InitializeAsync() {
 		// 중복 초기화 막기 위한 코드
 		if (_initialized) { return; }
 		
@@ -83,26 +84,23 @@ public class MontageDressUpUI : ScreenBase {
 			Debug.LogError($"[MontageDressUpUi] PlayerObject 로딩 실패");
 			return;
 		}
+		
 		// 본부 요원만 몽타주 초기화하도록 하기 위함
 		if (player.PlayerRole != Role.Headquarter) { return; }
 		
 		montageObject.Initialize();
 
-		LoadDatas();
+		await LoadDatasAsync();
 		BuildTabs();
 	   
 		_initialized = true;
 	}
 	
 	// Resources.Load를 통해 필요한 데이터 로드하기
-	private void LoadDatas() { 
+	private async UniTask LoadDatasAsync() { 
 		foreach (MontageParts part in _partOrder) {
-			_dataByParts.Add(
-				part,
-				Resources.LoadAll<MontageClothData>(
-					$"Montage/ClothData/{part.ToString()}"
-				).ToList()
-			);
+			_dataByParts.Add(part, Resources.LoadAll<MontageClothData>($"Montage/ClothData/{part}").ToList());
+			await UniTask.Yield();   // 파츠 하나씩 로드하고 한 프레임 양보
 		}
 	}
 
