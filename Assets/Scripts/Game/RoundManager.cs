@@ -136,7 +136,7 @@ public class RoundManager : NetworkBehaviour
 
         await UniTask.WaitUntil(
             () => FindObjectsByType<NpcStateMachine>(FindObjectsSortMode.None).Length >= _npcSpawner.SpawnCount
-                && FindObjectsByType<PickupItem>(FindObjectsSortMode.None).Length >= ClueSpawner.RequiredClueCount,
+                && FindObjectsByType<PickupItem>(FindObjectsSortMode.None).Length >= _clueSpawner.SpawnCount,
             cancellationToken: cancellationToken);
 
         ReportSpawnReadyServerRpc();
