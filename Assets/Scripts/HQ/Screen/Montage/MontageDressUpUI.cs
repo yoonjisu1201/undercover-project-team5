@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -66,13 +67,31 @@ public class MontageDressUpUI : ScreenBase {
 	[SerializeField] private MontageParts _activePart = MontageParts.Hair;
 	
 	// 탭 버튼은 한 번만 생성하면 되므로 중복 생성을 막기 위한 플래그
-	private bool _tabsBuilt;
+	private bool _initialized;
+	
+	private void OnEnable() {
+		Initialize();
+		SetActiveTab(_activePart);
+	}
 
-	private void Awake() {
-	   montageObject.Initialize();
+	public void Initialize() {
+		// 중복 초기화 막기 위한 코드
+		if (_initialized) { return; }
+		
+		// 현재 플레이어 정보 받기
+		if (!NetworkManager.Singleton.LocalClient.PlayerObject.TryGetComponent<Player>(out var player)) {
+			Debug.LogError($"[MontageDressUpUi] PlayerObject 로딩 실패");
+			return;
+		}
+		// 본부 요원만 몽타주 초기화하도록 하기 위함
+		if (player.PlayerRole != Role.Headquarter) { return; }
+		
+		montageObject.Initialize();
 
-	   LoadDatas();
-	   BuildTabs();
+		LoadDatas();
+		BuildTabs();
+	   
+		_initialized = true;
 	}
 	
 	// Resources.Load를 통해 필요한 데이터 로드하기
@@ -87,22 +106,7 @@ public class MontageDressUpUI : ScreenBase {
 		}
 	}
 
-	private void OnEnable() {
-		Debug.Log(
-			$"[{name} / {GetInstanceID()}] " +
-			$"didAwake={didAwake}, " +
-			$"activePart={_activePart}, " +
-			$"keys={string.Join(", ", _dataByParts.Keys)}"
-		);
-	   SetActiveTab(_activePart);
-	}
-
 	private void BuildTabs() {
-	   if (_tabsBuilt) {
-	      return;
-	   }
-	   _tabsBuilt = true;
-
 	   // 순서 맞춰서 기반으로 탭 생성
 	   foreach (MontageParts part in _partOrder) {
 	      GameObject tabObj = Instantiate(_tabButtonPrefab, _tabContainer);

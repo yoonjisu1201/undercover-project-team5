@@ -38,6 +38,9 @@ public class RoundManager : NetworkBehaviour
     [Header("캐릭터 스폰 담당하는 클래스 (게임 시작하면서 캐릭터를 적절한 위치에 스폰함)")] 
     [SerializeField] private PlayerSpawner _playerSpawner;
 
+    [Header("몽타주 게임 시작 시에 미리 로딩해주기 위함")]
+    [SerializeField] private MontageDressUpUI _montageDressUpUi;
+
     private readonly NetworkVariable<RoundState> _currentState =
         new(RoundState.Waiting, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -226,6 +229,9 @@ public class RoundManager : NetworkBehaviour
         
         // 게임 시작 시 모든 플레이어를 적절한 위치로 이동시킨다
         _playerSpawner.SpawnClients();
+        
+        // 몽타주 관련 데이터 모두 로딩한다
+        _montageDressUpUi.Initialize();
 
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _round1Duration;
