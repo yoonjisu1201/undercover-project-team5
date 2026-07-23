@@ -75,9 +75,13 @@ public class PlayerSpawner : MonoBehaviour, IRoundSpawner
 
             move.TeleportToPosition(_hqSpawnPoint.position, _hqSpawnPoint.rotation);
 
-            // 실제 배치에 사용한 본부 좌표를 최초 긴급 탈출 위치로 기록합니다.
-            playerObject.GetComponent<PlayerEmergencyEscape>()
-                .RecordInitialSpawnPosition(_hqSpawnPoint.position);
+            // 현재 라운드에서 실제 배치에 사용한 본부 위치를 기본 복귀 위치로 기록합니다.
+            if (playerObject.TryGetComponent(out PlayerEmergencyEscape emergencyEscape))
+            {
+                emergencyEscape.RecordRoundSpawnPose(
+                    _hqSpawnPoint.position,
+                    _hqSpawnPoint.rotation);
+            }
 
             return;
         }
@@ -86,9 +90,11 @@ public class PlayerSpawner : MonoBehaviour, IRoundSpawner
         {
             move.TeleportToPosition(position, rotation);
 
-            // 실제 배치에 사용한 현장 좌표를 최초 긴급 탈출 위치로 기록합니다.
-            playerObject.GetComponent<PlayerEmergencyEscape>()
-                .RecordInitialSpawnPosition(position);
+            // 현재 라운드에서 실제 배치에 사용한 현장 위치를 기본 복귀 위치로 기록합니다.
+            if (playerObject.TryGetComponent(out PlayerEmergencyEscape emergencyEscape))
+            {
+                emergencyEscape.RecordRoundSpawnPose(position, rotation);
+            }
 
             return;
         }

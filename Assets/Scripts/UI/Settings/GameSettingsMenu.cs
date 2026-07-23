@@ -15,9 +15,25 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private const string SfxVolumeKey = "SfxVolume";
     private const string VoiceVolumeKey = "VoiceVolume";
     private const string MicVolumeKey = "MicVolume";
+    private const string ResolutionIndexKey = "ResolutionIndex";
+    private const string FullScreenKey = "FullScreen";
+    private const string MouseSensitivityKey = "MouseSensitivity";
+    private static readonly Vector2Int[] SupportedResolutions =
+    {
+        new(640, 360),
+        new(854, 480),
+        new(1280, 720),
+        new(1920, 1080),
+        new(2560, 1440),
+        new(3840, 2160)
+    };
 
     [Header("Menu")]
     [SerializeField] private GameObject _settingsPanel;
+    [SerializeField] private GameObject[] _tabPanels;
+    [SerializeField] private Button[] _tabButtons;
+    [SerializeField] private Color _activeTabColor = new(0.08f, 0.55f, 0.62f, 1f);
+    [SerializeField] private Color _inactiveTabColor = new(0.05f, 0.31f, 0.36f, 1f);
 
     [Header("Device Settings")]
     [SerializeField] private TMP_Text _inputDeviceText;
@@ -31,8 +47,17 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [SerializeField] private Slider _voiceSlider;
     [SerializeField] private Slider _micSlider;
 
+    [Header("Graphics Settings")]
+    [SerializeField] private TMP_Text _resolutionText;
+    [SerializeField] private Toggle _fullScreenToggle;
+
+    [Header("Gameplay Settings")]
+    [SerializeField] private Slider _sensitivitySlider;
+    [SerializeField] private TMP_Text _sensitivityValueText;
+
     private CustomInputActions _actions;
     private bool _vivoxEventsSubscribed;
+    private int _resolutionIndex;
 
     private void Awake()
     {
@@ -43,8 +68,122 @@ public sealed class GameSettingsMenu : MonoBehaviour
         _sfxSlider.onValueChanged.AddListener(SetSfxVolume);
         _voiceSlider.onValueChanged.AddListener(SetVoiceVolume);
         _micSlider.onValueChanged.AddListener(SetMicVolume);
+        _fullScreenToggle?.onValueChanged.AddListener(SetFullScreen);
+        _sensitivitySlider?.onValueChanged.AddListener(SetMouseSensitivity);
 
         InitailizeVolumeSliders();
+        InitializeGraphicsSettings();
+        InitializeSensitivity();
+        SelectTab(0);
+    }
+
+    private void InitializeGraphicsSettings()
+    {
+        if (_resolutionText == null || _fullScreenToggle == null)
+        {
+            return;
+        }
+
+        int defaultIndex = FindClosestResolutionIndex(Screen.width, Screen.height);
+        _resolutionIndex = Mathf.Clamp(
+            PlayerPrefs.GetInt(ResolutionIndexKey, defaultIndex),
+            0,
+            SupportedResolutions.Length - 1);
+
+        bool isFullScreen = PlayerPrefs.GetInt(
+            FullScreenKey,
+            Screen.fullScreen ? 1 : 0) == 1;
+        _fullScreenToggle.SetIsOnWithoutNotify(isFullScreen);
+        ApplyResolution(isFullScreen);
+    }
+
+    private void InitializeSensitivity()
+    {
+        float sensitivity = PlayerPrefs.GetFloat(MouseSensitivityKey, 0.5f);
+        _sensitivitySlider?.SetValueWithoutNotify(sensitivity);
+        ApplyMouseSensitivity(sensitivity);
+    }
+
+    public void SelectTab(int tabIndex)
+    {
+        if (_tabPanels == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _tabPanels.Length; i++)
+        {
+            bool selected = i == tabIndex;
+            _tabPanels[i].SetActive(selected);
+
+            if (_tabButtons != null && i < _tabButtons.Length)
+            {
+                Button tabButton = _tabButtons[i];
+                ColorBlock colors = tabButton.colors;
+                colors.normalColor = _inactiveTabColor;
+                colors.highlightedColor = _activeTabColor;
+                colors.selectedColor = _activeTabColor;
+                colors.disabledColor = _activeTabColor;
+                tabButton.colors = colors;
+                tabButton.interactable = !selected;
+            }
+        }
+    }
+
+    private int FindClosestResolutionIndex(int width, int height)
+    {
+        int closestIndex = 0;
+        int closestDifference = int.MaxValue;
+
+        for (int i = 0; i < SupportedResolutions.Length; i++)
+        {
+            Vector2Int resolution = SupportedResolutions[i];
+            int difference = Mathf.Abs(resolution.x - width) + Mathf.Abs(resolution.y - height);
+
+            if (difference < closestDifference)
+            {
+                closestDifference = difference;
+                closestIndex = i;
+            }
+        }
+
+        return closestIndex;
+    }
+
+    private void ApplyResolution(bool isFullScreen)
+    {
+        Vector2Int resolution = SupportedResolutions[_resolutionIndex];
+        Screen.SetResolution(resolution.x, resolution.y, isFullScreen);
+        _resolutionText.text = $"{resolution.x} × {resolution.y}";
+        PlayerPrefs.SetInt(ResolutionIndexKey, _resolutionIndex);
+    }
+
+    private void SetFullScreen(bool isFullScreen)
+    {
+        Screen.fullScreen = isFullScreen;
+        PlayerPrefs.SetInt(FullScreenKey, isFullScreen ? 1 : 0);
+    }
+
+    private void SetMouseSensitivity(float sensitivity)
+    {
+        PlayerPrefs.SetFloat(MouseSensitivityKey, sensitivity);
+        ApplyMouseSensitivity(sensitivity);
+    }
+
+    private void ApplyMouseSensitivity(float sensitivity)
+    {
+        if (_sensitivityValueText != null)
+        {
+            _sensitivityValueText.text = sensitivity.ToString("0.00");
+        }
+
+        var playerObject = NetworkManager.Singleton?.LocalClient?.PlayerObject;
+
+        if (playerObject != null &&
+            playerObject.TryGetComponent(out PlayerMoveSample playerMove))
+        {
+            playerMove.SetMouseSensitivity(sensitivity);
+        }
     }
 
     private void InitailizeVolumeSliders()
@@ -167,12 +306,20 @@ public sealed class GameSettingsMenu : MonoBehaviour
         _sfxSlider.onValueChanged.RemoveListener(SetSfxVolume);
         _voiceSlider.onValueChanged.RemoveListener(SetVoiceVolume);
         _micSlider.onValueChanged.RemoveListener(SetMicVolume);
+        _fullScreenToggle?.onValueChanged.RemoveListener(SetFullScreen);
+        _sensitivitySlider?.onValueChanged.RemoveListener(SetMouseSensitivity);
     }
 
     //--- OnClick 이벤트 핸들러 ---//
     private void OnEscape(InputAction.CallbackContext context)
     {
-        SetMenuActive(!_settingsPanel.activeSelf);
+        if (_settingsPanel.activeSelf)
+        {
+            ReturnToGame();
+            return;
+        }
+
+        SetMenuActive(true);
     }
 
     private void SetMenuActive(bool active)
@@ -209,6 +356,19 @@ public sealed class GameSettingsMenu : MonoBehaviour
         VivoxManager.Instance.SelectOutputDeviceAsync(1).Forget();
     }
 
+    public void SelectPreviousResolution()
+    {
+        _resolutionIndex =
+            (_resolutionIndex - 1 + SupportedResolutions.Length) % SupportedResolutions.Length;
+        ApplyResolution(_fullScreenToggle != null && _fullScreenToggle.isOn);
+    }
+
+    public void SelectNextResolution()
+    {
+        _resolutionIndex = (_resolutionIndex + 1) % SupportedResolutions.Length;
+        ApplyResolution(_fullScreenToggle != null && _fullScreenToggle.isOn);
+    }
+
     public void MicTestButtonPressed()
     {
         RefreshMicTestButtonText(!VivoxManager.Instance.IsMicTesting);
@@ -239,14 +399,22 @@ public sealed class GameSettingsMenu : MonoBehaviour
         if (playerObject != null &&
             playerObject.TryGetComponent(out PlayerEmergencyEscape emergencyEscape))
         {
-            emergencyEscape.RequestEmergencyEscape();
-            // 긴급 탈출 요청 후 게임 화면으로 돌아간다.
-            ReturnToGame();
+            if (emergencyEscape.RequestEmergencyEscape())
+            {
+                // 긴급 탈출 요청이 가능할 때만 게임 화면으로 돌아간다.
+                ReturnToGame();
+            }
         }
     }
     public void ReturnToGame()
     {
+        PlayerPrefs.Save();
         SetMenuActive(false);
+    }
+
+    public void ReturnToLobby()
+    {
+        GameSessionManager.Instance?.LeaveSession();
     }
 
     public void GameEnd()
