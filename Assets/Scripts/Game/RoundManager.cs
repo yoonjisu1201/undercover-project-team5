@@ -66,9 +66,10 @@ public class RoundManager : NetworkBehaviour
     private readonly HashSet<ulong> _spawnReadyConfirmedClients = new();
 
     public RoundState CurrentState => _currentState.Value;
-    
+
     // HQ 타이머 UI가 남은 시간 비율(색상 변화 등)을 계산하려면 라운드별 총 시간이 필요해서 노출
-    public float RoundDuration => CurrentState switch {
+    public float RoundDuration => CurrentState switch
+    {
         RoundState.Round1 => _round1Duration,
         RoundState.Round2 => _round2Duration,
         _ => 0f
@@ -207,6 +208,7 @@ public class RoundManager : NetworkBehaviour
                 _currentState.Value = RoundState.Fail; // 시간 초과로 실패 처리
                 break;
             case RoundState.Round1Clear:
+                _clueSpawner.RespawnClues(); // 2라운드 단서 재생성
                 _roundEndTime.Value = NetworkManager.ServerTime.Time + _round2Duration;
                 _currentState.Value = RoundState.Round2; // 대기 시간 종료, 2라운드 자동 시작
                 break;
