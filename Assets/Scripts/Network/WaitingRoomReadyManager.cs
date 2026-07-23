@@ -10,8 +10,10 @@ public class WaitingRoomReadyManager : NetworkBehaviour
     {
         public ulong ClientId;
         public bool IsReady;
+        public Role Role;
 
-        public bool Equals(PlayerSlot other) => ClientId == other.ClientId && IsReady == other.IsReady;
+        public bool Equals(PlayerSlot other) =>
+            ClientId == other.ClientId && IsReady == other.IsReady && Role == other.Role;
     }
 
     public const int MinPlayersToStart = 1; // TODO: 테스트용 임시 변경, 테스트 끝나면 3으로 되돌릴 것
@@ -20,8 +22,37 @@ public class WaitingRoomReadyManager : NetworkBehaviour
 
     public NetworkList<PlayerSlot> Slots => _slots;
 
+    // HeadQuarter에 이미 선택된 요원이 있는지 확인 후 Boolean으로 반환
+    public bool IsHeadquartersAvailableFor(ulong clientId)
+    {
+        foreach (var slot in _slots)
+        {
+            // 이미 다른 유저가 본부이고, 그 본부 유저가 내가 아니라면 False 반환
+            if (slot.Role == Role.Headquarter && slot.ClientId != clientId) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public bool TryGetRole(ulong clientId, out Role role)
+    {
+        foreach (var slot in _slots)
+        {
+            if (slot.ClientId != clientId)
+                continue;
+
+            role = slot.Role;
+            return true;
+        }
+
+        role = Role.Field;
+        return false;
+    }
+
     // 접속 인원이 최소 인원 이상이고, 방장을 제외한 전원이 준비를 마쳤을 때 시작 가능하다.
-    public bool CanStart
+    // 전체가 준비했는지 확인
+    public bool IsAllReady
     {
         get
         {
@@ -33,6 +64,19 @@ public class WaitingRoomReadyManager : NetworkBehaviour
                 if (!slot.IsReady) return false;
             }
             return true;
+        }
+    }
+
+    // 본부 요원이 지정되었는지 확인
+    public bool HaveHqAgent {
+        get {
+            foreach (var slot in _slots) {
+                if (slot.Role == Role.Headquarter) {
+                    return true;
+                }
+            }
+            
+            return false;
         }
     }
 
@@ -74,7 +118,12 @@ public class WaitingRoomReadyManager : NetworkBehaviour
         {
             insertIndex++;
         }
-        _slots.Insert(insertIndex, new PlayerSlot { ClientId = clientId, IsReady = false });
+        _slots.Insert(insertIndex, new PlayerSlot
+        {
+            ClientId = clientId,
+            IsReady = false,
+            Role = Role.Field
+        });
     }
 
     private void RemoveSlot(ulong clientId)
@@ -100,9 +149,44 @@ public class WaitingRoomReadyManager : NetworkBehaviour
         {
             if (_slots[i].ClientId == clientId)
             {
-                _slots[i] = new PlayerSlot { ClientId = clientId, IsReady = isReady };
+                var slot = _slots[i];
+                slot.IsReady = isReady;
+                _slots[i] = slot;
                 return;
             }
+        }
+    }
+    
+    
+    // 자신이 역할을 선택했음을 서버에 알린다.
+    [Rpc(SendTo.Server)]
+    public void SetRoleServerRpc(Role role, RpcParams rpcParams = default)
+    {
+        ulong clientId = rpcParams.Receive.SenderClientId;
+        // 본부 선택했는데, 현재 이미 본부요원 존재하면 return
+        if (role == Role.Headquarter && !IsHeadquartersAvailableFor(clientId)) {
+            return;
+        }
+
+        // Player.PlayerRole 바꿔주기
+        // PlayerObject가 아직 스폰되지 않았거나(씬 전환 중 등) Player 컴포넌트가 없으면
+        // 서버 NRE로 이어지므로 TryGetValue와 null 체크로 방어한다.
+        if (NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var senderClient) &&
+            senderClient.PlayerObject != null &&
+            senderClient.PlayerObject.TryGetComponent(out Player player))
+        {
+            player.PlayerRole = role;
+        }
+        
+        // _slot 값 찾아서 변경
+        for (int i = 0; i < _slots.Count; i++) {
+            if (_slots[i].ClientId != clientId) {
+                continue;
+            }
+
+            var slot = _slots[i];
+            slot.Role = role;
+            _slots[i] = slot;
         }
     }
 }

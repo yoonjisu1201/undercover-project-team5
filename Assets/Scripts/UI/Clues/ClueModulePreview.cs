@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Unity.Netcode;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,6 +24,10 @@ public class ClueModulePreview : MonoBehaviour
     private readonly List<Texture2D> _capturedTextures = new();
     private ClueModuleCapture _moduleCapture;
 
+    private CriminalNpcManager _criminalManager;
+    private NetworkObject _capturedCriminal;
+    private bool _isCapturing;
+
     // 결과 패널 등 외부에서 촬영된 단서 이미지를 읽기 전용으로 참조하기 위한 프로퍼티
     public IReadOnlyList<Texture2D> CapturedTextures => _capturedTextures;
 
@@ -29,46 +36,102 @@ public class ClueModulePreview : MonoBehaviour
         // ClueModuleCapture를 초기화하고 범인 단서 촬영을 시작한다.
         _moduleCapture = new ClueModuleCapture(this, _moduleSpawnPoint, _clueCamera, _renderTexture);
 
-        ShowCriminalCluesAsync().Forget();
+        if (RoundManager.Instance != null)
+        {
+            RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
+        }
+
+        RefreshCriminalCluesAsync().Forget();
     }
 
-    private async UniTaskVoid ShowCriminalCluesAsync()
+    private void HandleRoundStateChanged(RoundState state)
     {
-        CancellationToken cancellationToken = this.GetCancellationTokenOnDestroy();
-
-        //--- 1. 범인 데이터 대기 ---//
-        CriminalNpcManager criminalManager = await WaitForCriminalManagerAsync(cancellationToken);
-        await UniTask.WaitUntil(() => criminalManager.CriminalNpc != null, cancellationToken: cancellationToken);
-
-        if (!TryGetEquippedModules(criminalManager))
+        if (state == RoundState.Round2)
         {
+            RefreshCriminalCluesAsync().Forget();
+        }
+    }
+
+    private async UniTask RefreshCriminalCluesAsync()
+    {
+        if (_isCapturing)
+        {
+            Debug.LogWarning("[ClueModulePreview] 단서 촬영 중에는 새로고침을 수행할 수 없습니다.", this);
             return;
         }
 
-        ShuffleEquippedModules();
+        _isCapturing = true;
 
-        //--- 2. 단서 UI 슬롯 탐색 ---//
-        List<(ClueUI clueUi, RawImage clueImage)> clueSlots = FindClueSlots();
-        int clueCount = clueSlots.Count;
-
-        //--- 3. 범인 파츠 촬영 ---//
-        for (int i = 0; i < clueCount; i++)
+        try
         {
-            //--- 4. 카메라/텍스처 처리는 ClueModuleCapture가 담당 ---//
-            // UI 슬롯을 최대한 채우고, 착용 모듈보다 슬롯이 많으면 처음부터 다시 사용한다.
+            CancellationToken token = this.GetCancellationTokenOnDestroy();
+            _criminalManager ??= await WaitForCriminalManagerAsync(token);
+            NetworkObject previousCriminal = _capturedCriminal;
+
+            // RoundState와 새 범인 NetworkVariable의 도착 순서가 다를 수 있으므로
+            // 실제 범인이 변경될 때까지 기다린다.
+            await UniTask.WaitUntil(() => _criminalManager.CriminalNpc != null && _criminalManager.CriminalNpc != previousCriminal, cancellationToken: token);
+
+            // 같은 네트워크 프레임에 CriminalFeature도 갱신될 시간을 준다.
+            await UniTask.NextFrame(token);
+
+            ClearCapturedTextures();
+            await ShowCriminalCluesAsync(token);
+
+            _capturedCriminal = _criminalManager.CriminalNpc;
+        }
+
+        finally
+        {
+            _isCapturing = false;
+        }
+    }
+
+    private async UniTask ShowCriminalCluesAsync(CancellationToken cancellationToken)
+    {
+        if (!TryGetEquippedModules(_criminalManager))
+        {
+            Debug.LogWarning("[ClueModulePreview] 범인이 착용한 모듈을 찾지 못했습니다.", this);
+            return;
+        }
+
+        ShuffleEquippedModules();   // 단서 표시 순서를 무작위로 섞는다.
+
+        List<(ClueUI clueUi, RawImage clueImage)> clueSlots = FindClueSlots();
+
+        // UI 슬롯을 최대한 채우고, 착용 모듈보다 슬롯이 많으면 처음부터 다시 사용한다. -> 단서 중복
+        for (int i = 0; i < clueSlots.Count; i++)
+        {
             GameObject module = _equippedModules[i % _equippedModules.Count];
             Texture2D texture = await _moduleCapture.CaptureAsync(module, cancellationToken);
 
             if (texture != null)
             {
+                // 단서 UI 슬롯에 촬영된 텍스처를 적용하고, 확대 이미지 단서로 표시한다.
                 ApplyCapturedTexture(clueSlots[i], texture, i);
             }
 
             _moduleCapture.ReleasePreview();
             await UniTask.NextFrame(cancellationToken);
         }
+        Debug.Log($"[ClueModulePreview] 단서 촬영 완료 | 총 {clueSlots.Count}개", this);
+    }
 
-        Debug.Log($"[ClueModulePreview] 단서 촬영 완료 | 총 {clueCount}개", this);
+    private void ClearCapturedTextures()
+    {
+        foreach (Texture2D texture in _capturedTextures)
+        {
+            if (texture != null)
+            {
+                Destroy(texture);
+            }
+        }
+        _capturedTextures.Clear();
+
+        foreach (var slot in FindClueSlots())
+        {
+            slot.clueUi.ClearClueImage("단서");
+        }
     }
 
     private async UniTask<CriminalNpcManager> WaitForCriminalManagerAsync(
@@ -154,11 +217,11 @@ public class ClueModulePreview : MonoBehaviour
 
     private void OnDestroy()
     {
-        _moduleCapture?.Dispose();
-
-        foreach (Texture2D texture in _capturedTextures)
+        if (RoundManager.Instance != null)
         {
-            Destroy(texture);
+            RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
         }
+        _moduleCapture?.Dispose();
+        ClearCapturedTextures();
     }
 }

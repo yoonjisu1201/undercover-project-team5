@@ -7,7 +7,6 @@ using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
-using Unity.Netcode;
 
 public sealed class GameSettingsMenu : MonoBehaviour
 {

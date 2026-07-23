@@ -353,15 +353,10 @@ public class PlayerMoveSample : NetworkBehaviour
     }
 
 	// 서버에서 지정한 스폰 위치로 이동한다.
-    public void TeleportToPosition(Vector3 position, Quaternion rotation)
+	public void TeleportToPosition(Vector3 position, Quaternion rotation)
 	{
-        if (IsServer)
-        {
-            _hasSafePosition = false;
-        }
-
-        // 호스트는 서버와 오너가 같은 인스턴스이므로 RPC를 거치지 않고 즉시 적용한다.
-        if (IsOwner)
+		// 호스트는 서버와 오너가 같은 인스턴스이므로 RPC를 거치지 않고 즉시 적용한다.
+		if (IsOwner)
 		{
 			ApplyTeleport(position, rotation);
 			return;

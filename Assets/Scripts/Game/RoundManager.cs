@@ -35,6 +35,9 @@ public class RoundManager : NetworkBehaviour
     [SerializeField] private NpcSpawner _npcSpawner;
     [SerializeField] private ClueSpawner _clueSpawner;
 
+    [Header("캐릭터 스폰 담당하는 클래스 (게임 시작하면서 캐릭터를 적절한 위치에 스폰함)")] 
+    [SerializeField] private PlayerSpawner _playerSpawner;
+
     private readonly NetworkVariable<RoundState> _currentState =
         new(RoundState.Waiting, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -66,9 +69,10 @@ public class RoundManager : NetworkBehaviour
     private readonly HashSet<ulong> _spawnReadyConfirmedClients = new();
 
     public RoundState CurrentState => _currentState.Value;
-    
+
     // HQ 타이머 UI가 남은 시간 비율(색상 변화 등)을 계산하려면 라운드별 총 시간이 필요해서 노출
-    public float RoundDuration => CurrentState switch {
+    public float RoundDuration => CurrentState switch
+    {
         RoundState.Round1 => _round1Duration,
         RoundState.Round2 => _round2Duration,
         _ => 0f
@@ -207,6 +211,7 @@ public class RoundManager : NetworkBehaviour
                 _currentState.Value = RoundState.Fail; // 시간 초과로 실패 처리
                 break;
             case RoundState.Round1Clear:
+                _clueSpawner.RespawnClues(); // 2라운드 단서 재생성
                 _roundEndTime.Value = NetworkManager.ServerTime.Time + _round2Duration;
                 _currentState.Value = RoundState.Round2; // 대기 시간 종료, 2라운드 자동 시작
                 break;
@@ -218,6 +223,9 @@ public class RoundManager : NetworkBehaviour
     {
         if (!IsServer) return;
         if (_currentState.Value != RoundState.Waiting) return;
+        
+        // 게임 시작 시 모든 플레이어를 적절한 위치로 이동시킨다
+        _playerSpawner.SpawnClients();
 
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _round1Duration;

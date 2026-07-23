@@ -205,4 +205,55 @@ public class PlayerInventory : NetworkBehaviour
         }
         return -1;
     }
+
+    public void RemoveClueItemsOnServer(string clueItemIdPrefix)
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        RemoveItemsByPrefixLocally(clueItemIdPrefix);
+
+        if (!IsOwner)
+        {
+            RemoveClueItemsOwnerRpc(clueItemIdPrefix, RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
+        }
+    }
+
+    [Rpc(SendTo.SpecifiedInParams)]
+    private void RemoveClueItemsOwnerRpc(string clueItemIdPrefix, RpcParams rpcParams = default)
+    {
+        RemoveItemsByPrefixLocally(clueItemIdPrefix);
+    }
+
+    private void RemoveItemsByPrefixLocally(string itemPrefix)
+    {
+        bool removedAny = false;
+
+        for (int i = 0; i < _slots.Length; i++)
+        {
+            InventorySlot slot = _slots[i];
+            if (slot.IsEmpty || !slot.ItemId.StartsWith(itemPrefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+            slot.Clear();
+            removedAny = true;
+        }
+
+        if (!removedAny)
+        {
+            Debug.LogWarning($"인벤토리에서 '{itemPrefix}'로 시작하는 아이템을 찾지 못했습니다.");
+            return;
+        }
+
+        // 선택된 슬롯이 제거된 아이템이었는지 확인하고, 필요하면 선택을 초기화
+        if (_selectedIndex < 0 || _selectedIndex >= _slots.Length || _slots[_selectedIndex].IsEmpty)
+        {
+            _selectedIndex = FindFirstOccupiedSlot();
+        }
+
+        InventoryChanged?.Invoke();
+    }
 }
