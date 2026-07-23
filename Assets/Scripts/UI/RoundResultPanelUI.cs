@@ -21,10 +21,14 @@ public class RoundResultPanelUI : MonoBehaviour
     [SerializeField] private ClueModulePreview _clueModulePreview; // 촬영된 단서 이미지 참조용, static Instance가 없어 인스펙터에서 직접 연결
     [SerializeField] private RawImage[] _clueImages; // 무작위로 뽑은 단서 이미지를 표시할 슬롯
 
+    private float _round1RemainingTimeAtClearLocal;
+    private float _round1ClearCountdownEndTimeLocal;
+
     private void Start()
     {
         _confirmButton.onClick.AddListener(HandleConfirmButtonClicked);
         RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
+        RoundManager.Instance.OnRound1ClearAnnounced += HandleRound1ClearAnnounced;
 
         HandleRoundStateChanged(RoundManager.Instance.CurrentState);
     }
@@ -36,7 +40,16 @@ public class RoundResultPanelUI : MonoBehaviour
         if (RoundManager.Instance != null)
         {
             RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
+            RoundManager.Instance.OnRound1ClearAnnounced -= HandleRound1ClearAnnounced;
         }
+    }
+
+    // RPC로 전달받은 1라운드 클리어 시점 값을 로컬에 저장한다. 서버 NetworkVariable을 직접 읽지 않아
+    // 다른 NetworkVariable과의 갱신 순서 문제에서 자유롭다.
+    private void HandleRound1ClearAnnounced(float remainingTimeAtClear, float countdownDuration)
+    {
+        _round1RemainingTimeAtClearLocal = remainingTimeAtClear;
+        _round1ClearCountdownEndTimeLocal = Time.time + countdownDuration;
     }
 
     private void Update()
@@ -48,8 +61,10 @@ public class RoundResultPanelUI : MonoBehaviour
         if (state == RoundState.Round1Clear)
         {
             // 1라운드 클리어: 2라운드 자동 시작까지 남은 시간 표시
-            int remaining = Mathf.CeilToInt(RoundManager.Instance.GetRemainingTime());
+            int remaining = Mathf.CeilToInt(Mathf.Max(0f, _round1ClearCountdownEndTimeLocal - Time.time));
             _countdownText.text = remaining.ToString();
+            // RPC 도착 순서가 네트워크 상황에 따라 달라질 수 있어, 상태변경 시 한 번만 읽지 않고 매 프레임 갱신해 자체 교정한다.
+            ShowRoundResultStats(state);
         }
         else if (state == RoundState.Fail || state == RoundState.Success)
         {
@@ -66,7 +81,6 @@ public class RoundResultPanelUI : MonoBehaviour
                 _resultText.text = "1라운드 클리어";
                 _confirmButton.gameObject.SetActive(false); // 15초 후 자동 2라운드 전환
                 _nextRoundText.SetActive(true);
-                ShowRoundResultStats(state);
                 ShowPanel();
                 break;
             case RoundState.Success:
@@ -87,6 +101,7 @@ public class RoundResultPanelUI : MonoBehaviour
                 _panel.SetActive(false);
                 _inventoryCanvas.SetActive(true);
                 _nextRoundText.SetActive(false);
+                GameplayUiMode.Instance?.DeactivateCursor();
                 break;
         }
     }
@@ -97,7 +112,7 @@ public class RoundResultPanelUI : MonoBehaviour
     private void ShowRoundResultStats(RoundState state)
     {
         float remaining = state == RoundState.Round1Clear
-            ? RoundManager.Instance.Round1RemainingTimeAtClear
+            ? _round1RemainingTimeAtClearLocal
             : RoundManager.Instance.CachedRemainingTime;
 
         int minutes = Mathf.FloorToInt(remaining / 60f);
@@ -111,8 +126,7 @@ public class RoundResultPanelUI : MonoBehaviour
     {
         _panel.SetActive(true);
         _inventoryCanvas.SetActive(false);
-        Cursor.visible = true;
-        Cursor.lockState = CursorLockMode.None;
+        GameplayUiMode.Instance?.ActivateCursor();
         CaptureCriminalPortrait();
         ShowRandomClueImages();
     }
