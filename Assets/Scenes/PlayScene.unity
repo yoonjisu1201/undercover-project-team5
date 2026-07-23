@@ -296,6 +296,13 @@ MonoBehaviour:
   _spawnCount: 150
   _spawnBatchSize: 10
   _regionController: {fileID: 361850273}
+  _spawnCoordinator: {fileID: 361850274}
+  _spawnRule:
+    MinimumDistance: 0
+    MaxAttempts: 50
+    HeightOffset: 0
+    UseGroundPosition: 0
+    ReservePosition: 0
 --- !u!4 &1946819
 Transform:
   m_ObjectHideFlags: 0
@@ -59066,6 +59073,7 @@ GameObject:
   m_Component:
   - component: {fileID: 361850272}
   - component: {fileID: 361850273}
+  - component: {fileID: 361850274}
   m_Layer: 0
   m_Name: MapRegionSystem
   m_TagString: Untagged
@@ -59113,6 +59121,18 @@ MonoBehaviour:
   - {fileID: 1190569023}
   _maxSpawnAttempts: 50
   _navMeshSampleDistance: 1
+--- !u!114 &361850274
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 361850271}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e657b54f7df98949ad6121ad6c8578a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::RoundSpawnCoordinator
 --- !u!1 &363568095
 GameObject:
   m_ObjectHideFlags: 0
@@ -271336,7 +271356,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   _regionController: {fileID: 361850273}
-  _siteSpawnHeightOffset: 0.2
+  _spawnCoordinator: {fileID: 361850274}
+  _spawnRule:
+    MinimumDistance: 3
+    MaxAttempts: 50
+    HeightOffset: 0.2
+    UseGroundPosition: 1
+    ReservePosition: 1
   _hqSpawnPoint: {fileID: 1906881996}
 --- !u!4 &1556109471
 Transform:
@@ -355156,14 +355182,13 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a33f66087e23c01428564e2e2dfa4c07, type: 2}
   - {fileID: 11400000, guid: 68345ec1c1e9ecb4691b1665178cbd12, type: 2}
   _regionController: {fileID: 361850273}
-  _groundLayer:
-    serializedVersion: 2
-    m_Bits: 8
-  _maxAttemptsPerClue: 50
-  _raycastHeight: 10
-  _raycastDistance: 30
-  _surfaceOffset: 0.04
-  _minimumClueDistance: 5
+  _spawnCoordinator: {fileID: 361850274}
+  _spawnRule:
+    MinimumDistance: 20
+    MaxAttempts: 50
+    HeightOffset: 0.04
+    UseGroundPosition: 1
+    ReservePosition: 1
 --- !u!4 &2064882558
 Transform:
   m_ObjectHideFlags: 0

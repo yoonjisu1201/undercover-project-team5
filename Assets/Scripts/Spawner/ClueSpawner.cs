@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 // Box Collider로 나눈 구역의 통합 NavMesh 위에 등록된 단서를 서버 권한으로 생성하는 클래스
-public sealed class ClueSpawner : MonoBehaviour
+public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
 {
     [Header("단서 데이터")]
     [SerializeField] private ItemData[] _clues;
@@ -13,19 +15,23 @@ public sealed class ClueSpawner : MonoBehaviour
 
     [Header("스폰 영역")]
     [SerializeField] private MapRegionController _regionController;
-    [SerializeField] private LayerMask _groundLayer;
+    [SerializeField] private RoundSpawnCoordinator _spawnCoordinator;
 
     [Header("배치 설정")]
-    [SerializeField, Min(1)] private int _maxAttemptsPerClue = 50;
-    [SerializeField, Min(0f)] private float _raycastHeight = 10f;
-    [SerializeField, Min(0f)] private float _raycastDistance = 30f;
-    [SerializeField, Min(0f)] private float _surfaceOffset = 0.04f;
-    [SerializeField, Min(0f)] private float _minimumClueDistance = 5f;
+    [SerializeField] private SpawnRule _spawnRule = new()
+    {
+        MinimumDistance = 5f,
+        MaxAttempts = 50,
+        HeightOffset = 0.04f,
+        UseGroundPosition = true,
+        ReservePosition = true
+    };
 
-    private readonly List<Vector3> _spawnedPositions = new();
     private bool _hasSpawned;
     private readonly List<NetworkObject> _spawnedClues = new();
     private const string ClueItemIdPrefix = "Clue";
+
+    public SpawnRule Rule => _spawnRule;
 
     private void OnEnable()
     {
@@ -58,28 +64,46 @@ public sealed class ClueSpawner : MonoBehaviour
             return;
         }
 
-        SpawnClues();
+        SpawnAsync(_spawnCoordinator, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     public void SpawnClues()
     {
+        SpawnAsync(_spawnCoordinator, this.GetCancellationTokenOnDestroy()).Forget();
+    }
+
+    public UniTask SpawnAsync(RoundSpawnCoordinator coordinator, CancellationToken cancellationToken)
+    {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer || !ValidateSettings())
         {
-            return;
+            return UniTask.CompletedTask;
         }
 
         if (!_regionController.RefreshSpawnAreas())
         {
             Debug.LogError("[ClueSpawner] NavMesh가 포함된 단서 스폰 영역이 없습니다.", this);
-            return;
+            return UniTask.CompletedTask;
+        }
+
+        if (coordinator == null)
+        {
+            Debug.LogError("[ClueSpawner] RoundSpawnCoordinator가 설정되지 않았습니다.", this);
+            return UniTask.CompletedTask;
         }
 
         _hasSpawned = true;
-        _spawnedPositions.Clear();
 
         foreach (ItemData clueData in _clues)
         {
-            if (!TryFindSpawnPosition(out Vector3 spawnPosition))
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!coordinator.TryGetSpawnPose(
+                    _regionController,
+                    Rule,
+                    this,
+                    out _,
+                    out Vector3 spawnPosition,
+                    out Quaternion spawnRotation))
             {
                 Debug.LogWarning($"[ClueSpawner] '{clueData.ItemId}'의 스폰 위치를 찾지 못했습니다.", this);
                 continue;
@@ -88,7 +112,7 @@ public sealed class ClueSpawner : MonoBehaviour
             GameObject clueObject = Instantiate(
                 clueData.WorldPrefab,
                 spawnPosition,
-                Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+                spawnRotation);
 
             if (!clueObject.TryGetComponent(out PickupItem pickupItem) ||
                 !clueObject.TryGetComponent(out NetworkObject networkObject))
@@ -101,8 +125,9 @@ public sealed class ClueSpawner : MonoBehaviour
             pickupItem.Configure(clueData);
             networkObject.Spawn(destroyWithScene: true);
             _spawnedClues.Add(networkObject);
-            _spawnedPositions.Add(spawnPosition);
         }
+
+        return UniTask.CompletedTask;
     }
 
     private bool ValidateSettings()
@@ -122,58 +147,10 @@ public sealed class ClueSpawner : MonoBehaviour
             }
         }
 
-        if (_regionController == null || _groundLayer.value == 0)
+        if (_regionController == null)
         {
-            Debug.LogError("[ClueSpawner] MapRegionController와 Ground 레이어를 설정해야 합니다.", this);
+            Debug.LogError("[ClueSpawner] MapRegionController를 설정해야 합니다.", this);
             return false;
-        }
-
-        return true;
-    }
-
-    private bool TryFindSpawnPosition(out Vector3 position)
-    {
-        float minimumDistanceSquared = _minimumClueDistance * _minimumClueDistance;
-
-        for (int attempt = 0; attempt < _maxAttemptsPerClue; attempt++)
-        {
-            if (!_regionController.TryGetRandomSpawnPoint(out _, out Vector3 navMeshPoint))
-            {
-                continue;
-            }
-
-            Vector3 rayOrigin = navMeshPoint + Vector3.up * _raycastHeight;
-            if (!Physics.Raycast(
-                    rayOrigin,
-                    Vector3.down,
-                    out RaycastHit hit,
-                    _raycastDistance,
-                    _groundLayer,
-                    QueryTriggerInteraction.Ignore))
-            {
-                continue;
-            }
-
-            Vector3 candidate = hit.point + hit.normal * _surfaceOffset;
-            if (IsFarEnoughFromSpawnedClues(candidate, minimumDistanceSquared))
-            {
-                position = candidate;
-                return true;
-            }
-        }
-
-        position = default;
-        return false;
-    }
-
-    private bool IsFarEnoughFromSpawnedClues(Vector3 candidate, float minimumDistanceSquared)
-    {
-        foreach (Vector3 spawnedPosition in _spawnedPositions)
-        {
-            if ((spawnedPosition - candidate).sqrMagnitude < minimumDistanceSquared)
-            {
-                return false;
-            }
         }
 
         return true;
@@ -188,13 +165,22 @@ public sealed class ClueSpawner : MonoBehaviour
         }
 
         ClearPlayerInventories();
-        DespawnAllFieldClues();
-
-        _spawnedClues.Clear();
-        _spawnedPositions.Clear();
-        _hasSpawned = false;
+        ClearSpawned();
 
         SpawnClues();
+    }
+
+    public void ClearSpawned()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        {
+            return;
+        }
+
+        DespawnAllFieldClues();
+        _spawnedClues.Clear();
+        _spawnCoordinator?.ClearPositions(this);
+        _hasSpawned = false;
     }
 
     private void ClearPlayerInventories()

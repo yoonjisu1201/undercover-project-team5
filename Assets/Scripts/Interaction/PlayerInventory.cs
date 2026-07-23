@@ -59,25 +59,24 @@ public class PlayerInventory : NetworkBehaviour
     private bool TryAddItemLocally(string itemId)
     {
         if (itemId == null)
-            return false;
-
-        bool wasEmpty = !HasAnyItem;
-        int emptyIndex = FindEmptySlot();
-
-        if (emptyIndex < 0)
         {
-            Debug.Log("인벤토리가 가득 찼습니다.");
             return false;
         }
 
-        _slots[emptyIndex].Set(itemId);
+        int emptySlotIndex = FindEmptySlot();
 
-        if (wasEmpty)
-            _selectedIndex = emptyIndex;
+        if (emptySlotIndex < 0)
+        {
+            Debug.LogWarning("인벤토리가 가득 찼습니다.");
+            return false;
+        }
+
+        _slots[emptySlotIndex].Set(itemId);
+        _selectedIndex = emptySlotIndex;
 
         InventoryChanged?.Invoke();
-        ItemAdded?.Invoke(itemId, emptyIndex);
-        Debug.Log($"Slot{emptyIndex + 1}에 '{itemId}' 추가");
+        ItemAdded?.Invoke(itemId, emptySlotIndex);
+        Debug.Log($"Slot{emptySlotIndex + 1}에 '{itemId}' 추가");
         return true;
     }
 

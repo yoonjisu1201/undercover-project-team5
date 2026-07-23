@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 // 해금된 MapRegion 안의 NavMesh에 NPC를 생성합니다.
-public sealed class NpcSpawner : MonoBehaviour
+public sealed class NpcSpawner : MonoBehaviour, IRoundSpawner
 {
     [Header("Spawn Settings")]
     [SerializeField] private NpcStateMachine _npcPrefab;
@@ -16,9 +16,22 @@ public sealed class NpcSpawner : MonoBehaviour
 
     [Header("Region Spawn Settings")]
     [SerializeField] private MapRegionController _regionController;
+    [SerializeField] private RoundSpawnCoordinator _spawnCoordinator;
+    [SerializeField]
+    private SpawnRule _spawnRule = new()
+    {
+        MinimumDistance = 0f,
+        MaxAttempts = 50,
+        HeightOffset = 0f,
+        UseGroundPosition = false,
+        ReservePosition = false
+    };
 
     // 스폰 목표 수. 다른 스크립트가 읽을 수 있게 노출한다 (RoundManager의 스폰 완료 확인용).
     public int SpawnCount => _spawnCount;
+    public SpawnRule Rule => _spawnRule;
+
+    private readonly List<NetworkObject> _spawnedNpcs = new();
 
     // 이 스포너가 속한 씬의 네트워크 씬 로드가 완료되면(=접속자 전원이 씬 로드를 마치면)
     // 서버만 스폰한다. GameSessionManager 등 다른 매니저에 의존하지 않고 스스로 트리거한다.
@@ -43,11 +56,11 @@ public sealed class NpcSpawner : MonoBehaviour
             return;
         }
 
-        SpawnAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        SpawnAsync(_spawnCoordinator, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     // 설정된 수만큼 NPC를 생성합니다.
-    public async UniTask SpawnAsync(CancellationToken cancellationToken)
+    public async UniTask SpawnAsync(RoundSpawnCoordinator coordinator, CancellationToken cancellationToken)
     {
         if (_npcPrefab == null)
         {
@@ -61,18 +74,21 @@ public sealed class NpcSpawner : MonoBehaviour
             return;
         }
 
+        if (coordinator == null)
+        {
+            Debug.LogError("[NPC] RoundSpawnCoordinator가 설정되지 않았습니다.", this);
+            return;
+        }
+
         for (int index = 0; index < _spawnCount; index++)
         {
-            if (!_regionController.TryGetRandomSpawnPoint(out MapRegion spawnRegion, out Vector3 spawnPosition))
+            if (!coordinator.TryGetSpawnPose(_regionController, Rule, this, out MapRegion spawnRegion, out Vector3 spawnPosition, out Quaternion spawnRotation))
             {
                 Debug.LogWarning($"[NPC] {index + 1}번째 NPC의 스폰 위치를 찾지 못했습니다.", this);
                 continue;
             }
 
-            NpcStateMachine npc = Instantiate(
-                _npcPrefab,
-                spawnPosition,
-                Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+            NpcStateMachine npc = Instantiate(_npcPrefab, spawnPosition, spawnRotation);
 
             if (npc.TryGetComponent(out NpcRandomWander randomWander))
             {
@@ -87,6 +103,7 @@ public sealed class NpcSpawner : MonoBehaviour
             }
 
             networkObject.Spawn(destroyWithScene: true);
+            _spawnedNpcs.Add(networkObject);
 
             // 배치 단위로 한 프레임 양보해서, 로딩 패널이 화면에 그려질 틈을 준다.
             if ((index + 1) % _spawnBatchSize == 0)
@@ -96,4 +113,22 @@ public sealed class NpcSpawner : MonoBehaviour
         }
     }
 
+    public void ClearSpawned()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        {
+            return;
+        }
+
+        foreach (NetworkObject spawnedNpc in _spawnedNpcs)
+        {
+            if (spawnedNpc != null && spawnedNpc.IsSpawned)
+            {
+                spawnedNpc.Despawn(destroy: true);
+            }
+        }
+
+        _spawnedNpcs.Clear();
+        _spawnCoordinator?.ClearPositions(this);
+    }
 }

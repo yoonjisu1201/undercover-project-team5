@@ -5,10 +5,6 @@ using UnityEngine.UI;
 [RequireComponent(typeof(SceneCursorSettings))]
 public class ClueUI : MonoBehaviour
 {
-    public static bool WasClosedThisFrame => _lastClosedFrame == Time.frameCount;
-
-    private static int _lastClosedFrame = -1;
-
     [Header("Clue Window")]
     [SerializeField] private GameObject _hintObject;    // 단서 UI를 표시할 때 활성화되는 힌트 오브젝트
 
@@ -87,7 +83,6 @@ public class ClueUI : MonoBehaviour
 
     public void Close()
     {
-        _lastClosedFrame = Time.frameCount;
         gameObject.SetActive(false);
     }
 }
