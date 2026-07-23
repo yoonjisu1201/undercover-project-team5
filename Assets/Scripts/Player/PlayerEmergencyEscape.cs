@@ -3,7 +3,7 @@ using UnityEngine;
 
 // 안전 위치 기록과 긴급 탈출 위치 결정을 이동 코드에서 분리해 관리한다.
 [RequireComponent(typeof(PlayerMoveSample))]
-public sealed class PlayerEmergencyEscape : NetworkBehaviour
+public class PlayerEmergencyEscape : NetworkBehaviour
 {
     // 끼인 현재 위치를 다시 선택하지 않도록 일정 거리 이상 떨어진 위치만 사용한다.
     [SerializeField, Min(0.1f)] private float _recordIntervalSec = 25f;
