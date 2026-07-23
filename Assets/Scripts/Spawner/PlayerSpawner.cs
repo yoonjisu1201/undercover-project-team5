@@ -25,7 +25,7 @@ public class PlayerSpawner : MonoBehaviour, IRoundSpawner
     public SpawnRule Rule => _spawnRule;
 
     // 현재 활성화된 현장 구역의 실제 지면 위에서 무작위 스폰 위치를 구합니다.
-    private bool TryGetSiteSpawnPose(RoundSpawnCoordinator coordinator, out Vector3 position, out Quaternion rotation)
+    public bool TryGetSiteSpawnPose(RoundSpawnCoordinator coordinator, out Vector3 position, out Quaternion rotation)
     {
         if (_regionController != null && _regionController.RefreshSpawnAreas() && coordinator != null &&
         coordinator.TryGetSpawnPose(_regionController, Rule, this, out _, out position, out rotation))
