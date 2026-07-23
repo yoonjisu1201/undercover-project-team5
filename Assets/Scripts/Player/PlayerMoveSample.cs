@@ -9,6 +9,8 @@ using UnityEngine;
 
 public class PlayerMoveSample : NetworkBehaviour
 {
+	private const string MouseSensitivityKey = "MouseSensitivity";
+
 	[Header("이동 관련")]
 	[SerializeField] private float _moveSpeed = 5f;
 	[SerializeField] private float _rotateSpeed = 0.5f;
@@ -70,6 +72,7 @@ public class PlayerMoveSample : NetworkBehaviour
     
 	private void Awake()
 	{
+		_rotateSpeed = PlayerPrefs.GetFloat(MouseSensitivityKey, _rotateSpeed);
 		_actions = new CustomInputActions();
 		_actions.Enable();
 
@@ -79,6 +82,11 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_headBoneBaseRotation = _headBone.localRotation;
 		}
+	}
+
+	public void SetMouseSensitivity(float sensitivity)
+	{
+		_rotateSpeed = Mathf.Clamp(sensitivity, 0.1f, 2f);
 	}
 
 	public override void OnDestroy()

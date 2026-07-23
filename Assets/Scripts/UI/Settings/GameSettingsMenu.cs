@@ -15,9 +15,27 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private const string SfxVolumeKey = "SfxVolume";
     private const string VoiceVolumeKey = "VoiceVolume";
     private const string MicVolumeKey = "MicVolume";
+    private const string ResolutionIndexKey = "ResolutionIndex";
+    private const string FullScreenKey = "FullScreen";
+    private const string MouseSensitivityKey = "MouseSensitivity";
+
+    // 지원되는 해상도 목록 (가로 x 세로)
+    private static readonly Vector2Int[] SupportedResolutions =
+    {
+        new(640, 360),
+        new(854, 480),
+        new(1280, 720),
+        new(1920, 1080),
+        new(2560, 1440),
+        new(3840, 2160)
+    };
 
     [Header("Menu")]
     [SerializeField] private GameObject _settingsPanel;
+    [SerializeField] private GameObject[] _tabPanels;
+    [SerializeField] private Button[] _tabButtons;
+    [SerializeField] private Color _activeTabColor = new(0.08f, 0.55f, 0.62f, 1f);
+    [SerializeField] private Color _inactiveTabColor = new(0.05f, 0.31f, 0.36f, 1f);
 
     [Header("Device Settings")]
     [SerializeField] private TMP_Text _inputDeviceText;
@@ -31,20 +49,139 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [SerializeField] private Slider _voiceSlider;
     [SerializeField] private Slider _micSlider;
 
+    [Header("Graphics Settings")]
+    [SerializeField] private TMP_Text _resolutionText;
+    [SerializeField] private Toggle _fullScreenToggle;
+
+    [Header("Gameplay Settings")]
+    [SerializeField] private Slider _sensitivitySlider;
+    [SerializeField] private TMP_Text _sensitivityValueText;
+
     private CustomInputActions _actions;
     private bool _vivoxEventsSubscribed;
+    private int _resolutionIndex;
 
     private void Awake()
     {
         _actions = new CustomInputActions();
         _settingsPanel.SetActive(false);
 
-        _bgmSlider.onValueChanged.AddListener(SetBgmVolume);
-        _sfxSlider.onValueChanged.AddListener(SetSfxVolume);
-        _voiceSlider.onValueChanged.AddListener(SetVoiceVolume);
-        _micSlider.onValueChanged.AddListener(SetMicVolume);
-
         InitailizeVolumeSliders();
+        InitializeGraphicsSettings();
+        InitializeSensitivity();
+        SelectTab(0);
+    }
+
+    //--- 초기화 메서드 ---//
+    private void InitializeGraphicsSettings()
+    {
+        if (_resolutionText == null || _fullScreenToggle == null)
+        {
+            return;
+        }
+
+        int defaultIndex = FindClosestResolutionIndex(Screen.width, Screen.height);
+        _resolutionIndex = Mathf.Clamp(PlayerPrefs.GetInt(ResolutionIndexKey, defaultIndex), 0, SupportedResolutions.Length - 1);
+
+        bool isFullScreen = PlayerPrefs.GetInt(FullScreenKey, Screen.fullScreen ? 1 : 0) == 1;
+        _fullScreenToggle.SetIsOnWithoutNotify(isFullScreen);
+        ApplyResolution(isFullScreen);
+    }
+
+    private void InitializeSensitivity()
+    {
+        float sensitivity = PlayerPrefs.GetFloat(MouseSensitivityKey, 0.5f);
+        _sensitivitySlider?.SetValueWithoutNotify(sensitivity);
+        ApplyMouseSensitivity(sensitivity);
+    }
+
+    public void SelectTab(int tabIndex)
+    {
+        if (_tabPanels == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _tabPanels.Length; i++)
+        {
+            bool selected = i == tabIndex;
+            _tabPanels[i].SetActive(selected);
+
+            if (_tabButtons != null && i < _tabButtons.Length)
+            {
+                Button tabButton = _tabButtons[i];
+                ColorBlock colors = tabButton.colors;
+                colors.normalColor = _inactiveTabColor;
+                colors.highlightedColor = _activeTabColor;
+                colors.selectedColor = _activeTabColor;
+                colors.disabledColor = _activeTabColor;
+                tabButton.colors = colors;
+                tabButton.interactable = !selected;
+            }
+        }
+    }
+
+    //--- 해상도 적용 메서드 ---//
+    private int FindClosestResolutionIndex(int width, int height)   // 주어진 해상도와 가장 가까운 지원 해상도의 인덱스를 반환
+    {
+        if (SupportedResolutions == null || SupportedResolutions.Length == 0)
+        {
+            return 0;
+        }
+
+        int closestIndex = 0;
+        int closestDifference = int.MaxValue;
+
+        for (int i = 0; i < SupportedResolutions.Length; i++)
+        {
+            Vector2Int resolution = SupportedResolutions[i];
+            int difference = Mathf.Abs(resolution.x - width) + Mathf.Abs(resolution.y - height);
+
+            if (difference < closestDifference)
+            {
+                closestDifference = difference;
+                closestIndex = i;
+            }
+        }
+
+        return closestIndex;
+    }
+
+    // 해상도 승인 메서드
+    private void ApplyResolution(bool isFullScreen)
+    {
+        Vector2Int resolution = SupportedResolutions[_resolutionIndex];
+        Screen.SetResolution(resolution.x, resolution.y, isFullScreen);
+        _resolutionText.text = $"{resolution.x} × {resolution.y}";
+        PlayerPrefs.SetInt(ResolutionIndexKey, _resolutionIndex);
+    }
+
+    public void SetFullScreen(bool isFullScreen)    // 전체 화면 모드 설정
+    {
+        Screen.fullScreen = isFullScreen;
+        PlayerPrefs.SetInt(FullScreenKey, isFullScreen ? 1 : 0);
+    }
+
+    public void SetMouseSensitivity(float sensitivity)  // 마우스 감도 설정
+    {
+        PlayerPrefs.SetFloat(MouseSensitivityKey, sensitivity);
+        ApplyMouseSensitivity(sensitivity);
+    }
+
+    private void ApplyMouseSensitivity(float sensitivity)   // 마우스 감도 적용
+    {
+        if (_sensitivityValueText != null)
+        {
+            _sensitivityValueText.text = sensitivity.ToString("0.00");
+        }
+
+        var playerObject = NetworkManager.Singleton?.LocalClient?.PlayerObject;
+
+        if (playerObject != null &&
+            playerObject.TryGetComponent(out PlayerMoveSample playerMove))
+        {
+            playerMove.SetMouseSensitivity(sensitivity);
+        }
     }
 
     private void InitailizeVolumeSliders()
@@ -65,7 +202,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
     }
 
     //--- 볼륨 설정 메서드 ---//
-    private void SetBgmVolume(float value)
+    public void SetBgmVolume(float value)
     {
         float decibel = value <= 0.0001f ? -80f : Mathf.Log10(value) * 20f;
 
@@ -73,7 +210,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
         PlayerPrefs.SetFloat(BgmVolumeKey, value);
     }
 
-    private void SetSfxVolume(float value)
+    public void SetSfxVolume(float value)
     {
         float decibel = value <= 0.0001f ? -80f : Mathf.Log10(value) * 20f;
 
@@ -81,7 +218,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
         PlayerPrefs.SetFloat(SfxVolumeKey, value);
     }
 
-    private void SetVoiceVolume(float value)
+    public void SetVoiceVolume(float value)
     {
         int vivoxVolume = NormalizedToVivoxVolume(value);
 
@@ -93,7 +230,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
         PlayerPrefs.SetFloat(VoiceVolumeKey, value);
     }
 
-    private void SetMicVolume(float value)
+    public void SetMicVolume(float value)
     {
         int vivoxVolume = NormalizedToVivoxVolume(value);
 
@@ -109,14 +246,6 @@ public sealed class GameSettingsMenu : MonoBehaviour
     {
         value = Mathf.Clamp01(value);
         return Mathf.RoundToInt(Mathf.Lerp(-50f, 0f, value));
-    }
-
-    private async UniTaskVoid ApplyVivoxVolumesAsync()
-    {
-        await VivoxManager.LoginTask;
-
-        SetVoiceVolume(_voiceSlider.value);
-        SetMicVolume(_micSlider.value);
     }
 
     //--- MonoBehaviour 이벤트 메서드 ---//
@@ -145,7 +274,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private async UniTaskVoid InitializeVivoxSettingsAsync()
     {
         await UniTask.WaitUntil(() => VivoxManager.Instance != null);
-        await UniTask.Yield(); // VivoxManager.Start에서 LoginTask가 생성될 때까지 대기
+        await UniTask.WaitUntil(() => VivoxManager.IsLoggedIn);
 
         if (!isActiveAndEnabled || _vivoxEventsSubscribed)
         {
@@ -158,21 +287,20 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
         RefreshDeviceNames();
         RefreshMicTestButtonText(VivoxManager.Instance.IsMicTesting);
-        ApplyVivoxVolumesAsync().Forget();
-    }
-
-    private void OnDestroy()
-    {
-        _bgmSlider.onValueChanged.RemoveListener(SetBgmVolume);
-        _sfxSlider.onValueChanged.RemoveListener(SetSfxVolume);
-        _voiceSlider.onValueChanged.RemoveListener(SetVoiceVolume);
-        _micSlider.onValueChanged.RemoveListener(SetMicVolume);
+        SetVoiceVolume(_voiceSlider.value);
+        SetMicVolume(_micSlider.value);
     }
 
     //--- OnClick 이벤트 핸들러 ---//
     private void OnEscape(InputAction.CallbackContext context)
     {
-        SetMenuActive(!_settingsPanel.activeSelf);
+        if (_settingsPanel.activeSelf)
+        {
+            ReturnToGame();
+            return;
+        }
+
+        SetMenuActive(true);
     }
 
     private void SetMenuActive(bool active)
@@ -209,6 +337,19 @@ public sealed class GameSettingsMenu : MonoBehaviour
         VivoxManager.Instance.SelectOutputDeviceAsync(1).Forget();
     }
 
+    public void SelectPreviousResolution()
+    {
+        _resolutionIndex =
+            (_resolutionIndex - 1 + SupportedResolutions.Length) % SupportedResolutions.Length;
+        ApplyResolution(_fullScreenToggle != null && _fullScreenToggle.isOn);
+    }
+
+    public void SelectNextResolution()
+    {
+        _resolutionIndex = (_resolutionIndex + 1) % SupportedResolutions.Length;
+        ApplyResolution(_fullScreenToggle != null && _fullScreenToggle.isOn);
+    }
+
     public void MicTestButtonPressed()
     {
         RefreshMicTestButtonText(!VivoxManager.Instance.IsMicTesting);
@@ -224,9 +365,19 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     private void RefreshDeviceNames()
     {
-        _inputDeviceText.text = VivoxManager.Instance.CurrentInputDeviceName;
+        _inputDeviceText.text = GetDeviceDisplayName(
+            VivoxManager.Instance.CurrentInputDeviceName,
+            "입력 장치 없음");
+        _outputDeviceText.text = GetDeviceDisplayName(
+            VivoxManager.Instance.CurrentOutputDeviceName,
+            "출력 장치 없음");
+    }
 
-        _outputDeviceText.text = VivoxManager.Instance.CurrentOutputDeviceName;
+    private static string GetDeviceDisplayName(string deviceName, string emptyDeviceName)
+    {
+        return string.IsNullOrWhiteSpace(deviceName) || deviceName == emptyDeviceName
+            ? "Default"
+            : deviceName;
     }
 
     // 로컬 플레이어에게 긴급 탈출을 요청하고 설정 메뉴를 닫는다.
@@ -239,14 +390,22 @@ public sealed class GameSettingsMenu : MonoBehaviour
         if (playerObject != null &&
             playerObject.TryGetComponent(out PlayerEmergencyEscape emergencyEscape))
         {
-            emergencyEscape.RequestEmergencyEscape();
-            // 긴급 탈출 요청 후 게임 화면으로 돌아간다.
-            ReturnToGame();
+            if (emergencyEscape.RequestEmergencyEscape())
+            {
+                // 긴급 탈출 요청이 가능할 때만 게임 화면으로 돌아간다.
+                ReturnToGame();
+            }
         }
     }
     public void ReturnToGame()
     {
+        PlayerPrefs.Save();
         SetMenuActive(false);
+    }
+
+    public void ReturnToLobby()
+    {
+        GameSessionManager.Instance?.LeaveSession();
     }
 
     public void GameEnd()

@@ -74,12 +74,28 @@ public class PlayerSpawner : MonoBehaviour, IRoundSpawner
             }
 
             move.TeleportToPosition(_hqSpawnPoint.position, _hqSpawnPoint.rotation);
+
+            // 현재 라운드에서 실제 배치에 사용한 본부 위치를 기본 복귀 위치로 기록합니다.
+            if (playerObject.TryGetComponent(out PlayerEmergencyEscape emergencyEscape))
+            {
+                emergencyEscape.RecordRoundSpawnPose(
+                    _hqSpawnPoint.position,
+                    _hqSpawnPoint.rotation);
+            }
+
             return;
         }
 
         if (TryGetSiteSpawnPose(coordinator, out Vector3 position, out Quaternion rotation))
         {
             move.TeleportToPosition(position, rotation);
+
+            // 현재 라운드에서 실제 배치에 사용한 현장 위치를 기본 복귀 위치로 기록합니다.
+            if (playerObject.TryGetComponent(out PlayerEmergencyEscape emergencyEscape))
+            {
+                emergencyEscape.RecordRoundSpawnPose(position, rotation);
+            }
+
             return;
         }
 
