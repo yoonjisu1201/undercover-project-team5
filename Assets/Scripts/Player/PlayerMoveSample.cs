@@ -259,8 +259,12 @@ public class PlayerMoveSample : NetworkBehaviour
 		float speed = _actions.Player.Shift.IsPressed() ? _moveSpeed * _runMultiplier : _moveSpeed;
 
 		// MovePosition은 메서드 → 목표 위치를 계산해서 넘긴다 (fixedDeltaTime 사용)
-		Vector3 delta = (forward * move.y + right * move.x) * speed * Time.fixedDeltaTime;
-		_rigidbody.MovePosition(_rigidbody.position + delta);
+		Vector3 delta = (forward * move.y + right * move.x) * speed;
+		
+		// 점프했을 때의 속도 없애면 안되므로, 이건 직접 적용
+		// 벽 뚫리지 않게 하기 위해 MovePosition -> linearVelocity로 수정
+		delta.y = _rigidbody.linearVelocity.y;
+		_rigidbody.linearVelocity = delta;
 	}
 
 
