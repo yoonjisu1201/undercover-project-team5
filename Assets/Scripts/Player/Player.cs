@@ -10,13 +10,17 @@ public enum Role : byte
 	Headquarter
 }
 
-[RequireComponent(typeof(PlayerMoveSample), typeof(PlayerInventory), typeof(PlayerInteraction))]
+[RequireComponent(typeof(PlayerMoveSample),
+	typeof(PlayerInventory),
+	typeof(PlayerInteraction))]
+[RequireComponent(typeof(PlayerRenderer))]
 public class Player : NetworkBehaviour {
 	// 외부에서 GetComponent<Player>() 후 바로 필요한 컴포넌트 찾아갈 수 있도록 컴포넌트 Public으로 노출
 	[HideInInspector] public PlayerMoveSample PlayerMove;
 	[HideInInspector] public PlayerInventory PlayerInventory;
 	[HideInInspector] public PlayerInteraction PlayerInteraction;
-	[HideInInspector] public PlayerInfoPresenter playerInfoPresenter;
+	[HideInInspector] public PlayerInfoPresenter PlayerInfoPresenter;
+	[HideInInspector] public PlayerRenderer PlayerRenderer;
 	
 	private bool _isNetworkStarted => NetworkManager != null && NetworkManager.Singleton.IsListening;
 
@@ -66,7 +70,8 @@ public class Player : NetworkBehaviour {
 		PlayerMove = GetComponent<PlayerMoveSample>();
 		PlayerInventory = GetComponent<PlayerInventory>();
 		PlayerInteraction = GetComponent<PlayerInteraction>();
-		playerInfoPresenter = GetComponent<PlayerInfoPresenter>();
+		PlayerInfoPresenter = GetComponent<PlayerInfoPresenter>();
+		PlayerRenderer = GetComponent<PlayerRenderer>();
 		
 		// 메인 카메라는 MinimapOnly인 레이어를 보지 못하도록
 		Layers.HideLayerFromCamera(GetComponentInChildren<Camera>(), Layers.MinimapOnly);
@@ -77,12 +82,15 @@ public class Player : NetworkBehaviour {
 		if (IsOwner) {
 			// 색상은 처음 스폰 시에 랜덤하게 정한다. 추후 설정할 수 있게 해도 됨
 			_playerColor.Value = Random.ColorHSV();
+			
+			// 스폰 시 내 머리 안보이게 해야 함
+			PlayerRenderer.SetHeadObjectsLayer(Layers.LocalPlayerHead);
 		}
 		
-		_playerName.OnValueChanged += playerInfoPresenter.HandlePlayerNameChanged;
-		_playerColor.OnValueChanged += playerInfoPresenter.HandlePlayerColorChanged;
-		
-		playerInfoPresenter.HandlePlayerColorChanged(Color.white, _playerColor.Value);
-		playerInfoPresenter.HandlePlayerNameChanged(null, PlayerName);
+		// 추후 이름 변경되거나, 색이 변경되면 알맞은 함수 호출하도록
+		_playerName.OnValueChanged += PlayerInfoPresenter.HandlePlayerNameChanged;
+		_playerColor.OnValueChanged += PlayerInfoPresenter.HandlePlayerColorChanged;
+		PlayerInfoPresenter.HandlePlayerColorChanged(Color.white, _playerColor.Value);
+		PlayerInfoPresenter.HandlePlayerNameChanged(null, PlayerName);
 	}
 }
