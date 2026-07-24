@@ -310,7 +310,7 @@ public class PlayerInteraction : NetworkBehaviour
                 continue;
             }
 
-            if (!target.CanInteract)  // 상호작용이 차단된 대상은 무시
+            if (!target.CanInteract(gameObject))  // 상호작용이 차단된 대상은 무시
             {
                 continue;
             }
