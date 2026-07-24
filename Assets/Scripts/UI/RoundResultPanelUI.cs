@@ -4,7 +4,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 라운드 결과(1라운드 클리어/성공/실패)를 표시하고, 확인 버튼을 누르면 대기방으로 돌아가도록 서버에 알린다.
+// 라운드 결과(라운드 클리어/성공/실패)를 표시하고, 확인 버튼을 누르면 대기방으로 돌아가도록 서버에 알린다.
 public class RoundResultPanelUI : MonoBehaviour
 {
     [SerializeField] private GameObject _panel;
@@ -21,14 +21,14 @@ public class RoundResultPanelUI : MonoBehaviour
     [SerializeField] private ClueModulePreview _clueModulePreview; // 촬영된 단서 이미지 참조용, static Instance가 없어 인스펙터에서 직접 연결
     [SerializeField] private RawImage[] _clueImages; // 무작위로 뽑은 단서 이미지를 표시할 슬롯
 
-    private float _round1RemainingTimeAtClearLocal;
-    private float _round1ClearCountdownEndTimeLocal;
+    private float _roundRemainingTimeAtClearLocal;
+    private float _roundClearCountdownEndTimeLocal;
 
     private void Start()
     {
         _confirmButton.onClick.AddListener(HandleConfirmButtonClicked);
         RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
-        RoundManager.Instance.OnRound1ClearAnnounced += HandleRound1ClearAnnounced;
+        RoundManager.Instance.OnRoundClearAnnounced += HandleRoundClearAnnounced;
 
         HandleRoundStateChanged(RoundManager.Instance.CurrentState);
     }
@@ -40,16 +40,16 @@ public class RoundResultPanelUI : MonoBehaviour
         if (RoundManager.Instance != null)
         {
             RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
-            RoundManager.Instance.OnRound1ClearAnnounced -= HandleRound1ClearAnnounced;
+            RoundManager.Instance.OnRoundClearAnnounced -= HandleRoundClearAnnounced;
         }
     }
 
-    // RPC로 전달받은 1라운드 클리어 시점 값을 로컬에 저장한다. 서버 NetworkVariable을 직접 읽지 않아
+    // RPC로 전달받은 라운드 클리어 시점 값을 로컬에 저장한다. 서버 NetworkVariable을 직접 읽지 않아
     // 다른 NetworkVariable과의 갱신 순서 문제에서 자유롭다.
-    private void HandleRound1ClearAnnounced(float remainingTimeAtClear, float countdownDuration)
+    private void HandleRoundClearAnnounced(float remainingTimeAtClear, float countdownDuration)
     {
-        _round1RemainingTimeAtClearLocal = remainingTimeAtClear;
-        _round1ClearCountdownEndTimeLocal = Time.time + countdownDuration;
+        _roundRemainingTimeAtClearLocal = remainingTimeAtClear;
+        _roundClearCountdownEndTimeLocal = Time.time + countdownDuration;
     }
 
     private void Update()
@@ -58,10 +58,10 @@ public class RoundResultPanelUI : MonoBehaviour
 
         var state = RoundManager.Instance.CurrentState;
 
-        if (state == RoundState.Round1Clear)
+        if (state == RoundState.RoundClear)
         {
-            // 1라운드 클리어: 2라운드 자동 시작까지 남은 시간 표시
-            int remaining = Mathf.CeilToInt(Mathf.Max(0f, _round1ClearCountdownEndTimeLocal - Time.time));
+            // 라운드 클리어: 다음 라운드 자동 시작까지 남은 시간 표시
+            int remaining = Mathf.CeilToInt(Mathf.Max(0f, _roundClearCountdownEndTimeLocal - Time.time));
             _countdownText.text = remaining.ToString();
             // RPC 도착 순서가 네트워크 상황에 따라 달라질 수 있어, 상태변경 시 한 번만 읽지 않고 매 프레임 갱신해 자체 교정한다.
             ShowRoundResultStats(state);
@@ -77,9 +77,9 @@ public class RoundResultPanelUI : MonoBehaviour
     {
         switch (state)
         {
-            case RoundState.Round1Clear:
-                _resultText.text = "1라운드 클리어";
-                _confirmButton.gameObject.SetActive(false); // 15초 후 자동 2라운드 전환
+            case RoundState.RoundClear:
+                _resultText.text = $"{RoundManager.Instance.CurrentRoundIndex + 1}라운드 클리어";
+                _confirmButton.gameObject.SetActive(false); // 자동으로 다음 라운드 전환
                 _nextRoundText.SetActive(true);
                 ShowPanel();
                 break;
@@ -107,12 +107,12 @@ public class RoundResultPanelUI : MonoBehaviour
     }
 
     // 라운드 종료 시점 남은 시간과 해당 라운드의 오검거 횟수를 표시한다.
-    // Round1Clear는 _roundEndTime이 다음 라운드 카운트다운으로 재사용되므로 별도 스냅샷 값을 쓰고,
+    // RoundClear는 _roundEndTime이 다음 라운드 카운트다운으로 재사용되므로 별도 스냅샷 값을 쓰고,
     // Success/Fail은 전환 시점에 멈춰있는 CachedRemainingTime을 그대로 쓴다.
     private void ShowRoundResultStats(RoundState state)
     {
-        float remaining = state == RoundState.Round1Clear
-            ? _round1RemainingTimeAtClearLocal
+        float remaining = state == RoundState.RoundClear
+            ? _roundRemainingTimeAtClearLocal
             : RoundManager.Instance.CachedRemainingTime;
 
         int minutes = Mathf.FloorToInt(remaining / 60f);
@@ -162,7 +162,7 @@ public class RoundResultPanelUI : MonoBehaviour
         }
     }
 
-    // 1라운드 클리어/성공/실패 결과창을 띄우는 시점마다 범인 NPC를 촬영해서 보여준다.
+    // 라운드 클리어/성공/실패 결과창을 띄우는 시점마다 범인 NPC를 촬영해서 보여준다.
     private void CaptureCriminalPortrait()
     {
         if (_criminalPortrait == null) return;

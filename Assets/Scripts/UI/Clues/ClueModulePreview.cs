@@ -46,7 +46,7 @@ public class ClueModulePreview : MonoBehaviour
 
     private void HandleRoundStateChanged(RoundState state)
     {
-        if (state == RoundState.Round2)
+        if (state == RoundState.InRound && RoundManager.Instance.CurrentRoundIndex > 0)
         {
             RefreshCriminalCluesAsync().Forget();
         }
