@@ -6,7 +6,7 @@ public class ArrestCandidateInteractable : InteractableBase
     public override string InteractionText => "검거 후보로 지정?";
 
     // 이미 다른 대상으로 투표가 진행 중이면 새 후보를 지정할 수 없다.
-    public override bool CanInteract => ArrestVoteManager.Instance != null
+    public override bool CanInteract(GameObject interactor) => ArrestVoteManager.Instance != null
         && ArrestVoteManager.Instance.CurrentVoteState == ArrestVoteState.Idle;
 
     // NPC는 계속 움직이므로 조준 판정 반경을 넉넉하게 잡는다.
@@ -20,8 +20,7 @@ public class ArrestCandidateInteractable : InteractableBase
 
     public override void Interact(GameObject interactor)
     {
-        if (!CanInteract || !IsSpawned)
-        {
+        if (!CanInteract(interactor) || !IsSpawned) {
             return;
         }
 
@@ -47,8 +46,7 @@ public class ArrestCandidateInteractable : InteractableBase
     private void RequestPauseForConfirmationRpc(RpcParams rpcParams = default)
     {
         // 확인 패널이 실제로 열릴 수 없는 상황(투표 진행 중, 횟수 소진)이면 멈추지도 않는다.
-        if (!IsSpawned || !CanInteract || ArrestVoteManager.Instance.RemainingVoteAttempts <= 0)
-        {
+        if (!IsSpawned || !CanInteract(gameObject) || ArrestVoteManager.Instance.RemainingVoteAttempts <= 0) {
             return;
         }
 

@@ -7,7 +7,8 @@ using Random = UnityEngine.Random;
 public enum Role : byte
 {
 	Field,
-	Headquarter
+	Headquarter,
+	None
 }
 
 [RequireComponent(typeof(PlayerMoveSample),

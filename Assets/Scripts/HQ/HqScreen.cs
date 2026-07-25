@@ -1,13 +1,18 @@
 ﻿using UnityEngine;
 
-public class Chair : InteractableBase {
-	[Header("=== 의자에 앉았을 때 등장할 콘솔창 ===")]
+public class HqScreen : InteractableBase {
+	[Header("=== 등장할 콘솔창 ===")]
 	[SerializeField] private MonitorController _consoleUi;
-	[Header("=== 의자에 앉았을 때 UI 꺼주기 위함 ===")]
+	[Header("=== 인벤토리 UI 등록. 상호작용 시에 꺼주기 위함 ===")]
 	[SerializeField] private InventoryUI _inventoryUI;
-	public override string InteractionText => "앉기";
+	public override string InteractionText => "관제 콘솔 사용하기";
 
-	public override bool CanInteract => _occupiedPlayer == null;
+	public override bool CanInteract(GameObject interactor) {
+		return _occupiedPlayer == null // 1. 이미 상호작용중인 사람이 있는가?
+		       && interactor.TryGetComponent<Player>(out var player) // 2. 플레이어가 상호작용중인가? 
+		       && player.PlayerRole == Role.Headquarter; // 3. 상호작용하려는 사람이 본부요원인가?
+	}
+
 	private PlayerMoveSample _occupiedPlayer = null;
 
 	public override void Interact(GameObject interactor) {

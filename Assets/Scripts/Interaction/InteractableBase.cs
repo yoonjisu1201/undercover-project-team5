@@ -7,7 +7,7 @@ using UnityEngine;
 public abstract class InteractableBase : NetworkBehaviour, IInteractable
 {
     public abstract string InteractionText { get; }
-    public abstract bool CanInteract { get; }
+    public abstract bool CanInteract(GameObject interactor);
     public abstract void Interact(GameObject interactor);
 
     // 화면 중심 조준 판정 반경에 곱해지는 배율. 기본은 1(PlayerInteraction의 공통 반경 그대로 사용).

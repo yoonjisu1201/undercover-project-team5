@@ -7,7 +7,14 @@ public class PickupItem : InteractableBase
 
     public string ItemId => _itemData != null ? _itemData.ItemId : null;
     public override string InteractionText => _itemData != null ? $"{_itemData.DisplayName} 줍기" : "줍기";
-    public override bool CanInteract => Time.time >= _interactionBlockedUntil;   // 상호작용 가능 여부
+    public override bool CanInteract(GameObject interactor) {
+        // 상호작용 가능 대상 확인
+        Role interactorRole = interactor.GetComponent<Player>().PlayerRole;
+        // 상호작용 가능 시간이면서, 상호작용 역할이 제한되어있지 않은 아이템이거나, 상호작용 가능한 대상의 역할과 일치해야 함
+        return Time.time >= _interactionBlockedUntil 
+            && (_itemData.InteractableRole == Role.None || _itemData.InteractableRole == interactorRole);
+    }
+    
     private float _interactionBlockedUntil;
 
     //--- 런타임에 생성된 픽업 아이템의 고유 데이터 설정 ---//
@@ -24,7 +31,7 @@ public class PickupItem : InteractableBase
 
     public override void Interact(GameObject interactor)
     {
-        if (!CanInteract || _itemData == null)
+        if (!CanInteract(interactor) || _itemData == null)
         {
             return;
         }
