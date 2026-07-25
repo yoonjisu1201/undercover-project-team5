@@ -10,23 +10,29 @@ using UnityEngine.SceneManagement;
 public enum RoundState
 {
     Waiting,     // 대기 (게임 시작 전)
-    Round1,      // 1라운드 진행 중
-    Round1Clear, // 1라운드 검거 성공, 2라운드 대기 중
-    Round2,      // 2라운드 진행 중
+    InRound,     // 라운드 진행 중 (몇 번째 라운드인지는 CurrentRoundIndex로 구분)
+    RoundClear,  // 라운드 클리어, 다음 라운드 대기 중 (마지막 라운드 클리어는 곧바로 Success)
     Fail,        // 게임 실패 (시간 초과)
-    Success      // 게임 성공 (2라운드 검거 성공)
+    Success      // 게임 성공 (마지막 라운드 검거 성공)
 }
 
+[System.Serializable]
+public class RoundConfig
+{
+    public float Duration = 600f;          // 라운드 제한 시간 (초 단위)
+    public float ClearWaitDuration = 5f;  // 클리어 후 다음 라운드 자동 시작까지 대기 시간
+}
 public class RoundManager : NetworkBehaviour
 {
     public static RoundManager Instance { get; private set; }
 
-    [Header("라운드 제한 시간 (초 단위, 테스트용 10분)")]
-    [SerializeField] private float _round1Duration = 600f;
-    [SerializeField] private float _round2Duration = 600f;
-
-    [Header("1라운드 클리어 후 2라운드 대기 시간 (초 단위)")]
-    [SerializeField] private float _round1ClearDuration = 15f;
+    [Header("라운드별 설정 (제한 시간 / 클리어 후 다음 라운드 대기 시간)")]
+    [SerializeField]
+    private RoundConfig[] _rounds = new RoundConfig[]  //라운드 개수만큼
+    {
+        new RoundConfig { Duration = 600f, ClearWaitDuration = 5f },
+        new RoundConfig { Duration = 600f, ClearWaitDuration = 5f },
+    };
 
     [Header("게임 종료 후 돌아갈 대기방 씬")]
     [SerializeField] private string _waitingRoomSceneName = "WaitingRoom";
@@ -35,7 +41,7 @@ public class RoundManager : NetworkBehaviour
     [SerializeField] private NpcSpawner _npcSpawner;
     [SerializeField] private ClueSpawner _clueSpawner;
 
-    [Header("캐릭터 스폰 담당하는 클래스 (게임 시작하면서 캐릭터를 적절한 위치에 스폰함)")] 
+    [Header("캐릭터 스폰 담당하는 클래스 (게임 시작하면서 캐릭터를 적절한 위치에 스폰함)")]
     [SerializeField] private PlayerSpawner _playerSpawner;
 
     [Header("몽타주 게임 시작 시에 미리 로딩해주기 위함")]
@@ -43,6 +49,9 @@ public class RoundManager : NetworkBehaviour
 
     private readonly NetworkVariable<RoundState> _currentState =
         new(RoundState.Waiting, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    private readonly NetworkVariable<int> _currentRoundIndex =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private readonly NetworkVariable<double> _roundEndTime =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -54,11 +63,11 @@ public class RoundManager : NetworkBehaviour
     private readonly NetworkVariable<int> _totalPlayerCount =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    // Round1이 클리어되는 순간의 Round1 잔여 시간 스냅샷.
-    // Round1Clear 상태에서는 _roundEndTime이 "2라운드 자동 시작까지 남은 시간"으로 재사용되어
-    // GetRemainingTime()으로는 원래 Round1의 남은 시간을 구할 수 없으므로 별도로 기록해둔다.
+    // 라운드가 클리어되는 순간의 해당 라운드 잔여 시간 스냅샷.
+    // RoundClear 상태에서는 _roundEndTime이 "다음 라운드 자동 시작까지 남은 시간"으로 재사용되어
+    // GetRemainingTime()으로는 방금 끝난 라운드의 남은 시간을 구할 수 없으므로 별도로 기록해둔다.
     // (Success/Fail은 GetRemainingTime()의 _cachedRemainingTime이 전환 시점 값을 그대로 유지하므로 별도 스냅샷이 필요 없다)
-    private readonly NetworkVariable<float> _round1RemainingTimeAtClear =
+    private readonly NetworkVariable<float> _roundRemainingTimeAtClear =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     // GetRemainingTime()이 Fail/Success 이후에도 재계산 없이 반환할 마지막 남은 시간 (최종성공/실패 시점 값 고정용)
@@ -72,18 +81,16 @@ public class RoundManager : NetworkBehaviour
     private readonly HashSet<ulong> _spawnReadyConfirmedClients = new();
 
     public RoundState CurrentState => _currentState.Value;
+    public int CurrentRoundIndex => _currentRoundIndex.Value;
 
-    // HQ 타이머 UI가 남은 시간 비율(색상 변화 등)을 계산하려면 라운드별 총 시간이 필요해서 노출
-    public float RoundDuration => CurrentState switch
-    {
-        RoundState.Round1 => _round1Duration,
-        RoundState.Round2 => _round2Duration,
-        _ => 0f
-    };
+    // HQ 타이머 UI가 남은 시간 비율(색상 변화 등)을 계산하려면 현재 라운드의 총 시간이 필요해서 노출
+    public float RoundDuration => CurrentState == RoundState.InRound ?
+        _rounds[_currentRoundIndex.Value].Duration : 0f;
+
 
     // 투표/검거 시스템이 아직 없어 임시로 노출 — 각 시스템이 만들어지면 이 프로퍼티를 참조해 입력을 막는다.
-    public bool CanVote => _currentState.Value == RoundState.Round1 || _currentState.Value == RoundState.Round2;
-    public bool CanArrest => _currentState.Value == RoundState.Round1 || _currentState.Value == RoundState.Round2;
+    public bool CanVote => _currentState.Value == RoundState.InRound;
+    public bool CanArrest => _currentState.Value == RoundState.InRound;
 
     // 결과 패널에 "확인한 인원/총 인원"을 표시하기 위한 값
     public int ConfirmedCount => _confirmedClients.Count;
@@ -92,16 +99,21 @@ public class RoundManager : NetworkBehaviour
     // Success/Fail 전환 시점에 멈춰있는 남은 시간을 그대로 읽기 위한 프로퍼티 (GetRemainingTime()의 재계산 분기를 타지 않음)
     public float CachedRemainingTime => _cachedRemainingTime;
 
-    // 결과 패널에서 "Round1 클리어 시점의 Round1 남은 시간"을 표시하기 위한 값
-    public float Round1RemainingTimeAtClear => _round1RemainingTimeAtClear.Value;
+    // 결과 패널에서 "Round 클리어 시점의 Round 남은 시간"을 표시하기 위한 값
+    public float RoundRemainingTimeAtClear => _roundRemainingTimeAtClear.Value;
 
     public event Action<RoundState> OnRoundStateChanged; // 라운드 상태가 바뀔 때마다 전달 (늦참 클라이언트는 스폰 시 현재 상태로 1회 발동)
-    public event Action<RoundState> OnRoundResult; // 결과 패널을 띄워야 하는 상태(Round1Clear/Fail/Success) 진입 시 발동
+    public event Action<RoundState> OnRoundResult; // 결과 패널을 띄워야 하는 상태(RoundClear/Fail/Success) 진입 시 발동
 
-    // 1라운드 클리어 시점의 잔여시간, 2라운드 자동시작까지 카운트다운 시간을 RPC 파라미터로 원자적으로 전달한다.
+    // 라운드 클리어 시점의 잔여시간, 라운드 자동시작까지 카운트다운 시간을 RPC 파라미터로 원자적으로 전달한다.
     // (NetworkVariable 여러 개를 같은 틱에 동시 갱신하면 클라이언트의 변경 알림 발동 순서 문제로
     //  아직 갱신 전 값을 읽는 문제가 있어, 대신 RPC로 직접 넘긴다)
-    public event Action<float, float> OnRound1ClearAnnounced;
+    public event Action<float, float> OnRoundClearAnnounced;
+
+    // 라운드가 시작될 때(InRound 진입) 라운드 인덱스를 RPC로 원자적으로 전달한다.
+    // (CurrentRoundIndex를 OnRoundStateChanged 콜백 안에서 직접 읽으면, 클라이언트에서
+    //  _currentState보다 _currentRoundIndex의 네트워크 갱신이 늦게 도착해 한 틱 전 값을 읽는 문제가 있다)
+    public event Action<int> OnRoundStarted;
 
     private void Awake()
     {
@@ -160,7 +172,7 @@ public class RoundManager : NetworkBehaviour
         ReportSpawnReadyServerRpc();
     }
 
-    // 접속자 전원의 준비 보고가 모이면 Round1을 시작한다.
+    // 접속자 전원의 준비 보고가 모이면 게임을 시작한다.
     [Rpc(SendTo.Server)]
     private void ReportSpawnReadyServerRpc(RpcParams rpcParams = default)
     {
@@ -168,7 +180,7 @@ public class RoundManager : NetworkBehaviour
 
         if (_spawnReadyConfirmedClients.Count >= NetworkManager.ConnectedClientsIds.Count)
         {
-            StartRound1();
+            StartGame();
         }
     }
 
@@ -190,10 +202,10 @@ public class RoundManager : NetworkBehaviour
         else if (!shouldBePaused && _isPausedForVote)
         {
             _isPausedForVote = false;
-            // 이 보정은 Round1/Round2 진행 중 타이머를 위한 것이다. 투표가 가결되어 이미
-            // Round1Clear 등으로 전환된 뒤라면 _roundEndTime이 다른 용도(다음 라운드 카운트다운)로
+            // 이 보정은 라운드 진행 중(InRound) 타이머를 위한 것이다. 투표가 가결되어 이미
+            // RoundClear 등으로 전환된 뒤라면 _roundEndTime이 다른 용도(다음 라운드 카운트다운)로
             // 바뀌어 있으므로 보정을 적용하면 안 된다.
-            if (_currentState.Value == RoundState.Round1 || _currentState.Value == RoundState.Round2)
+            if (_currentState.Value == RoundState.InRound)
             {
                 double pausedDuration = NetworkManager.ServerTime.Time - _votePauseStartTime;
                 _roundEndTime.Value += pausedDuration;
@@ -206,7 +218,7 @@ public class RoundManager : NetworkBehaviour
     {
         OnRoundStateChanged?.Invoke(current);
 
-        if (current == RoundState.Round1Clear || current == RoundState.Fail || current == RoundState.Success)
+        if (current == RoundState.RoundClear || current == RoundState.Fail || current == RoundState.Success)
         {
             OnRoundResult?.Invoke(current);
         }
@@ -226,67 +238,78 @@ public class RoundManager : NetworkBehaviour
 
         switch (_currentState.Value)
         {
-            case RoundState.Round1:
-            case RoundState.Round2:
+            case RoundState.InRound:
                 _currentState.Value = RoundState.Fail; // 시간 초과로 실패 처리
                 break;
-            case RoundState.Round1Clear:
-                _clueSpawner.RespawnClues(); // 2라운드 단서 재생성
-                _roundEndTime.Value = NetworkManager.ServerTime.Time + _round2Duration;
-                _currentState.Value = RoundState.Round2; // 대기 시간 종료, 2라운드 자동 시작
+            case RoundState.RoundClear:
+                _currentRoundIndex.Value++;
+                _clueSpawner.RespawnClues(); // 다음 라운드 마다 단서 재생성
+                _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[_currentRoundIndex.Value].Duration;
+                _currentState.Value = RoundState.InRound; // 대기 시간 종료, 다음 라운드 자동 시작
+                AnnounceRoundStartRpc(_currentRoundIndex.Value);
                 break;
         }
     }
 
     // 게임씬 스폰 시 서버에서 자동 호출한다.
-    public void StartRound1()
+    public void StartGame()
     {
         if (!IsServer) return;
         if (_currentState.Value != RoundState.Waiting) return;
 
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
-        _roundEndTime.Value = NetworkManager.ServerTime.Time + _round1Duration;
-        _currentState.Value = RoundState.Round1;
+        _currentRoundIndex.Value = 0;
+        _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[0].Duration;
+        _currentState.Value = RoundState.InRound;
+        AnnounceRoundStartRpc(0);
     }
 
-    // 검거했다고 서버에서 알려주는 rpc
-    // 검거 판정 로직(또는 테스트용 입력)에서 호출한다. Round1 성공 시 Round1Clear로, Round2 성공 시 Success로 전환한다.
+    // 검거했다고 서버에게 알려주는 rpc
+    // 검거 판정 로직(또는 테스트용 입력)에서 호출한다. 마지막 라운드가 아니면 RoundClear로, 마지막 라운드면 Success로 전환한다.
     [Rpc(SendTo.Server)]
     public void ReportArrestServerRpc()
     {
         if (!CanArrest) return;
 
-        switch (_currentState.Value)
+        bool isLastRound = _currentRoundIndex.Value >= _rounds.Length - 1;
+        if (isLastRound)
         {
-            case RoundState.Round1:
-                // _roundEndTime을 Round1Clear 대기시간으로 덮어쓰기 전에 Round1 남은 시간을 직접 계산해 스냅샷으로 남긴다.
-                // 검거 투표 중에는 타이머가 멈춰있는 상태라, 투표로 흘러간 시간을 빼기 위해
-                // 현재 시각이 아니라 투표(일시정지) 시작 시각을 기준으로 계산한다.
-                double referenceTime = _isPausedForVote ? _votePauseStartTime : NetworkManager.ServerTime.Time;
-                float remainingAtClear = Mathf.Max(0f, (float)(_roundEndTime.Value - referenceTime));
-                _round1RemainingTimeAtClear.Value = remainingAtClear;
-                _roundEndTime.Value = NetworkManager.ServerTime.Time + _round1ClearDuration;
-                AnnounceRound1ClearRpc(remainingAtClear, _round1ClearDuration);
-                _currentState.Value = RoundState.Round1Clear;
-                break;
-            case RoundState.Round2:
-                _currentState.Value = RoundState.Success;
-                break;
+            _currentState.Value = RoundState.Success;
+            return;
         }
+
+        // _roundEndTime을 RoundClear 대기시간으로 덮어쓰기 전에 현재 라운드 남은 시간을 직접 계산해 스냅샷으로 남긴다.
+        // 검거 투표 중에는 타이머가 멈춰있는 상태라, 투표로 흘러간 시간을 빼기 위해
+        // 현재 시각이 아니라 투표(일시정지) 시작 시각을 기준으로 계산한다.
+        double referenceTime = _isPausedForVote ? _votePauseStartTime : NetworkManager.ServerTime.Time;
+        float remainingAtClear = Mathf.Max(0f, (float)(_roundEndTime.Value - referenceTime));
+        _roundRemainingTimeAtClear.Value = remainingAtClear;
+
+        float clearWaitDuration = _rounds[_currentRoundIndex.Value].ClearWaitDuration;
+        _roundEndTime.Value = NetworkManager.ServerTime.Time + clearWaitDuration;
+        AnnounceRoundClearRpc(remainingAtClear, clearWaitDuration);
+        _currentState.Value = RoundState.RoundClear;
     }
 
-    // 1라운드 클리어 시점 값을 RPC로 전달 -> 결과패널에 남은 타이머 노출을 위한것
+    // 라운드 클리어 시점 값을 RPC로 전달 -> 결과패널에 남은 타이머 노출을 위한것
     [Rpc(SendTo.ClientsAndHost)]
-    private void AnnounceRound1ClearRpc(float remainingTimeAtClear, float countdownDuration)
+    private void AnnounceRoundClearRpc(float remainingTimeAtClear, float countdownDuration)
     {
-        OnRound1ClearAnnounced?.Invoke(remainingTimeAtClear, countdownDuration);
+        OnRoundClearAnnounced?.Invoke(remainingTimeAtClear, countdownDuration);
+    }
+
+    // 라운드 시작 시점의 라운드 인덱스를 RPC로 전달 -> 라운드 번호 표시 등에서 사용
+    [Rpc(SendTo.ClientsAndHost)]
+    private void AnnounceRoundStartRpc(int roundIndex)
+    {
+        OnRoundStarted?.Invoke(roundIndex);
     }
 
     // 검거 투표 횟수를 모두 소진했는데 마지막 결과도 성공(가결+범인)이 아니면 결과 대기 없이 즉시 실패 처리한다.
     public void ForceFail()
     {
         if (!IsServer) return;
-        if (_currentState.Value != RoundState.Round1 && _currentState.Value != RoundState.Round2) return;
+        if (_currentState.Value != RoundState.InRound) return;
 
         _currentState.Value = RoundState.Fail;
     }
@@ -327,8 +350,7 @@ public class RoundManager : NetworkBehaviour
             || arrestVoteState == ArrestVoteState.Rejected;
 
         if (!isVotingInProgress &&
-            (_currentState.Value == RoundState.Round1 || _currentState.Value == RoundState.Round2 ||
-             _currentState.Value == RoundState.Round1Clear))
+            (_currentState.Value == RoundState.InRound || _currentState.Value == RoundState.RoundClear))
         {
             _cachedRemainingTime = Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));
         }

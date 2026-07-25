@@ -177,11 +177,11 @@ public class ArrestVoteManager : NetworkBehaviour
         ArrestCandidate = reference.TryGet(out NetworkObject candidate) ? candidate : null;
     }
 
-    // Round1 또는 Round2가 "새로" 시작될 때마다 남은 투표 횟수를 최대치(5)로 되돌린다.
+    // 라운드가 "새로" 시작될 때마다 남은 투표 횟수를 최대치(5)로 되돌린다.
     private void HandleRoundStateChanged(RoundState state)
     {
         if (!IsServer) return;
-        if (state == RoundState.Round1 || state == RoundState.Round2)
+        if (state == RoundState.InRound)
         {
             _remainingVoteAttempts.Value = MaxVoteAttempts;
         }

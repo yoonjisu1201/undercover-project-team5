@@ -41,11 +41,11 @@ public class CriminalNpcManager : NetworkBehaviour
         }
     }
 
-    // Round2가 시작되면 1라운드에서 잡힌 이전 범인은 제외하고 새 범인을 다시 지정한다.
+    // 1라운드가 아닌 라운드가 시작되면 이전 라운드에서 잡힌 범인은 제외하고 새 범인을 다시 지정한다.
     private void HandleRoundStateChanged(RoundState state)
     {
         if (!IsServer) return;
-        if (state != RoundState.Round2) return;
+        if (state != RoundState.InRound || RoundManager.Instance.CurrentRoundIndex == 0) return;
 
         NetworkObject previousCriminal = CriminalNpc;
 
@@ -53,7 +53,8 @@ public class CriminalNpcManager : NetworkBehaviour
 
         if (previousCriminal != null && previousCriminal.IsSpawned)
         {
-            previousCriminal.Despawn(destroy: true);  // 이전 범인 NPC를 제거한다. (Round2에서는 새로운 범인을 지정하므로 이전 범인은 제거)
+            // 이전 범인 NPC를 제거한다. (새 라운드에서는 새로운 범인을 지정하므로 이전 범인은 제거)
+            previousCriminal.Despawn(destroy: true);  
         }
     }
 

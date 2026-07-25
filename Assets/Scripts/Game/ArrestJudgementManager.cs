@@ -73,11 +73,11 @@ public class ArrestJudgementManager : NetworkBehaviour
         }
     }
 
-    // Round1 또는 Round2가 새로 시작될 때마다 오검거 횟수를 리셋한다.
+    // 라운드가 새로 시작될 때마다 오검거 횟수를 리셋한다.
     private void HandleRoundStateChanged(RoundState state)
     {
         if (!IsServer) return;
-        if (state == RoundState.Round1 || state == RoundState.Round2)
+        if (state == RoundState.InRound)
         {
             _wrongArrestCount.Value = 0;
         }

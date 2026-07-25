@@ -78,12 +78,12 @@ public class TestRoomUI : MonoBehaviour
 
     private void HandleStartGameButtonClicked()
 	{
-        RoundManager.Instance.StartRound1();
+        RoundManager.Instance.StartGame();
     }
 
     private void HandleRoundStateChanged(RoundState state) //임시로 게임시작시 스타트버튼 숨김
     {
-        bool isRoundInProgress = state == RoundState.Round1 || state == RoundState.Round2;
+        bool isRoundInProgress = state == RoundState.InRound;
         _startGameButton.gameObject.SetActive(_isHost && !isRoundInProgress);
     }
 }

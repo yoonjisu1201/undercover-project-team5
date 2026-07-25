@@ -26,24 +26,16 @@ public class RoundTimerDisplay_HQ : RoundTimerDisplay {
 	// HQ 화면은 라운드 텍스트를 "{0} 라운드" 로컬라이즈 문자열로 표시하므로 숫자 인자만 갱신
 	protected override void HandleRoundStateChanged(RoundState state)
 	{
-		int roundNumber = state switch
-		{
-			RoundState.Round1 => 1,
-			RoundState.Round2 => 2,
-			_ => 0
-		};
+		if (state == RoundState.InRound) return; // 라운드 번호는 HandleRoundStarted에서 처리
 
-		if (roundNumber == 0)
-		{
-			_roundLocalizer.enabled = false;
-			RoundText.text = string.Empty;
-			return;
-		}
+		_roundLocalizer.enabled = false;
+		RoundText.text = string.Empty;
+	}
 
+	protected override void HandleRoundStarted(int roundIndex)
+	{
 		_roundLocalizer.enabled = true;
-		_roundLocalizer.StringReference.Arguments =
-			new object[] { roundNumber };
-
+		_roundLocalizer.StringReference.Arguments = new object[] { roundIndex + 1 };
 		_roundLocalizer.RefreshString();
 	}
 }

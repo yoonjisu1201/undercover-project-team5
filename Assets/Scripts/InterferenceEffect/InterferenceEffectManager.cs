@@ -244,7 +244,7 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
     // roundState: 변경된 라운드 상태입니다.
     private void HandleRoundStateChanged(RoundState roundState)
     {
-        if (roundState == RoundState.Round1 || roundState == RoundState.Round2)
+        if (roundState == RoundState.InRound)
         {
             return;
         }
@@ -265,7 +265,7 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
 
         RoundState roundState = RoundManager.Instance.CurrentState;
 
-        return roundState == RoundState.Round1 || roundState == RoundState.Round2;
+        return roundState == RoundState.InRound;
     }
 
 
