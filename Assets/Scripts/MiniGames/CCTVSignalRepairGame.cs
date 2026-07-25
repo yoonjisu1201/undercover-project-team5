@@ -1,0 +1,228 @@
+using System;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+
+public sealed class CCTVSignalRepairGame : MonoBehaviour
+{
+    private const int CameraCount = 4;
+    private const int WireCount = 4;
+
+    [Header("CCTV 선택")]
+    [SerializeField] private Button[] _cameraButtons;
+    [SerializeField] private Text[] _cameraLabels;
+    [SerializeField] private Text[] _cameraFeeds;
+
+    [Header("배선 보드")]
+    [SerializeField] private RectTransform _connectionBoard;
+    [SerializeField] private RectTransform[] _sourceTerminals;
+    [SerializeField] private RectTransform[] _targetTerminals;
+    [SerializeField] private Image[] _wireImages;
+    [SerializeField] private Graphic[] _sourceGraphics;
+    [SerializeField] private Graphic[] _targetGraphics;
+
+    [Header("상태 표시")]
+    [SerializeField] private Text _objectiveText;
+    [SerializeField] private Text _progressText;
+    [SerializeField] private GameObject _resultOverlay;
+    [SerializeField] private Text _resultTitle;
+    [SerializeField] private Text _resultMessage;
+
+    private readonly CameraRepairState[] _states = new CameraRepairState[CameraCount];
+    private readonly Color[] _wireColors =
+    {
+        new Color(0.95f, 0.18f, 0.18f),
+        new Color(0.15f, 0.45f, 1f),
+        new Color(1f, 0.82f, 0.12f),
+        new Color(0.95f, 0.18f, 0.75f)
+    };
+
+    private int _selectedCamera;
+
+    private void Awake()
+    {
+        for (int cameraIndex = 0; cameraIndex < CameraCount; cameraIndex++)
+        {
+            _states[cameraIndex] = CreateState();
+            int capturedIndex = cameraIndex;
+            _cameraButtons[cameraIndex].onClick.AddListener(() => SelectCamera(capturedIndex));
+        }
+
+        for (int wireIndex = 0; wireIndex < WireCount; wireIndex++)
+        {
+            CCTVWireTerminal terminal = _sourceTerminals[wireIndex].GetComponent<CCTVWireTerminal>();
+            terminal.Configure(this, wireIndex);
+        }
+
+        _resultOverlay.SetActive(false);
+        SelectCamera(0);
+    }
+
+    private CameraRepairState CreateState()
+    {
+        int[] targetColors = { 0, 1, 2, 3 };
+        for (int i = targetColors.Length - 1; i > 0; i--)
+        {
+            int swapIndex = UnityEngine.Random.Range(0, i + 1);
+            (targetColors[i], targetColors[swapIndex]) = (targetColors[swapIndex], targetColors[i]);
+        }
+
+        return new CameraRepairState(targetColors);
+    }
+
+    private void SelectCamera(int cameraIndex)
+    {
+        _selectedCamera = cameraIndex;
+        RefreshCameraCards();
+        RefreshBoard();
+    }
+
+    public void BeginWireDrag(int wireIndex, PointerEventData eventData)
+    {
+        CameraRepairState state = _states[_selectedCamera];
+        if (state.IsRepaired || state.ConnectedTargets[wireIndex] >= 0)
+        {
+            return;
+        }
+
+        ContinueWireDrag(wireIndex, eventData);
+    }
+
+    public void ContinueWireDrag(int wireIndex, PointerEventData eventData)
+    {
+        CameraRepairState state = _states[_selectedCamera];
+        if (state.IsRepaired || state.ConnectedTargets[wireIndex] >= 0)
+        {
+            return;
+        }
+
+        _wireImages[wireIndex].color = _wireColors[wireIndex];
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            _connectionBoard, eventData.position, eventData.pressEventCamera, out Vector2 pointerPosition);
+        pointerPosition += Vector2.Scale(_connectionBoard.rect.size, _connectionBoard.pivot);
+        DrawWire(_wireImages[wireIndex].rectTransform, GetLocalCenter(_sourceTerminals[wireIndex]), pointerPosition);
+        _wireImages[wireIndex].gameObject.SetActive(true);
+    }
+
+    public void EndWireDrag(int wireIndex, PointerEventData eventData)
+    {
+        CameraRepairState state = _states[_selectedCamera];
+        if (state.IsRepaired || state.ConnectedTargets[wireIndex] >= 0)
+        {
+            return;
+        }
+
+        int matchedTarget = -1;
+        for (int targetIndex = 0; targetIndex < WireCount; targetIndex++)
+        {
+            if (RectTransformUtility.RectangleContainsScreenPoint(
+                    _targetTerminals[targetIndex], eventData.position, eventData.pressEventCamera) &&
+                state.TargetColors[targetIndex] == wireIndex)
+            {
+                matchedTarget = targetIndex;
+                break;
+            }
+        }
+
+        state.ConnectedTargets[wireIndex] = matchedTarget;
+        RefreshBoard();
+
+        if (matchedTarget >= 0 && state.ConnectedCount == WireCount)
+        {
+            CompleteSelectedCamera();
+        }
+    }
+
+    private void CompleteSelectedCamera()
+    {
+        RefreshCameraCards();
+        RefreshBoard();
+
+        int repairedCount = Array.FindAll(_states, state => state.IsRepaired).Length;
+        if (repairedCount == CameraCount)
+        {
+            _resultTitle.text = "CCTV SIGNAL RESTORED";
+            _resultMessage.text = "모든 CCTV가 온라인 상태입니다.";
+            _resultOverlay.SetActive(true);
+        }
+    }
+
+    private void RefreshCameraCards()
+    {
+        int repairedCount = 0;
+        for (int i = 0; i < CameraCount; i++)
+        {
+            bool repaired = _states[i].IsRepaired;
+            if (repaired) repairedCount++;
+
+            _cameraLabels[i].text = $"CCTV {i + 1}";
+            _cameraFeeds[i].text = repaired ? "● CONNECTED" : i == _selectedCamera ? "● SELECTED" : "× DISCONNECTED";
+            _cameraFeeds[i].color = repaired ? new Color(0.2f, 1f, 0.55f) : new Color(1f, 0.28f, 0.28f);
+            _cameraButtons[i].interactable = !repaired;
+        }
+
+        _progressText.text = $"ONLINE  {repairedCount} / {CameraCount}";
+    }
+
+    private void RefreshBoard()
+    {
+        CameraRepairState state = _states[_selectedCamera];
+        _objectiveText.text = state.IsRepaired
+            ? $"CCTV {_selectedCamera + 1} 연결 완료 — 다른 오프라인 CCTV를 선택하세요."
+            : $"CCTV {_selectedCamera + 1}: 같은 색 단자를 드래그해서 연결하세요.";
+
+        for (int wireIndex = 0; wireIndex < WireCount; wireIndex++)
+        {
+            _sourceGraphics[wireIndex].color = _wireColors[wireIndex];
+            _wireImages[wireIndex].color = _wireColors[wireIndex];
+
+            int targetIndex = state.ConnectedTargets[wireIndex];
+            if (targetIndex < 0)
+            {
+                _wireImages[wireIndex].gameObject.SetActive(false);
+                continue;
+            }
+
+            _wireImages[wireIndex].gameObject.SetActive(true);
+            DrawWire(_wireImages[wireIndex].rectTransform, GetLocalCenter(_sourceTerminals[wireIndex]), GetLocalCenter(_targetTerminals[targetIndex]));
+        }
+
+        for (int targetIndex = 0; targetIndex < WireCount; targetIndex++)
+        {
+            _targetGraphics[targetIndex].color = _wireColors[state.TargetColors[targetIndex]];
+        }
+    }
+
+    private Vector2 GetLocalCenter(RectTransform terminal)
+    {
+        Vector3 worldCenter = terminal.TransformPoint(terminal.rect.center);
+        Vector2 localCenter = _connectionBoard.InverseTransformPoint(worldCenter);
+
+        // Wire의 Anchor는 ConnectionBoard 좌하단(0, 0)을 사용한다.
+        // InverseTransformPoint 결과는 Board Pivot 기준이므로 좌하단 기준 좌표로 변환한다.
+        return localCenter + Vector2.Scale(_connectionBoard.rect.size, _connectionBoard.pivot);
+    }
+
+    private static void DrawWire(RectTransform wire, Vector2 start, Vector2 end)
+    {
+        Vector2 delta = end - start;
+        wire.anchorMin = wire.anchorMax = Vector2.zero;
+        wire.pivot = new Vector2(0f, 0.5f);
+        wire.anchoredPosition = start;
+        wire.sizeDelta = new Vector2(delta.magnitude, 22f);
+        wire.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+    }
+
+    private sealed class CameraRepairState
+    {
+        public readonly int[] TargetColors;
+        public readonly int[] ConnectedTargets = { -1, -1, -1, -1 };
+        public int ConnectedCount => Array.FindAll(ConnectedTargets, target => target >= 0).Length;
+        public bool IsRepaired => ConnectedCount == WireCount;
+
+        public CameraRepairState(int[] targetColors)
+        {
+            TargetColors = targetColors;
+        }
+    }
+}
