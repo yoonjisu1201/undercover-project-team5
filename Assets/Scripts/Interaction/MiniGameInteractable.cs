@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 
-public sealed class MiniGameInteractable : InteractableBase
+public class MiniGameInteractable : InteractableBase
 {
     [Header("미니게임 UI")]
     [SerializeField] private GameObject _uiPrefab;
@@ -12,11 +12,11 @@ public sealed class MiniGameInteractable : InteractableBase
     private static MiniGameInteractable _activeInteractable;
 
     public override string InteractionText => _interactionText;
-    public override bool CanInteract => _uiPrefab != null && _activeInteractable == null;
+    public override bool CanInteract(GameObject interactor) => _uiPrefab != null && _activeInteractable == null;
 
     public override void Interact(GameObject interactor)
     {
-        if (!CanInteract)
+        if (!CanInteract(interactor))
         {
             return;
         }
