@@ -132,6 +132,12 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
+        if (GameplayUiMode.IsActive)
+        {
+            SetCurrentTarget(null);
+            return;
+        }
+
         UpdateCurrentTarget();
 
         // 조준 대상을 갱신한 뒤 상호작용과 드롭 입력을 처리한다.
