@@ -22,7 +22,7 @@ public sealed class PlayerListPanelUI : MonoBehaviour
     [SerializeField] private WaitingRoomReadyManager _manager;
 
     private static readonly Color HostColor = Color.yellow;
-    private static readonly Color ReadyColor = Color.green;
+    private static readonly Color ReadyColor = new Color(0.3f, 0.75f, 0.35f);
     private static readonly Color NotReadyColor = Color.gray;
 
 
