@@ -26,6 +26,9 @@ public class ArrestJudgementManager : NetworkBehaviour
     public ArrestResult CurrentArrestResult => _arrestResult.Value;
     public int WrongArrestCount => _wrongArrestCount.Value;
 
+    // 범인으로 판정됐을 때, 판정 결과 패널까지 다 끝난 뒤 추격전을 시작하기 위해 기억해두는 대상.
+    private NetworkObject _pendingChaseCandidate;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -42,6 +45,7 @@ public class ArrestJudgementManager : NetworkBehaviour
         {
             ArrestVoteManager.Instance.OnVotePassed += HandleVotePassed;
             ArrestVoteManager.Instance.OnVoteStateChanged += HandleVoteStateChanged;
+            ArrestVoteManager.Instance.OnJudgementPhaseEnded += HandleJudgementPhaseEnded;
         }
 
         if (IsServer && RoundManager.Instance != null)
@@ -56,6 +60,7 @@ public class ArrestJudgementManager : NetworkBehaviour
         {
             ArrestVoteManager.Instance.OnVotePassed -= HandleVotePassed;
             ArrestVoteManager.Instance.OnVoteStateChanged -= HandleVoteStateChanged;
+            ArrestVoteManager.Instance.OnJudgementPhaseEnded -= HandleJudgementPhaseEnded;
         }
 
         if (IsServer && RoundManager.Instance != null)
@@ -114,9 +119,21 @@ public class ArrestJudgementManager : NetworkBehaviour
 
         _arrestResult.Value = ArrestResult.Success;
 
+        // 실제 추격전(게이지 채우기)은 판정 결과 패널까지 다 끝난 뒤(OnJudgementPhaseEnded) 시작한다.
+        _pendingChaseCandidate = candidate;
+    }
+
+    // 판정 결과(범인/오검거) 패널까지 다 끝나고 Idle로 돌아왔을 때 호출된다.
+    // 범인으로 판정됐을 때만 실제 추격전(게이지 채우기)을 시작한다.
+    private void HandleJudgementPhaseEnded()
+    {
+        if (!IsServer) return;
+        if (_pendingChaseCandidate == null) return;
+
         // 실제 추격전(게이지 채우기)은 ArrestChaseManager가 담당한다.
         // 게이지가 다 차면 그쪽에서 RoundManager.ReportArrestServerRpc()를 호출한다.
-        ArrestChaseManager.Instance?.StartChase(candidate);
+        ArrestChaseManager.Instance?.StartChase(_pendingChaseCandidate);
+        _pendingChaseCandidate = null;
     }
 
     public override void OnDestroy()
