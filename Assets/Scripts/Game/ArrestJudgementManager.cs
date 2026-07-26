@@ -114,18 +114,9 @@ public class ArrestJudgementManager : NetworkBehaviour
 
         _arrestResult.Value = ArrestResult.Success;
 
-        // 검거 성공한 NPC는 완전히 정지시킨다.
-        if (candidate.TryGetComponent(out NpcStateMachine stateMachine))
-        {
-            stateMachine.RequestIdle();
-        }
-
-        if (candidate.TryGetComponent(out NpcRandomWander randomWander))
-        {
-            randomWander.enabled = false;
-        }
-
-        RoundManager.Instance.ReportArrestServerRpc();
+        // 실제 추격전(게이지 채우기)은 ArrestChaseManager가 담당한다.
+        // 게이지가 다 차면 그쪽에서 RoundManager.ReportArrestServerRpc()를 호출한다.
+        ArrestChaseManager.Instance?.StartChase(candidate);
     }
 
     public override void OnDestroy()

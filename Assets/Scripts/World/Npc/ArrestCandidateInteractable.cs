@@ -5,9 +5,13 @@ public class ArrestCandidateInteractable : InteractableBase
 {
     public override string InteractionText => "검거 후보로 지정?";
 
-    // 이미 다른 대상으로 투표가 진행 중이면 새 후보를 지정할 수 없다.
-    public override bool CanInteract(GameObject interactor) => ArrestVoteManager.Instance != null
-        && ArrestVoteManager.Instance.CurrentVoteState == ArrestVoteState.Idle;
+    // 이미 다른 대상으로 투표가 진행 중이거나 추격전이 진행 중이면 새 후보를 지정할 수 없다.
+    public override bool CanInteract(GameObject interactor)
+    {
+        return ArrestVoteManager.Instance != null
+            && ArrestVoteManager.Instance.CurrentVoteState == ArrestVoteState.Idle
+            && (ArrestChaseManager.Instance == null || ArrestChaseManager.Instance.CurrentState == ArrestChaseState.Idle);
+    }
 
     // NPC는 계속 움직이므로 조준 판정 반경을 넉넉하게 잡는다.
     [SerializeField, Min(1f)] private float _aimRadiusMultiplier = 3f;

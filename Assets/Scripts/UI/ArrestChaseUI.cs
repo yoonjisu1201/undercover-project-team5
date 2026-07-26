@@ -1,0 +1,118 @@
+using TMPro;
+using Unity.Netcode;
+using UnityEngine;
+using UnityEngine.UI;
+
+// 검거 추격 단계의 게이지 바와 "왜 게이지가 안 오르는지" 안내 문구를 보여주는 UI.
+// 패널 표시/게이지 값은 ArrestChaseManager의 이벤트를 구독해서 갱신하고,
+// 안내 문구만 추격 중(Chasing)일 때 매 프레임 로컬 플레이어의 위치/인벤토리를 확인해서 갱신한다.
+// (범위 안/밖, 도구 장착 여부는 "계속 변하는 값"이라 이벤트로는 알 수 없어 폴링이 불가피하다)
+public class ArrestChaseUI : MonoBehaviour
+{
+    [SerializeField] private GameObject _chasePanel;  // 추격 중(+완료 순간)에만 보여줄 패널
+    [SerializeField] private Slider _gaugeSlider;      // 검거 게이지 바
+
+    [SerializeField] private GameObject _promptPanel;  // "도구가 필요합니다" 등 안내 문구 패널
+    [SerializeField] private TMP_Text _promptText;
+
+    private void Start()
+    {
+        _chasePanel.SetActive(false);
+        _promptPanel.SetActive(false);
+
+        ArrestChaseManager.Instance.OnStateChanged += HandleStateChanged;
+        ArrestChaseManager.Instance.OnGaugeChanged += HandleGaugeChanged;
+
+        // 늦참 클라이언트가 추격 도중 스폰되는 경우, OnValueChanged는 최초 동기화 값에는 발동하지 않으므로
+        // 직접 한 번 호출해서 현재 상태를 반영해줘야 한다. (RoundManager.OnRoundStateChanged와 동일한 이유)
+        HandleStateChanged(ArrestChaseManager.Instance.CurrentState);
+        HandleGaugeChanged(ArrestChaseManager.Instance.Gauge);
+    }
+
+    private void OnDestroy()
+    {
+        if (ArrestChaseManager.Instance != null)
+        {
+            ArrestChaseManager.Instance.OnStateChanged -= HandleStateChanged;
+            ArrestChaseManager.Instance.OnGaugeChanged -= HandleGaugeChanged;
+        }
+    }
+
+    private void Update()
+    {
+        // 안내 문구는 "지금 이 순간" 로컬 플레이어의 위치/장착 상태에 달려있어서 이벤트로 알 수 없다.
+        // 추격 중일 때만 계산하면 되므로 그 외에는 아무것도 하지 않는다.
+        if (ArrestChaseManager.Instance == null || ArrestChaseManager.Instance.CurrentState != ArrestChaseState.Chasing)
+        {
+            return;
+        }
+
+        UpdatePrompt();
+    }
+
+    private void HandleStateChanged(ArrestChaseState state)
+    {
+        // 완료된 순간(게이지 100%)도 잠깐 보여주고 싶어서 Chasing과 Completed 둘 다 패널을 켜둔다.
+        bool showGaugePanel = state == ArrestChaseState.Chasing || state == ArrestChaseState.Completed;
+        _chasePanel.SetActive(showGaugePanel);
+
+        // 추격이 끝나거나 리셋되면 안내 문구도 같이 지운다.
+        if (state != ArrestChaseState.Chasing)
+        {
+            _promptPanel.SetActive(false);
+        }
+    }
+
+    private void HandleGaugeChanged(float gauge)
+    {
+        _gaugeSlider.value = gauge;
+    }
+
+    // "지금 내가(로컬 플레이어) 왜 게이지에 기여하지 못하고 있는지"를 판단해서 안내 문구를 띄운다.
+    // 서버 계산과 별개로, 로컬 플레이어 본인의 위치/인벤토리는 클라이언트가 이미 알고 있으므로 여기서 직접 계산한다.
+    private void UpdatePrompt()
+    {
+        NetworkObject target = ArrestChaseManager.Instance.Target;
+        NetworkObject localPlayer = NetworkManager.Singleton.LocalClient?.PlayerObject;
+
+        if (target == null || localPlayer == null)
+        {
+            Debug.LogWarning("[ArrestChaseUI] 추격 대상 NPC 또는 로컬 플레이어를 찾을 수 없어 안내 문구를 갱신하지 못했습니다.");
+            _promptPanel.SetActive(false);
+            return;
+        }
+
+        float distance = Vector3.Distance(localPlayer.transform.position, target.transform.position);
+        bool isInRange = distance <= ArrestChaseManager.Instance.CaptureRadius;
+
+        // 범위 밖이면 아직 참여할 상황이 아니므로 안내할 게 없다.
+        if (!isInRange)
+        {
+            _promptPanel.SetActive(false);
+            return;
+        }
+
+        bool hasToolEquipped = localPlayer.TryGetComponent(out PlayerInventory inventory)
+            && inventory.TryGetSelectedItem(out string itemId)
+            && itemId == ArrestChaseManager.CaptureToolItemId;
+
+        if (!hasToolEquipped)
+        {
+            ShowPrompt("검거 도구가 필요합니다");
+        }
+        else if (ArrestChaseManager.Instance.EligibleNearbyCount < ArrestChaseManager.RequiredParticipants)
+        {
+            ShowPrompt("다른 요원 1명이 필요합니다");
+        }
+        else
+        {
+            _promptPanel.SetActive(false); // 조건을 다 채웠으면 안내 없이 게이지 바만 보여준다.
+        }
+    }
+
+    private void ShowPrompt(string text)
+    {
+        _promptPanel.SetActive(true);
+        _promptText.text = text;
+    }
+}
