@@ -48,6 +48,10 @@ public class MonitorController : MonoBehaviour {
 		_mapButton.onClick.RemoveListener(OnMapButtonClicked);
 		_montageButton.onClick.RemoveListener(OnMontageButtonClicked);
 		_closeButton.onClick.RemoveListener(OnCloseButtonClicked);
+
+		// 닫기 버튼이 아니라 외부(라운드 종료 등)에서 강제로 비활성화되는 경우에도
+		// 커서 잠금 해제 등 후속 처리가 이루어지도록 보장
+		OnScreenClosed?.Invoke();
 	}
 
 	private void OnCctvButtonClicked() {
@@ -67,7 +71,6 @@ public class MonitorController : MonoBehaviour {
 	
 	private void OnCloseButtonClicked() {
 		gameObject.SetActive(false);
-		OnScreenClosed?.Invoke();
 	}
 	
 	// 모든 스크린 한번에 끄기
