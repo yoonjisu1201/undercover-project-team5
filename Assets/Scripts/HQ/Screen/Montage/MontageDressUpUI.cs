@@ -57,7 +57,7 @@ public class MontageDressUpUI : ScreenBase {
 	[SerializeField] private Color _tabActiveColor = new Color(0.231f, 0.910f, 0.659f, 0.16f);
 	[SerializeField] private Color _tabInactiveColor = new Color(0f, 0f, 0f, 0f);
 
-	[Header("=== MontageSyncManager의 RpcCall 할 것 ===")]
+	[Header("=== MontageSyncManager 등록 ===")]
 	[SerializeField] private MontageSyncManager _syncManager;
 
 	// 파츠별 탭 버튼의 배경 이미지 (활성/비활성 색상 전환용)
