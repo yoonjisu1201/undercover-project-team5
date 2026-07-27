@@ -76,6 +76,8 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private bool _isJumping;
     
+	public Transform HeadPivot { get => _headPivot.transform; }
+
 	private void Awake()
 	{
 		_rotateSpeed = PlayerPrefs.GetFloat(MouseSensitivityKey, _rotateSpeed);
