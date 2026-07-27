@@ -20495,6 +20495,7 @@ GameObject:
   - component: {fileID: 3034529866599774512}
   - component: {fileID: 2974533433762144473}
   - component: {fileID: 8271242711255620274}
+  - component: {fileID: -7996457364632384375}
   m_Layer: 0
   m_Name: Player_main
   m_TagString: Untagged
@@ -20602,7 +20603,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _moveSpeed: 5
   _rotateSpeed: 0.5
-  _runMultiplier: 1.8
+  _runSpeedMultiplier: 1.5
   _jumpPower: 10
   _groundMinY: -0.2
   _groundMaxY: 0
@@ -20632,6 +20633,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerEmergencyEscape
   ShowTopMostFoldoutHeaderGroup: 1
+  _stableGroundDuration: 1
+  _minimumRecordDistance: 3
+  _requiredAirborneDuration: 3
 --- !u!114 &8049373391342024038
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -21264,6 +21268,19 @@ MonoBehaviour:
   - {fileID: 7362126262654613317}
   - {fileID: 4921410952823226656}
   - {fileID: 3357614942699773281}
+--- !u!114 &-7996457364632384375
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d75a321dc5ac21240b86da64f4ea6322, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerArrestInput
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &2536676161924006567
 GameObject:
   m_ObjectHideFlags: 0

@@ -153209,6 +153209,91 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 1155.6, y: 620}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1001 &805673363
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -507020779636714355, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: GlobalObjectIdHash
+      value: 3978788091
+      objectReference: {fileID: 0}
+    - target: {fileID: -507020779636714355, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: SceneMigrationSynchronization
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -507020779636714355, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: InScenePlacedSourceGlobalObjectIdHash
+      value: 3661148084
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 99.22485
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.45
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -153.349
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 90
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954474125683034198, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
+      propertyPath: m_Name
+      value: AlienCaptureGun (1)
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 8841b0b601c5d494ab3d5387def9658f, type: 3}
 --- !u!1001 &807059327
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -287948,6 +288033,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArrestChaseUI
   _chasePanel: {fileID: 859799328}
   _gaugeSlider: {fileID: 495223249}
+  _gaugeText: {fileID: 1252218805}
+  _participantIcons:
+  - {fileID: 569476911}
+  - {fileID: 736735767}
+  _participantActiveColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  _participantCountText: {fileID: 1797818050}
+  _distanceText: {fileID: 1769326075}
   _promptPanel: {fileID: 659833856}
   _promptText: {fileID: 2138306496}
   _targetingFrame: {fileID: 1668393020}
@@ -375852,3 +375944,4 @@ SceneRoots:
   - {fileID: 518492820}
   - {fileID: 27303750}
   - {fileID: 339194777}
+  - {fileID: 805673363}

@@ -11,6 +11,13 @@ public class ArrestChaseUI : MonoBehaviour
 {
     [SerializeField] private GameObject _chasePanel;  // 추격 중(+완료 순간)에만 보여줄 패널
     [SerializeField] private Slider _gaugeSlider;      // 검거 게이지 바
+    [SerializeField] private TMP_Text _gaugeText;      // "검거 진행 68%" 같은 퍼센트 텍스트
+
+    [SerializeField] private Image[] _participantIcons;                        // 참여 인원 아이콘 2개
+    [SerializeField] private Color _participantActiveColor = Color.yellow;     // 단축키 홀드 중인 인원 수만큼 앞에서부터 이 색으로 바뀐다. 기본은 흰색.
+    [SerializeField] private TMP_Text _participantCountText;                   // "0/2" 같은 홀드 인원 수 텍스트
+
+    [SerializeField] private TMP_Text _distanceText;   // 로컬 플레이어와 타겟 NPC 사이 거리 ("12m" 등)
 
     [SerializeField] private GameObject _promptPanel;  // "도구가 필요합니다" 등 안내 문구 패널
     [SerializeField] private TMP_Text _promptText;
@@ -57,6 +64,7 @@ public class ArrestChaseUI : MonoBehaviour
         UpdateChasePanelVisibility();
         UpdatePrompt();
         UpdateTargetingFrame();
+        UpdateParticipantIcons();
     }
 
     private void HandleStateChanged(ArrestChaseState state)
@@ -76,6 +84,7 @@ public class ArrestChaseUI : MonoBehaviour
     }
 
     // 로컬 플레이어가 대상 NPC의 검거 반경 안에 들어왔을 때만 ChasePanel(게이지 바 + 타겟팅 프레임)을 보여준다.
+    // (거리를 여기서 이미 계산하므로, 같은 값을 거리 텍스트 갱신에도 그대로 쓴다)
     private void UpdateChasePanelVisibility()
     {
         NetworkObject target = ArrestChaseManager.Instance.Target;
@@ -89,6 +98,18 @@ public class ArrestChaseUI : MonoBehaviour
 
         float distance = Vector3.Distance(localPlayer.transform.position, target.transform.position);
         _chasePanel.SetActive(distance <= ArrestChaseManager.Instance.CaptureRadius);
+        _distanceText.text = $"{Mathf.RoundToInt(distance)}m";
+    }
+
+    // 단축키(AlienGun)를 홀드 중인 인원 수만큼 앞에서부터 아이콘을 노란색으로, 나머지는 흰색으로 표시한다.
+    private void UpdateParticipantIcons()
+    {
+        int holdingCount = ArrestChaseManager.Instance.HoldingCount;
+        for (int i = 0; i < _participantIcons.Length; i++)
+        {
+            _participantIcons[i].color = i < holdingCount ? _participantActiveColor : Color.white;
+        }
+        _participantCountText.text = $"{holdingCount}/{ArrestChaseManager.RequiredParticipants}";
     }
 
     // 대상 NPC의 월드 좌표를 화면 좌표로 변환해 타겟팅 프레임(UI_TargetReticle) 위치를 갱신한다.
@@ -120,6 +141,7 @@ public class ArrestChaseUI : MonoBehaviour
     private void HandleGaugeChanged(float gauge)
     {
         _gaugeSlider.value = gauge;
+        _gaugeText.text = $"{Mathf.RoundToInt(gauge * 100f)}%";
     }
 
     // "지금 내가(로컬 플레이어) 왜 게이지에 기여하지 못하고 있는지"를 판단해서 안내 문구를 띄운다.
