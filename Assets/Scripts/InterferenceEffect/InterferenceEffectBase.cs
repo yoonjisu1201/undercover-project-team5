@@ -10,6 +10,9 @@ public enum InterferenceEffectType
 
     // 플레이어 시야를 방해합니다.
     FieldVision,
+    
+    // 화면 글리치
+    Glitch,
 }
 
 

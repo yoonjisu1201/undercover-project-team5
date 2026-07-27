@@ -1,5 +1,21 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-6111831131590226437
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d97da06d1b4e6e64e837fe2d4f512162, type: 3}
+  m_Name: DigitalGlitchFeature
+  m_EditorClassIdentifier: URPGlitch::URPGlitch.DigitalGlitchFeature
+  m_Active: 1
+  shader: {fileID: 4800000, guid: f445ed039be4e2c4c81930580ce0fa68, type: 3}
+  compatShader: {fileID: 4800000, guid: 2f7db6c094d160148aa3595fd806f507, type: 3}
+  renderPassEvent: 0
 --- !u!114 &-2018083097504945889
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -13,6 +29,36 @@ MonoBehaviour:
   m_Name: EPO Feature
   m_EditorClassIdentifier: EPOURP::EPOOutline.URPOutlineFeature
   m_Active: 1
+--- !u!114 &-1783885591371454242
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9086bceee2ca4b5e8d0bc02d6499a2a7, type: 3}
+  m_Name: BlockGlitchRenderFeature
+  m_EditorClassIdentifier: Assembly-CSharp::GlitchSample.BlockGlitchRenderFeature
+  m_Active: 1
+  shader: {fileID: 4800000, guid: 62ecde9856be42058d7ef3612cd7099a, type: 3}
+  renderPassEvent: 600
+--- !u!114 &-1678558671555574273
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7b51d34ff9fa60499f5f35735de5c90, type: 3}
+  m_Name: AnalogGlitchRenderFeature
+  m_EditorClassIdentifier: URPGlitch::URPGlitch.AnalogGlitchRenderFeature
+  m_Active: 1
+  anaglogGlitchShader: {fileID: 4800000, guid: 97d9be06c8e6c1e4781abe10d57474a8, type: 3}
+  renderPassEvent: 550
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -39,8 +85,11 @@ MonoBehaviour:
     probeVolumeBlendStatesCS: {fileID: 7200000, guid: b9a23f869c4fd45f19c5ada54dd82176, type: 3}
   m_RendererFeatures:
   - {fileID: 7833122117494664109}
-  - {fileID: 4013571405750113744}
-  m_RendererFeatureMap: ad6b866f10d7b46c
+  - {fileID: -2018083097504945889}
+  - {fileID: -1678558671555574273}
+  - {fileID: -6111831131590226437}
+  - {fileID: -1783885591371454242}
+  m_RendererFeatureMap: ad6b866f10d7b46c1f69ff751d54fee3ff454717c88fb4e8fb0d64baf7692eab
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}

@@ -65,6 +65,11 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
             TryStartEffect(InterferenceEffectType.FieldVision);
         }
 
+        if (Keyboard.current != null && Keyboard.current.f3Key.wasPressedThisFrame)
+        {
+            TryStartEffect(InterferenceEffectType.Glitch);
+        }
+
         if (_serverRunningEffectType == InterferenceEffectType.None || NetworkManager.ServerTime.Time < _serverEffectDeadline)
         {
             return;
