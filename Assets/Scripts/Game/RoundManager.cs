@@ -44,8 +44,8 @@ public class RoundManager : NetworkBehaviour
     [Header("캐릭터 스폰 담당하는 클래스 (게임 시작하면서 캐릭터를 적절한 위치에 스폰함)")]
     [SerializeField] private PlayerSpawner _playerSpawner;
 
-    [Header("몽타주 게임 시작 시에 미리 로딩해주기 위함")]
-    [SerializeField] private MontageDressUpUI _montageDressUpUi;
+    [Header("게임 시작하면서 몽타주 데이터 로딩하기 위함")]
+    [SerializeField] private MontageSyncManager _syncManager;
 
     private readonly NetworkVariable<RoundState> _currentState =
         new(RoundState.Waiting, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -166,8 +166,13 @@ public class RoundManager : NetworkBehaviour
         // 나를 적절한 위치로 스폰시킨다
         _playerSpawner.SpawnPlayer(NetworkManager.Singleton.LocalClient.PlayerObject);
 
-        // 몽타주 관련 데이터 로딩한다
-        await _montageDressUpUi.InitializeAsync();
+        // 몽타주 옷 데이터를 미리 로딩하고, 지금까지 조합된 몽타주를 내 화면에도 조립해둔다.
+        if (_syncManager != null) {
+            await _syncManager.InitializeAsync();
+        }
+        else {
+            Debug.LogError("[RoundManager] MontageSyncManager가 없어 몽타주 준비를 건너뜁니다.", this);
+        }
 
         ReportSpawnReadyServerRpc();
     }
