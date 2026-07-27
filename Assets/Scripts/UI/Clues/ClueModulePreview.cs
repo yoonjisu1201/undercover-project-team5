@@ -38,15 +38,15 @@ public class ClueModulePreview : MonoBehaviour
 
         if (RoundManager.Instance != null)
         {
-            RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
+            RoundManager.Instance.OnRoundStarted += HandleRoundStarted;
         }
 
         RefreshCriminalCluesAsync().Forget();
     }
 
-    private void HandleRoundStateChanged(RoundState state)
+    private void HandleRoundStarted(int roundIndex)
     {
-        if (state == RoundState.InRound && RoundManager.Instance.CurrentRoundIndex > 0)
+        if (roundIndex > 0)
         {
             RefreshCriminalCluesAsync().Forget();
         }
@@ -219,7 +219,7 @@ public class ClueModulePreview : MonoBehaviour
     {
         if (RoundManager.Instance != null)
         {
-            RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
+            RoundManager.Instance.OnRoundStarted -= HandleRoundStarted;
         }
         _moduleCapture?.Dispose();
         ClearCapturedTextures();
