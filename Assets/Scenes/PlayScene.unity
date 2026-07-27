@@ -36882,6 +36882,79 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4557829791361320, guid: bae40b413e498462796bcb29f2c5da6b, type: 3}
   m_PrefabInstance: {fileID: 217579342}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &217820333
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 217820335}
+  - component: {fileID: 217820337}
+  - component: {fileID: 217820336}
+  m_Layer: 0
+  m_Name: MontageSyncManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &217820335
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 217820333}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -37.21718, y: -1.55828, z: -77.65161}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 939449155}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &217820336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 217820333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c8e6d5633662934694dc0ec46a31bad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MontageSyncManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  _montage: {fileID: 1339301588}
+--- !u!114 &217820337
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 217820333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 1666402843
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  <InScenePlaced>k__BackingField: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!1 &217988384
 GameObject:
   m_ObjectHideFlags: 0
@@ -179381,6 +179454,7 @@ Transform:
   m_Children:
   - {fileID: 195294081}
   - {fileID: 1373169048}
+  - {fileID: 217820335}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &939953500
@@ -219352,7 +219426,7 @@ MonoBehaviour:
   _npcSpawner: {fileID: 1946818}
   _clueSpawner: {fileID: 2064882557}
   _playerSpawner: {fileID: 1556109470}
-  _montageDressUpUi: {fileID: 1339301588}
+  _syncManager: {fileID: 217820336}
 --- !u!4 &1207988935
 Transform:
   m_ObjectHideFlags: 0
@@ -239921,22 +239995,27 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 9208793772119685158, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
+      propertyPath: _syncManager
+      value:
+      objectReference: {fileID: 217820336}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 1378481524047937748, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
 --- !u!114 &1339301588 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 9208793772119685158, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
+  m_CorrespondingSourceObject: {fileID: 8538685061903020231, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
   m_PrefabInstance: {fileID: 1339301587}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3bdfd18b65384b84cb7810988bda6a81, type: 3}
+  m_Script: {fileID: 11500000, guid: d649d285d82545dfa4cf5048dff20750, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SilhouetteDressUpUI
+  m_EditorClassIdentifier: Assembly-CSharp::Montage
 --- !u!1001 &1339602449
 PrefabInstance:
   m_ObjectHideFlags: 0
