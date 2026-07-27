@@ -135,6 +135,12 @@ public class PlayerInteraction : NetworkBehaviour
         if (GameplayUiMode.IsActive)
         {
             SetCurrentTarget(null);
+
+            if (_actions.Player.Interact.WasPressedThisFrame())
+            {
+                TryCloseVisibleClue();
+            }
+
             return;
         }
 
