@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using URPGlitch;
 
-public sealed class GlitchEffect : InterferenceEffectBase
+public sealed class GlitchInterferenceEffect : InterferenceEffectBase
 {
     [SerializeField] private Volume _globalVolume;
 
