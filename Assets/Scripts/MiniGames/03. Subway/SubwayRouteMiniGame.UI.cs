@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
+// 
 public sealed partial class SubwayRouteMiniGame
 {
     private static readonly Color CardColor = new(0.08f, 0.13f, 0.17f);
@@ -138,7 +139,7 @@ public sealed partial class SubwayRouteMiniGame
     {
         Image pool = CreateImage("StationPool", _routeMap, new Color(0.025f, 0.055f, 0.075f, 0.94f));
         SetAnchors(pool.rectTransform, new Vector2(0.04f, 0.10f), new Vector2(0.96f, 0.31f));
-        pool.gameObject.AddComponent<StationPoolDropTarget>().Initialize(this);
+        pool.gameObject.AddComponent<StationPoolDropTarget>().Initialize(this, pool);
 
         Text title = CreateText("PoolTitle", pool.transform, 15, FontStyle.Bold, TextAnchor.UpperLeft);
         SetAnchors(title.rectTransform, new Vector2(0.02f, 0.7f), new Vector2(0.7f, 0.96f));

@@ -243,7 +243,8 @@ public class RoundManager : NetworkBehaviour
                 break;
             case RoundState.RoundClear:
                 _currentRoundIndex.Value++;
-                _clueSpawner.RespawnClues(); // 다음 라운드 마다 단서 재생성
+                _clueSpawner.RespawnClues();
+                ResetMiniGamesForNewRound();
                 _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[_currentRoundIndex.Value].Duration;
                 _currentState.Value = RoundState.InRound; // 대기 시간 종료, 다음 라운드 자동 시작
                 AnnounceRoundStartRpc(_currentRoundIndex.Value);
@@ -259,9 +260,26 @@ public class RoundManager : NetworkBehaviour
 
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _currentRoundIndex.Value = 0;
+        ResetMiniGamesForNewRound();
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[0].Duration;
         _currentState.Value = RoundState.InRound;
         AnnounceRoundStartRpc(0);
+    }
+
+    // 서버가 모든 미니게임의 완료 상태와 랜덤 문제를 새 라운드 기준으로 초기화한다.
+    private void ResetMiniGamesForNewRound()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        MiniGameInteractable[] miniGames =
+            FindObjectsByType<MiniGameInteractable>(FindObjectsSortMode.None);
+        foreach (MiniGameInteractable miniGame in miniGames)
+        {
+            miniGame.ResetForNewRound();
+        }
     }
 
     // 검거했다고 서버에게 알려주는 rpc

@@ -3,10 +3,10 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Box Collider로 나눈 구역의 통합 NavMesh 위에 9개 미니게임 머신을 서버 권한으로 생성하는 클래스
+// Box Collider로 나눈 구역의 통합 NavMesh 위에 8개 미니게임 머신을 서버 권한으로 생성하는 클래스
 public sealed class MiniGameSpawner : MonoBehaviour
 {
-    private const int RequiredMiniGameMachineCount = 9;
+    private const int RequiredMiniGameMachineCount = 8;
 
     [Header("미니게임 머신 데이터")]
     [SerializeField] private ItemData[] _MiniGameMachine;
@@ -107,24 +107,14 @@ public sealed class MiniGameSpawner : MonoBehaviour
                 continue;
             }
 
-            if (index == 1)
-            {
-                if (!miniGameMachineObject.TryGetComponent(out PickupItem pickupItem))
-                {
-                    Debug.LogError($"[MiniGameSpawner] 2번 미니게임 머신 '{miniGameMachineData.WorldPrefab.name}'에 PickupItem이 없습니다.", this);
-                    Destroy(miniGameMachineObject);
-                    continue;
-                }
-
-                pickupItem.Configure(miniGameMachineData);
-            }
-            else if (!miniGameMachineObject.TryGetComponent(out MiniGameInteractable _))
+            if (!miniGameMachineObject.TryGetComponent(out MiniGameInteractable miniGame))
             {
                 Debug.LogError($"[MiniGameSpawner] '{miniGameMachineData.WorldPrefab.name}'에 MiniGameInteractable이 없습니다.", this);
                 Destroy(miniGameMachineObject);
                 continue;
             }
 
+            miniGame.ConfigureCompletionReward(miniGameMachineData.CompletionReward);
             networkObject.Spawn(destroyWithScene: true);
             _spawnedPositions.Add(spawnPosition);
             Debug.Log($"[MiniGameSpawner] '{miniGameMachineData.WorldPrefab.name}' 스폰 완료: {spawnPosition}", this);

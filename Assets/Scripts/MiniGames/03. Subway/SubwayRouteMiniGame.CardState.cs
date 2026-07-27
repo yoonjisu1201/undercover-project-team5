@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
+// 슬롯에 카드를 배치하고, 기존 카드가 있으면 교환한다. 슬롯에 드롭되지 않은 카드는 하단 보기 영역으로 되돌리는 코드
 public sealed partial class SubwayRouteMiniGame
 {
     // 카드를 대상 슬롯에 배치하고 기존 카드가 있으면 교환한다.
@@ -14,13 +15,13 @@ public sealed partial class SubwayRouteMiniGame
             return;
         }
 
-        int sourceIndex = card.CurrentSlotIndex;
-        StationCardDragHandler displacedCard = _placedCards[slotIndex];
+        int sourceIndex = card.CurrentSlotIndex;    // 카드가 현재 배치된 슬롯 인덱스, -1이면 보기 영역에 있는 상태
+        StationCardDragHandler displacedCard = _placedCards[slotIndex]; // 슬롯에 이미 배치된 카드, 없으면 null
 
-        if (sourceIndex >= 0)
+        if (sourceIndex >= 0)   // 카드가 유효한 슬롯에 배치되어 있다면, 기존 슬롯을 비운다.
         {
             _placedCards[sourceIndex] = displacedCard;
-            if (displacedCard != null)
+            if (displacedCard != null)  // 기존 슬롯에 있던 카드를 새 슬롯으로 이동시킨다.
             {
                 displacedCard.CurrentSlotIndex = sourceIndex;
             }
@@ -72,7 +73,7 @@ public sealed partial class SubwayRouteMiniGame
 
         for (int index = 0; index < poolCards.Count; index++)
         {
-            MoveCard(poolCards[index], new Vector2(0.215f + 0.19f * index, 0.19f));
+            MoveCard(poolCards[index], _stationPool, new Vector2(0.2f + 0.2f * index, 0.42f));
         }
 
         for (int index = 1; index < SegmentLength; index++)
@@ -81,15 +82,16 @@ public sealed partial class SubwayRouteMiniGame
             _dropSlots[index].SetOccupied(card != null);
             if (card != null)
             {
-                MoveCard(card, _dropSlots[index].Anchor);
+                MoveCard(card, _dropSlots[index].transform, new Vector2(0.5f, 0.5f));
             }
         }
     }
 
-    // 카드를 지정한 앵커 위치로 이동하고 기본 색상을 복원한다.
-    private static void MoveCard(StationCardDragHandler card, Vector2 anchor)
+    // 카드를 보기 또는 노선도 부모 아래의 지정한 앵커 위치로 이동한다.
+    private static void MoveCard(StationCardDragHandler card, Transform parent, Vector2 anchor)
     {
         RectTransform rect = (RectTransform)card.transform;
+        rect.SetParent(parent, false);
         rect.anchorMin = anchor;
         rect.anchorMax = anchor;
         rect.anchoredPosition = Vector2.zero;

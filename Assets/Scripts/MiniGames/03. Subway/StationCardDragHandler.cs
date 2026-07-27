@@ -89,13 +89,10 @@ public sealed class StationDropSlot : MonoBehaviour, IDropHandler, IPointerEnter
     private Color _normalColor;
     private bool _isOccupied;
 
-    public Vector2 Anchor { get; private set; }
-
     // 드롭 슬롯에 순서와 표시 요소를 연결한다.
     public void Initialize(
         SubwayRouteMiniGame owner,
         int slotIndex,
-        RectTransform rect,
         Image background,
         Text placeholder)
     {
@@ -104,7 +101,6 @@ public sealed class StationDropSlot : MonoBehaviour, IDropHandler, IPointerEnter
         _background = background;
         _placeholder = placeholder;
         _normalColor = background.color;
-        Anchor = rect.anchorMin;
     }
 
     // 드롭된 역 카드를 이 슬롯에 배치한다.
