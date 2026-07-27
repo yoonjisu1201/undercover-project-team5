@@ -9,20 +9,20 @@ using Debug = UnityEngine.Debug;
 public sealed class InterferenceEffectManager : NetworkBehaviour
 {
     // 서버에서 현재 실행 중인 방해 효과 식별자입니다.
-    private InterferenceEffectId _serverRunningEffectId;
+    private InterferenceEffectType _serverRunningEffectType;
 
     // 서버에서 현재 방해 효과를 종료할 네트워크 시간입니다.
     private double _serverEffectDeadline;
 
     // 로컬 클라이언트에 적용된 방해 효과 식별자입니다.
-    private InterferenceEffectId _localAppliedEffectId;
+    private InterferenceEffectType _localAppliedEffectType;
 
     // 로컬 클라이언트에 적용된 방해 효과 실행 식별값입니다.
     private double _localEffectRunKey;
 
     // 방해 효과 식별자별 구현체를 보관합니다.
-    private readonly Dictionary<InterferenceEffectId, InterferenceEffectBase>
-        _effects = new Dictionary<InterferenceEffectId, InterferenceEffectBase>();
+    private readonly Dictionary<InterferenceEffectType, InterferenceEffectBase>
+        _effects = new Dictionary<InterferenceEffectType, InterferenceEffectBase>();
 
     // 현재 씬의 방해 효과 관리자 인스턴스를 가져옵니다.
     public static InterferenceEffectManager Instance { get; private set; }
@@ -62,10 +62,10 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
 
         if (Keyboard.current != null && Keyboard.current.f2Key.wasPressedThisFrame)
         {
-            TryStartEffect(InterferenceEffectId.FieldVision);
+            TryStartEffect(InterferenceEffectType.FieldVision);
         }
 
-        if (_serverRunningEffectId == InterferenceEffectId.None || NetworkManager.ServerTime.Time < _serverEffectDeadline)
+        if (_serverRunningEffectType == InterferenceEffectType.None || NetworkManager.ServerTime.Time < _serverEffectDeadline)
         {
             return;
         }
@@ -101,55 +101,55 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
     // 서버에서 지정한 방해 효과를 즉시 시작합니다.
     // effectId: 시작할 방해 효과 식별자입니다.
     // 반환값: 시작 조건을 만족해 요청을 수락하면 true, 그렇지 않으면 false입니다.
-    public bool TryStartEffect(InterferenceEffectId effectId)
+    public bool TryStartEffect(InterferenceEffectType effectType)
     {
         if (!IsSpawned)
         {
-            return RejectStart(effectId, "Manager가 아직 Spawn되지 않았습니다.");
+            return RejectStart(effectType, "Manager가 아직 Spawn되지 않았습니다.");
         }
 
         if (!IsServer)
         {
-            return RejectStart(effectId, "서버에서만 시작할 수 있습니다.");
+            return RejectStart(effectType, "서버에서만 시작할 수 있습니다.");
         }
 
-        if (effectId == InterferenceEffectId.None)
+        if (effectType == InterferenceEffectType.None)
         {
-            return RejectStart(effectId, "None은 시작할 수 없습니다.");
+            return RejectStart(effectType, "None은 시작할 수 없습니다.");
         }
 
-        if (_serverRunningEffectId != InterferenceEffectId.None)
+        if (_serverRunningEffectType != InterferenceEffectType.None)
         {
-            return RejectStart(effectId, $"{_serverRunningEffectId} 효과가 이미 실행 중입니다.");
+            return RejectStart(effectType, $"{_serverRunningEffectType} 효과가 이미 실행 중입니다.");
         }
 
         if (!IsRoundInProgress())
         {
             string roundState = RoundManager.Instance == null ? "RoundManager 없음" : RoundManager.Instance.CurrentState.ToString();
 
-            return RejectStart(effectId, $"현재 라운드 상태에서는 시작할 수 없습니다. 상태: {roundState}");
+            return RejectStart(effectType, $"현재 라운드 상태에서는 시작할 수 없습니다. 상태: {roundState}");
         }
 
-        if (!_effects.TryGetValue(effectId, out InterferenceEffectBase interferenceEffect))
+        if (!_effects.TryGetValue(effectType, out InterferenceEffectBase interferenceEffect))
         {
-            return RejectStart(effectId, "등록된 방해 효과 구현체가 없습니다.");
+            return RejectStart(effectType, "등록된 방해 효과 구현체가 없습니다.");
         }
 
         double effectDeadline = NetworkManager.ServerTime.Time + interferenceEffect.Duration;
 
-        _serverRunningEffectId = effectId;
+        _serverRunningEffectType = effectType;
         _serverEffectDeadline = effectDeadline;
 
-        StartEffectRpc(effectId, effectDeadline);
+        StartEffectRpc(effectType, effectDeadline);
 
         return true;
     }
 
 
     // 이벤트 시작 요청을 거절하고 원인을 로그로 기록합니다.
-    private bool RejectStart(InterferenceEffectId effectId, string reason)
+    private bool RejectStart(InterferenceEffectType effectType, string reason)
     {
-        Debug.LogWarning($"[Interference] {effectId} 시작 실패: {reason}", this);
+        Debug.LogWarning($"[Interference] {effectType} 시작 실패: {reason}", this);
 
         return false;
     }
@@ -159,7 +159,7 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
     // effectId: 시작할 방해 효과 식별자입니다.
     // effectDeadline: 효과를 종료할 네트워크 시간입니다.
     [Rpc(SendTo.ClientsAndHost)]
-    private void StartEffectRpc(InterferenceEffectId effectId, double effectDeadline)
+    private void StartEffectRpc(InterferenceEffectType effectType, double effectDeadline)
     {
         if (NetworkManager.ServerTime.Time >= effectDeadline)
         {
@@ -168,14 +168,14 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
 
         EndLocalEffect(InterferenceEndReason.Replaced);
 
-        InterferenceEffectBase interferenceEffect = GetEffect(effectId);
+        InterferenceEffectBase interferenceEffect = GetEffect(effectType);
 
         if (interferenceEffect == null)
         {
             return;
         }
 
-        _localAppliedEffectId = effectId;
+        _localAppliedEffectType = effectType;
         _localEffectRunKey = effectDeadline;
 
         interferenceEffect.Activate();
@@ -187,9 +187,9 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
     // effectRunKey: 시작 당시 동기화한 실행 식별값입니다.
     // reason: 방해 효과를 종료하는 사유입니다.
     [Rpc(SendTo.ClientsAndHost)]
-    private void EndEffectRpc(InterferenceEffectId effectId, double effectRunKey, InterferenceEndReason reason)
+    private void EndEffectRpc(InterferenceEffectType effectType, double effectRunKey, InterferenceEndReason reason)
     {
-        if (_localAppliedEffectId != effectId || _localEffectRunKey != effectRunKey)
+        if (_localAppliedEffectType != effectType || _localEffectRunKey != effectRunKey)
         {
             return;
         }
@@ -202,18 +202,18 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
     // reason: 현재 방해 효과를 종료하는 사유입니다.
     private void EndCurrentServerEffect(InterferenceEndReason reason)
     {
-        if (_serverRunningEffectId == InterferenceEffectId.None)
+        if (_serverRunningEffectType == InterferenceEffectType.None)
         {
             return;
         }
 
-        InterferenceEffectId effectId = _serverRunningEffectId;
+        InterferenceEffectType effectType = _serverRunningEffectType;
         double effectRunKey = _serverEffectDeadline;
 
-        _serverRunningEffectId = InterferenceEffectId.None;
+        _serverRunningEffectType = InterferenceEffectType.None;
         _serverEffectDeadline = 0d;
 
-        EndEffectRpc(effectId, effectRunKey, reason);
+        EndEffectRpc(effectType, effectRunKey, reason);
     }
 
 
@@ -221,14 +221,14 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
     // reason: 로컬 방해 효과를 종료하는 사유입니다.
     private void EndLocalEffect(InterferenceEndReason reason)
     {
-        if (_localAppliedEffectId == InterferenceEffectId.None)
+        if (_localAppliedEffectType == InterferenceEffectType.None)
         {
             return;
         }
 
-        InterferenceEffectBase interferenceEffect = GetEffect(_localAppliedEffectId);
+        InterferenceEffectBase interferenceEffect = GetEffect(_localAppliedEffectType);
 
-        _localAppliedEffectId = InterferenceEffectId.None;
+        _localAppliedEffectType = InterferenceEffectType.None;
         _localEffectRunKey = 0d;
 
         if (interferenceEffect == null)
@@ -274,32 +274,32 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
     {
         foreach (InterferenceEffectBase interferenceEffect in GetComponents<InterferenceEffectBase>())
         {
-            if (interferenceEffect.Id == InterferenceEffectId.None)
+            if (interferenceEffect._type == InterferenceEffectType.None)
             {
                 Debug.LogWarning("[Interference] None 식별자는 등록할 수 없습니다.", interferenceEffect);
                 continue;
             }
 
-            if (_effects.ContainsKey(interferenceEffect.Id))
+            if (_effects.ContainsKey(interferenceEffect._type))
             {
-                Debug.LogError($"[Interference] {interferenceEffect.Id} 효과가 중복 등록됐습니다.", interferenceEffect);
+                Debug.LogError($"[Interference] {interferenceEffect._type} 효과가 중복 등록됐습니다.", interferenceEffect);
                 continue;
             }
 
-            _effects.Add(interferenceEffect.Id, interferenceEffect);
+            _effects.Add(interferenceEffect._type, interferenceEffect);
         }
     }
 
 
     // 지정한 식별자에 등록된 방해 효과 구현체를 가져옵니다.
-    private InterferenceEffectBase GetEffect(InterferenceEffectId effectId)
+    private InterferenceEffectBase GetEffect(InterferenceEffectType effectType)
     {
-        if (_effects.TryGetValue(effectId, out InterferenceEffectBase interferenceEffect))
+        if (_effects.TryGetValue(effectType, out InterferenceEffectBase interferenceEffect))
         {
             return interferenceEffect;
         }
 
-        Debug.LogError($"[Interference] {effectId} 효과 구현체가 등록되지 않았습니다.", this);
+        Debug.LogError($"[Interference] {effectType} 효과 구현체가 등록되지 않았습니다.", this);
 
         return null;
     }
