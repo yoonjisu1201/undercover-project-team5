@@ -22,6 +22,15 @@ public class ArrestChaseUI : MonoBehaviour
     [SerializeField] private GameObject _promptPanel;  // "도구가 필요합니다" 등 안내 문구 패널
     [SerializeField] private TMP_Text _promptText;
 
+    // _promptPanel(경고문구) 의 "범위 안에 있는지" 판정에만 쓰는 여유 반경. 실제 검거 반경(5m)보다 크게 잡아서
+    // 5m 경계를 막 통과하는 순간 서버의 HoldingCount가 아직 갱신 전이라 문구가 잘못 표시되는 걸 막는다.
+    [SerializeField] private float _promptVisibilityRadius = 10f;
+
+    [SerializeField] private float _promptShowDelay = 0.25f; // 서버 HoldingCount 반영 지연으로 인한 순간적인 오탐을 무시하는 유예시간
+
+    private string _pendingPromptMessage;
+    private float _pendingPromptSince;
+
     [SerializeField] private RectTransform _targetingFrame;      // UI_TargetReticle. _chasePanel의 자식이라 표시/숨김은 부모가 처리, 여기서는 위치만 갱신한다.
     [SerializeField] private float _targetingHeightOffset = 1f;  // NPC 발밑 대신 몸통 높이에 맞추기 위한 오프셋
 
@@ -159,12 +168,24 @@ public class ArrestChaseUI : MonoBehaviour
         }
 
         float distance = Vector3.Distance(localPlayer.transform.position, target.transform.position);
-        bool isInRange = distance <= ArrestChaseManager.Instance.CaptureRadius;
+        bool isInRange = distance <= _promptVisibilityRadius;
 
         // 범위 밖이면 아직 참여할 상황이 아니므로 안내할 게 없다.
         if (!isInRange)
         {
             _promptPanel.SetActive(false);
+            _pendingPromptMessage = null;
+            return;
+        }
+
+        // R키를 누르고 있지 않으면 아직 시도한 게 아니므로 안내할 게 없다.
+        bool isHoldingArrestKey = localPlayer.TryGetComponent(out PlayerArrestInput arrestInput)
+            && arrestInput.IsHoldingArrestKey;
+
+        if (!isHoldingArrestKey)
+        {
+            _promptPanel.SetActive(false);
+            _pendingPromptMessage = null;
             return;
         }
 
@@ -172,17 +193,34 @@ public class ArrestChaseUI : MonoBehaviour
             && inventory.TryGetSelectedItem(out string itemId)
             && itemId == ArrestChaseManager.CaptureToolItemId;
 
-        if (!hasToolEquipped)
+        string desiredMessage = !hasToolEquipped
+            ? "검거 도구가 필요합니다"
+            : ArrestChaseManager.Instance.HoldingCount < ArrestChaseManager.RequiredParticipants
+                ? "다른 요원 1명이 필요합니다"
+                : null;
+
+        if (desiredMessage == null)
         {
-            ShowPrompt("검거 도구가 필요합니다");
+            _promptPanel.SetActive(false); // 조건을 다 채웠으면 안내 없이 게이지 바만 보여준다.
+            _pendingPromptMessage = null;
+            return;
         }
-        else if (ArrestChaseManager.Instance.EligibleNearbyCount < ArrestChaseManager.RequiredParticipants)
+
+        // 서버의 HoldingCount가 아직 반영되지 않아 생기는 순간적인 오탐을 걸러내기 위해,
+        // 같은 메시지가 _promptShowDelay 이상 지속될 때만 실제로 띄운다.
+        if (desiredMessage != _pendingPromptMessage)
         {
-            ShowPrompt("다른 요원 1명이 필요합니다");
+            _pendingPromptMessage = desiredMessage;
+            _pendingPromptSince = Time.time;
+        }
+
+        if (Time.time - _pendingPromptSince >= _promptShowDelay)
+        {
+            ShowPrompt(desiredMessage);
         }
         else
         {
-            _promptPanel.SetActive(false); // 조건을 다 채웠으면 안내 없이 게이지 바만 보여준다.
+            _promptPanel.SetActive(false);
         }
     }
 

@@ -8,10 +8,11 @@ public class PlayerInventory : NetworkBehaviour
 
     [SerializeField] private InventorySlot[] _slots;
 
-    private int _selectedIndex = -1;
+    private readonly NetworkVariable<int> _selectedIndex =
+        new(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     public InventorySlot[] Slots => _slots;
-    public int SelectedIndex => _selectedIndex;
+    public int SelectedIndex => _selectedIndex.Value;
     public bool HasAnyItem => FindFirstOccupiedSlot() >= 0;
     public bool IsFull => FindEmptySlot() < 0;
 
@@ -72,7 +73,7 @@ public class PlayerInventory : NetworkBehaviour
         }
 
         _slots[emptySlotIndex].Set(itemId);
-        _selectedIndex = emptySlotIndex;
+        _selectedIndex.Value = emptySlotIndex;
 
         InventoryChanged?.Invoke();
         ItemAdded?.Invoke(itemId, emptySlotIndex);
@@ -91,7 +92,7 @@ public class PlayerInventory : NetworkBehaviour
         if (index < 0 || index >= InventorySize)
             return;
 
-        _selectedIndex = index;
+        _selectedIndex.Value = index;
         InventoryChanged?.Invoke();
     }
 
@@ -99,12 +100,12 @@ public class PlayerInventory : NetworkBehaviour
     {
         itemId = null;
 
-        if (_selectedIndex < 0 || _selectedIndex >= InventorySize)
+        if (_selectedIndex.Value < 0 || _selectedIndex.Value >= InventorySize)
         {
             return false;
         }
 
-        InventorySlot selectedSlot = _slots[_selectedIndex];
+        InventorySlot selectedSlot = _slots[_selectedIndex.Value];
 
         if (selectedSlot.IsEmpty)
             return false;
@@ -146,13 +147,13 @@ public class PlayerInventory : NetworkBehaviour
 
     private bool RemoveSelectedItemLocally()
     {
-        if (_selectedIndex < 0 || _selectedIndex >= InventorySize)
+        if (_selectedIndex.Value < 0 || _selectedIndex.Value >= InventorySize)
             return false;
 
-        if (_slots[_selectedIndex].IsEmpty)
+        if (_slots[_selectedIndex.Value].IsEmpty)
             return false;
 
-        RemoveItemAt(_selectedIndex);
+        RemoveItemAt(_selectedIndex.Value);
         return true;
     }
 
@@ -248,9 +249,9 @@ public class PlayerInventory : NetworkBehaviour
         }
 
         // 선택된 슬롯이 제거된 아이템이었는지 확인하고, 필요하면 선택을 초기화
-        if (_selectedIndex < 0 || _selectedIndex >= _slots.Length || _slots[_selectedIndex].IsEmpty)
+        if (_selectedIndex.Value < 0 || _selectedIndex.Value >= _slots.Length || _slots[_selectedIndex.Value].IsEmpty)
         {
-            _selectedIndex = FindFirstOccupiedSlot();
+            _selectedIndex.Value = FindFirstOccupiedSlot();
         }
 
         InventoryChanged?.Invoke();
