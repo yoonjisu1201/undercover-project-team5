@@ -18,7 +18,8 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     [SerializeField] private RoundSpawnCoordinator _spawnCoordinator;
 
     [Header("배치 설정")]
-    [SerializeField] private SpawnRule _spawnRule = new()
+    [SerializeField]
+    private SpawnRule _spawnRule = new()
     {
         MinimumDistance = 5f,
         MaxAttempts = 50,
@@ -53,16 +54,15 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleSceneLoaded;
     }
 
-    private void HandleSceneLoaded(
-        string sceneName,
-        LoadSceneMode loadSceneMode,
-        List<ulong> clientsCompleted,
-        List<ulong> clientsTimedOut)
+    private void HandleSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
     {
         if (_hasSpawned || sceneName != gameObject.scene.name || !NetworkManager.Singleton.IsServer)
         {
             return;
         }
+
+        // 플레이어가 이미 획득한 단서를 제거하고 새로 스폰
+        ClearPlayerInventories();
 
         SpawnAsync(_spawnCoordinator, this.GetCancellationTokenOnDestroy()).Forget();
     }
