@@ -3,7 +3,7 @@ using UnityEngine.Events;
 
 
 // 방해 효과 종류를 식별합니다.
-public enum InterferenceEffectId
+public enum InterferenceEffectType
 {
     // 실행 중인 방해 효과가 없습니다.
     None,
@@ -43,7 +43,7 @@ public abstract class InterferenceEffectBase : MonoBehaviour
     [SerializeField] private UnityEvent _onInterferenceEnded = new UnityEvent();
 
     // 방해 효과 식별자입니다.
-    public abstract InterferenceEffectId Id { get; }
+    public abstract InterferenceEffectType _type { get; }
 
     // 방해 효과가 활성화된 후 유지되는 시간입니다.
     public float Duration => _duration;
@@ -52,7 +52,7 @@ public abstract class InterferenceEffectBase : MonoBehaviour
     // 활성화 신호를 구독 중인 Unity 이벤트에 전달합니다.
     public virtual void Activate()
     {
-        Debug.Log($"[Interference] {Id} 활성화", this);
+        Debug.Log($"[Interference] {_type} 활성화", this);
 
         _onInterferenceStarted.Invoke();
     }
@@ -64,7 +64,7 @@ public abstract class InterferenceEffectBase : MonoBehaviour
     {
         string endState = reason == InterferenceEndReason.Normal ? "종료" : "중단";
 
-        Debug.Log($"[Interference] {Id} {endState}: {reason}", this);
+        Debug.Log($"[Interference] {_type} {endState}: {reason}", this);
 
         _onInterferenceEnded.Invoke();
     }
