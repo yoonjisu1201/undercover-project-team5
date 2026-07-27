@@ -14,7 +14,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	[Header("이동 관련")]
 	[SerializeField] private float _moveSpeed = 5f;
 	[SerializeField] private float _rotateSpeed = 0.5f;
-	[SerializeField] private float _runSpeedMultiplier = 1.5f;
+	[SerializeField] private float _runMultiplier = 1.8f;
 	[SerializeField] private float _jumpPower = 10f;
 
 	[Header("중력 관련")]
@@ -56,14 +56,8 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private Animator _animator;
 	private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
-	private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
 	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
 	private readonly NetworkVariable<bool> _networkIsMoving =
-		new NetworkVariable<bool>(
-			false,
-			NetworkVariableReadPermission.Everyone,
-			NetworkVariableWritePermission.Owner);
-	private readonly NetworkVariable<bool> _networkIsRunning =
 		new NetworkVariable<bool>(
 			false,
 			NetworkVariableReadPermission.Everyone,
@@ -76,7 +70,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private bool _isJumping;
     
-	public Transform HeadPivot { get => _headPivot.transform; }
+	public GameObject HeadPivot { get => _headPivot; }
 
 	private void Awake()
 	{
@@ -128,11 +122,6 @@ public class PlayerMoveSample : NetworkBehaviour
 		SyncAnimatorBool(IsMovingHash, _networkIsMoving, value);
 	}
 
-	private void SetRunningState(bool value)
-	{
-		SyncAnimatorBool(IsRunningHash, _networkIsRunning, value);
-	}
-
 	private void SetJumpingState(bool value)
 	{
 		_isJumping = value;
@@ -142,11 +131,6 @@ public class PlayerMoveSample : NetworkBehaviour
 	private void HandleMovingChanged(bool _, bool value)
 	{
 		ApplyAnimatorBool(IsMovingHash, value);
-	}
-
-	private void HandleRunningChanged(bool _, bool value)
-	{
-		ApplyAnimatorBool(IsRunningHash, value);
 	}
 
 	private void HandleJumpingChanged(bool _, bool value)
@@ -169,11 +153,9 @@ public class PlayerMoveSample : NetworkBehaviour
 		Debug.Log($"[PlayerMoveNetworkTest] OwnerClientId = {OwnerClientId}, IsOwner = {IsOwner}");
 
 		_networkIsMoving.OnValueChanged += HandleMovingChanged;
-		_networkIsRunning.OnValueChanged += HandleRunningChanged;
 		_networkIsJumping.OnValueChanged += HandleJumpingChanged;
 
 		HandleMovingChanged(false, _networkIsMoving.Value);
-		HandleRunningChanged(false, _networkIsRunning.Value);
 		HandleJumpingChanged(false, _networkIsJumping.Value);
 
 		if (!IsOwner)
@@ -188,7 +170,6 @@ public class PlayerMoveSample : NetworkBehaviour
 	public override void OnNetworkDespawn()
 	{
 		_networkIsMoving.OnValueChanged -= HandleMovingChanged;
-		_networkIsRunning.OnValueChanged -= HandleRunningChanged;
 		_networkIsJumping.OnValueChanged -= HandleJumpingChanged;
 		base.OnNetworkDespawn();
 	}
@@ -204,7 +185,6 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_jumpRequested = false;
 			SetMovingState(false);
-			SetRunningState(false);
 			return;
 		}
 
@@ -260,7 +240,6 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_jumpRequested = false;
 			SetMovingState(false);
-			SetRunningState(false);
 			return;
 		}
 
@@ -275,10 +254,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
 
 		bool isMoving = move.sqrMagnitude > 0.01f;
-		bool isRunning = isMoving && _actions.Player.Shift.IsPressed();
 
 		SetMovingState(isMoving);
-		SetRunningState(isRunning);
 
 		// forward/right에서 y를 제거해 수평 이동만 남긴다
 		Vector3 forward = transform.forward;
@@ -289,7 +266,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		right.Normalize();
 
 		// Shift를 "누르고 있는 동안" 달리기 속도 적용
-		float speed = isRunning ? _moveSpeed * _runSpeedMultiplier : _moveSpeed;
+		float speed = _actions.Player.Shift.IsPressed() ? _moveSpeed * _runMultiplier : _moveSpeed;
 
 		// MovePosition은 메서드 → 목표 위치를 계산해서 넘긴다 (fixedDeltaTime 사용)
 		Vector3 delta = (forward * move.y + right * move.x) * speed;
