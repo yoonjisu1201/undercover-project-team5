@@ -1,0 +1,1 @@
+there is a 2d renderer/ universal in 2d/3d sample folder, please add it to your urp asset to make the sample work. the camera in the sample scenes for 2d/3d refers to this renderer to work, if you dont want to do it then swap the camera's renderer to yours or add the render features(analog and digital) to your own 2d renderer/ other renderer asset. thank you.
