@@ -5,11 +5,8 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
 /// 본부 요원이 몽타주에 옷을 입히는 조작 UI입니다.
 /// 실제 조립과 상태 보관은 MontageSyncManager가 담당하고, 여기서는 요청만 보냅니다.
-/// 선택 표시도 동기화된 상태를 되읽어 갱신하므로 로컬 상태를 따로 들고 있지 않습니다.
-/// </summary>
 public class MontageDressUpUI : ScreenBase {
 	// 항상 탭에 같은 순서로 등장하도록 하기 위해 순서 지정
 	private readonly List<MontageParts> _partOrder = new()
