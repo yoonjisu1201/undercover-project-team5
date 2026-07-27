@@ -8,6 +8,7 @@ public enum ArrestVoteState
     Idle,     // 투표 없음
     Voting,   // 투표 진행 중
     Passed,   // 가결
+    Judged,   // 가결 판정 결과(범인/오검거) 표시 중
     Rejected  // 부결
 }
 
@@ -27,6 +28,9 @@ public class ArrestVoteManager : NetworkBehaviour
 
     // 결과(가결/부결) 표시 후 Idle로 돌아가기까지 대기 시간 (초 단위)
     private const float ResultHoldSeconds = 3f;
+
+    // 가결 판정 결과(범인/오검거) 표시 후 Idle로 돌아가기까지 대기 시간 (초 단위)
+    private const float JudgementResultHoldSeconds = 5f;
 
     // 결과를 Idle로 되돌릴 시각 (ServerTime 기준). 결과 화면 카운트다운 표시를 위해 클라이언트도 읽을 수 있게 동기화한다.
     private readonly NetworkVariable<double> _returnToIdleTime =
@@ -83,6 +87,10 @@ public class ArrestVoteManager : NetworkBehaviour
     // 투표가 가결됐을 때 실제 검거 로직이 구독해서 처리하는 이벤트
     public event Action OnVotePassed;
 
+    // 판정 결과(범인/오검거) 패널까지 다 끝나고 Idle로 돌아왔을 때(Judged → Idle) 발생하는 이벤트.
+    // 추격전은 이 시점에 시작해야 하므로 ArrestJudgementManager가 구독한다.
+    public event Action OnJudgementPhaseEnded;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -127,6 +135,21 @@ public class ArrestVoteManager : NetworkBehaviour
                 }
                 break;
             case ArrestVoteState.Passed:
+                if (NetworkManager.ServerTime.Time >= _returnToIdleTime.Value)
+                {
+                    ArrestCandidate?.GetComponent<NpcMovement>()?.ReleaseExternalHold(); // 멈춰뒀던 후보 NPC 이동을 재개
+                    _arrestCandidateReference.Value = default; // 다음 투표를 위해 검거 후보를 초기화
+                    _currentVoteState.Value = ArrestVoteState.Judged; // NPC는 재개시키고, 범인 판정 결과 화면으로 전환
+                    _returnToIdleTime.Value = NetworkManager.ServerTime.Time + JudgementResultHoldSeconds;
+                }
+                break;
+            case ArrestVoteState.Judged:
+                if (NetworkManager.ServerTime.Time >= _returnToIdleTime.Value)
+                {
+                    _currentVoteState.Value = ArrestVoteState.Idle; // 판정 결과 표시 시간이 끝나 다음 투표를 받을 수 있게 리셋
+                    OnJudgementPhaseEnded?.Invoke(); // 판정 결과 패널까지 다 끝난 시점. 추격전은 여기서부터 시작한다.
+                }
+                break;
             case ArrestVoteState.Rejected:
                 if (NetworkManager.ServerTime.Time >= _returnToIdleTime.Value)
                 {
@@ -307,7 +330,9 @@ public class ArrestVoteManager : NetworkBehaviour
     {
         if (!IsSpawned) return 0f;
 
-        if (_currentVoteState.Value == ArrestVoteState.Passed || _currentVoteState.Value == ArrestVoteState.Rejected)
+        if (_currentVoteState.Value == ArrestVoteState.Passed
+            || _currentVoteState.Value == ArrestVoteState.Judged
+            || _currentVoteState.Value == ArrestVoteState.Rejected)
         {
             _cachedRemainingResultTime = Mathf.Max(0f, (float)(_returnToIdleTime.Value - NetworkManager.ServerTime.Time));
         }
