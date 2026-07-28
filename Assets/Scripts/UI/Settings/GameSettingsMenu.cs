@@ -63,6 +63,9 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     private void Awake()
     {
+        CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
+        canvasGroup.alpha = 1f;
+
         _actions = new CustomInputActions();
         _settingsPanel.SetActive(false);
 
