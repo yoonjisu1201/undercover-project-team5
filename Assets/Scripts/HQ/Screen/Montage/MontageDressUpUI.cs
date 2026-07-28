@@ -76,7 +76,7 @@ public class MontageDressUpUI : ScreenBase {
 		// 화면이 열려 있는 동안에만 선택 표시를 갱신하면 된다
 		_syncManager.OnMontageStateChanged += HandleMontageStateChanged;
 
-		// 조립에 필요한 옷 데이터 로딩은 RoundManager.WaitForLocalSpawnReadyAsync가 이미 책임지고 끝낸 뒤이므로 여기서는 기다리지 않는다
+		// 이 화면은 로딩 패널이 사라진 뒤에만 켜지므로, 이 시점엔 RoundManager가 이미 옷 데이터 로딩을 끝냈다
 
 		// 현장 요원은 몽타주를 볼 수만 있고 조합할 수는 없으므로 조작 UI를 만들지 않는다
 		if (!IsLocalPlayerHeadquarter()) { return; }

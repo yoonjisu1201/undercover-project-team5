@@ -73,8 +73,18 @@ public class MontageSyncManager : NetworkBehaviour {
 	}
 
 	private async UniTask InitializeInternalAsync() {
-		await _catalog.EnsureLoadedAsync();
-
+		
+		// 전체 로딩은 Server만. 나머지는 확인용 로그들
+		if (!NetworkManager.LocalClient.PlayerObject.TryGetComponent<Player>(out Player value)) {
+			Debug.LogError($"[MontageSyncManager] Player Component를 찾지 못했습니다.");
+		}
+		else if (value.PlayerRole ==  Role.Headquarter) {
+			Debug.Log($"[MontageSyncManager] 본부이기에 몽타주 데이터 전체 로딩하였습니다.");
+			await _catalog.EnsureLoadedAsync();
+		} else {
+			Debug.Log($"[MontageSyncManager] 현장이기에 몽타주 로딩하지 않았습니다.");
+		}
+		
 		if (_montage == null) {
 			Debug.LogError("[MontageSyncManager] Montage 참조가 비어 있어 몽타주를 조립할 수 없습니다.", this);
 			return;
@@ -115,7 +125,8 @@ public class MontageSyncManager : NetworkBehaviour {
 		}
 
 		// 존재하지 않는 옷 id는 각 클라이언트에서 조립에 실패하므로 서버에서 걸러낸다
-		if (clothId != MontageState.None && _catalog.IsLoaded && _catalog.Find(part, clothId) == null) {
+		// (Find는 캐시에 없으면 Lazy Loading을 시도하므로, 서버가 본부 역할이 아니라 전체 로딩을 안 했어도 검증할 수 있다)
+		if (clothId != MontageState.None && _catalog.Find(part, clothId) == null) {
 			Debug.LogError($"[MontageSyncManager] {part} 파츠에 존재하지 않는 옷 id({clothId}) 요청입니다.", this);
 			return;
 		}
