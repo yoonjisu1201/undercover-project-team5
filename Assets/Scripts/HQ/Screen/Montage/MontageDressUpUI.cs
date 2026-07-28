@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
@@ -68,7 +67,7 @@ public class MontageDressUpUI : ScreenBase {
 	// 탭 버튼은 한 번만 생성하면 되므로 중복 생성을 막기 위한 플래그
 	private bool _initialized;
 
-	private async void OnEnable() {
+	private void OnEnable() {
 		if (_syncManager == null) {
 			Debug.LogError("[MontageDressUpUi] MontageSyncManager가 없어 몽타주 화면을 구성할 수 없습니다.", this);
 			return;
@@ -77,11 +76,7 @@ public class MontageDressUpUI : ScreenBase {
 		// 화면이 열려 있는 동안에만 선택 표시를 갱신하면 된다
 		_syncManager.OnMontageStateChanged += HandleMontageStateChanged;
 
-		// 조립에 필요한 옷 데이터는 역할과 무관하게 전원이 로드한다 (MontageSyncManager가 담당)
-		await _syncManager.InitializeAsync();
-
-		// 로딩을 기다리는 동안 화면이 닫히거나 파괴됐을 수 있다
-		if (!this || !isActiveAndEnabled) { return; }
+		// 이 화면은 로딩 패널이 사라진 뒤에만 켜지므로, 이 시점엔 RoundManager가 이미 옷 데이터 로딩을 끝냈다
 
 		// 현장 요원은 몽타주를 볼 수만 있고 조합할 수는 없으므로 조작 UI를 만들지 않는다
 		if (!IsLocalPlayerHeadquarter()) { return; }

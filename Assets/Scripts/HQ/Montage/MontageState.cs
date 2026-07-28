@@ -70,7 +70,6 @@ public struct MontageState : INetworkSerializable, IEquatable<MontageState> {
 			default:
 				throw new ArgumentOutOfRangeException(nameof(part), part, "[MontageState] 알 수 없는 파츠입니다.");
 		}
-
 		return changed;
 	}
 
