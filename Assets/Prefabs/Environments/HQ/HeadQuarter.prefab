@@ -3912,7 +3912,7 @@ GameObject:
   - component: {fileID: 9102161234279898426}
   - component: {fileID: 6262526133699056221}
   m_Layer: 0
-  m_Name: HintScreenSurface
+  m_Name: MontageScreenSurface
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6709,6 +6709,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 5481924243977314148, guid: d77067f6b2ec75b479592557911cee9b, type: 3}
+    - {fileID: 1835316110500220556, guid: d77067f6b2ec75b479592557911cee9b, type: 3}
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 4250762847544834396, guid: d77067f6b2ec75b479592557911cee9b, type: 3}
       insertIndex: 0
@@ -7375,7 +7376,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5193497751375203194, guid: 1f32f7fd73c88f14cb9b2e8d357fb3a0, type: 3}
       propertyPath: m_Name
-      value: MontageV2
+      value: Montage
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -7638,6 +7639,9 @@ PrefabInstance:
       addedObject: {fileID: 1893355184610503787}
     - targetCorrespondingSourceObject: {fileID: 3397794668357964319, guid: a5ac041b79f79364ca8481b503332787, type: 3}
       insertIndex: -1
+      addedObject: {fileID: 6956220975976956793}
+    - targetCorrespondingSourceObject: {fileID: 3397794668357964319, guid: a5ac041b79f79364ca8481b503332787, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 2442577971787571650}
     - targetCorrespondingSourceObject: {fileID: 2370077440463857961, guid: a5ac041b79f79364ca8481b503332787, type: 3}
       insertIndex: -1
@@ -7785,6 +7789,32 @@ MonoBehaviour:
     fillPass:
       shader: {fileID: 0}
       serializedProperties: []
+--- !u!114 &6956220975976956793
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4793376500124482683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3292330570
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  <InScenePlaced>k__BackingField: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &2442577971787571650
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7983,6 +8013,22 @@ PrefabInstance:
     - target: {fileID: 1755113833830475182, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
       propertyPath: m_PreferredHeight
       value: 40
+      objectReference: {fileID: 0}
+    - target: {fileID: 1794221970418142255, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
+      propertyPath: _panBoundsMax.x
+      value: 230
+      objectReference: {fileID: 0}
+    - target: {fileID: 1794221970418142255, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
+      propertyPath: _panBoundsMax.y
+      value: 220
+      objectReference: {fileID: 0}
+    - target: {fileID: 1794221970418142255, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
+      propertyPath: _panBoundsMin.x
+      value: -370
+      objectReference: {fileID: 0}
+    - target: {fileID: 1794221970418142255, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
+      propertyPath: _panBoundsMin.y
+      value: -380
       objectReference: {fileID: 0}
     - target: {fileID: 1889252682038889475, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
       propertyPath: m_Name
@@ -8545,15 +8591,6 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 4186732765179834127, guid: 3713613c4ffcd6945900432c53af79b8, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 4499395964848540515}
-    - targetCorrespondingSourceObject: {fileID: 4186732765179834127, guid: 3713613c4ffcd6945900432c53af79b8, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 202752473933280172}
-    - targetCorrespondingSourceObject: {fileID: 4186732765179834127, guid: 3713613c4ffcd6945900432c53af79b8, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 3337363747916858992}
-    - targetCorrespondingSourceObject: {fileID: 4186732765179834127, guid: 3713613c4ffcd6945900432c53af79b8, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 1448358233555554222}
   m_SourcePrefab: {fileID: 100100000, guid: 3713613c4ffcd6945900432c53af79b8, type: 3}
 --- !u!1 &5031277364542647732 stripped
@@ -8561,122 +8598,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 4186732765179834127, guid: 3713613c4ffcd6945900432c53af79b8, type: 3}
   m_PrefabInstance: {fileID: 9207877030560875195}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &4499395964848540515
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5031277364542647732}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2110481128
-  InScenePlacedSourceGlobalObjectIdHash: 0
-  DeferredDespawnTick: 0
-  Ownership: 1
-  AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 1
-  <InScenePlaced>k__BackingField: 0
-  ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 0
-  SpawnWithObservers: 1
-  DontDestroyWithOwner: 0
-  AutoObjectParentSync: 1
-  SyncOwnerTransformWhenParented: 1
-  AllowOwnerToParent: 0
---- !u!114 &202752473933280172
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5031277364542647732}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8eddfdcd6778440cbeff6b3e44f2dd51, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Chair
-  ShowTopMostFoldoutHeaderGroup: 1
-  _outlineFadeDuration: 0.15
-  _consoleUi: {fileID: 2759115572273304153}
-  _inventoryUI: {fileID: 0}
---- !u!114 &3337363747916858992
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5031277364542647732}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3fe91dc294731a9428c0941ea7579110, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: EPO::EPOOutline.Outlinable
-  complexMaskingMode: 0
-  drawingMode: 1
-  outlineLayer: 0
-  outlineTargets:
-  - CutoutMask: 8
-    renderer: {fileID: 8262053004539556350}
-    SubmeshIndex: 0
-    BoundsMode: 0
-    Bounds:
-      m_Center: {x: 0, y: 0, z: 0}
-      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
-    CutoutThreshold: 0.5
-    CullMode: 2
-    cutoutTextureName: 
-    cutoutTextureIndex: 0
-  - CutoutMask: 8
-    renderer: {fileID: 8262053004539556350}
-    SubmeshIndex: 1
-    BoundsMode: 0
-    Bounds:
-      m_Center: {x: 0, y: 0, z: 0}
-      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
-    CutoutThreshold: 0.5
-    CullMode: 2
-    cutoutTextureName: 
-    cutoutTextureIndex: 0
-  - CutoutMask: 8
-    renderer: {fileID: 8262053004539556350}
-    SubmeshIndex: 2
-    BoundsMode: 0
-    Bounds:
-      m_Center: {x: 0, y: 0, z: 0}
-      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
-    CutoutThreshold: 0.5
-    CullMode: 2
-    cutoutTextureName: 
-    cutoutTextureIndex: 0
-  renderStyle: 1
-  outlineParameters:
-    enabled: 1
-    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-    dilateShift: 1
-    blurShift: 1
-    fillPass:
-      shader: {fileID: 0}
-      serializedProperties: []
-  backParameters:
-    enabled: 1
-    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-    dilateShift: 1
-    blurShift: 1
-    fillPass:
-      shader: {fileID: 0}
-      serializedProperties: []
-  frontParameters:
-    enabled: 1
-    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-    dilateShift: 1
-    blurShift: 1
-    fillPass:
-      shader: {fileID: 0}
-      serializedProperties: []
 --- !u!114 &1448358233555554222
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8692,10 +8613,5 @@ MonoBehaviour:
 --- !u!4 &6030484666621324081 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3204423859770501514, guid: 3713613c4ffcd6945900432c53af79b8, type: 3}
-  m_PrefabInstance: {fileID: 9207877030560875195}
-  m_PrefabAsset: {fileID: 0}
---- !u!23 &8262053004539556350 stripped
-MeshRenderer:
-  m_CorrespondingSourceObject: {fileID: 963847497682793285, guid: 3713613c4ffcd6945900432c53af79b8, type: 3}
   m_PrefabInstance: {fileID: 9207877030560875195}
   m_PrefabAsset: {fileID: 0}
