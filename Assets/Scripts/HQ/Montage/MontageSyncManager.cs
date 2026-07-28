@@ -48,12 +48,10 @@ public class MontageSyncManager : NetworkBehaviour {
 		}
 
 		// 스폰보다 준비가 먼저 끝났다면, 이 시점에 도착한 최신 상태를 다시 적용해준다
+		// (초기화는 RoundManager.WaitForLocalSpawnReadyAsync가 책임지고 호출한다)
 		if (_isReady) {
 			ApplyFull(_montageState.Value);
-			return;
 		}
-
-		InitializeAsync().Forget();
 	}
 
 	public override void OnNetworkDespawn() {
