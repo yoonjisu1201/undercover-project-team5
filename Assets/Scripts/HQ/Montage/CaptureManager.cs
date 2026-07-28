@@ -54,6 +54,7 @@ public class CaptureManager : MonoBehaviour {
 
 		// 모든 이미지 생성
 		foreach (var part in Parts) {
+			_id = 0;
 			MakeClothDatas(part.Key);
 		}
 
@@ -81,7 +82,6 @@ public class CaptureManager : MonoBehaviour {
 	private void MakeClothDatas(MontageParts part) {
 		// OrthographicSize 설정
 		_captureCamera.Camera.orthographicSize = SizeByParts[part];
-
 		Transform parts = Parts[part];
 
 		// 전체 비활성화 한번
@@ -91,9 +91,9 @@ public class CaptureManager : MonoBehaviour {
 		foreach (Transform item in parts) {
 			// 이번 파츠 활성화
 			item.gameObject.SetActive(true);
-
 			// 캡쳐
-			string assetPath = Capture(part, item.name);
+			string assetPath = Capture(part, _id.ToString());
+			Debug.Log($"[Capture] 종료, AssetPath = {assetPath}");
 			// 캡쳐된 이미지 Sprite로 변경
 			ConfigureImageToSprite(assetPath);
 			// MontageClothData 생성
@@ -132,6 +132,11 @@ public class CaptureManager : MonoBehaviour {
 	}
 
 	private void ConfigureImageToSprite(string assetPath) {
+		// File.WriteAllBytes로 생성된 파일을 Unity AssetDatabase에 등록
+		AssetDatabase.ImportAsset(
+			assetPath,
+			ImportAssetOptions.ForceSynchronousImport
+		);
 
 		// 저장된 파일 Sprite로 변경
 		TextureImporter importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
@@ -144,14 +149,12 @@ public class CaptureManager : MonoBehaviour {
 		importer.spriteImportMode = SpriteImportMode.Single;
 		importer.SaveAndReimport();
 	}
-
-	/// <summary>
-	/// ClothData를 직접 생성한다
-	/// </summary>
+	
+	// ClothData를 직접 생성한다
 	private void CreateClothData(MontageParts part, GameObject instance, string assetPath) {
 		// 저장 경로 설정
 		string dataFolderPath = Path.Combine(_clothDataSavePath, part.ToString()).Replace('\\', '/');
-		string dataPath = Path.Combine(dataFolderPath, $"{instance.name}.asset").Replace('\\', '/');
+		string dataPath = Path.Combine(dataFolderPath, $"{_id}.asset").Replace('\\', '/');
 
 		// 폴더 없는 경우를 대비해 폴더 미리 생성
 		Directory.CreateDirectory(dataFolderPath);
@@ -168,7 +171,6 @@ public class CaptureManager : MonoBehaviour {
 		}
 
 		data.id = _id++;
-		// 장갑이면, 두 부위 모두 넣어줘야 함
 		data.ClothPrefabs = prefab;
 		data.ClothThumbnail = sprite;
 		data.Part = part;
