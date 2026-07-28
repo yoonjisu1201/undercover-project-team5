@@ -62,7 +62,7 @@ public abstract class InterferenceEffectBase : NetworkBehaviour
 
 
     // 서버에서 호출합니다. 대상 클라이언트를 계산해 캐시하고, 그 대상에게만 시작 RPC를 보냅니다.
-    public void Activate()
+    public virtual void Activate()
     {
         _activeTargetClientIds = GetTargetClientsList();
 

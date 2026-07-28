@@ -124,16 +124,32 @@ public class ArrestJudgementManager : NetworkBehaviour
     }
 
     // 판정 결과(범인/오검거) 패널까지 다 끝나고 Idle로 돌아왔을 때 호출된다.
-    // 범인으로 판정됐을 때만 실제 추격전(게이지 채우기)을 시작한다.
+    // 범인으로 판정됐으면 추격전을 시작하고, 오검거였으면 방해 효과를 랜덤 발동한다.
     private void HandleJudgementPhaseEnded()
     {
         if (!IsServer) return;
-        if (_pendingChaseCandidate == null) return;
 
-        // 실제 추격전(게이지 채우기)은 ArrestChaseManager가 담당한다.
-        // 게이지가 다 차면 그쪽에서 RoundManager.ReportArrestServerRpc()를 호출한다.
-        ArrestChaseManager.Instance?.StartChase(_pendingChaseCandidate);
-        _pendingChaseCandidate = null;
+        if (_arrestResult.Value == ArrestResult.WrongTarget)
+        {
+            TriggerRandomInterferenceEffect();
+        }
+
+        if (_pendingChaseCandidate != null)
+        {
+            // 실제 추격전(게이지 채우기)은 ArrestChaseManager가 담당한다.
+            // 게이지가 다 차면 그쪽에서 RoundManager.ReportArrestServerRpc()를 호출한다.
+            ArrestChaseManager.Instance?.StartChase(_pendingChaseCandidate);
+            _pendingChaseCandidate = null;
+        }
+    }
+
+    // 오검거 시 방해 효과 2종(시야 방해/글리치) 중 하나를 랜덤으로 발동한다.
+    private void TriggerRandomInterferenceEffect()
+    {
+        InterferenceEffectType[] effectOptions = { InterferenceEffectType.FieldVision, InterferenceEffectType.Glitch };
+        InterferenceEffectType chosen = effectOptions[Random.Range(0, effectOptions.Length)];
+
+        InterferenceEffectManager.Instance?.TryStartEffect(chosen);
     }
 
     public override void OnDestroy()
