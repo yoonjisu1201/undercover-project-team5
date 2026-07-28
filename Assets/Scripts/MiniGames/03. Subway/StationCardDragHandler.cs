@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -7,9 +8,11 @@ public sealed class StationCardDragHandler : MonoBehaviour, IBeginDragHandler, I
 {
     private SubwayRouteMiniGame _owner;
     private RectTransform _rect;
+    private RectTransform _dragRoot;
     private CanvasGroup _canvasGroup;   // 드래그 중에 다른 UI 요소가 포인터 입력을 받도록 설정
     private Image _background;
     private Color _defaultColor;
+    private Vector2 _dragOffset;
 
     public string StationName { get; private set; }
     public int CurrentSlotIndex { get; set; } = -1; // 카드가 현재 배치된 슬롯 인덱스 (0부터 시작, -1이면 미배치 상태)
@@ -20,6 +23,7 @@ public sealed class StationCardDragHandler : MonoBehaviour, IBeginDragHandler, I
         _owner = owner;
         StationName = stationName;
         _rect = (RectTransform)transform;
+        _dragRoot = (RectTransform)GetComponentInParent<Canvas>().rootCanvas.transform;
         _canvasGroup = GetComponent<CanvasGroup>();
         _background = GetComponent<Image>();
         _defaultColor = Color.Lerp(_background.color, routeColor, 0.18f);
@@ -37,17 +41,23 @@ public sealed class StationCardDragHandler : MonoBehaviour, IBeginDragHandler, I
     {
         _canvasGroup.blocksRaycasts = false;
         _canvasGroup.alpha = 0.82f;
-        transform.SetAsLastSibling();
+        _rect.SetParent(_dragRoot, true);
+        _rect.SetAsLastSibling();
+
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                _dragRoot, eventData.position, eventData.pressEventCamera, out Vector2 pointerPosition))
+        {
+            _dragOffset = _rect.anchoredPosition - pointerPosition;
+        }
     }
 
     // 포인터 위치를 카드의 로컬 좌표로 변환해 따라가게 한다.
     public void OnDrag(PointerEventData eventData)
     {
-        RectTransform parent = (RectTransform)_rect.parent;
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                parent, eventData.position, eventData.pressEventCamera, out Vector2 point))
+                _dragRoot, eventData.position, eventData.pressEventCamera, out Vector2 point))
         {
-            _rect.localPosition = point;
+            _rect.anchoredPosition = point + _dragOffset;
         }
     }
 
@@ -85,7 +95,7 @@ public sealed class StationDropSlot : MonoBehaviour, IDropHandler, IPointerEnter
     private SubwayRouteMiniGame _owner;
     private int _slotIndex;
     private Image _background;
-    private Text _placeholder;
+    private TMP_Text _placeholder;
     private Color _normalColor;
     private bool _isOccupied;
 
@@ -94,7 +104,7 @@ public sealed class StationDropSlot : MonoBehaviour, IDropHandler, IPointerEnter
         SubwayRouteMiniGame owner,
         int slotIndex,
         Image background,
-        Text placeholder)
+        TMP_Text placeholder)
     {
         _owner = owner;
         _slotIndex = slotIndex;

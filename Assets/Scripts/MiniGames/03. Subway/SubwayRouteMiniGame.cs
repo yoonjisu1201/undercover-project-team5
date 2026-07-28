@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -19,9 +20,9 @@ public sealed partial class SubwayRouteMiniGame : MonoBehaviour
 
     private Transform _routeMap;
     private Transform _stationPool;
-    private Text _progressText;
-    private Text _resultTitle;
-    private Text _resultMessage;
+    private TMP_Text _progressText;
+    private TMP_Text _resultTitle;
+    private TMP_Text _resultMessage;
     private GameObject _resultOverlay;
     private int _questionCount;
     private int _completedQuestionCount;
@@ -43,10 +44,10 @@ public sealed partial class SubwayRouteMiniGame : MonoBehaviour
     private void CacheUi()
     {
         _routeMap = FindChild(transform, "RouteMap");
-        _progressText = FindChild(transform, "ProgressText").GetComponent<Text>();
+        _progressText = FindChild(transform, "ProgressText").GetComponent<TMP_Text>();
         _resultOverlay = FindChild(transform, "ResultOverlay").gameObject;
-        _resultTitle = FindChild(_resultOverlay.transform, "ResultTitle").GetComponent<Text>();
-        _resultMessage = FindChild(_resultOverlay.transform, "ResultMessage").GetComponent<Text>();
+        _resultTitle = FindChild(_resultOverlay.transform, "ResultTitle").GetComponent<TMP_Text>();
+        _resultMessage = FindChild(_resultOverlay.transform, "ResultMessage").GetComponent<TMP_Text>();
 
         FindChild(transform, "CSVDataPanel").gameObject.SetActive(false);
         RectTransform routeMapRect = (RectTransform)_routeMap;
@@ -54,8 +55,8 @@ public sealed partial class SubwayRouteMiniGame : MonoBehaviour
         routeMapRect.anchorMax = new Vector2(0.98f, 0.95f);
         routeMapRect.offsetMin = routeMapRect.offsetMax = Vector2.zero;
 
-        FindChild(transform, "Title").GetComponent<Text>().text = "지하철 노선 복구";
-        FindChild(transform, "ObjectiveText").GetComponent<Text>().text =
+        FindChild(transform, "Title").GetComponent<TMP_Text>().text = "지하철 노선 복구";
+        FindChild(transform, "ObjectiveText").GetComponent<TMP_Text>().text =
             "공개된 1번 역을 기준으로 나머지 역을 올바른 순서에 배치하세요.";
 
         foreach (string name in new[]

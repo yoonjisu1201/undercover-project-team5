@@ -581,6 +581,7 @@ GameObject:
   - component: {fileID: 4869042935809241928}
   - component: {fileID: 7411473591489298023}
   - component: {fileID: -2231999133371631874}
+  - component: {fileID: 6656561103220299757}
   m_Layer: 6
   m_Name: Clue
   m_TagString: Untagged
@@ -628,8 +629,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.1175671, y: 0.08, z: 0.58}
-  m_Center: {x: 0.06878376, y: 0.04, z: 0}
+  m_Size: {x: 1.1175671, y: 0.16, z: 0.58}
+  m_Center: {x: 0.06878376, y: 0.08, z: 0}
 --- !u!114 &8235680825530626239
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -741,9 +742,9 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 1
   m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
+  m_Interpolate: 1
+  m_Constraints: 80
+  m_CollisionDetection: 2
 --- !u!114 &-2231999133371631874
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -796,3 +797,16 @@ MonoBehaviour:
     fillPass:
       shader: {fileID: 0}
       serializedProperties: []
+--- !u!114 &6656561103220299757
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8537305525162057161}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 04e526d3d20ba8946b8089e1a3b80f25, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ItemRigidbodySettler
+  ShowTopMostFoldoutHeaderGroup: 1

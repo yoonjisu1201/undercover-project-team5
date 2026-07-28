@@ -104,6 +104,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "InventoryScroll",
+                    "type": "Value",
+                    "id": "b376e040-0977-4ebf-b26d-7247501323ef",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
                 }
             ],
             "bindings": [
@@ -269,6 +278,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "AlienGun",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "79d23237-a315-415a-a688-62ce65d04337",
+                    "path": "<Mouse>/scroll",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "InventoryScroll",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

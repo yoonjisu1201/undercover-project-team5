@@ -99,7 +99,10 @@ public class RoundResultPanelUI : MonoBehaviour
                 break;
             default:
                 _panel.SetActive(false);
-                _inventoryCanvas.SetActive(true);
+                if (state != RoundState.Waiting)
+                {
+                    _inventoryCanvas.SetActive(true);
+                }
                 _nextRoundText.SetActive(false);
                 GameplayUiMode.Instance?.DeactivateCursor();
                 break;

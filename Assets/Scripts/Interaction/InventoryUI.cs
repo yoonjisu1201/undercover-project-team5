@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class InventoryUI : MonoBehaviour
@@ -81,6 +82,21 @@ public class InventoryUI : MonoBehaviour
 
         if (_actions.Player.Slot4.WasPressedThisFrame())
             _inventory.SelectSlot(3);
+
+        float scrollY = _actions.Player.InventoryScroll.ReadValue<Vector2>().y;
+        if (scrollY != 0f)
+            SelectSlotByScroll(scrollY);
+    }
+
+    private void SelectSlotByScroll(float scrollY)
+    {
+        int direction = scrollY > 0f ? -1 : 1;
+        int currentIndex = _inventory.SelectedIndex;
+        int nextIndex = currentIndex < 0
+            ? (direction > 0 ? 0 : _slots.Length - 1)
+            : (currentIndex + direction + _slots.Length) % _slots.Length;
+
+        _inventory.SelectSlot(nextIndex);
     }
 
     public void BindInventory(PlayerInventory inventory)    // 인벤토리 UI에 플레이어 인벤토리 연결
