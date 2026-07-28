@@ -1,7 +1,5 @@
-// 플레이어의 시야를 방해하는 효과를 식별합니다.
+using System.Linq;
 using Unity.Netcode;
-using Unity.Services.Matchmaker.Models;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public sealed class FieldVisionInterferenceEffect : InterferenceEffectBase
@@ -13,31 +11,32 @@ public sealed class FieldVisionInterferenceEffect : InterferenceEffectBase
     // 현재 로컬 카메라 앞에 생성된 안개입니다.
     private ParticleSystem _activeFog;
 
-    // 시야 방해 효과 식별자를 가져옵니다.
     public override InterferenceEffectType _type => InterferenceEffectType.FieldVision;
 
     private void Awake()
     {
         var player = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<Player>();
         var position = player.PlayerMove.HeadPivot.transform.localPosition;
-        //position += transform.forward * _cameraDistance;
 
         _activeFog = Instantiate(_fogPrefab, player.PlayerMove.HeadPivot.transform);
         _activeFog.transform.localPosition = position;
         _activeFog.gameObject.SetActive(false);
     }
 
-    public override void Activate()
+    // 임시 구현: 현재 연결된 모든 클라이언트를 대상으로 반환합니다.
+    // 현장 역할만 대상으로 걸러내는 실제 필터링은 #293에서 구현합니다.
+    public override ulong[] GetTargetClientsList()
     {
-        _activeFog.gameObject.SetActive(true);
-
-        base.Activate();
+        return NetworkManager.ConnectedClientsIds.ToArray();
     }
 
-    public override void Deactivate(InterferenceEndReason reason)
+    protected override void OnActivateEffect()
+    {
+        _activeFog.gameObject.SetActive(true);
+    }
+
+    protected override void OnDeactivateEffect(InterferenceEndReason reason)
     {
         _activeFog.gameObject.SetActive(false);
-
-        base.Deactivate(reason);
     }
 }

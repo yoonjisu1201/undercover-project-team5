@@ -14,12 +14,6 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
     // 서버에서 현재 방해 효과를 종료할 네트워크 시간입니다.
     private double _serverEffectDeadline;
 
-    // 로컬 클라이언트에 적용된 방해 효과 식별자입니다.
-    private InterferenceEffectType _localAppliedEffectType;
-
-    // 로컬 클라이언트에 적용된 방해 효과 실행 식별값입니다.
-    private double _localEffectRunKey;
-
     // 방해 효과 식별자별 구현체를 보관합니다.
     private readonly Dictionary<InterferenceEffectType, InterferenceEffectBase>
         _effects = new Dictionary<InterferenceEffectType, InterferenceEffectBase>();
@@ -79,15 +73,13 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
     }
 
 
-    // 네트워크에서 디스폰될 때 라운드 상태 구독과 로컬 방해 효과를 정리합니다.
+    // 네트워크에서 디스폰될 때 라운드 상태 구독을 정리합니다.
     public override void OnNetworkDespawn()
     {
         if (RoundManager.Instance != null)
         {
             RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
         }
-
-        EndLocalEffect(InterferenceEndReason.Despawned);
     }
 
 
@@ -145,7 +137,7 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
         _serverRunningEffectType = effectType;
         _serverEffectDeadline = effectDeadline;
 
-        StartEffectRpc(effectType, effectDeadline);
+        interferenceEffect.Activate();
 
         return true;
     }
@@ -160,49 +152,6 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
     }
 
 
-    // 클라이언트와 호스트에서 방해 효과를 즉시 활성화합니다.
-    // effectId: 시작할 방해 효과 식별자입니다.
-    // effectDeadline: 효과를 종료할 네트워크 시간입니다.
-    [Rpc(SendTo.ClientsAndHost)]
-    private void StartEffectRpc(InterferenceEffectType effectType, double effectDeadline)
-    {
-        if (NetworkManager.ServerTime.Time >= effectDeadline)
-        {
-            return;
-        }
-
-        EndLocalEffect(InterferenceEndReason.Replaced);
-
-        InterferenceEffectBase interferenceEffect = GetEffect(effectType);
-
-        if (interferenceEffect == null)
-        {
-            return;
-        }
-
-        _localAppliedEffectType = effectType;
-        _localEffectRunKey = effectDeadline;
-
-        interferenceEffect.Activate();
-    }
-
-
-    // 클라이언트와 호스트에서 지정한 방해 효과를 종료합니다.
-    // effectId: 종료할 방해 효과 식별자입니다.
-    // effectRunKey: 시작 당시 동기화한 실행 식별값입니다.
-    // reason: 방해 효과를 종료하는 사유입니다.
-    [Rpc(SendTo.ClientsAndHost)]
-    private void EndEffectRpc(InterferenceEffectType effectType, double effectRunKey, InterferenceEndReason reason)
-    {
-        if (_localAppliedEffectType != effectType || _localEffectRunKey != effectRunKey)
-        {
-            return;
-        }
-
-        EndLocalEffect(reason);
-    }
-
-
     // 서버의 현재 방해 효과 상태를 초기화하고 종료 정보를 클라이언트에 전달합니다.
     // reason: 현재 방해 효과를 종료하는 사유입니다.
     private void EndCurrentServerEffect(InterferenceEndReason reason)
@@ -213,35 +162,11 @@ public sealed class InterferenceEffectManager : NetworkBehaviour
         }
 
         InterferenceEffectType effectType = _serverRunningEffectType;
-        double effectRunKey = _serverEffectDeadline;
 
         _serverRunningEffectType = InterferenceEffectType.None;
         _serverEffectDeadline = 0d;
 
-        EndEffectRpc(effectType, effectRunKey, reason);
-    }
-
-
-    // 로컬 방해 효과 상태를 초기화하고 구현체에 종료 사유를 전달합니다.
-    // reason: 로컬 방해 효과를 종료하는 사유입니다.
-    private void EndLocalEffect(InterferenceEndReason reason)
-    {
-        if (_localAppliedEffectType == InterferenceEffectType.None)
-        {
-            return;
-        }
-
-        InterferenceEffectBase interferenceEffect = GetEffect(_localAppliedEffectType);
-
-        _localAppliedEffectType = InterferenceEffectType.None;
-        _localEffectRunKey = 0d;
-
-        if (interferenceEffect == null)
-        {
-            return;
-        }
-
-        interferenceEffect.Deactivate(reason);
+        GetEffect(effectType)?.Deactivate(reason);
     }
 
 
