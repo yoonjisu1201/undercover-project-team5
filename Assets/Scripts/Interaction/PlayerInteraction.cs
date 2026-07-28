@@ -16,6 +16,7 @@ public class PlayerInteraction : NetworkBehaviour
 
     // 상호작용 범위 안의 후보 목록과, 그중 현재 조준된 대상.
     private readonly HashSet<InteractableBase> _nearbyInteractables = new();  // SphereCollider 안에 있는 상호작용 가능 오브젝트
+    private readonly Dictionary<InteractableBase, int> _overlapCounts = new();
     private InteractableBase _currentTarget;  // 현재 상호작용 가능한 대상
 
     private CustomInputActions _actions;
@@ -89,6 +90,8 @@ public class PlayerInteraction : NetworkBehaviour
         InteractableBase newTarget = other.GetComponentInParent<InteractableBase>();
         if (newTarget != null)
         {
+            _overlapCounts.TryGetValue(newTarget, out int overlapCount);
+            _overlapCounts[newTarget] = overlapCount + 1;
             _nearbyInteractables.Add(newTarget);
         }
     }
@@ -112,6 +115,13 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
+        if (_overlapCounts.TryGetValue(outTarget, out int overlapCount) && overlapCount > 1)
+        {
+            _overlapCounts[outTarget] = overlapCount - 1;
+            return;
+        }
+
+        _overlapCounts.Remove(outTarget);
         _nearbyInteractables.Remove(outTarget);
         if (ReferenceEquals(outTarget, _currentTarget))
         {
@@ -355,7 +365,7 @@ public class PlayerInteraction : NetworkBehaviour
                 continue;
             }
 
-            Vector3 screenPos = _playerCamera.WorldToScreenPoint(target.transform.position);
+            Vector3 screenPos = _playerCamera.WorldToScreenPoint(target.InteractionPosition);
 
             if (screenPos.z < 0)
             {
