@@ -1,11 +1,12 @@
 using System.Collections.Generic;
-using System.Linq;
 using Cysharp.Threading.Tasks;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// 본부 요원이 몽타주에 옷을 입히는 조작 UI입니다.
+/// 실제 조립과 상태 보관은 MontageSyncManager가 담당하고, 여기서는 요청만 보냅니다.
 public class MontageDressUpUI : ScreenBase {
 	// 항상 탭에 같은 순서로 등장하도록 하기 위해 순서 지정
 	private readonly List<MontageParts> _partOrder = new()
@@ -22,7 +23,7 @@ public class MontageDressUpUI : ScreenBase {
 		MontageParts.Arms,
 		MontageParts.Shoes
 	};
-	
+
 	// 탭/레코드 UI에 표시할 파츠별 한글 라벨
 	private static readonly Dictionary<MontageParts, string> PartLabels = new Dictionary<MontageParts, string> {
 	   { MontageParts.Torso, "상의" },
@@ -53,58 +54,61 @@ public class MontageDressUpUI : ScreenBase {
 	[SerializeField] private Color _tabActiveColor = new Color(0.231f, 0.910f, 0.659f, 0.16f);
 	[SerializeField] private Color _tabInactiveColor = new Color(0f, 0f, 0f, 0f);
 
-	[Header("=== 실제 몽타주 오브젝트 ===")]
-	[SerializeField] private Montage montageObject;
+	[Header("=== MontageSyncManager 등록 ===")]
+	[SerializeField] private MontageSyncManager _syncManager;
 
 	// 파츠별 탭 버튼의 배경 이미지 (활성/비활성 색상 전환용)
 	private readonly Dictionary<MontageParts, Image> _tabBackgrounds = new Dictionary<MontageParts, Image>();
 	// 현재 활성 탭에서 생성된 레코드 행 목록 (탭 전환 시 파괴 후 재생성)
 	private readonly List<MontageRecordRow> _spawnedRows = new List<MontageRecordRow>();
-	// 파츠별로 마지막에 장착(할당)한 옷의 id (탭을 넘어가도 유지되는 영속 상태)
-	private readonly Dictionary<MontageParts, int> _assignedIds = new Dictionary<MontageParts, int>();
 
-	[Header("=== 디 버 그 용 ===")] 
-	[SerializeField] private Dictionary<MontageParts, List<MontageClothData>> _dataByParts = new Dictionary<MontageParts, List<MontageClothData>>();
+	[Header("=== 디 버 그 용 ===")]
 	[SerializeField] private MontageParts _activePart = MontageParts.Hair;
-	
+
 	// 탭 버튼은 한 번만 생성하면 되므로 중복 생성을 막기 위한 플래그
 	private bool _initialized;
-	
+
 	private async void OnEnable() {
-		await InitializeAsync();
+		if (_syncManager == null) {
+			Debug.LogError("[MontageDressUpUi] MontageSyncManager가 없어 몽타주 화면을 구성할 수 없습니다.", this);
+			return;
+		}
+
+		// 화면이 열려 있는 동안에만 선택 표시를 갱신하면 된다
+		_syncManager.OnMontageStateChanged += HandleMontageStateChanged;
+
+		// 조립에 필요한 옷 데이터는 역할과 무관하게 전원이 로드한다 (MontageSyncManager가 담당)
+		await _syncManager.InitializeAsync();
+
+		// 로딩을 기다리는 동안 화면이 닫히거나 파괴됐을 수 있다
+		if (!this || !isActiveAndEnabled) { return; }
+
+		// 현장 요원은 몽타주를 볼 수만 있고 조합할 수는 없으므로 조작 UI를 만들지 않는다
+		if (!IsLocalPlayerHeadquarter()) { return; }
+
+		BuildTabs();
 		SetActiveTab(_activePart);
 	}
 
-	public async UniTask InitializeAsync() {
-		// 중복 초기화 막기 위한 코드
-		if (_initialized) { return; }
-		
-		// 현재 플레이어 정보 받기
+	private void OnDisable() {
+		if (_syncManager != null) {
+			_syncManager.OnMontageStateChanged -= HandleMontageStateChanged;
+		}
+	}
+
+	private static bool IsLocalPlayerHeadquarter() {
 		if (!NetworkManager.Singleton.LocalClient.PlayerObject.TryGetComponent<Player>(out var player)) {
 			Debug.LogError($"[MontageDressUpUi] PlayerObject 로딩 실패");
-			return;
+			return false;
 		}
-		
-		// 본부 요원만 몽타주 초기화하도록 하기 위함
-		if (player.PlayerRole != Role.Headquarter) { return; }
-		
-		montageObject.Initialize();
 
-		await LoadDatasAsync();
-		BuildTabs();
-	   
-		_initialized = true;
-	}
-	
-	// Resources.Load를 통해 필요한 데이터 로드하기
-	private async UniTask LoadDatasAsync() { 
-		foreach (MontageParts part in _partOrder) {
-			_dataByParts.Add(part, Resources.LoadAll<MontageClothData>($"Montage/ClothData/{part}").ToList());
-			await UniTask.Yield();   // 파츠 하나씩 로드하고 한 프레임 양보
-		}
+		return player.PlayerRole == Role.Headquarter;
 	}
 
 	private void BuildTabs() {
+	   // 중복 생성 막기 위한 코드
+	   if (_initialized) { return; }
+
 	   // 순서 맞춰서 기반으로 탭 생성
 	   foreach (MontageParts part in _partOrder) {
 	      GameObject tabObj = Instantiate(_tabButtonPrefab, _tabContainer);
@@ -122,6 +126,8 @@ public class MontageDressUpUI : ScreenBase {
 	      button.onClick.AddListener(() => SetActiveTab(part));
 	      _tabBackgrounds[part] = tabObj.GetComponent<Image>();
 	   }
+
+	   _initialized = true;
 	}
 
 	private void SetActiveTab(MontageParts part) {
@@ -142,62 +148,42 @@ public class MontageDressUpUI : ScreenBase {
 	   }
 	   _spawnedRows.Clear();
 
+	   // 지금 이 파츠에 입고 있는 옷 (동기화된 상태가 유일한 기준)
+	   int assignedId = _syncManager.State.Get(_activePart);
+
 	   // 현재 활성 파츠에 해당하는 데이터만 필터링해 행으로 생성
-	   foreach (MontageClothData data in _dataByParts[_activePart]) {
+	   foreach (MontageClothData data in _syncManager.Catalog.GetAll(_activePart)) {
 	      string recordId = $"{_activePart.ToString()}\n{data.id:00}";
 
 	      MontageRecordRow row = Instantiate(_recordRowPrefab, _recordContainer);
-	      
+
 	      row.Setup(
 		      data,
 		      recordId,
-		      (_assignedIds.TryGetValue(_activePart, out int assignedId) && assignedId == data.id),
+		      assignedId == data.id,
 		      HandleRecordClicked);
-	      
+
 	      row.gameObject.SetActive(true);
 	      _spawnedRows.Add(row);
 	   }
 	}
-
-	/// <summary>
-	/// 옷 목록을 눌렀을 때 선택 상태와 실제 착용 상태를 바꿉니다.
-	/// 이미 입고 있는 옷을 다시 누르면 벗고,
-	/// 다른 옷을 누르면 기존 옷 대신 새 옷으로 갈아입습니다.
-	/// </summary>
-	/// <param name="selectedRow">이번에 누른 옷입니다.</param>
+	
+	// 옷 목록을 눌렀을 때 서버에 착용/탈착을 요청합니다. 이미 입고 있는 옷을 다시 누르면 벗고, 다른 옷을 누르면 그 옷으로 갈아입습니다.
 	private void HandleRecordClicked(MontageRecordRow selectedRow)
 	{
-		// 이 부위에 지금 선택되어 있는 옷의 id가 있는지 확인합니다.
-		bool hasCurrent = _assignedIds.TryGetValue(_activePart, out int currentId);
+		// 이미 선택된 옷을 한 번 더 눌렀다면 벗는다
+		bool isSelectedAgain = _syncManager.State.Get(_activePart) == selectedRow.Data.id;
+		int requestedId = isSelectedAgain ? MontageState.None : selectedRow.Data.id;
 
-		// 이미 선택된 옷을 한 번 더 눌렀는지 확인합니다.
-		bool isSelectedAgain = hasCurrent && currentId == selectedRow.Data.id;
+		_syncManager.RequestSetCloth(_activePart, requestedId);
+	}
 
-		if (isSelectedAgain) {
-			// 같은 옷을 다시 눌렀으므로 선택을 해제하고 옷을 벗깁니다.
-			_assignedIds.Remove(_activePart);
-			montageObject.RemoveCloth(_activePart);
-			selectedRow.SetOn(false);
+	// 서버가 갱신한 상태를 받아 현재 탭의 선택 표시를 맞춘다
+	private void HandleMontageStateChanged(MontageState state) {
+		int assignedId = state.Get(_activePart);
 
-			return;
+		foreach (MontageRecordRow row in _spawnedRows) {
+			row.SetOn(row.Data.id == assignedId);
 		}
-
-		// 전에 골라둔 옷이 있다면, 현재 탭에 떠 있는 Row들 중에서 찾아 선택 표시를 꺼줍니다.
-		if (hasCurrent) {
-			MontageRecordRow previousRow = _spawnedRows.Find(row => row.Data.id == currentId);
-			previousRow?.SetOn(false);
-		}
-
-		// 이번에 누른 옷을 현재 선택된 옷으로 저장합니다.
-		_assignedIds[_activePart] = selectedRow.Data.id;
-
-		// 실제 캐릭터도 이번에 고른 옷으로 갈아입힙니다.
-		montageObject.WearCloth(
-			_activePart,
-			selectedRow.Data.ClothPrefabs
-		);
-
-		// 이번에 누른 목록의 선택 표시를 켜줍니다.
-		selectedRow.SetOn(true);
 	}
 }

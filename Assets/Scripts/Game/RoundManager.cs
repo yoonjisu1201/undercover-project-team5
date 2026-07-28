@@ -44,8 +44,8 @@ public class RoundManager : NetworkBehaviour
     [Header("캐릭터 스폰 담당하는 클래스 (게임 시작하면서 캐릭터를 적절한 위치에 스폰함)")]
     [SerializeField] private PlayerSpawner _playerSpawner;
 
-    [Header("몽타주 게임 시작 시에 미리 로딩해주기 위함")]
-    [SerializeField] private MontageDressUpUI _montageDressUpUi;
+    [Header("게임 시작하면서 몽타주 데이터 로딩하기 위함")]
+    [SerializeField] private MontageSyncManager _syncManager;
 
     private readonly NetworkVariable<RoundState> _currentState =
         new(RoundState.Waiting, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -166,8 +166,13 @@ public class RoundManager : NetworkBehaviour
         // 나를 적절한 위치로 스폰시킨다
         _playerSpawner.SpawnPlayer(NetworkManager.Singleton.LocalClient.PlayerObject);
 
-        // 몽타주 관련 데이터 로딩한다
-        await _montageDressUpUi.InitializeAsync();
+        // 몽타주 옷 데이터를 미리 로딩하고, 지금까지 조합된 몽타주를 내 화면에도 조립해둔다.
+        if (_syncManager != null) {
+            await _syncManager.InitializeAsync();
+        }
+        else {
+            Debug.LogError("[RoundManager] MontageSyncManager가 없어 몽타주 준비를 건너뜁니다.", this);
+        }
 
         ReportSpawnReadyServerRpc();
     }
@@ -243,6 +248,7 @@ public class RoundManager : NetworkBehaviour
                 break;
             case RoundState.RoundClear:
                 _currentRoundIndex.Value++;
+                ResetMiniGamesForNewRound();
                 _clueSpawner.RespawnClues(); // 다음 라운드 마다 단서 재생성 (인벤토리 초기화 포함)
                 _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[_currentRoundIndex.Value].Duration;
                 _currentState.Value = RoundState.InRound; // 대기 시간 종료, 다음 라운드 자동 시작
@@ -259,9 +265,26 @@ public class RoundManager : NetworkBehaviour
 
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _currentRoundIndex.Value = 0;
+        ResetMiniGamesForNewRound();
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[0].Duration;
         _currentState.Value = RoundState.InRound;
         AnnounceRoundStartRpc(0);
+    }
+
+    // 서버가 모든 미니게임의 완료 상태와 랜덤 문제를 새 라운드 기준으로 초기화한다.
+    private void ResetMiniGamesForNewRound()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        MiniGameInteractable[] miniGames =
+            FindObjectsByType<MiniGameInteractable>(FindObjectsSortMode.None);
+        foreach (MiniGameInteractable miniGame in miniGames)
+        {
+            miniGame.ResetForNewRound();
+        }
     }
 
     // 검거했다고 서버에게 알려주는 rpc

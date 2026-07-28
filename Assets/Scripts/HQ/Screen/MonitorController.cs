@@ -1,7 +1,7 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class MonitorController : MonoBehaviour {
 	[Header("=== CCTV 버튼 및 화면 등록 ===")] 

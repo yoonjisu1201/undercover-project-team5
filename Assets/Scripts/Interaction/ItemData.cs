@@ -8,10 +8,12 @@ public class ItemData : ScriptableObject
     [SerializeField] private Sprite _icon;
     [SerializeField] private GameObject _worldPrefab;
     [SerializeField] private Role _interactableRole; 
+    [SerializeField] private ItemData _completionReward;
 
     public string ItemId => _itemId;
     public string DisplayName => _displayName;
     public Sprite Icon => _icon;
     public GameObject WorldPrefab => _worldPrefab;
     public Role InteractableRole => _interactableRole;
+    public ItemData CompletionReward => _completionReward;
 }

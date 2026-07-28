@@ -10,8 +10,10 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
 {
     [Header("단서 데이터")]
     [SerializeField] private ItemData[] _clues;
+    [SerializeField] private bool _spawnCluesAtRoundStart;
+    [SerializeField] private ItemData[] _miniGameRewardClues;
 
-    public int SpawnCount => _clues?.Length ?? 0;
+    public int SpawnCount => _spawnCluesAtRoundStart ? CountInitialClues() : 0;
 
     [Header("스폰 영역")]
     [SerializeField] private MapRegionController _regionController;
@@ -97,6 +99,12 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            // 플레이 가능한 미니게임의 보상 단서는 필드에 미리 생성하지 않는다.
+            if (IsMiniGameRewardClue(clueData))
+            {
+                continue;
+            }
+
             if (!coordinator.TryGetSpawnPose(
                     _regionController,
                     Rule,
@@ -128,6 +136,45 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         }
 
         return UniTask.CompletedTask;
+    }
+
+    // 라운드 시작에 생성할 일반 단서 개수를 계산한다.
+    private int CountInitialClues()
+    {
+        if (_clues == null)
+        {
+            return 0;
+        }
+
+        int count = 0;
+        foreach (ItemData clue in _clues)
+        {
+            if (!IsMiniGameRewardClue(clue))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    // 해당 단서가 미니게임 성공으로 생성될 보상인지 확인한다.
+    private bool IsMiniGameRewardClue(ItemData clue)
+    {
+        if (_miniGameRewardClues == null)
+        {
+            return false;
+        }
+
+        foreach (ItemData rewardClue in _miniGameRewardClues)
+        {
+            if (rewardClue == clue)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool ValidateSettings()
@@ -167,7 +214,14 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         RoundManager.Instance?.ClearAllPlayerInventories();
         ClearSpawned();
 
-        SpawnClues();
+        if (_spawnCluesAtRoundStart)
+        {
+            SpawnClues();
+        }
+        else
+        {
+            _hasSpawned = true;
+        }
     }
 
     public void ClearSpawned()

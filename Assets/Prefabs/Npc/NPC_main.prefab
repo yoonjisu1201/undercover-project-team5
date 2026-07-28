@@ -674,7 +674,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3461942607
+  GlobalObjectIdHash: 2885793439
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -757,6 +757,14 @@ MonoBehaviour:
       NameHash: 120489994
       Synchronize: 1
       ParameterType: 4
+    - name: IsRunning
+      NameHash: -887662580
+      Synchronize: 1
+      ParameterType: 4
+    - name: ActionState
+      NameHash: -821380803
+      Synchronize: 1
+      ParameterType: 3
   AnimatorParametersExpanded: 0
 --- !u!114 &-5934287379106585781
 MonoBehaviour:
@@ -6656,7 +6664,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3c1443551cfb40e43be0a05944cc1245, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcRandomWander
   _wanderArea: {fileID: 5679666744788918099}
   _groundLayer:
@@ -7177,6 +7185,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2369209565842813517, guid: c73e03d9b9803ba4a84c045a2e04813e, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: df378192ae084022ba1d31b21e699f1e, type: 2}
     - target: {fileID: 2372988342422635817, guid: c73e03d9b9803ba4a84c045a2e04813e, type: 3}
       propertyPath: m_IsActive
       value: 0

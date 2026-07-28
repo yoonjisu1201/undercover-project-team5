@@ -13,9 +13,40 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
     // 화면 중심 조준 판정 반경에 곱해지는 배율. 기본은 1(PlayerInteraction의 공통 반경 그대로 사용).
     public virtual float AimRadiusMultiplier => 1f;
 
+    public Vector3 InteractionPosition
+    {
+        get
+        {
+            bool hasBounds = false;
+            Bounds combinedBounds = default;
+
+            foreach (Collider interactionCollider in _interactionColliders)
+            {
+                if (interactionCollider == null ||
+                    !interactionCollider.enabled ||
+                    !interactionCollider.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                if (!hasBounds)
+                {
+                    combinedBounds = interactionCollider.bounds;
+                    hasBounds = true;
+                    continue;
+                }
+
+                combinedBounds.Encapsulate(interactionCollider.bounds);
+            }
+
+            return hasBounds ? combinedBounds.center : transform.position;
+        }
+    }
+
     [Header("외곽선 설정")]
     [SerializeField, Min(0f)] private float _outlineFadeDuration = 0.15f;   // 외곽선 페이드 지속 시간
     private Outlinable _outlinable;
+    private Collider[] _interactionColliders;
 
     private Tween _outlineTween;
     private Color _outlineColor;    // 외곽선 색상 저장
@@ -25,6 +56,8 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
 
     private void Awake()
     {
+        _interactionColliders = GetComponentsInChildren<Collider>();
+
         if (_outlinable == null)
         {
             _outlinable = GetComponentInChildren<Outlinable>();
