@@ -137460,6 +137460,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1444596425}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &714290395
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 714290396}
+  m_Layer: 0
+  m_Name: Pos2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &714290396
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 714290395}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.56574553, y: 0.4241839, z: 0.56574553, w: -0.4241839}
+  m_LocalPosition: {x: 0.6139145, y: 0.24145508, z: -0.50463104}
+  m_LocalScale: {x: 0.3, y: 0.3, z: 0.30000004}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2105061502}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &715583207
 GameObject:
   m_ObjectHideFlags: 0
@@ -220286,6 +220317,7 @@ MonoBehaviour:
   _npcSpawner: {fileID: 1946818}
   _clueSpawner: {fileID: 2064882557}
   _playerSpawner: {fileID: 1556109470}
+  _alienGunSpawner: {fileID: 2105061501}
   _syncManager: {fileID: 217820336}
 --- !u!4 &1207988935
 Transform:
@@ -325147,6 +325179,37 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6186684983815846166, guid: 39eeb5ded0063c24aa1c7cde03a492ce, type: 3}
   m_PrefabInstance: {fileID: 1850109002}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1850260679
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1850260680}
+  m_Layer: 0
+  m_Name: Pos1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1850260680
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1850260679}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.56574553, y: 0.4241839, z: 0.56574553, w: -0.4241839}
+  m_LocalPosition: {x: 0.6139145, y: 0.24145508, z: 0.36236572}
+  m_LocalScale: {x: 0.3, y: 0.3, z: 0.30000004}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2105061502}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1852226203
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -369779,6 +369842,56 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8897092718223379856, guid: a85a0ca29821cae4c8193f7cb1e130ac, type: 3}
   m_PrefabInstance: {fileID: 2103179259}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2105061500
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2105061502}
+  - component: {fileID: 2105061501}
+  m_Layer: 0
+  m_Name: AlienGunSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2105061501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2105061500}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eb16697634c34c049b5f04844803b64d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AlienGunSpawner
+  _captureGun: {fileID: 11400000, guid: 22f98367f57cde744b0d3fe9abccc2d8, type: 2}
+  _spawnPoints:
+  - {fileID: 1850260680}
+  - {fileID: 714290396}
+--- !u!4 &2105061502
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2105061500}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -125.41592, y: -500.36545, z: 113.43063}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1850260680}
+  - {fileID: 714290396}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2105148572
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -376052,6 +376165,7 @@ SceneRoots:
   - {fileID: 1339301587}
   - {fileID: 939449155}
   - {fileID: 515606208}
+  - {fileID: 2105061502}
   - {fileID: 831025680}
   - {fileID: 771327264}
   - {fileID: 1598438047}

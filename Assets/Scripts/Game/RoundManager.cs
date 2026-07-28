@@ -44,6 +44,9 @@ public class RoundManager : NetworkBehaviour
     [Header("캐릭터 스폰 담당하는 클래스 (게임 시작하면서 캐릭터를 적절한 위치에 스폰함)")]
     [SerializeField] private PlayerSpawner _playerSpawner;
 
+    [Header("본부 검거도구 스폰 담당 (로딩 게이트 대상 아님)")]
+    [SerializeField] private AlienGunSpawner _alienGunSpawner;
+
     [Header("게임 시작하면서 몽타주 데이터 로딩하기 위함")]
     [SerializeField] private MontageSyncManager _syncManager;
 
@@ -250,6 +253,7 @@ public class RoundManager : NetworkBehaviour
                 _currentRoundIndex.Value++;
                 ResetMiniGamesForNewRound();
                 _clueSpawner.RespawnClues(); // 다음 라운드 마다 단서 재생성 (인벤토리 초기화 포함)
+                _alienGunSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 검거도구 재생성
                 _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[_currentRoundIndex.Value].Duration;
                 _currentState.Value = RoundState.InRound; // 대기 시간 종료, 다음 라운드 자동 시작
                 AnnounceRoundStartRpc(_currentRoundIndex.Value);
