@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 문제 생성, 진행 상태, 정답 판정을 관리한다.
-public sealed partial class SubwayRouteMiniGame : MonoBehaviour
+public sealed partial class SubwayRouteMiniGame : MonoBehaviour, IUIDragDropContext
 {
     private const int SegmentLength = 5;
     private const int MaximumQuestionCount = 4;

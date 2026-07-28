@@ -1,11 +1,31 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 // 슬롯에 카드를 배치하고, 기존 카드가 있으면 교환한다. 슬롯에 드롭되지 않은 카드는 하단 보기 영역으로 되돌리는 코드
 public sealed partial class SubwayRouteMiniGame
 {
+    void IUIDragDropContext.DropOnSlot(UIDraggableItem item, int slotIndex) =>
+        PlaceCard((StationCardDragHandler)item, slotIndex);
+
+    void IUIDragDropContext.DropOnItem(UIDraggableItem target, UIDraggableItem dragged)
+    {
+        StationCardDragHandler targetCard = (StationCardDragHandler)target;
+        if (targetCard.CurrentSlotIndex >= 0)
+        {
+            PlaceCard((StationCardDragHandler)dragged, targetCard.CurrentSlotIndex);
+        }
+        else
+        {
+            ReturnCardToPool((StationCardDragHandler)dragged);
+        }
+    }
+
+    void IUIDragDropContext.ReturnToPool(UIDraggableItem item) =>
+        ReturnCardToPool((StationCardDragHandler)item);
+
+    void IUIDragDropContext.RefreshItemPositions() => RefreshCardPositions();
+
     // 카드를 대상 슬롯에 배치하고 기존 카드가 있으면 교환한다.
     internal void PlaceCard(StationCardDragHandler card, int slotIndex)
     {
@@ -99,23 +119,11 @@ public sealed partial class SubwayRouteMiniGame
     }
 }
 
-public sealed class StationPoolDropTarget : MonoBehaviour, IDropHandler
+public sealed class StationPoolDropTarget : UIDropPool
 {
-    private SubwayRouteMiniGame _owner;
-
     // 보기 영역에 미니게임을 연결한다.
     public void Initialize(SubwayRouteMiniGame owner)
     {
-        _owner = owner;
-    }
-
-    // 드롭된 카드를 노선 슬롯에서 보기 영역으로 되돌린다.
-    public void OnDrop(PointerEventData eventData)
-    {
-        StationCardDragHandler card = eventData.pointerDrag?.GetComponent<StationCardDragHandler>();
-        if (card != null)
-        {
-            _owner.ReturnCardToPool(card);
-        }
+        InitializePool(owner);
     }
 }
