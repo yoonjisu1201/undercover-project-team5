@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,12 +12,12 @@ public sealed partial class SubwayRouteMiniGame
     // 선택된 노선 이름과 플레이 방법을 표시한다.
     private void SetRouteHeader(SubwayRoute route, Color routeColor)
     {
-        Text routeName = FindChild(_routeMap, "PreviewLineName").GetComponent<Text>();
+        TMP_Text routeName = FindChild(_routeMap, "PreviewLineName").GetComponent<TMP_Text>();
         routeName.gameObject.SetActive(true);
         routeName.color = routeColor;
         routeName.text = $"{route.Region}  |  {route.LineName}";
 
-        Text guide = FindChild(_routeMap, "PreviewGuide").GetComponent<Text>();
+        TMP_Text guide = FindChild(_routeMap, "PreviewGuide").GetComponent<TMP_Text>();
         guide.gameObject.SetActive(true);
         guide.text = "1번 역은 공개됩니다. 나머지 역 카드를 알맞은 슬롯에 놓으세요.";
     }
@@ -49,7 +50,7 @@ public sealed partial class SubwayRouteMiniGame
         {
             Transform slotTransform = FindChild(preview, $"StationSlot_{index + 1}");
             Image image = slotTransform.GetComponent<Image>();
-            Text placeholder = FindChild(slotTransform, "Placeholder").GetComponent<Text>();
+            TMP_Text placeholder = FindChild(slotTransform, "Placeholder").GetComponent<TMP_Text>();
 
             // 첫 번째 슬롯은 공개되므로 색상을 밝게 하고, 나머지 슬롯은 반투명하게 한다.
             image.color = index == 0 ? Color.Lerp(CardColor, routeColor, 0.35f) : new Color(routeColor.r, routeColor.g, routeColor.b, 0.2f);
@@ -82,7 +83,7 @@ public sealed partial class SubwayRouteMiniGame
         pool.GetComponent<Image>().raycastTarget = true;
         StationPoolDropTarget poolTarget = pool.GetComponent<StationPoolDropTarget>() ?? pool.gameObject.AddComponent<StationPoolDropTarget>();
         poolTarget.Initialize(this);
-        FindChild(pool, "PoolTitle").GetComponent<Text>().color = routeColor;   // 보기 영역 제목의 글자 색을 현재 노선 색으로 변경
+        FindChild(pool, "PoolTitle").GetComponent<TMP_Text>().color = routeColor;   // 보기 영역 제목의 글자 색을 현재 노선 색으로 변경
 
         for (int index = 0; index < shuffled.Count; index++)    // 카드 4장에 섞인 역 이름과 드래그 기능을 연결한다.
         {
@@ -95,7 +96,7 @@ public sealed partial class SubwayRouteMiniGame
             image.color = CardColor;
             image.raycastTarget = true;
 
-            FindChild(cardTransform, "StationName").GetComponent<Text>().text = shuffled[index];
+            FindChild(cardTransform, "StationName").GetComponent<TMP_Text>().text = shuffled[index];
 
             // 카드에 CanvasGroup 컴포넌트가 없으면 추가한다. (드래그 시 투명도 조절을 위해 필요)
             if (cardTransform.GetComponent<CanvasGroup>() == null)

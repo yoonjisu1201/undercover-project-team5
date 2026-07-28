@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -10,8 +11,8 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
 
     [Header("CCTV 선택")]
     [SerializeField] private Button[] _cameraButtons;
-    [SerializeField] private Text[] _cameraLabels;
-    [SerializeField] private Text[] _cameraFeeds;
+    [SerializeField] private TMP_Text[] _cameraLabels;
+    [SerializeField] private TMP_Text[] _cameraFeeds;
 
     [Header("배선 보드")]
     [SerializeField] private RectTransform _connectionBoard;
@@ -22,11 +23,11 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     [SerializeField] private Graphic[] _targetGraphics;
 
     [Header("상태 표시")]
-    [SerializeField] private Text _objectiveText;
-    [SerializeField] private Text _progressText;
+    [SerializeField] private TMP_Text _objectiveText;
+    [SerializeField] private TMP_Text _progressText;
     [SerializeField] private GameObject _resultOverlay;
-    [SerializeField] private Text _resultTitle;
-    [SerializeField] private Text _resultMessage;
+    [SerializeField] private TMP_Text _resultTitle;
+    [SerializeField] private TMP_Text _resultMessage;
 
     private readonly CameraRepairState[] _states = new CameraRepairState[CameraCount];
     private readonly Color[] _wireColors =

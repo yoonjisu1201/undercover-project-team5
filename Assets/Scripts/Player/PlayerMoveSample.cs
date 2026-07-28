@@ -55,13 +55,8 @@ public class PlayerMoveSample : NetworkBehaviour
 	private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
 	private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
 	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
-	private readonly NetworkVariable<bool> _networkIsMoving =
-		new NetworkVariable<bool>(
-			false,
-			NetworkVariableReadPermission.Everyone,
-			NetworkVariableWritePermission.Owner);
-	private readonly NetworkVariable<bool> _networkIsRunning =
-		new NetworkVariable<bool>(
+	private readonly NetworkVariable<bool> _networkIsMoving = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+	private readonly NetworkVariable<bool> _networkIsRunning = new NetworkVariable<bool>(
 			false,
 			NetworkVariableReadPermission.Everyone,
 			NetworkVariableWritePermission.Owner);
@@ -72,7 +67,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
-    
+
 	public GameObject HeadPivot { get => _headPivot; }
 
 	private void Awake()
@@ -246,7 +241,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void FixedUpdate()
 	{
-        if (!IsOwner)
+		if (!IsOwner)
 		{
 			return;
 		}
@@ -258,6 +253,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			_jumpRequested = false;
 			SetMovingState(false);
 			SetRunningState(false);
+			ApplyAirGravity();
 			return;
 		}
 
@@ -290,7 +286,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		// MovePosition은 메서드 → 목표 위치를 계산해서 넘긴다 (fixedDeltaTime 사용)
 		Vector3 delta = (forward * move.y + right * move.x) * speed;
-		
+
 		// 점프했을 때의 속도 없애면 안되므로, 이건 직접 적용
 		// 벽 뚫리지 않게 하기 위해 MovePosition -> linearVelocity로 수정
 		delta.y = _rigidbody.linearVelocity.y;

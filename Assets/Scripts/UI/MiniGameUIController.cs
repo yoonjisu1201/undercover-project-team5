@@ -1,4 +1,5 @@
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,7 +7,7 @@ using UnityEngine.UI;
 public sealed class MiniGameUIController : MonoBehaviour
 {
     private MiniGameInteractable _owner;
-    private Text _timerText;
+    private TMP_Text _timerText;
     private bool _completionReady;
     private bool _isClosing;
 
@@ -16,7 +17,7 @@ public sealed class MiniGameUIController : MonoBehaviour
         Transform timer = FindChild("Timer");
         if (timer != null)
         {
-            _timerText = timer.GetComponent<Text>();
+            _timerText = timer.GetComponent<TMP_Text>();
         }
 
         Transform closeResultButton = FindChild("CloseResultButton");
@@ -102,7 +103,7 @@ public sealed class MiniGameUIController : MonoBehaviour
     private void SetText(string childName, string value)
     {
         Transform child = FindChild(childName);
-        if (child != null && child.TryGetComponent(out Text text))
+        if (child != null && child.TryGetComponent(out TMP_Text text))
         {
             text.text = value;
         }

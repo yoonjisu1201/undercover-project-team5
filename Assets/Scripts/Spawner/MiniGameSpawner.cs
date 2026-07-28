@@ -89,7 +89,7 @@ public sealed class MiniGameSpawner : MonoBehaviour
         {
             ItemData miniGameMachineData = _MiniGameMachine[index];
 
-            if (!TryFindSpawnPosition(out Vector3 spawnPosition))
+            if (!TryFindSpawnPose(out Vector3 spawnPosition, out Quaternion spawnRotation))
             {
                 Debug.LogWarning($"[MiniGameSpawner] '{miniGameMachineData.ItemId}'의 스폰 위치를 찾지 못했습니다.", this);
                 continue;
@@ -98,7 +98,7 @@ public sealed class MiniGameSpawner : MonoBehaviour
             GameObject miniGameMachineObject = Instantiate(
                 miniGameMachineData.WorldPrefab,
                 spawnPosition,
-                Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+                spawnRotation);
 
             if (!miniGameMachineObject.TryGetComponent(out NetworkObject networkObject))
             {
@@ -149,7 +149,7 @@ public sealed class MiniGameSpawner : MonoBehaviour
         return true;
     }
 
-    private bool TryFindSpawnPosition(out Vector3 position)
+    private bool TryFindSpawnPose(out Vector3 position, out Quaternion rotation)
     {
         float minimumDistanceSquared = _minimumMiniGameMachineDistance * _minimumMiniGameMachineDistance;
 
@@ -176,11 +176,15 @@ public sealed class MiniGameSpawner : MonoBehaviour
             if (IsFarEnoughFromSpawnedMiniGameMachines(candidate, minimumDistanceSquared))
             {
                 position = candidate;
+                Quaternion groundAlignment = Quaternion.FromToRotation(Vector3.up, hit.normal);
+                Quaternion randomYaw = Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.up);
+                rotation = groundAlignment * randomYaw;
                 return true;
             }
         }
 
         position = default;
+        rotation = Quaternion.identity;
         return false;
     }
 

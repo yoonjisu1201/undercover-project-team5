@@ -56,7 +56,7 @@ public class PlayerInteraction : NetworkBehaviour
 
         if (_inventoryUI == null)
         {
-            _inventoryUI = FindFirstObjectByType<InventoryUI>();
+            _inventoryUI = FindFirstObjectByType<InventoryUI>(FindObjectsInactive.Include);
         }
 
         _inventoryUI?.BindInventory(_inventory);
