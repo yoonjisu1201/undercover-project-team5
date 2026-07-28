@@ -20602,10 +20602,8 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _moveSpeed: 5
   _rotateSpeed: 0.5
-  _runMultiplier: 1.8
+  _runSpeedMultiplier: 1.5
   _jumpPower: 10
-  _groundMinY: -0.2
-  _groundMaxY: 0
   _gravityValue: 2.5
   _riseMultiplier: 2
   _rigidbody: {fileID: 2513456902304565783}
@@ -20632,6 +20630,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerEmergencyEscape
   ShowTopMostFoldoutHeaderGroup: 1
+  _stableGroundDuration: 1
+  _minimumRecordDistance: 3
+  _requiredAirborneDuration: 3
 --- !u!114 &8049373391342024038
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20660,7 +20661,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerInteraction
   ShowTopMostFoldoutHeaderGroup: 1
   _playerCamera: {fileID: 6481610273975784339}
-  _screenCenterRadius: 0.2
+  _screenCenterRadius: 0.403
   _dropInteractionDelay: 1.5
   _itemCatalog: {fileID: 0}
   _inventoryUI: {fileID: 0}

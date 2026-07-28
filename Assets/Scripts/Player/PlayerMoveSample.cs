@@ -18,9 +18,6 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private float _jumpPower = 10f;
 
 	[Header("중력 관련")]
-	// 땅 판정: pivot의 y가 이 범위 안이면 땅에 있다고 본다 (평지 y=0 기준)
-	[SerializeField] private float _groundMinY = -0.2f;
-	[SerializeField] private float _groundMaxY = 0f;
 	[SerializeField] private float _gravityValue = 2.5f;   // 떨어질 때 중력 배수
 	[SerializeField] private float _riseMultiplier = 2f;   // 올라갈 때 중력 배수 (클수록 정점에 빨리 도달 = 상승이 빨라짐)
 	[SerializeField] private Rigidbody _rigidbody;

@@ -243,7 +243,6 @@ public class PlayerInventory : NetworkBehaviour
 
         if (!removedAny)
         {
-            Debug.LogWarning($"인벤토리에서 '{itemPrefix}'로 시작하는 아이템을 찾지 못했습니다.");
             return;
         }
 
