@@ -243,7 +243,7 @@ public class RoundManager : NetworkBehaviour
                 break;
             case RoundState.RoundClear:
                 _currentRoundIndex.Value++;
-                _clueSpawner.RespawnClues(); // 다음 라운드 마다 단서 재생성
+                _clueSpawner.RespawnClues(); // 다음 라운드 마다 단서 재생성 (인벤토리 초기화 포함)
                 _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[_currentRoundIndex.Value].Duration;
                 _currentState.Value = RoundState.InRound; // 대기 시간 종료, 다음 라운드 자동 시작
                 AnnounceRoundStartRpc(_currentRoundIndex.Value);
@@ -312,6 +312,19 @@ public class RoundManager : NetworkBehaviour
         if (_currentState.Value != RoundState.InRound) return;
 
         _currentState.Value = RoundState.Fail;
+    }
+
+    // 라운드 전환/게임 재시작 시 전체 플레이어 인벤토리를 아이템 종류 무관하게 초기화한다.
+    public void ClearAllPlayerInventories()
+    {
+        if (!IsServer) return;
+
+        PlayerInventory[] inventories = FindObjectsByType<PlayerInventory>(FindObjectsSortMode.None);
+
+        foreach (PlayerInventory inventory in inventories)
+        {
+            inventory.ClearAllItemsOnServer();
+        }
     }
 
     // 결과 패널의 "확인" 버튼을 누르면 클라이언트가 호출한다. 접속 중인 전원이 확인하면 서버가 대기방 씬으로 전환한다.
