@@ -8,10 +8,11 @@ public class PlayerInventory : NetworkBehaviour
 
     [SerializeField] private InventorySlot[] _slots;
 
-    private int _selectedIndex = -1;
+    private readonly NetworkVariable<int> _selectedIndex =
+        new(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     public InventorySlot[] Slots => _slots;
-    public int SelectedIndex => _selectedIndex;
+    public int SelectedIndex => _selectedIndex.Value;
     public bool HasAnyItem => FindFirstOccupiedSlot() >= 0;
     public bool IsFull => FindEmptySlot() < 0;
 
@@ -72,7 +73,7 @@ public class PlayerInventory : NetworkBehaviour
         }
 
         _slots[emptySlotIndex].Set(itemId);
-        _selectedIndex = emptySlotIndex;
+        _selectedIndex.Value = emptySlotIndex;
 
         InventoryChanged?.Invoke();
         ItemAdded?.Invoke(itemId, emptySlotIndex);
@@ -91,7 +92,7 @@ public class PlayerInventory : NetworkBehaviour
         if (index < 0 || index >= InventorySize)
             return;
 
-        _selectedIndex = index;
+        _selectedIndex.Value = index;
         InventoryChanged?.Invoke();
     }
 
@@ -99,12 +100,12 @@ public class PlayerInventory : NetworkBehaviour
     {
         itemId = null;
 
-        if (_selectedIndex < 0 || _selectedIndex >= InventorySize)
+        if (_selectedIndex.Value < 0 || _selectedIndex.Value >= InventorySize)
         {
             return false;
         }
 
-        InventorySlot selectedSlot = _slots[_selectedIndex];
+        InventorySlot selectedSlot = _slots[_selectedIndex.Value];
 
         if (selectedSlot.IsEmpty)
             return false;
@@ -146,13 +147,13 @@ public class PlayerInventory : NetworkBehaviour
 
     private bool RemoveSelectedItemLocally()
     {
-        if (_selectedIndex < 0 || _selectedIndex >= InventorySize)
+        if (_selectedIndex.Value < 0 || _selectedIndex.Value >= InventorySize)
             return false;
 
-        if (_slots[_selectedIndex].IsEmpty)
+        if (_slots[_selectedIndex.Value].IsEmpty)
             return false;
 
-        RemoveItemAt(_selectedIndex);
+        RemoveItemAt(_selectedIndex.Value);
         return true;
     }
 
@@ -205,51 +206,39 @@ public class PlayerInventory : NetworkBehaviour
         return -1;
     }
 
-    public void RemoveClueItemsOnServer(string clueItemIdPrefix)
+    public void ClearAllItemsOnServer()
     {
         if (!IsServer)
         {
             return;
         }
 
-        RemoveItemsByPrefixLocally(clueItemIdPrefix);
+        ClearAllItemsLocally();
 
         if (!IsOwner)
         {
-            RemoveClueItemsOwnerRpc(clueItemIdPrefix, RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
+            ClearAllItemsOwnerRpc(RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
         }
     }
 
     [Rpc(SendTo.SpecifiedInParams)]
-    private void RemoveClueItemsOwnerRpc(string clueItemIdPrefix, RpcParams rpcParams = default)
+    private void ClearAllItemsOwnerRpc(RpcParams rpcParams = default)
     {
-        RemoveItemsByPrefixLocally(clueItemIdPrefix);
+        ClearAllItemsLocally();
     }
 
-    private void RemoveItemsByPrefixLocally(string itemPrefix)
+    private void ClearAllItemsLocally()
     {
-        bool removedAny = false;
-
         for (int i = 0; i < _slots.Length; i++)
         {
-            InventorySlot slot = _slots[i];
-            if (slot.IsEmpty || !slot.ItemId.StartsWith(itemPrefix, StringComparison.Ordinal))
-            {
-                continue;
-            }
-            slot.Clear();
-            removedAny = true;
+            _slots[i].Clear();
         }
 
-        if (!removedAny)
+        // _selectedIndex는 Owner만 쓸 수 있는 NetworkVariable이라, 서버가 남의 인벤토리를 정리할 때는
+        // 여기서 건드리지 않고 오너 클라이언트에서 실행되는 호출(ClearAllItemsOwnerRpc)에서만 반영한다.
+        if (IsOwner)
         {
-            return;
-        }
-
-        // 선택된 슬롯이 제거된 아이템이었는지 확인하고, 필요하면 선택을 초기화
-        if (_selectedIndex < 0 || _selectedIndex >= _slots.Length || _slots[_selectedIndex].IsEmpty)
-        {
-            _selectedIndex = FindFirstOccupiedSlot();
+            _selectedIndex.Value = -1;
         }
 
         InventoryChanged?.Invoke();

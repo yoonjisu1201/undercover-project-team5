@@ -63,13 +63,10 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
             return;
         }
 
-        // 기본값에서는 단서를 미니게임 완료 보상으로만 생성한다.
-        ClearPlayerInventories();
-        _hasSpawned = true;
-        if (_spawnCluesAtRoundStart)
-        {
-            SpawnAsync(_spawnCoordinator, this.GetCancellationTokenOnDestroy()).Forget();
-        }
+        // 플레이어 인벤토리를 초기화하고 단서를 새로 스폰
+        RoundManager.Instance?.ClearAllPlayerInventories();
+
+        SpawnAsync(_spawnCoordinator, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     public void SpawnClues()
@@ -214,7 +211,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
             return;
         }
 
-        ClearPlayerInventories();
+        RoundManager.Instance?.ClearAllPlayerInventories();
         ClearSpawned();
 
         if (_spawnCluesAtRoundStart)
@@ -238,16 +235,6 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         _spawnedClues.Clear();
         _spawnCoordinator?.ClearPositions(this);
         _hasSpawned = false;
-    }
-
-    private void ClearPlayerInventories()
-    {
-        PlayerInventory[] inventories = FindObjectsByType<PlayerInventory>(FindObjectsSortMode.None);
-
-        foreach (PlayerInventory inventory in inventories)
-        {
-            inventory.RemoveClueItemsOnServer(ClueItemIdPrefix);
-        }
     }
 
     private void DespawnAllFieldClues()

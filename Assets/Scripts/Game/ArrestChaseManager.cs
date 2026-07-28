@@ -47,13 +47,14 @@ public class ArrestChaseManager : NetworkBehaviour
     private readonly NetworkVariable<float> _gauge =
         new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    // 지금 이 순간 조건(범위+도구)을 만족하는 플레이어 수. "다른 요원 1명이 필요합니다" 안내에 쓰인다.
-    private readonly NetworkVariable<int> _eligibleNearbyCount =
+    // 범위+도구+검거 단축키(AlienGun) 홀드까지 모두 만족하는 플레이어 수.
+    // 게이지 상승 조건, 참여 아이콘 표시, 안내 문구 판정에 함께 쓰인다.
+    private readonly NetworkVariable<int> _holdingCount =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     public ArrestChaseState CurrentState => _state.Value;
     public float Gauge => _gauge.Value; // 0~1
-    public int EligibleNearbyCount => _eligibleNearbyCount.Value;
+    public int HoldingCount => _holdingCount.Value;
 
     // UI가 구독해서 게이지 바/안내 문구를 갱신하는 데 쓰는 이벤트. ArrestVoteManager의 이벤트 패턴과 동일하다.
     public event Action<ArrestChaseState> OnStateChanged;
@@ -144,11 +145,12 @@ public class ArrestChaseManager : NetworkBehaviour
             return;
         }
 
-        //범인 반경에 있으면서 검거도구를 가지고 있는 플레이어 수
-        int eligibleCount = CountEligibleNearbyPlayers();
-        _eligibleNearbyCount.Value = eligibleCount; // UI가 안내 문구를 판단할 수 있도록 매 프레임 동기화
+        // 범인 반경 안에서 검거도구를 장착하고 단축키까지 홀드 중인 플레이어 수
+        int holdingCount = CountReadyPlayers();
+        _holdingCount.Value = holdingCount; // UI가 참여 아이콘/안내 문구를 판단할 수 있도록 매 프레임 동기화
 
-        if (eligibleCount >= RequiredParticipants) //2명 이상일때
+        // 반경+도구+홀드 조건을 모두 만족하는 인원이 필요 인원 수 이상이어야 게이지가 오른다.
+        if (holdingCount >= RequiredParticipants)
         {
             // 조건 충족: 게이지를 채운다. _gaugeFillDuration초 동안 유지하면 가득 찬다.
             _gauge.Value = Mathf.Min(1f, _gauge.Value + Time.deltaTime / _gaugeFillDuration);
@@ -165,11 +167,10 @@ public class ArrestChaseManager : NetworkBehaviour
         }
     }
 
-    // 대상 NPC 주변 _captureRadius 반경 안에서, 검거 도구를 선택 슬롯에 장착 중인 플레이어 수를 센다.
-    // 이 수가 RequiredParticipants 이상이어야 게이지가 오른다.
-    private int CountEligibleNearbyPlayers()
+    // 대상 NPC 주변 _captureRadius 반경 안에서 검거 도구를 장착하고 검거 단축키(AlienGun)까지 홀드 중인 플레이어 수를 센다.
+    private int CountReadyPlayers()
     {
-        int count = 0;
+        int readyCount = 0;
 
         foreach (NetworkClient client in NetworkManager.ConnectedClients.Values)
         {
@@ -184,10 +185,12 @@ public class ArrestChaseManager : NetworkBehaviour
             if (!playerObject.TryGetComponent(out PlayerInventory inventory)) continue;
             if (!inventory.TryGetSelectedItem(out string itemId) || itemId != CaptureToolItemId) continue;
 
-            count++;
+            if (!playerObject.TryGetComponent(out PlayerArrestInput arrestInput) || !arrestInput.IsHoldingArrestKey) continue;
+
+            readyCount++;
         }
 
-        return count;
+        return readyCount;
     }
 
     // 게이지가 다 찼을 때 호출된다. NPC를 완전히 멈추고 라운드 매니저에 검거 완료를 알린다.
@@ -208,7 +211,6 @@ public class ArrestChaseManager : NetworkBehaviour
         _target = null;
         _targetReference.Value = default;
         _gauge.Value = 0f;
-        _eligibleNearbyCount.Value = 0;
         _state.Value = ArrestChaseState.Idle;
     }
 }
