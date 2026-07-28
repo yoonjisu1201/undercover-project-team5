@@ -41,7 +41,7 @@ public enum InterferenceEndReason
 public abstract class InterferenceEffectBase : NetworkBehaviour
 {
     // 방해 효과가 활성화된 후 유지되는 시간입니다.
-    [SerializeField, Range(5f, 15f)] private float _duration = 5f;
+    [SerializeField, Range(5f, 15f)] protected float _duration = 5f;
 
     // 방해 효과가 활성화될 때 호출됩니다.
     [SerializeField] private UnityEvent _onInterferenceStarted = new UnityEvent();

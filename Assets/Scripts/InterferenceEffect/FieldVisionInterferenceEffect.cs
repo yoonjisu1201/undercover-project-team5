@@ -6,20 +6,19 @@ public sealed class FieldVisionInterferenceEffect : InterferenceEffectBase
 {
     // 카메라 앞에 생성할 안개 파티클 프리팹입니다.
     [SerializeField]
-    private ParticleSystem _fogPrefab;
+    private GameObject _fogPrefab;
 
     // 현재 로컬 카메라 앞에 생성된 안개입니다.
-    private ParticleSystem _activeFog;
+    private GameObject _activeFog;
 
     public override InterferenceEffectType _type => InterferenceEffectType.FieldVision;
 
     private void Awake()
     {
-        var player = NetworkManager.Singleton.LocalClient.PlayerObject.GetComponent<Player>();
-        var position = player.PlayerMove.HeadPivot.transform.localPosition;
+        _duration = 10f;
 
-        _activeFog = Instantiate(_fogPrefab, player.PlayerMove.HeadPivot.transform);
-        _activeFog.transform.localPosition = position;
+        _activeFog = Instantiate(_fogPrefab);
+
         _activeFog.gameObject.SetActive(false);
     }
 
@@ -32,6 +31,12 @@ public sealed class FieldVisionInterferenceEffect : InterferenceEffectBase
 
     protected override void OnActivateEffect()
     {
+        NetworkObject hostPlayer =
+            NetworkManager.SpawnManager.
+            GetPlayerNetworkObject(NetworkManager.ServerClientId);
+
+        _activeFog.transform.position = hostPlayer.transform.position;
+
         _activeFog.gameObject.SetActive(true);
     }
 
