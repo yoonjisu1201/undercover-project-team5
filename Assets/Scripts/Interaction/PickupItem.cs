@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using Unity.Collections;
 
 public class PickupItem : InteractableBase
 {
@@ -7,20 +8,48 @@ public class PickupItem : InteractableBase
 
     public string ItemId => _itemData != null ? _itemData.ItemId : null;
     public override string InteractionText => _itemData != null ? $"{_itemData.DisplayName} 줍기" : "줍기";
-    public override bool CanInteract(GameObject interactor) {
+    private readonly NetworkVariable<FixedString64Bytes> _networkItemId = new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    public override bool CanInteract(GameObject interactor)
+    {
+        if (_itemData == null)
+        {
+            return false;
+        }
+
         // 상호작용 가능 대상 확인
         Role interactorRole = interactor.GetComponent<Player>().PlayerRole;
         // 상호작용 가능 시간이면서, 상호작용 역할이 제한되어있지 않은 아이템이거나, 상호작용 가능한 대상의 역할과 일치해야 함
-        return Time.time >= _interactionBlockedUntil 
+        return Time.time >= _interactionBlockedUntil
             && (_itemData.InteractableRole == Role.None || _itemData.InteractableRole == interactorRole);
     }
-    
+
     private float _interactionBlockedUntil;
 
     //--- 런타임에 생성된 픽업 아이템의 고유 데이터 설정 ---//
     public void Configure(ItemData itemData)
     {
         _itemData = itemData;
+        _networkItemId.Value = itemData.ItemId;
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+        ResolveItemData(_networkItemId.Value.ToString());
+    }
+
+    private void ResolveItemData(string itemId)
+    {
+        if (string.IsNullOrEmpty(itemId))
+        {
+            return;
+        }
+
+        ItemCatalog catalog = FindFirstObjectByType<ItemCatalog>();
+        if (catalog != null && catalog.TryGet(itemId, out ItemData itemData))
+        {
+            _itemData = itemData;
+        }
     }
 
     public void BlockInteraction(float duration)    // duration초 동안 상호작용 차단
@@ -97,6 +126,7 @@ public class PickupItem : InteractableBase
         NetworkObject.Despawn();
     }
 
+    // 상호작용 콜라이더와 아이템 콜라이더가 겹치는지 확인하는 메서드
     private bool IsOverlappingInteractionCollider(SphereCollider interactionCollider)
     {
         Collider[] itemColliders = GetComponentsInChildren<Collider>();
@@ -108,15 +138,9 @@ public class PickupItem : InteractableBase
                 continue;
             }
 
-            if (Physics.ComputePenetration(
-                    interactionCollider,
-                    interactionCollider.transform.position,
-                    interactionCollider.transform.rotation,
-                    itemCollider,
-                    itemCollider.transform.position,
-                    itemCollider.transform.rotation,
-                    out _,
-                    out _))
+            // Physics.ComputePenetration을 사용하여 상호작용 콜라이더와 아이템 콜라이더가 겹치는지 확인
+            if (Physics.ComputePenetration(interactionCollider, interactionCollider.transform.position, interactionCollider.transform.rotation,
+                    itemCollider, itemCollider.transform.position, itemCollider.transform.rotation, out _, out _))
             {
                 return true;
             }

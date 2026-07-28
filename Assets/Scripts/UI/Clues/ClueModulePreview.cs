@@ -95,7 +95,7 @@ public class ClueModulePreview : MonoBehaviour
             return;
         }
 
-        ShuffleEquippedModules();   // 단서 표시 순서를 무작위로 섞는다.
+        ShuffleEquippedModules(_criminalManager.CriminalNpc.NetworkObjectId);
 
         List<(ClueUI clueUi, RawImage clueImage)> clueSlots = FindClueSlots();
 
@@ -162,12 +162,14 @@ public class ClueModulePreview : MonoBehaviour
         return false;
     }
 
-    private void ShuffleEquippedModules()
+    private void ShuffleEquippedModules(ulong criminalNetworkObjectId)
     {
-        // Fisher-Yates Shuffle로 단서 표시 순서를 무작위로 섞는다.
+        // 동기화된 범인 ID를 시드로 사용해 모든 클라이언트가 같은 순서로 섞는다.
+        System.Random random = new(unchecked((int)criminalNetworkObjectId));
+
         for (int i = _equippedModules.Count - 1; i > 0; i--)
         {
-            int randomIndex = UnityEngine.Random.Range(0, i + 1);
+            int randomIndex = random.Next(i + 1);
             (_equippedModules[i], _equippedModules[randomIndex]) =
                 (_equippedModules[randomIndex], _equippedModules[i]);
         }

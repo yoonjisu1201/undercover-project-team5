@@ -113,7 +113,7 @@ public sealed class ClueModuleCapture : IDisposable
         float verticalDistance = bounds.extents.y / Mathf.Tan(halfFov);
         float horizontalDistance = bounds.extents.x / (Mathf.Tan(halfFov) * _clueCamera.aspect);
         float distance = (Mathf.Max(verticalDistance, horizontalDistance) + bounds.extents.z) * FramingMargin;
-        float zoom = UnityEngine.Random.Range(MinZoom, MaxZoom);
+        float zoom = (MinZoom + MaxZoom) * 0.5f;
 
         // 기존 카메라가 바라보던 반대편에 고정해 모듈의 앞면을 촬영한다.
         // 매 촬영마다 현재 카메라 위치로 방향을 다시 계산하면 앞/뒤가 번갈아 바뀔 수 있다.
