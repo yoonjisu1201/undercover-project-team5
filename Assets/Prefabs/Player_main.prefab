@@ -20496,6 +20496,7 @@ GameObject:
   - component: {fileID: 2974533433762144473}
   - component: {fileID: 8271242711255620274}
   - component: {fileID: -7996457364632384375}
+  - component: {fileID: 2126864538568221489}
   m_Layer: 0
   m_Name: Player_main
   m_TagString: Untagged
@@ -21282,6 +21283,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerArrestInput
   ShowTopMostFoldoutHeaderGroup: 1
   _handToolVisual: {fileID: 2346855748454479997}
+--- !u!114 &2126864538568221489
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b08bab0f92a9c0f47860ac85a3befa8e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerAimIK
+  gun: {fileID: 0}
+  gunAimAxis: {x: 0, y: 0, z: -1}
+  gunUpAxis: {x: 0, y: 1, z: 0}
+  rotationWeight: 0.9
+  rightHandRoll: -90
+  positionWeight: 0.9
+  centerPull: 0.65
+  handSideOffset: 0.12
+  handRaise: -0.02
+  handForward: 0.12
+  activeParameter: IsUsingArrestTool
 --- !u!1 &2536676161924006567
 GameObject:
   m_ObjectHideFlags: 0
