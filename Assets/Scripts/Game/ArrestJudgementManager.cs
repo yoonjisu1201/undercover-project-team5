@@ -132,6 +132,7 @@ public class ArrestJudgementManager : NetworkBehaviour
         if (_arrestResult.Value == ArrestResult.WrongTarget)
         {
             TriggerRandomInterferenceEffect();
+            CCTVDisruptionController.Instance?.TriggerWrongArrestDisruption();
         }
 
         if (_pendingChaseCandidate != null)
