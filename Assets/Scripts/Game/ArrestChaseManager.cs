@@ -47,7 +47,7 @@ public class ArrestChaseManager : NetworkBehaviour
     private readonly NetworkVariable<float> _gauge =
         new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    // 범위+도구+검거 단축키(AlienGun) 홀드까지 모두 만족하는 플레이어 수.
+    // 범위+도구+검거 단축키(ItemUse) 홀드까지 모두 만족하는 플레이어 수.
     // 게이지 상승 조건, 참여 아이콘 표시, 안내 문구 판정에 함께 쓰인다.
     private readonly NetworkVariable<int> _holdingCount =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -167,7 +167,7 @@ public class ArrestChaseManager : NetworkBehaviour
         }
     }
 
-    // 대상 NPC 주변 _captureRadius 반경 안에서 검거 도구를 장착하고 검거 단축키(AlienGun)까지 홀드 중인 플레이어 수를 센다.
+    // 대상 NPC 주변 _captureRadius 반경 안에서 검거 도구를 장착하고 검거 단축키(ItemUse)까지 홀드 중인 플레이어 수를 센다.
     private int CountReadyPlayers()
     {
         int readyCount = 0;

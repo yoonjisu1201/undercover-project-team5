@@ -5,6 +5,23 @@ public class ArrestCandidateInteractable : InteractableBase
 {
     public override string InteractionText => "검거 후보로 지정?";
 
+    // 추적기를 선택 중일 때는 검거 후보 지정 문구 대신 부착 안내/이미 부착됨 안내를 보여준다.
+    public override string GetInteractionText(GameObject interactor)
+    {
+        if (!TryGetComponent(out NpcTracker tracker) || !tracker.IsTrackerItemSelected(interactor))
+        {
+            return InteractionText;
+        }
+
+        return tracker.IsTracked ? "이미 위치추적중인 시민입니다." : "위치 추적기 부착";
+    }
+
+    // 이미 부착된 NPC에 추적기를 선택 중일 때는 눌러도 아무 동작이 없으므로 키 힌트를 보여주지 않는다.
+    public override bool ShowInteractionKeyHint(GameObject interactor)
+    {
+        return !TryGetComponent(out NpcTracker tracker) || !tracker.IsTrackerItemSelected(interactor) || !tracker.IsTracked;
+    }
+
     // 이미 다른 대상으로 투표가 진행 중이거나 추격전이 진행 중이면 새 후보를 지정할 수 없다.
     public override bool CanInteract(GameObject interactor)
     {
@@ -25,6 +42,16 @@ public class ArrestCandidateInteractable : InteractableBase
     public override void Interact(GameObject interactor)
     {
         if (!CanInteract(interactor) || !IsSpawned) {
+            return;
+        }
+
+        // 추적기를 선택 중이면 검거 후보 지정 대신 부착(또는 이미 부착됨 안내)만 처리하고 끝낸다.
+        if (TryGetComponent(out NpcTracker tracker) && tracker.IsTrackerItemSelected(interactor))
+        {
+            if (tracker.CanAttach(interactor))
+            {
+                tracker.RequestAttach();
+            }
             return;
         }
 
@@ -54,12 +81,9 @@ public class ArrestCandidateInteractable : InteractableBase
             return;
         }
 
-        if (!TryGetInteractionCollider(rpcParams.Receive.SenderClientId, out SphereCollider interactionCollider))
-        {
-            return;
-        }
-
-        if (!IsWithinInteractionRange(interactionCollider))
+        // 거리 재검증 로직은 NpcTracker(위치추적기 부착)와 공유하기 위해 NpcInteractionValidation으로 옮겼다. 동작은 기존과 동일.
+        if (!NpcInteractionValidation.TryGetInteractionCollider(NetworkManager, rpcParams.Receive.SenderClientId, out SphereCollider interactionCollider) ||
+            !NpcInteractionValidation.IsWithinInteractionRange(transform.position, interactionCollider, _rangeTolerance))
         {
             return;
         }
@@ -86,12 +110,8 @@ public class ArrestCandidateInteractable : InteractableBase
             return;
         }
 
-        if (!TryGetInteractionCollider(rpcParams.Receive.SenderClientId, out SphereCollider interactionCollider))
-        {
-            return;
-        }
-
-        if (!IsWithinInteractionRange(interactionCollider))
+        if (!NpcInteractionValidation.TryGetInteractionCollider(NetworkManager, rpcParams.Receive.SenderClientId, out SphereCollider interactionCollider) ||
+            !NpcInteractionValidation.IsWithinInteractionRange(transform.position, interactionCollider, _rangeTolerance))
         {
             return;
         }
@@ -102,33 +122,5 @@ public class ArrestCandidateInteractable : InteractableBase
         {
             ArrestVoteManager.Instance.RequestStartVoteServerRpc();
         }
-    }
-
-    private bool TryGetInteractionCollider(ulong senderClientId, out SphereCollider interactionCollider)
-    {
-        interactionCollider = null;
-
-        if (!NetworkManager.ConnectedClients.TryGetValue(senderClientId, out NetworkClient senderClient))
-        {
-            return false;
-        }
-
-        NetworkObject playerObject = senderClient.PlayerObject;
-
-        if (playerObject == null)
-        {
-            return false;
-        }
-
-        interactionCollider = playerObject.GetComponent<SphereCollider>();
-        return interactionCollider != null;
-    }
-
-    // 정확한 콜라이더 겹침 대신 거리 + 여유값으로 판정해, 네트워크 지연으로 인한 근소한 위치 차이를 흡수한다.
-    private bool IsWithinInteractionRange(SphereCollider interactionCollider)
-    {
-        float maxDistance = interactionCollider.radius + _rangeTolerance;
-        float distance = Vector3.Distance(transform.position, interactionCollider.transform.position);
-        return distance <= maxDistance;
     }
 }

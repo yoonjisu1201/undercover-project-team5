@@ -110,7 +110,7 @@ public class ArrestChaseUI : MonoBehaviour
         _distanceText.text = $"{Mathf.RoundToInt(distance)}m";
     }
 
-    // 단축키(AlienGun)를 홀드 중인 인원 수만큼 앞에서부터 아이콘을 노란색으로, 나머지는 흰색으로 표시한다.
+    // 단축키(ItemUse)를 홀드 중인 인원 수만큼 앞에서부터 아이콘을 노란색으로, 나머지는 흰색으로 표시한다.
     private void UpdateParticipantIcons()
     {
         int holdingCount = ArrestChaseManager.Instance.HoldingCount;

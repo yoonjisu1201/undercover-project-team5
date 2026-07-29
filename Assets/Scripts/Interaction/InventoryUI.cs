@@ -121,7 +121,9 @@ public class InventoryUI : MonoBehaviour
         Refresh();
     }
 
-    public void SetInteractionPrompt(string interactionText)    // 상호작용 프롬프트 텍스트 설정
+    // 상호작용 프롬프트 텍스트 설정. showKeyHint가 false면 " : [E]" 힌트 없이 문구만 보여준다
+    // (예: 눌러도 아무 동작이 없는 안내성 문구).
+    public void SetInteractionPrompt(string interactionText, bool showKeyHint = true)
     {
         if (_interactionPromptText == null)
         {
@@ -131,7 +133,7 @@ public class InventoryUI : MonoBehaviour
         bool isVisible = !string.IsNullOrWhiteSpace(interactionText);
         if (isVisible)
         {
-            _interactionPromptText.text = $"{interactionText} : [E]";
+            _interactionPromptText.text = showKeyHint ? $"{interactionText} : [E]" : interactionText;
         }
 
         _interactionPromptText.gameObject.SetActive(isVisible);
