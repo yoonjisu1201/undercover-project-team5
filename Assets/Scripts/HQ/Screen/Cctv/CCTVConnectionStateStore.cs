@@ -19,9 +19,16 @@ public static class CCTVConnectionStateStore
 {
     public const int CameraCount = 5;
     public const int RequiredConnectionCount = 4;
+    public const int FullConnectionMask = (1 << RequiredConnectionCount) - 1;
 
-    private static readonly int[] ConnectionCounts = new int[CameraCount];
+    private static readonly int[] ConnectionMasks = new int[CameraCount];
     private static bool _isInitialized;
+
+    // 전선 연결 상태는 아래처럼 4비트 마스크로 저장합니다.
+    // 파랑만 연결      → 0010
+    // 빨강 + 노랑 연결 → 0101
+    // 전부 연결        → 1111
+    // 전부 끊김        → 0000
 
     // 특정 CCTV의 연결 수가 변경되면 카메라 인덱스와 새 상태를 전달합니다.
     public static event Action<int, CCTVConnectionState> OnCameraConnectionStateChanged;
@@ -30,7 +37,7 @@ public static class CCTVConnectionStateStore
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Reset()
     {
-        Array.Clear(ConnectionCounts, 0, ConnectionCounts.Length);
+        Array.Clear(ConnectionMasks, 0, ConnectionMasks.Length);
         _isInitialized = false;
         OnCameraConnectionStateChanged = null;
     }
@@ -46,8 +53,8 @@ public static class CCTVConnectionStateStore
         _isInitialized = true;
     }
 
-    // 네트워크에서 받은 연결 수를 저장하고 모든 로컬 화면에 변경을 알립니다.
-    public static void SetConnectionCount(int cameraIndex, int connectionCount)
+    // 네트워크에서 받은 연결 마스크를 저장하고 모든 로컬 화면에 변경을 알립니다.
+    public static void SetConnectionMask(int cameraIndex, int connectionMask)
     {
         EnsureInitialized();
         if (!IsValidCameraIndex(cameraIndex))
@@ -55,33 +62,54 @@ public static class CCTVConnectionStateStore
             return;
         }
 
-        int clampedConnectionCount = Mathf.Clamp(connectionCount, 0, RequiredConnectionCount);
-        if (ConnectionCounts[cameraIndex] == clampedConnectionCount)
+        int sanitizedConnectionMask = connectionMask & FullConnectionMask;
+        if (ConnectionMasks[cameraIndex] == sanitizedConnectionMask)
         {
             return;
         }
 
-        ConnectionCounts[cameraIndex] = clampedConnectionCount;
+        ConnectionMasks[cameraIndex] = sanitizedConnectionMask;
         OnCameraConnectionStateChanged?.Invoke(cameraIndex, GetState(cameraIndex));
     }
 
-    // 지정한 CCTV에 현재 연결된 전선 수를 반환합니다.
-    public static int GetConnectionCount(int cameraIndex)
+    // 지정한 CCTV의 4비트 연결 마스크를 반환합니다.
+    public static int GetConnectionMask(int cameraIndex)
     {
         EnsureInitialized();
-        return IsValidCameraIndex(cameraIndex) ? ConnectionCounts[cameraIndex] : 0;
+        return IsValidCameraIndex(cameraIndex) ? ConnectionMasks[cameraIndex] : 0;
+    }
+
+    // 지정한 CCTV의 연결 마스크에서 연결된 전선 수를 계산합니다.
+    public static int GetConnectionCount(int cameraIndex)
+    {
+        return CountConnectedWires(GetConnectionMask(cameraIndex));
+    }
+
+    // 4비트 연결 마스크에서 켜진 비트 수를 계산합니다.
+    public static int CountConnectedWires(int connectionMask)
+    {
+        int sanitizedConnectionMask = connectionMask & FullConnectionMask;
+        int connectedCount = 0;
+
+        while (sanitizedConnectionMask != 0)
+        {
+            connectedCount += sanitizedConnectionMask & 1;
+            sanitizedConnectionMask >>= 1;
+        }
+
+        return connectedCount;
     }
 
     // 연결된 전선 수를 화면에서 사용하는 세 단계 상태로 변환합니다.
     public static CCTVConnectionState GetState(int cameraIndex)
     {
-        int connectionCount = GetConnectionCount(cameraIndex);
-        if (connectionCount == 0)
+        int connectionMask = GetConnectionMask(cameraIndex);
+        if (connectionMask == 0)
         {
             return CCTVConnectionState.Disconnected;
         }
 
-        return connectionCount < RequiredConnectionCount ? CCTVConnectionState.Partial : CCTVConnectionState.Connected;
+        return connectionMask == FullConnectionMask ? CCTVConnectionState.Connected : CCTVConnectionState.Partial;
     }
 
     // 외부에서 전달된 인덱스가 CCTV 1~5 범위 안에 있는지 확인합니다.

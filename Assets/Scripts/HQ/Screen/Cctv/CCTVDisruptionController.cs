@@ -90,12 +90,12 @@ public sealed class CCTVDisruptionController : NetworkBehaviour
 
         for (int cameraIndex = 0; cameraIndex < CCTVConnectionStateStore.CameraCount; cameraIndex++)
         {
-            int connectionCount = networkState.GetServerConnectionCount(cameraIndex);
-            if (connectionCount >= CCTVConnectionStateStore.RequiredConnectionCount)
+            int connectionMask = networkState.GetServerConnectionMask(cameraIndex);
+            if (connectionMask == CCTVConnectionStateStore.FullConnectionMask)
             {
                 connectedCameraIndexes[connectedCount++] = cameraIndex;
             }
-            else if (connectionCount > 0)
+            else if (connectionMask != 0)
             {
                 partialCameraIndexes[partialCount++] = cameraIndex;
             }
@@ -110,17 +110,38 @@ public sealed class CCTVDisruptionController : NetworkBehaviour
         // Connected CCTV는 Disconnected 또는 Partial 중 하나로 낮춥니다.
         for (int index = 0; index < connectedCount && disruptedCount < targetCount; index++)
         {
-            int disruptedConnectionCount = Random.value < 0.5f ? 0 : Random.Range(1, 3);
-            networkState.SetServerConnectionCount(connectedCameraIndexes[index], disruptedConnectionCount);
+            int disruptedConnectionMask = Random.value < 0.5f ? 0 : CreateRandomPartialMask();
+            networkState.SetServerConnectionMask(connectedCameraIndexes[index], disruptedConnectionMask);
             disruptedCount++;
         }
 
         // 이미 Partial인 CCTV는 더 악화되는 방향인 Disconnected로만 변경합니다.
         for (int index = 0; index < partialCount && disruptedCount < targetCount; index++)
         {
-            networkState.SetServerConnectionCount(partialCameraIndexes[index], 0);
+            networkState.SetServerConnectionMask(partialCameraIndexes[index], 0);
             disruptedCount++;
         }
+    }
+
+    // Partial 고장 상태에 사용할 한두 가닥의 무작위 연결 마스크를 만듭니다.
+    private static int CreateRandomPartialMask()
+    {
+        int firstWireIndex = Random.Range(0, CCTVConnectionStateStore.RequiredConnectionCount);
+        int connectionMask = 1 << firstWireIndex;
+
+        if (Random.value < 0.5f)
+        {
+            int secondWireIndex;
+            do
+            {
+                secondWireIndex = Random.Range(0, CCTVConnectionStateStore.RequiredConnectionCount);
+            }
+            while (secondWireIndex == firstWireIndex);
+
+            connectionMask |= 1 << secondWireIndex;
+        }
+
+        return connectionMask;
     }
 
     // 배열의 유효한 앞부분만 섞어 같은 상태 안에서 대상 순서를 무작위로 만듭니다.

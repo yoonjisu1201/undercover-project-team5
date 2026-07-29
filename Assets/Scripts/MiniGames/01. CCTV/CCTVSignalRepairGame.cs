@@ -167,26 +167,26 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
         state.ConnectedTargets[wireIndex] = matchedTarget;
         if (matchedTarget >= 0)
         {
-            // 한 가닥이 연결되는 즉시 본부 CCTV를 Disconnected에서 Partial로 전환합니다.
-            SetSharedConnectionCount(_selectedCamera, state.ConnectedCount);
+            // 연결된 색상 정보가 유지되도록 전선 개수가 아닌 4비트 마스크를 동기화합니다.
+            SetSharedConnectionMask(_selectedCamera, state.ConnectionMask);
         }
         RefreshCameraCards();
         RefreshBoard();
     }
 
-    // 미니게임에서 바뀐 연결 수를 서버에 보내 모든 클라이언트의 CCTV에 반영합니다.
-    private static void SetSharedConnectionCount(int cameraIndex, int connectionCount)
+    // 미니게임에서 바뀐 연결 마스크를 서버에 보내 모든 클라이언트의 CCTV에 반영합니다.
+    private static void SetSharedConnectionMask(int cameraIndex, int connectionMask)
     {
         if (CCTVConnectionNetworkState.Instance != null)
         {
-            CCTVConnectionNetworkState.Instance.RequestConnectionCount(
+            CCTVConnectionNetworkState.Instance.RequestConnectionMask(
                 cameraIndex,
-                connectionCount);
+                connectionMask);
             return;
         }
 
         // 네트워크 없이 프리팹만 테스트하는 경우에는 로컬 상태만 갱신합니다.
-        CCTVConnectionStateStore.SetConnectionCount(cameraIndex, connectionCount);
+        CCTVConnectionStateStore.SetConnectionMask(cameraIndex, connectionMask);
     }
 
     // 서버에서 CCTV가 다시 끊기거나 복구되면 보관 중인 퍼즐 배선도 같은 수로 맞춥니다.
@@ -206,7 +206,7 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     // 공용 저장소의 연결 수를 지정한 CCTV 퍼즐에 반영합니다.
     private void SyncCameraStateFromStore(int cameraIndex)
     {
-        _states[cameraIndex].SyncConnectionCount(CCTVConnectionStateStore.GetConnectionCount(cameraIndex));
+        _states[cameraIndex].SyncConnectionMask(CCTVConnectionStateStore.GetConnectionMask(cameraIndex));
     }
 
     // CCTV 선택 카드의 문구, 색상, 선택 가능 상태와 진행도를 갱신한다.
@@ -222,12 +222,8 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
             _cameraLabels[i].text = $"CCTV {i + 1}";
             int connectionCount = _states[i].ConnectedCount;
             // 배선 수에 맞춰 선택 카드에도 Disconnected/Partial/Connected를 동일하게 표시합니다.
-            _cameraFeeds[i].text = repaired
-                ? "● CONNECTED"
-                : connectionCount > 0 ? "◐ PARTIAL" : "× DISCONNECTED";
-            _cameraFeeds[i].color = repaired
-                ? new Color(0.2f, 1f, 0.55f)
-                : connectionCount > 0 ? new Color(1f, 0.75f, 0.2f) : new Color(1f, 0.28f, 0.28f);
+            _cameraFeeds[i].text = repaired ? "● CONNECTED" : connectionCount > 0 ? "◐ PARTIAL" : "× DISCONNECTED";
+            _cameraFeeds[i].color = repaired ? new Color(0.2f, 1f, 0.55f) : connectionCount > 0 ? new Color(1f, 0.75f, 0.2f) : new Color(1f, 0.28f, 0.28f);
             _cameraButtons[i].interactable = true;
         }
 
@@ -238,9 +234,8 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     private void RefreshBoard()
     {
         CCTVRepairPuzzleState state = _states[_selectedCamera];
-        _objectiveText.text = state.IsRepaired
-            ? $"CCTV {_selectedCamera + 1} 연결 완료 — 다른 오프라인 CCTV를 선택하세요."
-            : $"CCTV {_selectedCamera + 1}: 같은 색 단자를 드래그해서 연결하세요.";
+        _objectiveText.text = state.IsRepaired ? $"CCTV {_selectedCamera + 1} 연결 완료 — 다른 오프라인 CCTV를 선택하세요."
+        : $"CCTV {_selectedCamera + 1}: 같은 색 단자를 드래그해서 연결하세요.";
 
         for (int wireIndex = 0; wireIndex < WireCount; wireIndex++)
         {

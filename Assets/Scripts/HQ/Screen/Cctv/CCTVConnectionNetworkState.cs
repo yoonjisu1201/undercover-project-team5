@@ -1,10 +1,10 @@
 using Unity.Netcode;
 using UnityEngine;
 
-// CCTV 1~5의 연결 수를 서버에서 관리하고 모든 클라이언트에 동일하게 복제합니다.
+// CCTV 1~5의 4비트 연결 마스크를 서버에서 관리하고 모든 클라이언트에 동일하게 복제합니다.
 public sealed class CCTVConnectionNetworkState : NetworkBehaviour
 {
-    private readonly NetworkList<int> _connectionCounts = new();
+    private readonly NetworkList<int> _connectionMasks = new();
 
     public static CCTVConnectionNetworkState Instance { get; private set; }
 
@@ -17,9 +17,9 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
     // 서버는 초기 상태를 만들고 모든 클라이언트는 복제 목록의 변경을 구독합니다.
     public override void OnNetworkSpawn()
     {
-        _connectionCounts.OnListChanged += HandleConnectionCountChanged;
+        _connectionMasks.OnListChanged += HandleConnectionMaskChanged;
 
-        if (IsServer && _connectionCounts.Count == 0)
+        if (IsServer && _connectionMasks.Count == 0)
         {
             InitializeServerState();
         }
@@ -30,7 +30,7 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
     // 네트워크 오브젝트가 해제되면 목록 이벤트와 정적 참조를 정리합니다.
     public override void OnNetworkDespawn()
     {
-        _connectionCounts.OnListChanged -= HandleConnectionCountChanged;
+        _connectionMasks.OnListChanged -= HandleConnectionMaskChanged;
 
         if (Instance == this)
         {
@@ -38,50 +38,50 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
         }
     }
 
-    // 미니게임 클라이언트에서 한 CCTV의 현재 연결 수를 서버에 요청합니다.
-    public void RequestConnectionCount(int cameraIndex, int connectionCount)
+    // 수리 UI 클라이언트에서 한 CCTV의 현재 연결 마스크를 서버에 요청합니다.
+    public void RequestConnectionMask(int cameraIndex, int connectionMask)
     {
         // 조작한 클라이언트 화면은 RPC 왕복을 기다리지 않고 즉시 갱신합니다.
-        CCTVConnectionStateStore.SetConnectionCount(cameraIndex, connectionCount);
+        CCTVConnectionStateStore.SetConnectionMask(cameraIndex, connectionMask);
 
         if (IsSpawned)
         {
-            SetConnectionCountRpc(cameraIndex, connectionCount);
+            SetConnectionMaskRpc(cameraIndex, connectionMask);
         }
     }
 
-    // 서버의 CCTV 방해 시스템이 연결 수를 직접 변경할 때 사용합니다.
-    public void SetServerConnectionCount(int cameraIndex, int connectionCount)
+    // 서버의 CCTV 방해 시스템이 연결 마스크를 직접 변경할 때 사용합니다.
+    public void SetServerConnectionMask(int cameraIndex, int connectionMask)
     {
-        if (!IsServer || cameraIndex < 0 || cameraIndex >= _connectionCounts.Count)
+        if (!IsServer || cameraIndex < 0 || cameraIndex >= _connectionMasks.Count)
         {
             return;
         }
 
-        _connectionCounts[cameraIndex] = Mathf.Clamp(connectionCount, 0, CCTVConnectionStateStore.RequiredConnectionCount);
+        _connectionMasks[cameraIndex] = connectionMask & CCTVConnectionStateStore.FullConnectionMask;
     }
 
-    // 서버가 관리하는 지정 CCTV의 연결 수를 반환합니다.
-    public int GetServerConnectionCount(int cameraIndex)
+    // 서버가 관리하는 지정 CCTV의 연결 마스크를 반환합니다.
+    public int GetServerConnectionMask(int cameraIndex)
     {
-        if (!IsServer || cameraIndex < 0 || cameraIndex >= _connectionCounts.Count)
+        if (!IsServer || cameraIndex < 0 || cameraIndex >= _connectionMasks.Count)
         {
             return 0;
         }
 
-        return _connectionCounts[cameraIndex];
+        return _connectionMasks[cameraIndex];
     }
 
-    // 클라이언트가 요청한 연결 수를 검증한 뒤 서버 복제 목록에 반영합니다.
+    // 클라이언트가 요청한 연결 마스크를 4비트로 제한한 뒤 서버 복제 목록에 반영합니다.
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void SetConnectionCountRpc(int cameraIndex, int connectionCount)
+    private void SetConnectionMaskRpc(int cameraIndex, int connectionMask)
     {
-        if (cameraIndex < 0 || cameraIndex >= _connectionCounts.Count)
+        if (cameraIndex < 0 || cameraIndex >= _connectionMasks.Count)
         {
             return;
         }
 
-        _connectionCounts[cameraIndex] = Mathf.Clamp(connectionCount, 0, CCTVConnectionStateStore.RequiredConnectionCount);
+        _connectionMasks[cameraIndex] = connectionMask & CCTVConnectionStateStore.FullConnectionMask;
     }
 
     // 서버가 Partial CCTV 두 개와 각 초기 연결 수를 한 번만 결정합니다.
@@ -89,7 +89,7 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
     {
         for (int cameraIndex = 0; cameraIndex < CCTVConnectionStateStore.CameraCount; cameraIndex++)
         {
-            _connectionCounts.Add(0);
+            _connectionMasks.Add(0);
         }
 
         int[] cameraIndexes = { 0, 1, 2, 3, 4 };
@@ -99,28 +99,48 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
             (cameraIndexes[index], cameraIndexes[swapIndex]) = (cameraIndexes[swapIndex], cameraIndexes[index]);
         }
 
-        _connectionCounts[cameraIndexes[0]] = Random.Range(1, 3);
-        _connectionCounts[cameraIndexes[1]] = Random.Range(1, 3);
+        _connectionMasks[cameraIndexes[0]] = CreateRandomConnectionMask(Random.Range(1, 3));
+        _connectionMasks[cameraIndexes[1]] = CreateRandomConnectionMask(Random.Range(1, 3));
     }
 
-    // 복제 목록의 한 항목이 바뀌면 로컬 공용 저장소에도 같은 연결 수를 기록합니다.
-    private void HandleConnectionCountChanged(NetworkListEvent<int> changeEvent)
+    // 지정한 수만큼 서로 다른 전선 비트를 무작위로 켠 초기 Partial 마스크를 만듭니다.
+    private static int CreateRandomConnectionMask(int connectionCount)
+    {
+        int[] wireIndexes = { 0, 1, 2, 3 };
+        for (int index = wireIndexes.Length - 1; index > 0; index--)
+        {
+            int swapIndex = Random.Range(0, index + 1);
+            (wireIndexes[index], wireIndexes[swapIndex]) = (wireIndexes[swapIndex], wireIndexes[index]);
+        }
+
+        int connectionMask = 0;
+        int clampedConnectionCount = Mathf.Clamp(connectionCount, 0, CCTVConnectionStateStore.RequiredConnectionCount);
+        for (int index = 0; index < clampedConnectionCount; index++)
+        {
+            connectionMask |= 1 << wireIndexes[index];
+        }
+
+        return connectionMask;
+    }
+
+    // 복제 목록의 한 항목이 바뀌면 로컬 공용 저장소에도 같은 연결 마스크를 기록합니다.
+    private void HandleConnectionMaskChanged(NetworkListEvent<int> changeEvent)
     {
         if (changeEvent.Index < 0 || changeEvent.Index >= CCTVConnectionStateStore.CameraCount)
         {
             return;
         }
 
-        CCTVConnectionStateStore.SetConnectionCount(changeEvent.Index, _connectionCounts[changeEvent.Index]);
+        CCTVConnectionStateStore.SetConnectionMask(changeEvent.Index, _connectionMasks[changeEvent.Index]);
     }
 
     // 처음 스폰된 클라이언트가 현재 복제 목록 전체를 로컬 화면에 반영하도록 합니다.
     private void ApplyAllStatesLocally()
     {
-        int count = Mathf.Min(_connectionCounts.Count, CCTVConnectionStateStore.CameraCount);
+        int count = Mathf.Min(_connectionMasks.Count, CCTVConnectionStateStore.CameraCount);
         for (int cameraIndex = 0; cameraIndex < count; cameraIndex++)
         {
-            CCTVConnectionStateStore.SetConnectionCount(cameraIndex, _connectionCounts[cameraIndex]);
+            CCTVConnectionStateStore.SetConnectionMask(cameraIndex, _connectionMasks[cameraIndex]);
         }
     }
 }

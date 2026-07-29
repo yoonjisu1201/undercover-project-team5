@@ -29,6 +29,24 @@ public sealed class CCTVRepairPuzzleState
     // 필요한 전선이 모두 연결되었는지 반환합니다.
     public bool IsRepaired => ConnectedCount == WireCount;
 
+    // 현재 연결된 전선 번호를 4비트 마스크로 변환합니다.
+    public int ConnectionMask
+    {
+        get
+        {
+            int connectionMask = 0;
+            for (int wireIndex = 0; wireIndex < ConnectedTargets.Length; wireIndex++)
+            {
+                if (ConnectedTargets[wireIndex] >= 0)
+                {
+                    connectionMask |= 1 << wireIndex;
+                }
+            }
+
+            return connectionMask;
+        }
+    }
+
     // 새 퍼즐마다 오른쪽 단자의 색상 순서를 무작위로 구성합니다.
     public CCTVRepairPuzzleState()
     {
@@ -41,13 +59,14 @@ public sealed class CCTVRepairPuzzleState
         }
     }
 
-    // 서버 연결 수에 맞춰 정답 전선을 앞 번호부터 복구하거나 해제합니다.
-    public void SyncConnectionCount(int connectionCount)
+    // 서버 연결 마스크에 표시된 전선만 정확히 복구하고 나머지는 해제합니다.
+    public void SyncConnectionMask(int connectionMask)
     {
-        int clampedCount = Mathf.Clamp(connectionCount, 0, WireCount);
+        int sanitizedConnectionMask = connectionMask & CCTVConnectionStateStore.FullConnectionMask;
         for (int wireIndex = 0; wireIndex < WireCount; wireIndex++)
         {
-            ConnectedTargets[wireIndex] = wireIndex < clampedCount ? FindTargetForWire(wireIndex) : -1;
+            bool isConnected = (sanitizedConnectionMask & (1 << wireIndex)) != 0;
+            ConnectedTargets[wireIndex] = isConnected ? FindTargetForWire(wireIndex) : -1;
         }
     }
 
