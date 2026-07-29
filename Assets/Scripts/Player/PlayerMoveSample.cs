@@ -68,7 +68,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private bool _isJumping;
 
-	public GameObject HeadPivot { get => _headPivot; }
+	public GameObject HeadPivot => _headPivot;
 
 	private void Awake()
 	{
@@ -175,6 +175,8 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
+		// 내 캐릭터 카메라 찾으면, 등록
+		LocalCameraProvider.Register(_camera);
 	}
 
 	public override void OnNetworkDespawn()

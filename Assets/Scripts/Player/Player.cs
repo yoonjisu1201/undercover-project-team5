@@ -91,7 +91,14 @@ public class Player : NetworkBehaviour {
 		// 추후 이름 변경되거나, 색이 변경되면 알맞은 함수 호출하도록
 		_playerName.OnValueChanged += PlayerInfoPresenter.HandlePlayerNameChanged;
 		_playerColor.OnValueChanged += PlayerInfoPresenter.HandlePlayerColorChanged;
+		
+		// 접속 시 한번 적용하기
 		PlayerInfoPresenter.HandlePlayerColorChanged(Color.white, _playerColor.Value);
 		PlayerInfoPresenter.HandlePlayerNameChanged(null, PlayerName);
+	}
+
+	public override void OnNetworkDespawn() {
+		_playerName.OnValueChanged -= PlayerInfoPresenter.HandlePlayerNameChanged;
+		_playerColor.OnValueChanged -= PlayerInfoPresenter.HandlePlayerColorChanged;
 	}
 }
