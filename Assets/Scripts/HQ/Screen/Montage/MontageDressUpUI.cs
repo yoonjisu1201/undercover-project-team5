@@ -1,12 +1,16 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Components;
 using UnityEngine.UI;
 
 /// 본부 요원이 몽타주에 옷을 입히는 조작 UI입니다.
 /// 실제 조립과 상태 보관은 MontageSyncManager가 담당하고, 여기서는 요청만 보냅니다.
 public class MontageDressUpUI : ScreenBase {
+	
 	// 항상 탭에 같은 순서로 등장하도록 하기 위해 순서 지정
 	private readonly List<MontageParts> _partOrder = new()
 	{
@@ -53,8 +57,20 @@ public class MontageDressUpUI : ScreenBase {
 	[SerializeField] private Color _tabActiveColor = new Color(0.231f, 0.910f, 0.659f, 0.16f);
 	[SerializeField] private Color _tabInactiveColor = new Color(0f, 0f, 0f, 0f);
 
-	[Header("=== MontageSyncManager 등록 ===")]
+	[Header("=== 몽타주 동기화에 필요한 오브젝트 등록 ===")]
+	[SerializeField] private MontageClothCatalog _catalog;
 	[SerializeField] private MontageSyncManager _syncManager;
+	[SerializeField] private MontageShareManager _shareManager;
+
+	[Header("=== 몽타주 공유하기 버튼 ===")] 
+	[SerializeField] private Button _montageShareButton;
+
+	[Header("=== 몽타주 공유 버튼 텍스트 ===")]
+	[SerializeField] private LocalizeStringEvent _shareButtonText;
+
+	[Header("=== 내부에서 사용될 텍스트들 ===")]
+	[SerializeField] private LocalizedString _sendMontage;
+	[SerializeField] private LocalizedString _sendCoolDown;
 
 	// 파츠별 탭 버튼의 배경 이미지 (활성/비활성 색상 전환용)
 	private readonly Dictionary<MontageParts, Image> _tabBackgrounds = new Dictionary<MontageParts, Image>();
@@ -75,9 +91,8 @@ public class MontageDressUpUI : ScreenBase {
 
 		// 화면이 열려 있는 동안에만 선택 표시를 갱신하면 된다
 		_syncManager.OnMontageStateChanged += HandleMontageStateChanged;
-
-		// 이 화면은 로딩 패널이 사라진 뒤에만 켜지므로, 이 시점엔 RoundManager가 이미 옷 데이터 로딩을 끝냈다
-
+		_montageShareButton.onClick.AddListener(ShareMontage);
+		
 		// 현장 요원은 몽타주를 볼 수만 있고 조합할 수는 없으므로 조작 UI를 만들지 않는다
 		if (!IsLocalPlayerHeadquarter()) { return; }
 
@@ -86,9 +101,8 @@ public class MontageDressUpUI : ScreenBase {
 	}
 
 	private void OnDisable() {
-		if (_syncManager != null) {
-			_syncManager.OnMontageStateChanged -= HandleMontageStateChanged;
-		}
+		_syncManager.OnMontageStateChanged -= HandleMontageStateChanged;
+		_montageShareButton.onClick.RemoveListener(ShareMontage);
 	}
 
 	private static bool IsLocalPlayerHeadquarter() {
@@ -98,6 +112,21 @@ public class MontageDressUpUI : ScreenBase {
 		}
 
 		return player.PlayerRole == Role.Headquarter;
+	}
+
+	private void Update() {
+		float shareCooldown = RoundManager.Instance.MontageShareCooldown - (float)(NetworkManager.Singleton.ServerTime.Time - _shareManager.LastSharedTime.Value); 
+		bool shareCooldownFinished = shareCooldown <= 0f;  
+		_montageShareButton.interactable = shareCooldownFinished;
+		
+		if (shareCooldownFinished) {
+			_shareButtonText.StringReference = _sendMontage;
+		} else {
+			_shareButtonText.StringReference = _sendCoolDown;
+			_shareButtonText.StringReference.Arguments = new List<object> { (int)shareCooldown };
+		}
+		
+		_shareButtonText.RefreshString();
 	}
 
 	private void BuildTabs() {
@@ -147,7 +176,7 @@ public class MontageDressUpUI : ScreenBase {
 	   int assignedId = _syncManager.State.Get(_activePart);
 
 	   // 현재 활성 파츠에 해당하는 데이터만 필터링해 행으로 생성
-	   foreach (MontageClothData data in _syncManager.Catalog.GetAll(_activePart)) {
+	   foreach (MontageClothData data in _catalog.GetAll(_activePart)) {
 	      string recordId = $"{_activePart.ToString()}\n{data.id:00}";
 
 	      MontageRecordRow row = Instantiate(_recordRowPrefab, _recordContainer);
@@ -180,5 +209,9 @@ public class MontageDressUpUI : ScreenBase {
 		foreach (MontageRecordRow row in _spawnedRows) {
 			row.SetOn(row.Data.id == assignedId);
 		}
+	}
+	
+	private void ShareMontage() {
+		_shareManager.ShareMontageRpc();
 	}
 }

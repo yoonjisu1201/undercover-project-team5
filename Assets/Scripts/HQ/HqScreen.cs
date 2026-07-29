@@ -3,8 +3,10 @@
 public class HqScreen : InteractableBase {
 	[Header("=== 등장할 콘솔창 ===")]
 	[SerializeField] private MonitorController _consoleUi;
-	[Header("=== 인벤토리 UI 등록. 상호작용 시에 꺼주기 위함 ===")]
+	[Header("=== 상호작용 시에 꺼주기 위한 UI들 등록 ===")]
 	[SerializeField] private InventoryUI _inventoryUI;
+	[SerializeField] private MontageShareUI _montageUI;
+	
 	public override string InteractionText => "관제 콘솔 사용하기";
 
 	public override bool CanInteract(GameObject interactor) {
@@ -23,18 +25,23 @@ public class HqScreen : InteractableBase {
 		// 플레이어의 움직임 막기(콘솔 조작 동안)
 		_occupiedPlayer = interactor.GetComponent<PlayerMoveSample>();
 		
-		GameplayUiMode.Instance.ActivateCursor();
 		_inventoryUI.gameObject.SetActive(false);
+		_montageUI.gameObject.SetActive(false);
+		
+		GameplayUiMode.Instance.ActivateCursor();
+		
 		_consoleUi.gameObject.SetActive(true);
 		_consoleUi.OnScreenClosed += UnOccupiedPlayer;
 	}
 
-	public void UnOccupiedPlayer() {
+	private void UnOccupiedPlayer() {
 		_consoleUi.OnScreenClosed -= UnOccupiedPlayer;
 		
 		// 콘솔 조작 끝나면 다시 열어주기
-		GameplayUiMode.Instance.DeactivateCursor();
 		_inventoryUI.gameObject.SetActive(true);
+		_montageUI.gameObject.SetActive(true);
+		
+		GameplayUiMode.Instance.DeactivateCursor();
 		_occupiedPlayer = null;
 	}
 }
