@@ -3,11 +3,11 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// 본부의 고정된 스폰 지점에 검거도구를 배치하고, 씬 재로드/라운드 전환마다 서버 권한으로 다시 생성하는 클래스
-public sealed class AlienGunSpawner : MonoBehaviour
+// 본부의 고정된 스폰 지점에 아이템을 배치하고, 씬 재로드/라운드 전환마다 서버 권한으로 다시 생성하는 클래스
+public sealed class HqItemSpawner : MonoBehaviour
 {
-    [Header("검거도구 데이터")]
-    [SerializeField] private ItemData _captureGun;
+    [Header("스폰할 아이템 데이터")]
+    [SerializeField] private ItemData _item;
 
     [Header("본부 스폰 지점")]
     [SerializeField] private Transform[] _spawnPoints;
@@ -38,12 +38,12 @@ public sealed class AlienGunSpawner : MonoBehaviour
         SpawnTools();
     }
 
-    // 라운드 전환 시점에 RoundManager가 호출한다. 기존 검거도구를 정리하고 본부 스폰 지점에 새로 생성한다.
+    // 라운드 전환 시점에 RoundManager가 호출한다. 기존 아이템을 정리하고 본부 스폰 지점에 새로 생성한다.
     public void RespawnTools()
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
         {
-            Debug.LogWarning("[AlienGunSpawner] 서버에서만 검거도구를 재생성할 수 있습니다.", this);
+            Debug.LogWarning("[HqItemSpawner] 서버에서만 아이템을 재생성할 수 있습니다.", this);
             return;
         }
 
@@ -64,21 +64,21 @@ public sealed class AlienGunSpawner : MonoBehaviour
         {
             if (spawnPoint == null)
             {
-                Debug.LogWarning("[AlienGunSpawner] 비어 있는 스폰 지점이 있어 건너뜁니다.", this);
+                Debug.LogWarning("[HqItemSpawner] 비어 있는 스폰 지점이 있어 건너뜁니다.", this);
                 continue;
             }
 
-            GameObject toolObject = Instantiate(_captureGun.WorldPrefab, spawnPoint.position, spawnPoint.rotation);
+            GameObject toolObject = Instantiate(_item.WorldPrefab, spawnPoint.position, spawnPoint.rotation);
 
             if (!toolObject.TryGetComponent(out PickupItem pickupItem) ||
                 !toolObject.TryGetComponent(out NetworkObject networkObject))
             {
-                Debug.LogError($"[AlienGunSpawner] '{_captureGun.WorldPrefab.name}' 프리팹에 PickupItem 또는 NetworkObject가 없습니다.", this);
+                Debug.LogError($"[HqItemSpawner] '{_item.WorldPrefab.name}' 프리팹에 PickupItem 또는 NetworkObject가 없습니다.", this);
                 Destroy(toolObject);
                 continue;
             }
 
-            pickupItem.Configure(_captureGun);
+            pickupItem.Configure(_item);
             networkObject.Spawn(destroyWithScene: true);
         }
     }
@@ -96,12 +96,12 @@ public sealed class AlienGunSpawner : MonoBehaviour
 
     private void DespawnAllFieldTools()
     {
-        // 본부에서 최초 스폰된 것뿐만 아니라, 플레이어가 필드에 다시 버린 검거도구까지 찾는다.
+        // 본부에서 최초 스폰된 것뿐만 아니라, 플레이어가 필드에 다시 버린 아이템까지 찾는다.
         PickupItem[] fieldItems = FindObjectsByType<PickupItem>(FindObjectsSortMode.None);
 
         foreach (PickupItem fieldItem in fieldItems)
         {
-            if (fieldItem.ItemId != ArrestChaseManager.CaptureToolItemId)
+            if (fieldItem.ItemId != _item.ItemId)
             {
                 continue;
             }
@@ -117,15 +117,15 @@ public sealed class AlienGunSpawner : MonoBehaviour
 
     private bool ValidateSettings()
     {
-        if (_captureGun == null || _captureGun.WorldPrefab == null)
+        if (_item == null || _item.WorldPrefab == null)
         {
-            Debug.LogError("[AlienGunSpawner] 검거도구 아이템 데이터를 설정해야 합니다.", this);
+            Debug.LogError("[HqItemSpawner] 스폰할 아이템 데이터를 설정해야 합니다.", this);
             return false;
         }
 
         if (_spawnPoints == null || _spawnPoints.Length == 0)
         {
-            Debug.LogError("[AlienGunSpawner] 본부 스폰 지점을 하나 이상 등록해야 합니다.", this);
+            Debug.LogError("[HqItemSpawner] 본부 스폰 지점을 하나 이상 등록해야 합니다.", this);
             return false;
         }
 
