@@ -130,6 +130,11 @@ public class ArrestChaseManager : NetworkBehaviour
         _targetReference.Value = candidate;
         _gauge.Value = 0f;
         _state.Value = ArrestChaseState.Chasing;
+
+        if (candidate.TryGetComponent(out NpcStateMachine stateMachine))
+        {
+            stateMachine.RequestRun();
+        }
     }
 
     private void Update()
@@ -212,5 +217,6 @@ public class ArrestChaseManager : NetworkBehaviour
         _targetReference.Value = default;
         _gauge.Value = 0f;
         _state.Value = ArrestChaseState.Idle;
+
     }
 }

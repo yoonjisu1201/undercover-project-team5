@@ -119,6 +119,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcStateMachine
   _walkSpeed: 2
+  _runSpeed: 4
   _longTravelDistanceThreshold: 20
   _restIntervalDistance: 10
   _minimumRestSeconds: 1
@@ -675,8 +676,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2885793439
-  InScenePlacedSourceGlobalObjectIdHash: 2885793439
+  GlobalObjectIdHash: 3461942607
+  InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
@@ -754,10 +755,6 @@ MonoBehaviour:
   TransitionStateInfoList: []
   AnimatorParameterEntries:
     ParameterEntries:
-    - name: IsMoving
-      NameHash: 120489994
-      Synchronize: 1
-      ParameterType: 4
     - name: IsRunning
       NameHash: -887662580
       Synchronize: 1
@@ -766,6 +763,10 @@ MonoBehaviour:
       NameHash: -821380803
       Synchronize: 1
       ParameterType: 3
+    - name: IsWalking
+      NameHash: 1282839668
+      Synchronize: 1
+      ParameterType: 4
   AnimatorParametersExpanded: 0
 --- !u!114 &-5934287379106585781
 MonoBehaviour:
