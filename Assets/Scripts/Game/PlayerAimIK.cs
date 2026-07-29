@@ -8,10 +8,14 @@ public sealed class PlayerAimIK : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private Transform gun;
+    [SerializeField] private PlayerMoveSample playerMovement;
 
     [Header("Aim")]
     [SerializeField] private Vector3 gunAimAxis = Vector3.right;
     [SerializeField] private Vector3 gunUpAxis = Vector3.up;
+    [SerializeField, Range(0f, 45f)] private float maxAimPitch = 25f;
+    [SerializeField, Range(0f, 1f)] private float aimPitchWeight = 0.65f;
+    [SerializeField, Min(0f)] private float handPitchOffsetPerDegree = 0.004f;
     [SerializeField, Range(0f, 1f)] private float rotationWeight = 0.9f;
     [SerializeField, Range(-90f, 90f)] private float rightHandRoll = 20f;
     [SerializeField, Range(0f, 1f)] private float positionWeight = 0.9f;
@@ -24,10 +28,14 @@ public sealed class PlayerAimIK : MonoBehaviour
     private Animator animator;
     private int activeParameterHash;
     private bool hasActiveParameter;
+    private float currentAimPitch;
+
+    public Vector3 AimDirection => CalculateAimDirection(out _);
 
     private void Awake()
     {
         animator = GetComponent<Animator>();
+        playerMovement ??= GetComponent<PlayerMoveSample>();
         activeParameterHash = Animator.StringToHash(activeParameter);
 
         foreach (AnimatorControllerParameter parameter in animator.parameters)
@@ -41,7 +49,6 @@ public sealed class PlayerAimIK : MonoBehaviour
         }
 
         // 프리팹에서 참조가 비어 있으면 장착된 총을 이름으로 찾는다.
-        
         if (gun == null)
         {
             gun = FindChildByName(transform, "AlienCaptureGun_Visual");
@@ -62,7 +69,7 @@ public sealed class PlayerAimIK : MonoBehaviour
             return;
         }
 
-        // 총 프리팹의 로컬 축을 플레이어의 정면/위쪽 축에 맞춘다.
+        // 총 프리팹의 로컬 축을 카메라 상하 조준 방향에 맞춘다.
         Vector3 localAim = gunAimAxis.normalized;
         Vector3 localUp = Vector3.ProjectOnPlane(gunUpAxis, localAim).normalized;
         if (localUp.sqrMagnitude < Mathf.Epsilon)
@@ -71,8 +78,9 @@ public sealed class PlayerAimIK : MonoBehaviour
         }
 
         Quaternion gunLocalFrame = Quaternion.LookRotation(localAim, localUp);
-        Quaternion desiredGunFrame = Quaternion.LookRotation(transform.forward, transform.up);
-        desiredGunFrame = Quaternion.AngleAxis(rightHandRoll, transform.forward)
+        Vector3 aimDirection = CalculateAimDirection(out currentAimPitch);
+        Quaternion desiredGunFrame = Quaternion.LookRotation(aimDirection, transform.up);
+        desiredGunFrame = Quaternion.AngleAxis(rightHandRoll, aimDirection)
             * desiredGunFrame;
         Quaternion desiredGunRotation = desiredGunFrame * Quaternion.Inverse(gunLocalFrame);
         Quaternion targetHandRotation = desiredGunRotation * Quaternion.Inverse(gun.localRotation);
@@ -82,6 +90,13 @@ public sealed class PlayerAimIK : MonoBehaviour
 
         animator.SetIKRotationWeight(AvatarIKGoal.RightHand, rotationWeight);
         animator.SetIKRotation(AvatarIKGoal.RightHand, targetHandRotation);
+    }
+
+    private Vector3 CalculateAimDirection(out float pitch)
+    {
+        float viewPitch = playerMovement != null ? playerMovement.ViewPitch : 0f;
+        pitch = Mathf.Clamp(viewPitch, -maxAimPitch, maxAimPitch) * aimPitchWeight;
+        return Quaternion.AngleAxis(pitch, transform.right) * transform.forward;
     }
 
     private void MoveHandTowardCenter(AvatarIKGoal hand)
@@ -95,16 +110,15 @@ public sealed class PlayerAimIK : MonoBehaviour
             return;
         }
 
-        // 애니메이션의 손 위치를 기준으로 중앙, 좌우, 높이, 앞뒤 오프셋만 적용한다.
+        // 애니메이션의 손 위치에 중앙 보정과 카메라 상하 조준 높이를 적용한다.
         Vector3 localPosition = transform.InverseTransformPoint(handTransform.position);
         localPosition.x = Mathf.Lerp(localPosition.x, 0f, centerPull) + handSideOffset;
-        localPosition.y += handRaise;
+        localPosition.y += handRaise - currentAimPitch * handPitchOffsetPerDegree;
         localPosition.z += handForward;
 
         animator.SetIKPositionWeight(hand, positionWeight);
         animator.SetIKPosition(hand, transform.TransformPoint(localPosition));
     }
-
 
     private static Transform FindChildByName(Transform parent, string childName)
     {

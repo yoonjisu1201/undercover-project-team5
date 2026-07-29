@@ -20558,7 +20558,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 280555402
+  GlobalObjectIdHash: 3974951530
   InScenePlacedSourceGlobalObjectIdHash: 280555402
   DeferredDespawnTick: 0
   Ownership: 1
@@ -21296,13 +21296,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAimIK
   gun: {fileID: 0}
-  gunAimAxis: {x: 0, y: 0, z: -1}
+  playerMovement: {fileID: 0}
+  gunAimAxis: {x: 0.1, y: -0.1, z: -1}
   gunUpAxis: {x: 0, y: 1, z: 0}
+  maxAimPitch: 25
+  aimPitchWeight: 0.65
+  handPitchOffsetPerDegree: 0.004
   rotationWeight: 0.9
   rightHandRoll: -90
   positionWeight: 0.9
   centerPull: 0.65
-  handSideOffset: 0.12
+  handSideOffset: 0.09
   handRaise: -0.02
   handForward: 0.12
   activeParameter: IsUsingArrestTool
@@ -84599,6 +84603,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 2634770070768931860}
     m_Modifications:
+    - target: {fileID: 2058153493615741524, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 1.044
+      objectReference: {fileID: 0}
+    - target: {fileID: 2058153493615741524, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.023
+      objectReference: {fileID: 0}
+    - target: {fileID: 2058153493615741524, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.326
+      objectReference: {fileID: 0}
     - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.04
