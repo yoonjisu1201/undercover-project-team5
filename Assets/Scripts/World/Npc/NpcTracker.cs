@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -13,22 +14,36 @@ public class NpcTracker : NetworkBehaviour
     // 네트워크로 새로 스폰하지 않고 로컬에서 SetActive만 하므로, 모든 클라이언트에 미리 배치돼 있어야 한다.
     [SerializeField] private GameObject _trackerVisual;
 
+    // 현재 부착되어 활성화된 NpcTracker만 모아둔다. NPC가 150마리씩 있어도 본부 미니맵/목록 UI가
+    // 전체를 순회하지 않고 이 목록만 읽도록 하기 위함. 클라이언트마다 로컬로 유지되며,
+    // 서버가 확정한 _isTracked 값이 각자에게 동기화될 때 자신을 등록/해제한다.
+    private static readonly List<NpcTracker> _trackedInstances = new();
+    public static IReadOnlyList<NpcTracker> TrackedInstances => _trackedInstances;
+
     private readonly NetworkVariable<bool> _isTracked =
         new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     public bool IsTracked => _isTracked.Value;
 
-    // 부착 상태 변경(서버가 확정한 값)을 구독해 시각 오브젝트에 반영한다. 늦게 들어온 클라이언트도
+    // 부착 상태 변경(서버가 확정한 값)을 구독해 목록과 시각 오브젝트에 반영한다. 늦게 들어온 클라이언트도
     // 스폰 시점에 현재 값을 한 번 반영받으므로 별도 초기화가 필요 없다.
     public override void OnNetworkSpawn()
     {
         _isTracked.OnValueChanged += HandleTrackedChanged;
+        UpdateRegistry(_isTracked.Value);
         ApplyVisual(_isTracked.Value);
     }
 
     public override void OnNetworkDespawn()
     {
         _isTracked.OnValueChanged -= HandleTrackedChanged;
+        _trackedInstances.Remove(this);
+    }
+
+    // OnNetworkDespawn을 거치지 않고 파괴되는 경우(예: 강제 Destroy)를 대비한 안전장치.
+    private void OnDestroy()
+    {
+        _trackedInstances.Remove(this);
     }
 
     // PlayerInteraction이 R키(ItemUse 액션) 입력을 받았을 때, 실제로 부착 요청을 보내기 전에 로컬에서 먼저 확인하는 진입점.
@@ -86,7 +101,23 @@ public class NpcTracker : NetworkBehaviour
     // 서버가 확정한 부착 상태가 모든 클라이언트에 도착했을 때 호출된다.
     private void HandleTrackedChanged(bool previousValue, bool currentValue)
     {
+        UpdateRegistry(currentValue);
         ApplyVisual(currentValue);
+    }
+
+    private void UpdateRegistry(bool isTracked)
+    {
+        if (isTracked)
+        {
+            if (!_trackedInstances.Contains(this))
+            {
+                _trackedInstances.Add(this);
+            }
+        }
+        else
+        {
+            _trackedInstances.Remove(this);
+        }
     }
 
     private void ApplyVisual(bool isTracked)
