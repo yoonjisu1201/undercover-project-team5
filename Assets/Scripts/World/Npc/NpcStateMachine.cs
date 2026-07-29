@@ -5,10 +5,12 @@ using UnityEngine;
 [RequireComponent(typeof(NpcMovement))]
 public sealed class NpcStateMachine : MonoBehaviour
 {
-    private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
+    private static readonly int IsWalkingHash = Animator.StringToHash("IsWalking");
+    private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
 
     [Header("Movement Settings")]
     [SerializeField, Min(0f)] private float _walkSpeed = 2f;
+    [SerializeField, Min(0f)] private float _runSpeed = 4f;
 
     [Header("긴 시간 이동시 휴식 설정")]
     [SerializeField, Min(0f)] private float _longTravelDistanceThreshold = 20f; // 20M 이상 이동할 때 휴식이 발생합니다.
@@ -25,6 +27,14 @@ public sealed class NpcStateMachine : MonoBehaviour
     private bool _shouldRestDuringTravel;
     private bool _isResting;
     private bool _isWalking;
+    private bool _isRunning;
+
+    public bool IsMoving =>
+        _movement != null &&
+        (_isWalking || _isRunning) &&
+        !_isResting &&
+        !_movement.IsHeldExternally &&
+        !_movement.HasArrived;
 
 
     private void Awake()
@@ -67,8 +77,11 @@ public sealed class NpcStateMachine : MonoBehaviour
     {
         ResetTravelRest();
         _isWalking = false;
+        _isRunning = false;
         _movement.Stop();
-        SetMovingAnimation(false);
+
+        SetRunningAnimation(false);
+        SetWalkingAnimation(false);
     }
 
     // 지정한 위치로 걷도록 요청합니다.
@@ -76,9 +89,30 @@ public sealed class NpcStateMachine : MonoBehaviour
     {
         BeginTravel(worldPos);
         _isWalking = true;
+        _isRunning = false;
         _movement.SetSpeed(_walkSpeed);
         _movement.MoveTo(worldPos);
-        SetMovingAnimation(true);
+
+        SetRunningAnimation(false);
+        SetWalkingAnimation(true);
+    }
+
+    //달리기 상태로 전환하도록 요청
+    public void RequestRun()
+    {
+        ResetTravelRest();
+        _isWalking = false;
+        _isRunning = true;
+        _movement.SetSpeed(_runSpeed);
+
+        SetWalkingAnimation(false);
+        SetRunningAnimation(true);
+    }
+
+    public void RequestRun(Vector3 worldPos)
+    {
+        RequestRun();
+        _movement.MoveTo(worldPos);
     }
 
     private void BeginTravel(Vector3 destination)
@@ -117,7 +151,7 @@ public sealed class NpcStateMachine : MonoBehaviour
         float maximum = Mathf.Max(_minimumRestSeconds, _maximumRestSeconds);
         _restEndTime = Time.time + UnityEngine.Random.Range(minimum, maximum);
 
-        SetMovingAnimation(false);
+        SetWalkingAnimation(false);
     }
 
     private void UpdateRest()
@@ -131,7 +165,7 @@ public sealed class NpcStateMachine : MonoBehaviour
         _lastTravelSamplePosition = transform.position;
         _movement.Resume();
 
-        SetMovingAnimation(_isWalking);
+        SetWalkingAnimation(_isWalking);
     }
 
     private void ResetTravelRest()
@@ -142,11 +176,19 @@ public sealed class NpcStateMachine : MonoBehaviour
         _movement.Resume();
     }
 
-    private void SetMovingAnimation(bool isMoving)
+    private void SetWalkingAnimation(bool isMoving)
     {
         if (_animator != null)
         {
-            _animator.SetBool(IsMovingHash, isMoving);
+            _animator.SetBool(IsWalkingHash, isMoving);
+        }
+    }
+
+    private void SetRunningAnimation(bool isRunning)
+    {
+        if (_animator != null)
+        {
+            _animator.SetBool(IsRunningHash, isRunning);
         }
     }
 

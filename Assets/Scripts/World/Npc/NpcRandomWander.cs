@@ -28,6 +28,19 @@ public sealed class NpcRandomWander : MonoBehaviour
     private float _nextMoveTime;
     private bool _hasRequestedMove;
 
+    private bool IsChaseTarget
+    {
+        get
+        {
+            ArrestChaseManager chaseManager = ArrestChaseManager.Instance;
+
+            return chaseManager != null &&
+                   chaseManager.CurrentState == ArrestChaseState.Chasing &&
+                   chaseManager.Target != null &&
+                   chaseManager.Target.gameObject == gameObject;
+        }
+    }
+
     // 배회 영역으로 쓰는 콜라이더. 상호작용 트리거 판정(PlayerInteraction)에서 이 콜라이더는 제외하기 위해 노출한다.
     public Collider WanderAreaCollider => _wanderArea;
 
@@ -85,14 +98,22 @@ public sealed class NpcRandomWander : MonoBehaviour
             return;
         }
 
-        if (Time.time < _nextMoveTime)
+        if (!IsChaseTarget &&Time.time < _nextMoveTime)
         {
             return;
         }
 
         if (TryGetRandomDestination(out Vector3 destination))
         {
-            _stateMachine.RequestWalk(destination);
+            if (IsChaseTarget)
+            {
+                _stateMachine.RequestRun(destination);
+            }
+            else
+            {
+                _stateMachine.RequestWalk(destination);
+            }
+
             _hasRequestedMove = true;
             return;
         }
@@ -153,6 +174,13 @@ public sealed class NpcRandomWander : MonoBehaviour
 
     private void ScheduleNextMove()
     {
+        if(IsChaseTarget)
+        {
+            _nextMoveTime = Time.time;
+
+            return;
+        }
+
         float minimum = Mathf.Min(_minimumIdleSeconds, _maximumIdleSeconds);
         float maximum = Mathf.Max(_minimumIdleSeconds, _maximumIdleSeconds);
         _nextMoveTime = Time.time + Random.Range(minimum, maximum);
