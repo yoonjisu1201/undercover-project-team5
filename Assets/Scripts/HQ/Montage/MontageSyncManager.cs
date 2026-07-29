@@ -19,6 +19,17 @@ public class MontageSyncManager : MontageSyncBase {
 		RequestSetClothRpc(part, clothId);
 	}
 
+	/// 본부 요원이 조합 중인 실시간 몽타주를 전부 벗길 때 호출합니다.
+	public void RequestReset() {
+		if (!IsSpawned) {
+			Debug.LogError("[MontageSyncManager] 스폰되기 전에 몽타주 초기화를 요청했습니다.", this);
+			return;
+		}
+
+		RequestResetRpc();
+	}
+
+
 	[Rpc(SendTo.Server)]
 	private void RequestSetClothRpc(MontageParts part, int clothId, RpcParams rpcParams = default) {
 		ulong senderClientId = rpcParams.Receive.SenderClientId;
@@ -38,4 +49,17 @@ public class MontageSyncManager : MontageSyncBase {
 
 		_montageState.Value = _montageState.Value.WithCloth(part, clothId);
 	}
+
+	[Rpc(SendTo.Server)]
+	private void RequestResetRpc(RpcParams rpcParams = default) {
+		ulong senderClientId = rpcParams.Receive.SenderClientId;
+
+		if (!IsHeadquarter(senderClientId)) {
+			Debug.LogWarning($"[MontageSyncManager] 본부 요원이 아닌 클라이언트({senderClientId})의 몽타주 초기화 요청을 무시했습니다.", this);
+			return;
+		}
+
+		_montageState.Value = MontageState.Empty;
+	}
+
 }
