@@ -66,6 +66,18 @@ public class NpcTracker : NetworkBehaviour
         RequestAttachRpc();
     }
 
+    // 서버가 라운드 전환/게임 재시작 시점에 이전 라운드에 부착됐던 추적기를 해제한다.
+    // MiniGameInteractable.ResetForNewRound()와 같은 목적, 같은 호출 시점(RoundManager)을 따른다.
+    public void ResetForNewRound()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        _isTracked.Value = false;
+    }
+
     // 클라이언트 요청을 신뢰하지 않고, 서버에서 "정말 이 NPC 근처에 있는지 + 정말 추적기를 갖고 있는지"를
     // 다시 확인한 뒤에만 부착을 확정한다.
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]

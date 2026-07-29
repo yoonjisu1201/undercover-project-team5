@@ -255,6 +255,7 @@ public class RoundManager : NetworkBehaviour
             case RoundState.RoundClear:
                 _currentRoundIndex.Value++;
                 ResetMiniGamesForNewRound();
+                ResetNpcTrackersForNewRound();
                 _clueSpawner.RespawnClues(); // 다음 라운드 마다 단서 재생성 (인벤토리 초기화 포함)
                 _alienGunSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 검거도구 재생성
                 _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[_currentRoundIndex.Value].Duration;
@@ -273,6 +274,7 @@ public class RoundManager : NetworkBehaviour
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _currentRoundIndex.Value = 0;
         ResetMiniGamesForNewRound();
+        ResetNpcTrackersForNewRound();
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[0].Duration;
         _currentState.Value = RoundState.InRound;
         AnnounceRoundStartRpc(0);
@@ -291,6 +293,23 @@ public class RoundManager : NetworkBehaviour
         foreach (MiniGameInteractable miniGame in miniGames)
         {
             miniGame.ResetForNewRound();
+        }
+    }
+
+    // 서버가 이전 라운드에 부착된 위치추적기를 모두 해제한다.
+    // NpcTracker.TrackedInstances(현재 부착된 것만 모은 목록)를 복사본으로 순회한다 —
+    // ResetForNewRound()가 내부에서 이 목록 자체를 갱신(제거)하므로 원본을 그대로 돌면 컬렉션 변경 예외가 난다.
+    private void ResetNpcTrackersForNewRound()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        List<NpcTracker> trackedNpcs = new(NpcTracker.TrackedInstances);
+        foreach (NpcTracker tracker in trackedNpcs)
+        {
+            tracker.ResetForNewRound();
         }
     }
 
