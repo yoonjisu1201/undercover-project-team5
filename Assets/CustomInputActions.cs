@@ -183,7 +183,7 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
                     ""initialStateCheck"": false
                 },
                 {
-                    ""name"": ""AlienGun"",
+                    ""name"": ""ItemUse"",
                     ""type"": ""Button"",
                     ""id"": ""bb9724dd-f49f-4e4a-92b2-96d958920b69"",
                     ""expectedControlType"": """",
@@ -363,7 +363,7 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""AlienGun"",
+                    ""action"": ""ItemUse"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -423,7 +423,7 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         m_Player_Slot2 = m_Player.FindAction("Slot2", throwIfNotFound: true);
         m_Player_Slot3 = m_Player.FindAction("Slot3", throwIfNotFound: true);
         m_Player_Slot4 = m_Player.FindAction("Slot4", throwIfNotFound: true);
-        m_Player_AlienGun = m_Player.FindAction("AlienGun", throwIfNotFound: true);
+        m_Player_ItemUse = m_Player.FindAction("ItemUse", throwIfNotFound: true);
         m_Player_InventoryScroll = m_Player.FindAction("InventoryScroll", throwIfNotFound: true);
         // System
         m_System = asset.FindActionMap("System", throwIfNotFound: true);
@@ -519,7 +519,7 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_Slot2;
     private readonly InputAction m_Player_Slot3;
     private readonly InputAction m_Player_Slot4;
-    private readonly InputAction m_Player_AlienGun;
+    private readonly InputAction m_Player_ItemUse;
     private readonly InputAction m_Player_InventoryScroll;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
@@ -573,9 +573,9 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         /// </summary>
         public InputAction @Slot4 => m_Wrapper.m_Player_Slot4;
         /// <summary>
-        /// Provides access to the underlying input action "Player/AlienGun".
+        /// Provides access to the underlying input action "Player/ItemUse".
         /// </summary>
-        public InputAction @AlienGun => m_Wrapper.m_Player_AlienGun;
+        public InputAction @ItemUse => m_Wrapper.m_Player_ItemUse;
         /// <summary>
         /// Provides access to the underlying input action "Player/InventoryScroll".
         /// </summary>
@@ -636,9 +636,9 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
             @Slot4.started += instance.OnSlot4;
             @Slot4.performed += instance.OnSlot4;
             @Slot4.canceled += instance.OnSlot4;
-            @AlienGun.started += instance.OnAlienGun;
-            @AlienGun.performed += instance.OnAlienGun;
-            @AlienGun.canceled += instance.OnAlienGun;
+            @ItemUse.started += instance.OnItemUse;
+            @ItemUse.performed += instance.OnItemUse;
+            @ItemUse.canceled += instance.OnItemUse;
             @InventoryScroll.started += instance.OnInventoryScroll;
             @InventoryScroll.performed += instance.OnInventoryScroll;
             @InventoryScroll.canceled += instance.OnInventoryScroll;
@@ -683,9 +683,9 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
             @Slot4.started -= instance.OnSlot4;
             @Slot4.performed -= instance.OnSlot4;
             @Slot4.canceled -= instance.OnSlot4;
-            @AlienGun.started -= instance.OnAlienGun;
-            @AlienGun.performed -= instance.OnAlienGun;
-            @AlienGun.canceled -= instance.OnAlienGun;
+            @ItemUse.started -= instance.OnItemUse;
+            @ItemUse.performed -= instance.OnItemUse;
+            @ItemUse.canceled -= instance.OnItemUse;
             @InventoryScroll.started -= instance.OnInventoryScroll;
             @InventoryScroll.performed -= instance.OnInventoryScroll;
             @InventoryScroll.canceled -= instance.OnInventoryScroll;
@@ -896,12 +896,12 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnSlot4(InputAction.CallbackContext context);
         /// <summary>
-        /// Method invoked when associated input action "AlienGun" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// Method invoked when associated input action "ItemUse" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnAlienGun(InputAction.CallbackContext context);
+        void OnItemUse(InputAction.CallbackContext context);
         /// <summary>
         /// Method invoked when associated input action "InventoryScroll" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>

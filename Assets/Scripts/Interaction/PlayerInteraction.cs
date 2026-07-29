@@ -63,6 +63,7 @@ public class PlayerInteraction : NetworkBehaviour
         if (_inventory != null)
         {
             _inventory.ItemAdded += HandleItemAdded;
+            _inventory.InventoryChanged += HandleInventoryChanged;
         }
     }
 
@@ -71,6 +72,7 @@ public class PlayerInteraction : NetworkBehaviour
         if (_inventory != null)
         {
             _inventory.ItemAdded -= HandleItemAdded;
+            _inventory.InventoryChanged -= HandleInventoryChanged;
         }
     }
 
@@ -206,6 +208,17 @@ public class PlayerInteraction : NetworkBehaviour
         if (TryGetClueIndex(itemId, out int clueIndex))
         {
             ShowClue(clueIndex);
+        }
+    }
+
+    // 같은 대상을 계속 조준 중이어도, 선택 슬롯이 바뀌면(예: 스크롤로 추적기 선택/해제) 안내 문구를 바로 갱신한다.
+    private void HandleInventoryChanged()
+    {
+        if (_currentTarget != null)
+        {
+            _inventoryUI?.SetInteractionPrompt(
+                _currentTarget.GetInteractionText(gameObject),
+                _currentTarget.ShowInteractionKeyHint(gameObject));
         }
     }
 
@@ -409,7 +422,8 @@ public class PlayerInteraction : NetworkBehaviour
         _currentTarget = nextTarget;
         _currentTarget?.SetOutline(true);
 
-        string interactionText = _currentTarget?.InteractionText;
-        _inventoryUI?.SetInteractionPrompt(interactionText);
+        string interactionText = _currentTarget?.GetInteractionText(gameObject);
+        bool showKeyHint = _currentTarget?.ShowInteractionKeyHint(gameObject) ?? true;
+        _inventoryUI?.SetInteractionPrompt(interactionText, showKeyHint);
     }
 }

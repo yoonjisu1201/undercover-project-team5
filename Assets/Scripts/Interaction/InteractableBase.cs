@@ -10,6 +10,13 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
     public abstract bool CanInteract(GameObject interactor);
     public abstract void Interact(GameObject interactor);
 
+    // 조준 중인 플레이어 상태(예: 선택한 아이템)에 따라 안내 문구를 다르게 보여주고 싶을 때 오버라이드한다.
+    // 기본은 정적인 InteractionText를 그대로 반환한다.
+    public virtual string GetInteractionText(GameObject interactor) => InteractionText;
+
+    // 안내 문구 옆에 키 힌트(" : [E]")를 보여줄지 결정한다. 눌러도 아무 동작이 없는 안내성 문구일 때 false로 오버라이드한다.
+    public virtual bool ShowInteractionKeyHint(GameObject interactor) => true;
+
     // 화면 중심 조준 판정 반경에 곱해지는 배율. 기본은 1(PlayerInteraction의 공통 반경 그대로 사용).
     public virtual float AimRadiusMultiplier => 1f;
 
