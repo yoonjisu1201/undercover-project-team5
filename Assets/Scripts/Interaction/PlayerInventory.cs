@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -7,11 +8,14 @@ public class PlayerInventory : NetworkBehaviour
     private const int InventorySize = 4;
 
     [SerializeField] private InventorySlot[] _slots;
+    // 미니게임에 맡긴 아이템은 일반 인벤토리 슬롯을 차지하지 않고 플레이어가 별도로 보관한다.
+    private readonly List<string> _miniGameItems = new();
 
     private readonly NetworkVariable<int> _selectedIndex =
         new(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     public InventorySlot[] Slots => _slots;
+    public IReadOnlyList<string> MiniGameItems => _miniGameItems;
     public int SelectedIndex => _selectedIndex.Value;
     public bool HasAnyItem => FindFirstOccupiedSlot() >= 0;
     public bool IsFull => FindEmptySlot() < 0;
@@ -145,6 +149,83 @@ public class PlayerInventory : NetworkBehaviour
         return true;
     }
 
+    // 미니게임에 아이템 한 개를 넘기고 일반 인벤토리 슬롯에서는 제거한다.
+    public bool MoveItemToMiniGame(string itemId)
+    {
+        if (string.IsNullOrEmpty(itemId) || FindItemSlot(itemId) < 0)
+        {
+            return false;
+        }
+
+        if (IsServer)
+        {
+            return MoveItemToMiniGameLocally(itemId);
+        }
+
+        if (!IsOwner || !MoveItemToMiniGameLocally(itemId))
+        {
+            return false;
+        }
+
+        RemoveMiniGameItemServerRpc(itemId);
+        return true;
+    }
+
+    [Rpc(SendTo.Server)]
+    private void RemoveMiniGameItemServerRpc(string itemId)
+    {
+        MoveItemToMiniGameLocally(itemId);
+    }
+
+    // 미니게임 종료 시 보관함의 모든 아이템을 인벤토리로 반환하지 않고 폐기한다.
+    public void DiscardMiniGameItems()
+    {
+        if (_miniGameItems.Count == 0)
+        {
+            return;
+        }
+
+        _miniGameItems.Clear();
+        if (!IsServer)
+        {
+            if (!IsOwner)
+            {
+                return;
+            }
+
+            DiscardMiniGameItemsServerRpc();
+        }
+    }
+
+    [Rpc(SendTo.Server)]
+    private void DiscardMiniGameItemsServerRpc()
+    {
+        _miniGameItems.Clear();
+    }
+
+    private bool MoveItemToMiniGameLocally(string itemId)
+    {
+        if (!RemoveItemByIdLocally(itemId))
+        {
+            return false;
+        }
+
+        _miniGameItems.Add(itemId);
+        return true;
+    }
+
+    private bool RemoveItemByIdLocally(string itemId)
+    {
+        int itemIndex = FindItemSlot(itemId);
+        if (itemIndex < 0)
+        {
+            return false;
+        }
+
+        RemoveItemAt(itemIndex);
+        return true;
+    }
+
     private bool RemoveSelectedItemLocally()
     {
         if (_selectedIndex.Value < 0 || _selectedIndex.Value >= InventorySize)
@@ -233,6 +314,8 @@ public class PlayerInventory : NetworkBehaviour
         {
             _slots[i].Clear();
         }
+
+        _miniGameItems.Clear();
 
         // _selectedIndex는 Owner만 쓸 수 있는 NetworkVariable이라, 서버가 남의 인벤토리를 정리할 때는
         // 여기서 건드리지 않고 오너 클라이언트에서 실행되는 호출(ClearAllItemsOwnerRpc)에서만 반영한다.

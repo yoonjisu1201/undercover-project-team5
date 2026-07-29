@@ -317,7 +317,11 @@ public class PlayerInteraction : NetworkBehaviour
         }
 
         // 서버가 월드 아이템을 생성하고 네트워크 오브젝트로 스폰한다.
-        GameObject droppedObject = Instantiate(itemData.WorldPrefab, dropPosition, Quaternion.identity);
+        // 건전지는 원통이 옆으로 눕도록 고정 회전을 사용하고, 나머지 아이템은 기존 회전을 유지한다.
+        Quaternion dropRotation = itemId.StartsWith("Battery", System.StringComparison.OrdinalIgnoreCase)
+            ? Quaternion.Euler(90f, 0f, 90f)
+            : Quaternion.identity;
+        GameObject droppedObject = Instantiate(itemData.WorldPrefab, dropPosition, dropRotation);
 
         //--- 드롭한 단서가 기존 단서 번호를 유지하도록 데이터 전달 ---//
         if (droppedObject.TryGetComponent(out PickupItem droppedPickupItem))

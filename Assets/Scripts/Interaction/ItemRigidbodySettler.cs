@@ -7,14 +7,16 @@ using UnityEngine;
 // 바닥에 안정적으로 안착한 뒤 Kinematic 상태로 고정한다.
 public sealed class ItemRigidbodySettler : NetworkBehaviour
 {
-    // 바닥 접촉이 이 시간 동안 유지되면 안착한 것으로 판정한다.
+    // 스폰 후 이 시간이 지나고 바닥에 닿아 있으면 안착한 것으로 판정한다.
     private const float SettleDuration = 1f;
+
+    [SerializeField] private bool _alignToGround = true;
 
     private Rigidbody _rigidbody;
     private bool _hasGroundContact;
     private Vector3 _groundNormal = Vector3.up;
     private Vector3 _groundPoint;
-    private float _stableDuration;
+    private float _spawnElapsed;
 
     // 네트워크 스폰 시 서버와 클라이언트의 Rigidbody 역할을 구분한다.
     // 서버는 물리를 계산하고, 클라이언트는 Kinematic 상태로 서버 위치만 따른다.
@@ -34,6 +36,7 @@ public sealed class ItemRigidbodySettler : NetworkBehaviour
         }
 
         _rigidbody.isKinematic = false;
+        _spawnElapsed = 0f;
         _rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
         _rigidbody.constraints =
@@ -41,8 +44,7 @@ public sealed class ItemRigidbodySettler : NetworkBehaviour
             RigidbodyConstraints.FreezeRotationZ;
     }
 
-    // 매 물리 프레임마다 바닥 접촉이 유지된 시간을 확인한다.
-    // 안정 상태가 일정 시간 유지되면 Rigidbody를 Kinematic으로 전환한다.
+    // 스폰 후 1초가 지났고 현재 바닥에 닿아 있으면 즉시 Kinematic으로 전환한다.
     private void FixedUpdate()
     {
         if (!IsSpawned || !IsServer || _rigidbody == null || _rigidbody.isKinematic)
@@ -50,28 +52,32 @@ public sealed class ItemRigidbodySettler : NetworkBehaviour
             return;
         }
 
-        _stableDuration = _hasGroundContact
-            ? _stableDuration + Time.fixedDeltaTime
-            : 0f;
+        _spawnElapsed += Time.fixedDeltaTime;
+        bool canSettle = _spawnElapsed >= SettleDuration && _hasGroundContact;
         _hasGroundContact = false;
 
-        if (_stableDuration < SettleDuration)
+        if (!canSettle)
         {
             return;
         }
 
-        Quaternion groundAlignment = Quaternion.FromToRotation(transform.up, _groundNormal);
-
         _rigidbody.linearVelocity = Vector3.zero;
         _rigidbody.angularVelocity = Vector3.zero;
-        _rigidbody.position =
-            _groundPoint + groundAlignment * (_rigidbody.position - _groundPoint);
-        _rigidbody.rotation = groundAlignment * _rigidbody.rotation;
+
+        // 건전지처럼 고정된 눕힘 회전이 필요한 아이템은 현재 회전을 그대로 유지한다.
+        if (_alignToGround)
+        {
+            Quaternion groundAlignment = Quaternion.FromToRotation(transform.up, _groundNormal);
+            _rigidbody.position =
+                _groundPoint + groundAlignment * (_rigidbody.position - _groundPoint);
+            _rigidbody.rotation = groundAlignment * _rigidbody.rotation;
+        }
+
         _rigidbody.isKinematic = true;
     }
 
     // 위쪽을 향하는 충돌 법선을 감지해 아이템이 바닥 위에 있는지 기록한다.
-    // 실제 안착 판정은 FixedUpdate에서 접촉이 유지된 시간을 검사한다.
+    // 실제 안착 판정은 FixedUpdate에서 스폰 경과 시간과 함께 검사한다.
     private void OnCollisionStay(Collision collision)
     {
         if (!IsSpawned || !IsServer || _rigidbody == null || _rigidbody.isKinematic)

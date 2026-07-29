@@ -17,7 +17,7 @@ public class UIDraggableItem : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     private RectTransform _rect;
     private RectTransform _dragRoot;
     private CanvasGroup _canvasGroup;
-    private Vector2 _dragOffset;
+    private Vector3 _dragOffset;
 
     public int CurrentSlotIndex { get; set; } = -1;
     public object Payload { get; private set; }
@@ -38,19 +38,19 @@ public class UIDraggableItem : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         _rect.SetParent(_dragRoot, true);
         _rect.SetAsLastSibling();
 
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                _dragRoot, eventData.position, eventData.pressEventCamera, out Vector2 pointerPosition))
+        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
+                _dragRoot, eventData.position, eventData.pressEventCamera, out Vector3 pointerPosition))
         {
-            _dragOffset = _rect.anchoredPosition - pointerPosition;
+            _dragOffset = _rect.position - pointerPosition;
         }
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                _dragRoot, eventData.position, eventData.pressEventCamera, out Vector2 point))
+        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
+                _dragRoot, eventData.position, eventData.pressEventCamera, out Vector3 point))
         {
-            _rect.anchoredPosition = point + _dragOffset;
+            _rect.position = point + _dragOffset;
         }
     }
 

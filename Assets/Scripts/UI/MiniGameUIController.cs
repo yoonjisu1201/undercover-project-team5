@@ -38,7 +38,7 @@ public sealed class MiniGameUIController : MonoBehaviour
         float remaining = RoundManager.Instance.GetRemainingTime();
         int minutes = Mathf.FloorToInt(remaining / 60f);
         int seconds = Mathf.FloorToInt(remaining % 60f);
-        _timerText.text = $"TIME  {minutes:00}:{seconds:00}";
+        _timerText.text = $"남은 시간  {minutes:00}:{seconds:00}";
     }
 
     // UI를 연 월드 미니게임 기계를 연결한다.
@@ -63,8 +63,6 @@ public sealed class MiniGameUIController : MonoBehaviour
             return;
         }
 
-        SetText("ResultTitle", "완료된 게임");
-        SetText("ResultMessage", "이미 완료되어 다시 플레이할 수 없습니다.");
         overlay.gameObject.SetActive(true);
     }
 
@@ -95,18 +93,21 @@ public sealed class MiniGameUIController : MonoBehaviour
         }
 
         GameplayUiMode.Instance?.DeactivateCursor();
+
+        // 단계형 미니게임은 UI를 보관해 다시 열었을 때 완료한 단계부터 이어간다.
+        bool shouldPreserveProgress =
+            TryGetComponent<SubwayRouteMiniGame>(out _) ||
+            TryGetComponent<CCTVSignalRepairGame>(out _);
+        if (submitCompletion && !_completionReady && shouldPreserveProgress)
+        {
+            gameObject.SetActive(false);
+            _owner?.NotifyUISuspended(this);
+            _isClosing = false;
+            return;
+        }
+
         _owner?.NotifyUIClosed(this);
         Destroy(gameObject);
-    }
-
-    // 이름으로 찾은 자식 Text의 문구를 변경한다.
-    private void SetText(string childName, string value)
-    {
-        Transform child = FindChild(childName);
-        if (child != null && child.TryGetComponent(out TMP_Text text))
-        {
-            text.text = value;
-        }
     }
 
     // 비활성 오브젝트를 포함해 이름이 같은 자식을 찾는다.
