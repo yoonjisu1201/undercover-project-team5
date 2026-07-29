@@ -46,7 +46,7 @@ public class NpcTracker : NetworkBehaviour
         _trackedInstances.Remove(this);
     }
 
-    // PlayerInteraction이 R키(ItemUse 액션) 입력을 받았을 때, 실제로 부착 요청을 보내기 전에 로컬에서 먼저 확인하는 진입점.
+    // PlayerInteraction이 E키(Interact 액션) 입력을 받았을 때, 실제로 부착 요청을 보내기 전에 로컬에서 먼저 확인하는 진입점.
     public bool CanAttach(GameObject interactor)
     {
         return IsSpawned && !_isTracked.Value && IsTrackerItemSelected(interactor);
