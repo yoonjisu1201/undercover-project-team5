@@ -31,11 +31,11 @@ public class HqScreen : InteractableBase {
 		GameplayUiMode.Instance.ActivateCursor();
 		
 		_consoleUi.gameObject.SetActive(true);
-		_consoleUi.OnScreenClosed += UnOccupiedPlayer;
+		_consoleUi.OnScreenClosed += HandleTabClosed;
 	}
 
-	private void UnOccupiedPlayer() {
-		_consoleUi.OnScreenClosed -= UnOccupiedPlayer;
+	private void HandleTabClosed() {
+		_consoleUi.OnScreenClosed -= HandleTabClosed;
 		
 		// 콘솔 조작 끝나면 다시 열어주기
 		_inventoryUI.gameObject.SetActive(true);
