@@ -1,12 +1,15 @@
 ﻿using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class SubwayMapUI : MonoBehaviour, IDragHandler, IScrollHandler {
-	[Header("=== 실제 조작할 지하철 노선도 사진 ===")] 
+	[Header("=== 지하철 노선도 사진 ===")] 
 	[SerializeField] private RectTransform _subwayMap;
-	[Header("=== 뷰포트 크기 확인 ===")] 
+	[Header("=== 뷰포트 ===")] 
 	[SerializeField] private RectTransform _viewPort;
+	[Header("=== 닫기 버튼 ===")]
+	[SerializeField] private Button _closeButton;
 
 	[Header("=== 조작 관련 변수 ===")]
 	[SerializeField] [Range(0.5f, 2.0f)] private float _dragSpeed;
@@ -15,11 +18,15 @@ public class SubwayMapUI : MonoBehaviour, IDragHandler, IScrollHandler {
 	[SerializeField] [Range(2.0f, 4.0f)] private float _maxScale;
 	
 	public event Action OnWindowClosed;
+	
+	private void OnEnable() {
+		_closeButton.onClick.AddListener(() => gameObject.SetActive(false));
+	}
 
 	private void OnDisable() {
 		OnWindowClosed?.Invoke();
+		_closeButton.onClick.RemoveAllListeners();
 	}
-
 
 	public void OnDrag(PointerEventData eventData) {
 		_subwayMap.anchoredPosition += eventData.delta * _dragSpeed;
