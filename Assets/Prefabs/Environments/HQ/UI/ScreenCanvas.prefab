@@ -1148,8 +1148,8 @@ MonoBehaviour:
   _cctvButton: {fileID: 196560457406436817}
   _mapScreen: {fileID: 1794221970418142255}
   _mapButton: {fileID: 111445274537772698}
-  _silhouetteScreen: {fileID: 565702300490820794}
-  _silhouetteButton: {fileID: 1082945771004450053}
+  _montageScreen: {fileID: 0}
+  _montageButton: {fileID: 0}
   _closeButton: {fileID: 5091933955029166474}
 --- !u!1 &2261300169015736222
 GameObject:
@@ -1624,6 +1624,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: debecbb0f44874e4d921017f982deaa4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  _minimapCamera: {fileID: 0}
+  _dragSensitivity: 0.002
+  _minOrthographicSize: 40
+  _maxOrthographicSize: 200
+  _zoomSensitivity: 10
+  _panBoundsMin: {x: 0, y: 0}
+  _panBoundsMax: {x: 0, y: 0}
 --- !u!1 &4080317626553020675
 GameObject:
   m_ObjectHideFlags: 0
@@ -2712,6 +2719,78 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!1 &6969398619508364363
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2192247268249153569}
+  - component: {fileID: 2444777236003838219}
+  - component: {fileID: 1081721870848617270}
+  m_Layer: 0
+  m_Name: DisconnectedCamera
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!224 &2192247268249153569
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6969398619508364363}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6811942124743027090}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &2444777236003838219
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6969398619508364363}
+  m_CullTransparentMesh: 1
+--- !u!114 &1081721870848617270
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6969398619508364363}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1344c3c82d62a2a41a3576d8abb8e3ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.RawImage
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Texture: {fileID: 2800000, guid: f103d24434be80c4ba30798cbf5599bf, type: 3}
+  m_UVRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
 --- !u!1 &7074083435245409883
 GameObject:
   m_ObjectHideFlags: 0
@@ -2848,6 +2927,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5490004382871741362}
+  - {fileID: 2192247268249153569}
   - {fileID: 3767523357710834831}
   - {fileID: 8382707408033412140}
   - {fileID: 2972454259654440108}
@@ -3591,17 +3671,6 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 8477469307559161945}
   m_SourcePrefab: {fileID: 100100000, guid: e12af39785f23d746acaff73a554e047, type: 3}
---- !u!114 &565702300490820794 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 2967529716427325136, guid: e12af39785f23d746acaff73a554e047, type: 3}
-  m_PrefabInstance: {fileID: 3384190907765002858}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3bdfd18b65384b84cb7810988bda6a81, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SilhouetteDressUpUI
 --- !u!1 &1190079667857649695 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4499954284017836661, guid: e12af39785f23d746acaff73a554e047, type: 3}

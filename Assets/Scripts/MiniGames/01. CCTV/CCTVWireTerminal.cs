@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
+// 시작 단자의 포인터 드래그 이벤트를 CCTV 수리 게임에 전달합니다.
 public sealed class CCTVWireTerminal : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     private CCTVSignalRepairGame _game;
