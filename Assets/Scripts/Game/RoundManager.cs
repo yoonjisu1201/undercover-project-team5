@@ -21,7 +21,9 @@ public class RoundConfig
 {
     public float Duration = 600f;          // 라운드 제한 시간 (초 단위)
     public float ClearWaitDuration = 5f;  // 클리어 후 다음 라운드 자동 시작까지 대기 시간
+    public float MontageShareCooldown = 20f; // 몽타주 재전송 쿨타임
 }
+
 public class RoundManager : NetworkBehaviour
 {
     public static RoundManager Instance { get; private set; }
@@ -48,7 +50,10 @@ public class RoundManager : NetworkBehaviour
     [SerializeField] private AlienGunSpawner _alienGunSpawner;
 
     [Header("게임 시작하면서 몽타주 데이터 로딩하기 위함")]
+    [Header("게임 시작하면서 몽타주 의류 데이터 로딩하기 위함")]
+    [SerializeField] private MontageClothCatalog _catalog;
     [SerializeField] private MontageSyncManager _syncManager;
+    [SerializeField] private MontageShareManager _shareManager;
 
     private readonly NetworkVariable<RoundState> _currentState =
         new(RoundState.Waiting, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -89,7 +94,8 @@ public class RoundManager : NetworkBehaviour
     // HQ 타이머 UI가 남은 시간 비율(색상 변화 등)을 계산하려면 현재 라운드의 총 시간이 필요해서 노출
     public float RoundDuration => CurrentState == RoundState.InRound ?
         _rounds[_currentRoundIndex.Value].Duration : 0f;
-
+    public float MontageShareCooldown => CurrentState == RoundState.InRound ?
+        _rounds[_currentRoundIndex.Value].MontageShareCooldown : 0f;
 
     // 투표/검거 시스템이 아직 없어 임시로 노출 — 각 시스템이 만들어지면 이 프로퍼티를 참조해 입력을 막는다.
     public bool CanVote => _currentState.Value == RoundState.InRound;
@@ -170,13 +176,10 @@ public class RoundManager : NetworkBehaviour
         _playerSpawner.SpawnPlayer(NetworkManager.Singleton.LocalClient.PlayerObject);
 
         // 몽타주 옷 데이터를 미리 로딩하고, 지금까지 조합된 몽타주를 내 화면에도 조립해둔다.
-        if (_syncManager != null) {
-            await _syncManager.InitializeAsync();
-        }
-        else {
-            Debug.LogError("[RoundManager] MontageSyncManager가 없어 몽타주 준비를 건너뜁니다.", this);
-        }
-
+        await _catalog.LoadClothData();
+        await _syncManager.InitializeAsync();
+        await _shareManager.InitializeAsync();
+        
         ReportSpawnReadyServerRpc();
     }
 

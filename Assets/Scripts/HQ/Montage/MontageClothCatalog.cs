@@ -3,11 +3,12 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
+using Unity.Netcode;
 using UnityEngine;
 
 /// 몽타주에 쓰이는 옷 데이터를 파츠별로 로드해두고, id로 다시 찾을 수 있게 해줍니다.
 /// 동기화된 상태에는 옷 id만 담기므로, 그 id로 프리팹을 찾는 일은 모든 클라이언트가 해야 합니다.
-public class MontageClothCatalog {
+public class MontageClothCatalog : MonoBehaviour {
 	private string GetLoadPath(MontageParts part) => Path.Combine("Montage", "ClothData", part.ToString());
 	
 	private readonly Dictionary<MontageParts, Dictionary<int, MontageClothData>> _dataByParts = new();
@@ -17,13 +18,24 @@ public class MontageClothCatalog {
 	private bool _loadStarted;
 
 	// 옷 데이터를 전체 로드합니다.
-	public UniTask EnsureLoadedAsync() {
-		if (!_loadStarted) {
-			_loadStarted = true;
-			_loadTask = LoadAsync().Preserve();
+	public UniTask LoadClothData() {
+		// 전체 로딩은 Server만. 나머지는 확인용 로그들
+		if (!NetworkManager.Singleton.LocalClient.PlayerObject.TryGetComponent(out Player value)) {
+			Debug.LogError($"[MontageClothCatalog] Player Component를 찾지 못했습니다.");
+			return UniTask.CompletedTask;
 		}
-
-		return _loadTask;
+		
+		if (value.PlayerRole ==  Role.Headquarter) {
+			if (!_loadStarted) {
+				Debug.Log($"[MontageClothCatalog] 본부이기에 몽타주 데이터 전체 로딩합니다.");
+				_loadStarted = true;
+				_loadTask = LoadAsync().Preserve();
+			}
+			
+			return _loadTask;
+		}
+		Debug.Log($"[MontageClothCatalog] 현장이기에 몽타주 로딩하지 않았습니다.");
+		return UniTask.CompletedTask;
 	}
 
 	private async UniTask LoadAsync() {
