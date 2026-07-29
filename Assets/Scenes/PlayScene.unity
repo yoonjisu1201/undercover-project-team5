@@ -60464,6 +60464,7 @@ GameObject:
   - component: {fileID: 361850272}
   - component: {fileID: 361850273}
   - component: {fileID: 361850274}
+  - component: {fileID: 361850275}
   m_Layer: 0
   m_Name: MapRegionSystem
   m_TagString: Untagged
@@ -60524,6 +60525,81 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e657b54f7df98949ad6121ad6c8578a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RoundSpawnCoordinator
+--- !u!114 &361850275
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 361850271}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cc9c61919054cb4b855a5136e244937, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BatterySpawner
+  _batteryTypes:
+  - {fileID: 11400000, guid: f54effa30c8be5a40af1147571bcb582, type: 2}
+  - {fileID: 11400000, guid: 4aae2d0f31e732a47aa2c1bc3e3c30cb, type: 2}
+  - {fileID: 11400000, guid: 05e49afd058671943b93481a462aa404, type: 2}
+  - {fileID: 11400000, guid: 9de72de0a69e2484bb8f9b9c5637c858, type: 2}
+  _spawnCount: 20
+  _regionController: {fileID: 361850273}
+  _spawnCoordinator: {fileID: 361850274}
+  _spawnRule:
+    MinimumDistance: 2
+    MaxAttempts: 50
+    HeightOffset: 0.2
+    UseGroundPosition: 1
+    ReservePosition: 1
+--- !u!1 &363568095
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 363568096}
+  - component: {fileID: 363568097}
+  m_Layer: 0
+  m_Name: NavBlock_017_building-hospital
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &363568096
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 363568095}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -76.96553, y: 10.144094, z: 50}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1362406223}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &363568097
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 363568095}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35e95dc5ff2b64380880dd7ac5922847, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifierVolume
+  m_SerializedVersion: 0
+  m_Size: {x: 15.700073, y: 24.300003, z: 26.60004}
+  m_Center: {x: 0, y: 0, z: 0}
+  m_Area: 1
+  m_AffectedAgents: ffffffff
 --- !u!1001 &364108901
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -63643,7 +63719,7 @@ PrefabInstance:
     - target: {fileID: 4113032170768779734, guid: 0e873a95a41fc2d46a670153e2d12f8a, type: 3}
       propertyPath: 'm_Materials.Array.data[2]'
       value: 
-      objectReference: {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+      objectReference: {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
     - target: {fileID: 4113032170768779734, guid: 0e873a95a41fc2d46a670153e2d12f8a, type: 3}
       propertyPath: 'm_Materials.Array.data[4]'
       value: 
@@ -229704,7 +229780,7 @@ PrefabInstance:
     - target: {fileID: 5012693209655657081, guid: 39eeb5ded0063c24aa1c7cde03a492ce, type: 3}
       propertyPath: 'm_Materials.Array.data[3]'
       value: 
-      objectReference: {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+      objectReference: {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
     - target: {fileID: 5012693209655657081, guid: 39eeb5ded0063c24aa1c7cde03a492ce, type: 3}
       propertyPath: 'm_Materials.Array.data[4]'
       value: 
@@ -234587,7 +234663,7 @@ PrefabInstance:
     - target: {fileID: 5012693209655657081, guid: 39eeb5ded0063c24aa1c7cde03a492ce, type: 3}
       propertyPath: 'm_Materials.Array.data[3]'
       value: 
-      objectReference: {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+      objectReference: {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
     - target: {fileID: 5012693209655657081, guid: 39eeb5ded0063c24aa1c7cde03a492ce, type: 3}
       propertyPath: 'm_Materials.Array.data[4]'
       value: 
@@ -274789,6 +274865,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 68345ec1c1e9ecb4691b1665178cbd12, type: 2}
   - {fileID: 11400000, guid: 726edf1bc07b0724f94fdcbe331b9069, type: 2}
   - {fileID: 11400000, guid: 22f98367f57cde744b0d3fe9abccc2d8, type: 2}
+  - {fileID: 11400000, guid: f54effa30c8be5a40af1147571bcb582, type: 2}
+  - {fileID: 11400000, guid: 4aae2d0f31e732a47aa2c1bc3e3c30cb, type: 2}
+  - {fileID: 11400000, guid: 05e49afd058671943b93481a462aa404, type: 2}
+  - {fileID: 11400000, guid: 9de72de0a69e2484bb8f9b9c5637c858, type: 2}
 --- !u!4 &1537137382
 Transform:
   m_ObjectHideFlags: 0
@@ -308972,7 +309052,7 @@ PrefabInstance:
     - target: {fileID: 4113032170768779734, guid: 0e873a95a41fc2d46a670153e2d12f8a, type: 3}
       propertyPath: 'm_Materials.Array.data[2]'
       value: 
-      objectReference: {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+      objectReference: {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
     - target: {fileID: 4113032170768779734, guid: 0e873a95a41fc2d46a670153e2d12f8a, type: 3}
       propertyPath: 'm_Materials.Array.data[3]'
       value: 
@@ -308980,7 +309060,7 @@ PrefabInstance:
     - target: {fileID: 4113032170768779734, guid: 0e873a95a41fc2d46a670153e2d12f8a, type: 3}
       propertyPath: 'm_Materials.Array.data[5]'
       value: 
-      objectReference: {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+      objectReference: {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
     - target: {fileID: 4113032170768779734, guid: 0e873a95a41fc2d46a670153e2d12f8a, type: 3}
       propertyPath: 'm_Materials.Array.data[6]'
       value: 
@@ -328984,7 +329064,7 @@ PrefabInstance:
     - target: {fileID: 4113032170768779734, guid: 0e873a95a41fc2d46a670153e2d12f8a, type: 3}
       propertyPath: 'm_Materials.Array.data[2]'
       value: 
-      objectReference: {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+      objectReference: {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
     - target: {fileID: 4113032170768779734, guid: 0e873a95a41fc2d46a670153e2d12f8a, type: 3}
       propertyPath: 'm_Materials.Array.data[4]'
       value: 

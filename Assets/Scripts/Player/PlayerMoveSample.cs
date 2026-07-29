@@ -355,7 +355,9 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void ApplyTeleport(Vector3 position, Quaternion rotation)
 	{
-		_rigidbody.linearVelocity = Vector3.zero;
+        _yaw = rotation.eulerAngles.y;
+
+        _rigidbody.linearVelocity = Vector3.zero;
 		_rigidbody.angularVelocity = Vector3.zero;
 		_rigidbody.position = position;
 		_rigidbody.rotation = rotation;

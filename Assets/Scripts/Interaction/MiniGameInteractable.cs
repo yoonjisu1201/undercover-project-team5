@@ -22,6 +22,7 @@ public sealed class MiniGameInteractable : InteractableBase
         NetworkVariableWritePermission.Server);
 
     private GameObject _uiInstance;
+    private Transform _interactingPlayer;
     private static MiniGameInteractable _activeInteractable;
 
     public bool IsCompleted => _isCompleted.Value;
@@ -63,6 +64,15 @@ public sealed class MiniGameInteractable : InteractableBase
         }
 
         _activeInteractable = this;
+        _interactingPlayer = interactor.transform;
+
+        // 미완료 상태로 닫아 보관한 단계형 게임은 새로 만들지 않고 기존 진행 상태를 재개한다.
+        if (_uiInstance != null)
+        {
+            _uiInstance.SetActive(true);
+            GameplayUiMode.Instance?.ActivateCursor();
+            return;
+        }
 
         // 모든 클라이언트가 서버 시드로 같은 랜덤 문제를 생성하도록 Random 상태를 잠시 고정한다.
         Random.State previousRandomState = Random.state;
@@ -101,7 +111,10 @@ public sealed class MiniGameInteractable : InteractableBase
     {
         if (IsSpawned && !IsCompleted)
         {
-            CompleteMiniGameRpc();
+            Vector3 playerPosition = _interactingPlayer != null
+                ? _interactingPlayer.position
+                : transform.position + transform.forward * 3f;
+            CompleteMiniGameRpc(playerPosition);
         }
     }
 
@@ -119,7 +132,7 @@ public sealed class MiniGameInteractable : InteractableBase
 
     // 서버가 완료 상태를 한 번만 기록하고 모든 클라이언트에 보일 단서를 생성한다.
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void CompleteMiniGameRpc()
+    private void CompleteMiniGameRpc(Vector3 requestingPlayerPosition)
     {
         if (_isCompleted.Value)
         {
@@ -127,7 +140,7 @@ public sealed class MiniGameInteractable : InteractableBase
         }
 
         _isCompleted.Value = true;
-        SpawnCompletionReward();
+        SpawnCompletionReward(requestingPlayerPosition);
     }
 
     // 다른 플레이어가 완료했으면 현재 열려 있는 UI도 완료 안내로 전환한다.
@@ -158,8 +171,8 @@ public sealed class MiniGameInteractable : InteractableBase
         return Random.Range(1, int.MaxValue);
     }
 
-    // 완료 단서를 기계 앞에 네트워크 오브젝트로 생성한다.
-    private void SpawnCompletionReward()
+    // UI를 닫은 플레이어 방향으로 완료 단서를 튕겨 내보낸다.
+    private void SpawnCompletionReward(Vector3 requestingPlayerPosition)
     {
         if (_completionReward == null || _completionReward.WorldPrefab == null)
         {
@@ -167,7 +180,21 @@ public sealed class MiniGameInteractable : InteractableBase
             return;
         }
 
-        Vector3 spawnPosition = transform.TransformPoint(_rewardSpawnOffset);
+        // 프리팹의 로컬 축 대신 실제 플레이어가 서 있는 쪽을 기계의 앞 방향으로 사용한다.
+        Vector3 playerDirection = requestingPlayerPosition - transform.position;
+        playerDirection.y = 0f;
+        float playerDistance = playerDirection.magnitude;
+        playerDirection = playerDirection.sqrMagnitude > 0.001f
+            ? playerDirection.normalized
+            : transform.forward;
+
+        // 가까운 플레이어를 지나쳐 발밑에 생성되지 않도록 최대 거리와 플레이어 거리의 45% 중 작은 값을 사용한다.
+        float maximumSpawnDistance = Mathf.Abs(_rewardSpawnOffset.z);
+        float spawnDistance = Mathf.Min(maximumSpawnDistance, playerDistance * 0.45f);
+        Vector3 spawnPosition =
+            transform.position +
+            playerDirection * spawnDistance +
+            Vector3.up * _rewardSpawnOffset.y;
         GameObject rewardObject = Instantiate(
             _completionReward.WorldPrefab,
             spawnPosition,
@@ -183,6 +210,9 @@ public sealed class MiniGameInteractable : InteractableBase
 
         pickupItem.Configure(_completionReward);
         networkObject.Spawn(destroyWithScene: true);
+
+        GetComponent<MiniGameRewardLauncher>()?
+            .Launch(rewardObject, spawnPosition, requestingPlayerPosition);
     }
 
     // 열려 있는 미니게임 UI를 닫는다.
@@ -216,6 +246,15 @@ public sealed class MiniGameInteractable : InteractableBase
         }
     }
 
+    // 단계형 게임 UI 인스턴스는 유지하고 현재 사용 상태만 해제한다.
+    public void NotifyUISuspended(MiniGameUIController controller)
+    {
+        if (controller != null && controller.gameObject == _uiInstance)
+        {
+            ReleaseActiveState();
+        }
+    }
+
     // 현재 기계가 사용 중인 미니게임 상태를 해제한다.
     private void ReleaseActiveState()
     {
@@ -244,7 +283,16 @@ public sealed class MiniGameInteractable : InteractableBase
     {
         if (_uiInstance != null)
         {
-            CloseUI();
+            MiniGameUIController controller = _uiInstance.GetComponent<MiniGameUIController>();
+            if (controller != null)
+            {
+                controller.CloseWithoutCompletion();
+            }
+            else
+            {
+                Destroy(_uiInstance);
+                ReleaseActiveState();
+            }
         }
         else
         {

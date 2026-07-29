@@ -29,13 +29,37 @@ public class PickupItem : InteractableBase
     public void Configure(ItemData itemData)
     {
         _itemData = itemData;
-        _networkItemId.Value = itemData.ItemId;
+
+        // NetworkVariable은 NetworkObject가 스폰된 뒤 서버에서만 변경한다.
+        if (IsSpawned && IsServer)
+        {
+            _networkItemId.Value = itemData.ItemId;
+        }
     }
 
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
+        _networkItemId.OnValueChanged += HandleNetworkItemIdChanged;
+
+        // 스폰 전에 Configure로 저장한 데이터를 네트워크 등록 완료 후 동기화한다.
+        if (IsServer && _itemData != null)
+        {
+            _networkItemId.Value = _itemData.ItemId;
+        }
+
         ResolveItemData(_networkItemId.Value.ToString());
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        _networkItemId.OnValueChanged -= HandleNetworkItemIdChanged;
+        base.OnNetworkDespawn();
+    }
+
+    private void HandleNetworkItemIdChanged(FixedString64Bytes previousId, FixedString64Bytes currentId)
+    {
+        ResolveItemData(currentId.ToString());
     }
 
     private void ResolveItemData(string itemId)

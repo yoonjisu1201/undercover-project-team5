@@ -73,6 +73,8 @@ public class PlayerSpawner : MonoBehaviour, IRoundSpawner
                 return;
             }
 
+            _hqSpawnPoint.rotation = Quaternion.Euler(0f, 90f, 0f);
+
             move.TeleportToPosition(_hqSpawnPoint.position, _hqSpawnPoint.rotation);
 
             // 현재 라운드에서 실제 배치에 사용한 본부 위치를 기본 복귀 위치로 기록합니다.
