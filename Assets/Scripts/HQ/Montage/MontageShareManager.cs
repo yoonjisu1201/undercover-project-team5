@@ -24,11 +24,9 @@ public class MontageShareManager : MontageSyncBase {
 			return;
 		}
 		
-		// 주의: IsMontageShared는 항상 _montageState와 "같은 시점"에 true가 된다는 걸 전제로,
-		// MontageShareUI는 이 값 변경을 따로 구독하지 않고 OnMontageStateChanged(=_montageState 변경) 구독만으로 함께 갱신한다.
-		// 이 둘을 서로 다른 시점에 바뀌게 고치면 MontageShareUI가 갱신을 놓치니, 그럴 땐 구독을 분리해야 한다.
+		// IsMontageShared는 _montageState보다 먼저 갱신해야 한다 (UI가 _montageState 변경만 구독함)
 		IsMontageShared.Value = true;
-		
+
 		// 몽타주의 실시간 상태를 스냅샷에 복사한다
 		_montageState.Value = _syncManager.State;
 
@@ -37,15 +35,14 @@ public class MontageShareManager : MontageSyncBase {
 	}
 
 	protected override void HandleRoundStateChanged(RoundState state) {
-		base.HandleRoundStateChanged(state);
+		if (IsServer && state == RoundState.InRound) {
+			// 이번 라운드 몽타주 전송 여부 초기화 (같은 이유로 _montageState보다 먼저)
+			IsMontageShared.Value = false;
 
-		if (!IsServer) { return; }
-		if (state != RoundState.InRound) { return; }
-		
-		// 이번 라운드 몽타주 전송 여부 초기화
-		IsMontageShared.Value = false;
-		
-		// 전송 시간도 초기화. 라운드 넘어가면 다시 전송 가능하게 해야 함.
-		LastSharedTime.Value = -100f;
+			// 전송 시간도 초기화. 라운드 넘어가면 다시 전송 가능하게 해야 함.
+			LastSharedTime.Value = -100f;
+		}
+
+		base.HandleRoundStateChanged(state);
 	}
 }
