@@ -62,8 +62,11 @@ public class MontageDressUpUI : ScreenBase {
 	[SerializeField] private MontageSyncManager _syncManager;
 	[SerializeField] private MontageShareManager _shareManager;
 
-	[Header("=== 몽타주 공유하기 버튼 ===")] 
+	[Header("=== 몽타주 공유하기 버튼 ===")]
 	[SerializeField] private Button _montageShareButton;
+
+	[Header("=== 몽타주 초기화 버튼 ===")]
+	[SerializeField] private Button _montageResetButton;
 
 	[Header("=== 몽타주 공유 버튼 텍스트 ===")]
 	[SerializeField] private LocalizeStringEvent _shareButtonText;
@@ -92,6 +95,7 @@ public class MontageDressUpUI : ScreenBase {
 		// 화면이 열려 있는 동안에만 선택 표시를 갱신하면 된다
 		_syncManager.OnMontageStateChanged += HandleMontageStateChanged;
 		_montageShareButton.onClick.AddListener(ShareMontage);
+		_montageResetButton.onClick.AddListener(ResetMontage);
 		
 		// 현장 요원은 몽타주를 볼 수만 있고 조합할 수는 없으므로 조작 UI를 만들지 않는다
 		if (!IsLocalPlayerHeadquarter()) { return; }
@@ -103,6 +107,7 @@ public class MontageDressUpUI : ScreenBase {
 	private void OnDisable() {
 		_syncManager.OnMontageStateChanged -= HandleMontageStateChanged;
 		_montageShareButton.onClick.RemoveListener(ShareMontage);
+		_montageResetButton.onClick.RemoveListener(ResetMontage);
 	}
 
 	private static bool IsLocalPlayerHeadquarter() {
@@ -214,4 +219,9 @@ public class MontageDressUpUI : ScreenBase {
 	private void ShareMontage() {
 		_shareManager.ShareMontageRpc();
 	}
+
+	private void ResetMontage() {
+		_syncManager.RequestReset();
+	}
+
 }
