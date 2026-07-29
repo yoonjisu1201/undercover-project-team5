@@ -142,12 +142,16 @@ public sealed partial class BreakerBatteryMiniGame
         }
     }
 
-    private void SetupActionButtons(Transform powerBoard)
+    // Unity Button의 On Click 이벤트에서 배터리 배치를 초기화한다.
+    public void OnRetryButtonClick()
     {
-        _retryButton.onClick.RemoveAllListeners();
-        _retryButton.onClick.AddListener(ResetBatteries);
-        _confirmButton.onClick.RemoveAllListeners();
-        _confirmButton.onClick.AddListener(ConfirmAnswer);
+        ResetBatteries();
+    }
+
+    // Unity Button의 On Click 이벤트에서 현재 전력 조합을 확인한다.
+    public void OnConfirmButtonClick()
+    {
+        ConfirmAnswer();
     }
 
     // 게이지 업데이트

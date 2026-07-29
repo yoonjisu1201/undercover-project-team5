@@ -42,7 +42,6 @@ public sealed partial class BreakerBatteryMiniGame : MonoBehaviour, IUIDragDropC
         CacheReferences();
         SetupScrollableInventory();
         SetupSlots(FindChild(transform, "PowerBoard"));
-        SetupActionButtons(FindChild(transform, "PowerBoard"));
         StageInventoryBatteries();
         SelectRandomTargetWatt();
         RebuildInventoryGrid();

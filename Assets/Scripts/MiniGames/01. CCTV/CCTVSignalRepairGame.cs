@@ -47,8 +47,6 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
         for (int cameraIndex = 0; cameraIndex < CameraCount; cameraIndex++)
         {
             _states[cameraIndex] = CreateState();
-            int capturedIndex = cameraIndex;
-            _cameraButtons[cameraIndex].onClick.AddListener(() => SelectCamera(capturedIndex));
         }
 
         // 왼쪽 시작 단자에 해당 전선 번호와 게임 참조를 전달한다.
@@ -60,6 +58,12 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
 
         _resultOverlay.SetActive(false);
         SelectCamera(0);
+    }
+
+    // Unity Button의 On Click 이벤트에서 선택한 CCTV 번호를 전달받는다.
+    public void OnCameraButtonClick(int cameraIndex)
+    {
+        SelectCamera(cameraIndex);
     }
 
     // 도착 단자 색상 순서를 무작위로 섞어 새로운 CCTV 퍼즐 상태를 만든다.

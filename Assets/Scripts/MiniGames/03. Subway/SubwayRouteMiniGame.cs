@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 // 문제 생성, 진행 상태, 정답 판정을 관리한다.
 public sealed partial class SubwayRouteMiniGame : MonoBehaviour, IUIDragDropContext
@@ -63,16 +62,18 @@ public sealed partial class SubwayRouteMiniGame : MonoBehaviour, IUIDragDropCont
             FindChild(_routeMap, name).gameObject.SetActive(true);
         }
 
-        SetButton("ResetCardsButton", ResetAllCards);
-        SetButton("CheckAnswer", CheckAnswers);
     }
 
-    // 지정한 프리팹 버튼에 클릭 동작을 연결한다.
-    private void SetButton(string name, UnityEngine.Events.UnityAction action)
+    // Unity Button의 On Click 이벤트에서 정답을 확인한다.
+    public void OnCheckAnswerButtonClick()
     {
-        Button button = FindChild(_routeMap, name).GetComponent<Button>();
-        button.onClick.RemoveAllListeners();
-        button.onClick.AddListener(action);
+        CheckAnswers();
+    }
+
+    // Unity Button의 On Click 이벤트에서 배치한 카드를 초기화한다.
+    public void OnResetCardsButtonClick()
+    {
+        ResetAllCards();
     }
 
     // CSV에서 무작위 연속 역 구간을 골라 새 문제를 구성한다.
