@@ -23,6 +23,12 @@ internal sealed class SubwayRoute
 // 지하철 CSV 해석과 노선 색상 조회를 담당한다.
 internal static class SubwayRouteData
 {
+    // 역 이름 비교를 위해 모든 공백 문자를 제거한다.
+    public static string NormalizeAnswer(string answer)
+    {
+        return string.Concat(answer.Where(character => !char.IsWhiteSpace(character)));
+    }
+
     // CSV 원본을 플레이 가능한 노선 목록으로 변환한다.
     public static List<SubwayRoute> Parse(byte[] csvBytes, int minimumStationCount)
     {
