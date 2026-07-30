@@ -16,6 +16,18 @@ public class CriminalDebugLabel : MonoBehaviour
     private NetworkObject _labeledCriminal;
     private TextMeshPro _label;
     private Camera _mainCamera;
+    private bool _isVisible;
+
+    // 디버그 메뉴에서 범인 머리 위 텍스트의 표시 상태를 변경합니다.
+    public void SetVisible(bool visible)
+    {
+        _isVisible = visible;
+
+        if (_label != null)
+        {
+            _label.gameObject.SetActive(visible);
+        }
+    }
 
     private void Update()
     {
@@ -65,5 +77,6 @@ public class CriminalDebugLabel : MonoBehaviour
         _label.color = _textColor;
         _label.fontSize = _fontSize;
         _label.alignment = TextAlignmentOptions.Center;
+        _label.gameObject.SetActive(_isVisible);
     }
 }

@@ -23,6 +23,7 @@ public sealed class MiniGameSpawner : MonoBehaviour
     [SerializeField, Min(0f)] private float _minimumMiniGameMachineDistance = 5f;
 
     private readonly List<Vector3> _spawnedPositions = new();
+    private readonly List<NetworkObject> _spawnedMachines = new();
     private bool _hasSpawned;
 
     private void Start()
@@ -116,11 +117,35 @@ public sealed class MiniGameSpawner : MonoBehaviour
 
             miniGame.ConfigureCompletionReward(miniGameMachineData.CompletionReward);
             networkObject.Spawn(destroyWithScene: true);
+            _spawnedMachines.Add(networkObject);
             _spawnedPositions.Add(spawnPosition);
             Debug.Log($"[MiniGameSpawner] '{miniGameMachineData.WorldPrefab.name}' 스폰 완료: {spawnPosition}", this);
         }
 
         Debug.Log($"[MiniGameSpawner] 미니게임 머신 {_spawnedPositions.Count}/{RequiredMiniGameMachineCount}개 스폰 완료.", this);
+    }
+
+    // 기존 장치를 정리하고 현재 해방된 지역을 기준으로 8개 장치를 다시 생성합니다.
+    public void RespawnMiniGameMachines()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        {
+            Debug.LogWarning("[MiniGameSpawner] 서버에서만 미니게임 장치를 재생성할 수 있습니다.", this);
+            return;
+        }
+
+        foreach (NetworkObject machine in _spawnedMachines)
+        {
+            if (machine != null && machine.IsSpawned)
+            {
+                machine.Despawn(destroy: true);
+            }
+        }
+
+        _spawnedMachines.Clear();
+        _spawnedPositions.Clear();
+        _hasSpawned = false;
+        SpawnMiniGameMachines();
     }
 
     private bool ValidateSettings()

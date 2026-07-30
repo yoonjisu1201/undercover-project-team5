@@ -113,6 +113,19 @@ public sealed class NpcSpawner : MonoBehaviour, IRoundSpawner
         }
     }
 
+    // 기존 NPC를 제거한 뒤 현재 해방된 지역을 기준으로 다음 라운드 NPC를 다시 생성합니다.
+    public async UniTask RespawnAsync(CancellationToken cancellationToken)
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        {
+            Debug.LogWarning("[NPC] 서버에서만 NPC를 재생성할 수 있습니다.", this);
+            return;
+        }
+
+        ClearSpawned();
+        await SpawnAsync(_spawnCoordinator, cancellationToken);
+    }
+
     public void ClearSpawned()
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
