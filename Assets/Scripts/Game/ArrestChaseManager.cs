@@ -20,9 +20,7 @@ public class ArrestChaseManager : NetworkBehaviour
 
     // 추격에 필요한 인원
     public const int RequiredParticipants = 2;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
     private bool _debugSoloCaptureEnabled;
-#endif
 
     [SerializeField, Min(0.1f)] private float _captureRadius = 5f;      // 대상 NPC 기준, 이 반경 안에 있어야 인원으로 카운트된다.
     [SerializeField, Min(0.1f)] private float _gaugeFillDuration = 5f;   // 조건 충족 시 0 -> 1까지 채우는 데 걸리는 시간(초)
@@ -59,19 +57,15 @@ public class ArrestChaseManager : NetworkBehaviour
     public float Gauge => _gauge.Value; // 0~1
     public int HoldingCount => _holdingCount.Value;
     public int CurrentRequiredParticipants =>
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         _debugSoloCaptureEnabled ? 1 :
-#endif
         RequiredParticipants;
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
     // 디버그 메뉴에서 혼자 검거할 수 있도록 필요 인원을 한 명으로 전환합니다.
     public void SetDebugSoloCaptureEnabled(bool enabled)
     {
         if (!IsServer) return;
         _debugSoloCaptureEnabled = enabled;
     }
-#endif
 
     // UI가 구독해서 게이지 바/안내 문구를 갱신하는 데 쓰는 이벤트. ArrestVoteManager의 이벤트 패턴과 동일하다.
     public event Action<ArrestChaseState> OnStateChanged;

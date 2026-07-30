@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using Unity.Netcode;
 
 // 로컬 플레이어의 디버그 역할 변경을 처리합니다.
@@ -34,4 +33,3 @@ public sealed partial class DebugMenuController
         }
     }
 }
-#endif

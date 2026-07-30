@@ -117,6 +117,27 @@ public class PlayerSpawner : MonoBehaviour, IRoundSpawner
         return UniTask.CompletedTask;
     }
 
+    // 라운드 전환 시 본부 역할 플레이어만 지정된 본부 스폰 위치로 다시 배치합니다.
+    public void RespawnHeadquarterPlayers()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        {
+            Debug.LogError("[PlayerSpawner] 본부 플레이어 재배치는 서버에서만 실행할 수 있습니다.", this);
+            return;
+        }
+
+        foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList)
+        {
+            NetworkObject playerObject = client.PlayerObject;
+            if (playerObject != null &&
+                playerObject.TryGetComponent(out Player player) &&
+                player.PlayerRole == Role.Headquarter)
+            {
+                SpawnPlayer(playerObject, _spawnCoordinator);
+            }
+        }
+    }
+
     private void SpawnClients(RoundSpawnCoordinator coordinator)
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)

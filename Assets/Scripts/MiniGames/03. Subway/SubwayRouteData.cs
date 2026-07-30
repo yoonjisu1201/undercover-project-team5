@@ -32,7 +32,7 @@ internal static class SubwayRouteData
     // CSV 원본을 플레이 가능한 노선 목록으로 변환한다.
     public static List<SubwayRoute> Parse(byte[] csvBytes, int minimumStationCount)
     {
-        string csv = GetEncoding().GetString(csvBytes);
+        string csv = Encoding.UTF8.GetString(csvBytes);
         Dictionary<string, SubwayRoute> routes = new();
 
         foreach (string line in csv.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Skip(1))
@@ -114,19 +114,6 @@ internal static class SubwayRouteData
         // 노선 이름이 미리 정의된 색상 목록에 없으면 해시값을 이용해 색상을 생성한다.
         int hash = lineName.Aggregate(17, (value, character) => value * 31 + character);
         return Color.HSVToRGB(Mathf.Abs(hash % 360) / 360f, 0.72f, 0.9f);
-    }
-
-    // CSV의 한글 인코딩을 선택한다.
-    private static Encoding GetEncoding()
-    {
-        try
-        {
-            return Encoding.GetEncoding(949);
-        }
-        catch (ArgumentException)
-        {
-            return Encoding.UTF8;
-        }
     }
 
     // 역 이름 뒤의 괄호형 부가 명칭을 제거한다.
