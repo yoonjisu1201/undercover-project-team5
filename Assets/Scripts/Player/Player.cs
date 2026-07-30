@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -45,6 +46,11 @@ public class Player : NetworkBehaviour {
 		NetworkVariableWritePermission.Server
 	);
 	
+	// 외부에서 변경 감지 구독
+	public event Action<FixedString32Bytes, FixedString32Bytes> PlayerNameChanged;
+	public event Action<Color, Color> PlayerColorChanged;
+	public event Action<Role, Role> PlayerRoleChanged;
+
 	// PlayerName을 가져오도록 하는 Property. 닉네임을 설정했으면 설정한 닉네임을 제공하고, 설정되지 않았다면 Player 1같은 값을 반환한다.
 	public string PlayerName {
 		get {
@@ -53,7 +59,6 @@ public class Player : NetworkBehaviour {
 			return $"Player {OwnerClientId + 1}";
 		}
 	}
-	
 	public Color PlayerColor => _playerColor.Value;
 	public Role PlayerRole {
 		get => _playerRole.Value;
@@ -61,6 +66,10 @@ public class Player : NetworkBehaviour {
 			if (!IsServer) {
 				Debug.LogError("Role은 서버에서만 변경할 수 있습니다."); 
 				return;
+			}
+			
+			if (value == Role.None) {
+				throw new InvalidEnumArgumentException($"[Player] None은 Player가 가질 수 없는 Role입니다.");
 			}
 			
 			_playerRole.Value = value;
@@ -88,9 +97,13 @@ public class Player : NetworkBehaviour {
 			PlayerRenderer.SetHeadObjectsLayer(Layers.LocalPlayerHead);
 		}
 		
+		_playerName.OnValueChanged += HandlePlayerNameChanged;
+		_playerColor.OnValueChanged += HandlePlayerColorChanged;
+		_playerRole.OnValueChanged += HandlePlayerRoleChanged;
+		
 		// 추후 이름 변경되거나, 색이 변경되면 알맞은 함수 호출하도록
-		_playerName.OnValueChanged += PlayerInfoPresenter.HandlePlayerNameChanged;
-		_playerColor.OnValueChanged += PlayerInfoPresenter.HandlePlayerColorChanged;
+		PlayerNameChanged += PlayerInfoPresenter.HandlePlayerNameChanged;
+		PlayerColorChanged += PlayerInfoPresenter.HandlePlayerColorChanged;
 		
 		// 접속 시 한번 적용하기
 		PlayerInfoPresenter.HandlePlayerColorChanged(Color.white, _playerColor.Value);
@@ -98,7 +111,25 @@ public class Player : NetworkBehaviour {
 	}
 
 	public override void OnNetworkDespawn() {
-		_playerName.OnValueChanged -= PlayerInfoPresenter.HandlePlayerNameChanged;
-		_playerColor.OnValueChanged -= PlayerInfoPresenter.HandlePlayerColorChanged;
+		_playerName.OnValueChanged -= HandlePlayerNameChanged;
+		_playerColor.OnValueChanged -= HandlePlayerColorChanged;
+		_playerRole.OnValueChanged -= HandlePlayerRoleChanged;
+	}
+	
+	private void HandlePlayerNameChanged(
+		FixedString32Bytes previousValue,
+		FixedString32Bytes newValue)
+	{
+		PlayerNameChanged?.Invoke(previousValue, newValue);
+	}
+
+	private void HandlePlayerColorChanged(Color previousValue, Color newValue)
+	{
+		PlayerColorChanged?.Invoke(previousValue, newValue);
+	}
+
+	private void HandlePlayerRoleChanged(Role previousValue, Role newValue)
+	{
+		PlayerRoleChanged?.Invoke(previousValue, newValue);
 	}
 }

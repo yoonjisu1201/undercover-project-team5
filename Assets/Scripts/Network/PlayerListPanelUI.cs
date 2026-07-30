@@ -1,6 +1,10 @@
+using System.Collections.Generic;
+using System.ComponentModel;
 using TMPro;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public sealed class PlayerListPanelUI : MonoBehaviour
@@ -25,6 +29,8 @@ public sealed class PlayerListPanelUI : MonoBehaviour
     private static readonly Color ReadyColor = new Color(0.3f, 0.75f, 0.35f);
     private static readonly Color NotReadyColor = Color.gray;
 
+    // 현재 구독 중인 Player들. 슬롯이 바뀔 때마다 전부 해제하고 현재 슬롯 기준으로 다시 구독한다.
+    private readonly List<Player> _subscribedPlayers = new();
 
     private void Start()
     {
@@ -35,7 +41,25 @@ public sealed class PlayerListPanelUI : MonoBehaviour
         }
 
         _manager.Slots.OnListChanged += HandleSlotsChanged;
-        Render(); // OnListChanged는 구독 이후의 변경만 알려주므로 현재 상태를 직접 1회 반영
+
+        // 다른 플레이어들의 PlayerObject가 씬 전환 중이라 아직 재연결되지 않았을 수 있으므로,
+        // 준비돼 있으면 바로, 아니면 씬 동기화가 끝난 뒤에 구독/렌더링을 시작한다.
+        if (NetworkManager.Singleton.LocalClient?.PlayerObject != null)
+        {
+            RefreshPlayerSubscriptions();
+            Render();
+        }
+        else
+        {
+            NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += HandleInitialLoadCompleted;
+        }
+    }
+
+    private void HandleInitialLoadCompleted(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+    {
+        NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleInitialLoadCompleted;
+        RefreshPlayerSubscriptions();
+        Render();
     }
 
     private void OnDestroy()
@@ -44,12 +68,49 @@ public sealed class PlayerListPanelUI : MonoBehaviour
         {
             _manager.Slots.OnListChanged -= HandleSlotsChanged;
         }
+
+        UnsubscribeAllPlayers();
+
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleInitialLoadCompleted;
+        }
     }
 
     private void HandleSlotsChanged(NetworkListEvent<WaitingRoomReadyManager.PlayerSlot> _)
     {
+        RefreshPlayerSubscriptions();
         Render();
     }
+
+    // 입장/퇴장으로 슬롯 구성이 바뀔 때마다 호출된다.
+    // Role/Name은 _slots가 아니라 Player 쪽 NetworkVariable이라 리스트 이벤트만으로는 알 수 없으므로,
+    // 현재 슬롯에 있는 Player들의 변경을 직접 구독해서 감지한다.
+    private void RefreshPlayerSubscriptions()
+    {
+        UnsubscribeAllPlayers();
+
+        foreach (var slot in _manager.Slots)
+        {
+            Player player = slot.Player;
+            player.PlayerRoleChanged += HandlePlayerStateChanged;
+            player.PlayerNameChanged += HandlePlayerStateChanged;
+            _subscribedPlayers.Add(player);
+        }
+    }
+
+    private void UnsubscribeAllPlayers()
+    {
+        foreach (var player in _subscribedPlayers)
+        {
+            player.PlayerRoleChanged -= HandlePlayerStateChanged;
+            player.PlayerNameChanged -= HandlePlayerStateChanged;
+        }
+        _subscribedPlayers.Clear();
+    }
+
+    private void HandlePlayerStateChanged(Role oldRole, Role newRole) => Render();
+    private void HandlePlayerStateChanged(FixedString32Bytes oldName, FixedString32Bytes newName) => Render();
 
     private void Render()
     {
@@ -74,19 +135,12 @@ public sealed class PlayerListPanelUI : MonoBehaviour
             string roleText = null; // = slot.Role == Role.Headquarter ? "HQ" : "Field";
             
             // 실제 이름 기준으로 이름, 역할 작성
-            foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList) {
-                if (client.ClientId == slot.ClientId) {
-                    client.PlayerObject.TryGetComponent(out Player player);
-                    if (player == null) {
-                        Debug.LogError($"Player Prefab에 Player Script가 존재하지 않습니다");
-                    }
-                    _playerNameTexts[i].text = player.PlayerName ?? $"Player {i + 1}";
-                    roleText = player.PlayerRole.ToString();
-                }
-            }
-            
-            // ROle이 None으로 설정되어있었다면 Field로 일단 출력
-            if (roleText == nameof(Role.None)) { roleText = nameof(Role.Field); }
+            _playerNameTexts[i].text = slot.Player.PlayerName;
+            roleText = slot.Player.PlayerRole switch {
+                Role.Field => "Field",
+                Role.Headquarter => "HQ",
+                _ => throw new InvalidEnumArgumentException($"[PlayerListPanelUI] None은 Player가 가질 수 없는 Role입니다.")
+            };
             
             _stateIconImages[i].enabled = true;
             _stateIconImages[i].sprite = isHost
