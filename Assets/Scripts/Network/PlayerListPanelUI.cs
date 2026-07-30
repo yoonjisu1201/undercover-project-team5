@@ -71,19 +71,23 @@ public sealed class PlayerListPanelUI : MonoBehaviour
             // slots[i]가 곧 i번 좌석: WaitingRoomReadyManager가 ClientId 오름차순으로 정렬을 유지해준다.
             var slot = slots[i];
             bool isHost = slot.ClientId == NetworkManager.ServerClientId; // 방장의 로컬 클라이언트 ID는 항상 0
-            string roleText = slot.Role == Role.Headquarter ? "HQ" : "Field";
+            string roleText = null; // = slot.Role == Role.Headquarter ? "HQ" : "Field";
             
-            // 실제 이름 기준으로 이름 작성
+            // 실제 이름 기준으로 이름, 역할 작성
             foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList) {
                 if (client.ClientId == slot.ClientId) {
                     client.PlayerObject.TryGetComponent(out Player player);
                     if (player == null) {
                         Debug.LogError($"Player Prefab에 Player Script가 존재하지 않습니다");
                     }
-
                     _playerNameTexts[i].text = player.PlayerName ?? $"Player {i + 1}";
+                    roleText = player.PlayerRole.ToString();
                 }
             }
+            
+            // ROle이 None으로 설정되어있었다면 Field로 일단 출력
+            if (roleText == nameof(Role.None)) { roleText = nameof(Role.Field); }
+            
             _stateIconImages[i].enabled = true;
             _stateIconImages[i].sprite = isHost
                 ? _hostIconSprite
