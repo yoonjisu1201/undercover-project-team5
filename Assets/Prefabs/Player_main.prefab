@@ -20496,6 +20496,7 @@ GameObject:
   - component: {fileID: 2974533433762144473}
   - component: {fileID: 8271242711255620274}
   - component: {fileID: -7996457364632384375}
+  - component: {fileID: 2126864538568221489}
   m_Layer: 0
   m_Name: Player_main
   m_TagString: Untagged
@@ -20557,7 +20558,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 280555402
+  GlobalObjectIdHash: 3974951530
   InScenePlacedSourceGlobalObjectIdHash: 280555402
   DeferredDespawnTick: 0
   Ownership: 1
@@ -21282,6 +21283,34 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerArrestInput
   ShowTopMostFoldoutHeaderGroup: 1
+  _handToolVisual: {fileID: 2346855748454479997}
+--- !u!114 &2126864538568221489
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b08bab0f92a9c0f47860ac85a3befa8e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerAimIK
+  gun: {fileID: 0}
+  playerMovement: {fileID: 0}
+  gunAimAxis: {x: 0.1, y: -0.1, z: -1}
+  gunUpAxis: {x: 0, y: 1, z: 0}
+  maxAimPitch: 25
+  aimPitchWeight: 0.65
+  handPitchOffsetPerDegree: 0.004
+  rotationWeight: 0.9
+  rightHandRoll: -90
+  positionWeight: 0.9
+  centerPull: 0.65
+  handSideOffset: 0.09
+  handRaise: -0.02
+  handForward: 0.12
+  activeParameter: IsUsingArrestTool
 --- !u!1 &2536676161924006567
 GameObject:
   m_ObjectHideFlags: 0
@@ -39931,6 +39960,7 @@ Transform:
   - {fileID: 5996819179701409809}
   - {fileID: 892342735598356507}
   - {fileID: 7775447709340226101}
+  - {fileID: 1962787097987160039}
   m_Father: {fileID: 8868605234700175226}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4483609015715200855
@@ -84642,3 +84672,82 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.0008777678, y: 0.7830454, z: -0.02248311}
     m_Extent: {x: 0.20598269, y: 0.18536407, z: 0.19326076}
   m_DirtyAABB: 0
+--- !u!1001 &5688693722236710955
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2634770070768931860}
+    m_Modifications:
+    - target: {fileID: 2058153493615741524, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 1.044
+      objectReference: {fileID: 0}
+    - target: {fileID: 2058153493615741524, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.023
+      objectReference: {fileID: 0}
+    - target: {fileID: 2058153493615741524, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.326
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.04
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.21
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.02
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 180
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: -90
+      objectReference: {fileID: 0}
+    - target: {fileID: 7954474125683034198, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+      propertyPath: m_Name
+      value: AlienCaptureGun_Visual
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+--- !u!4 &1962787097987160039 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6183289162139396044, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+  m_PrefabInstance: {fileID: 5688693722236710955}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2346855748454479997 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7954474125683034198, guid: 5ec029a1aeb1cac4cb07eadb3247f298, type: 3}
+  m_PrefabInstance: {fileID: 5688693722236710955}
+  m_PrefabAsset: {fileID: 0}

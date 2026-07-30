@@ -70,6 +70,9 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	public GameObject HeadPivot => _headPivot;
 
+	// 팔 IK와 레이저가 카메라 상하 조준을 따라가도록 소유자는 로컬 값, 다른 클라이언트는 동기화 값을 제공한다.
+	public float ViewPitch => IsOwner ? _pitch : _networkPitch.Value;
+
 	private void Awake()
 	{
 		_rotateSpeed = PlayerPrefs.GetFloat(MouseSensitivityKey, _rotateSpeed);

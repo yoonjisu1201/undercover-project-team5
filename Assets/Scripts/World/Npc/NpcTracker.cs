@@ -46,7 +46,7 @@ public class NpcTracker : NetworkBehaviour
         _trackedInstances.Remove(this);
     }
 
-    // PlayerInteraction이 R키(ItemUse 액션) 입력을 받았을 때, 실제로 부착 요청을 보내기 전에 로컬에서 먼저 확인하는 진입점.
+    // PlayerInteraction이 E키(Interact 액션) 입력을 받았을 때, 실제로 부착 요청을 보내기 전에 로컬에서 먼저 확인하는 진입점.
     public bool CanAttach(GameObject interactor)
     {
         return IsSpawned && !_isTracked.Value && IsTrackerItemSelected(interactor);
@@ -64,6 +64,18 @@ public class NpcTracker : NetworkBehaviour
     public void RequestAttach()
     {
         RequestAttachRpc();
+    }
+
+    // 서버가 라운드 전환/게임 재시작 시점에 이전 라운드에 부착됐던 추적기를 해제한다.
+    // MiniGameInteractable.ResetForNewRound()와 같은 목적, 같은 호출 시점(RoundManager)을 따른다.
+    public void ResetForNewRound()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        _isTracked.Value = false;
     }
 
     // 클라이언트 요청을 신뢰하지 않고, 서버에서 "정말 이 NPC 근처에 있는지 + 정말 추적기를 갖고 있는지"를
