@@ -76,7 +76,15 @@ public class SubwayMapUI : MonoBehaviour, IDragHandler, IScrollHandler {
 	}
 
 	private void SetScale(float scale, bool syncSlider = true) {
+		float previousScale = _subwayMap.localScale.x;
 		float clampedScale = Mathf.Clamp(scale, _minScale, _maxScale);
+
+		// 지도 자체의 피벗이 아니라 현재 뷰포트 중앙에 보이는 지점을 기준으로 확대·축소합니다.
+		if (previousScale > Mathf.Epsilon) {
+			float scaleRatio = clampedScale / previousScale;
+			_subwayMap.anchoredPosition *= scaleRatio;
+		}
+
 		_subwayMap.localScale = Vector3.one * clampedScale;
 		ClampPosition();
 

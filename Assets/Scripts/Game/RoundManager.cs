@@ -285,6 +285,10 @@ public class RoundManager : NetworkBehaviour
             ResetMiniGamesForNewRound();
             ResetNpcTrackersForNewRound();
 
+            // 이전 라운드 인벤토리와 필드 단서를 먼저 제거해 전환 중 드롭된 단서가 남지 않게 합니다.
+            _clueSpawner?.PrepareForNextRound();
+            _playerSpawner?.RespawnHeadquarterPlayers();
+
             if (_npcSpawner != null)
             {
                 await _npcSpawner.RespawnAsync(cancellationToken);
@@ -292,7 +296,7 @@ public class RoundManager : NetworkBehaviour
 
             FindFirstObjectByType<MiniGameSpawner>()?.RespawnMiniGameMachines();
             FindFirstObjectByType<BatterySpawner>()?.RespawnBatteries();
-            _clueSpawner.RespawnClues(); // 다음 라운드 마다 단서 재생성 (인벤토리 초기화 포함)
+            _clueSpawner?.SpawnForNextRound();
             _captureGunSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 검거도구 재생성
             _trackerSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 위치추적기 재생성
             _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[_currentRoundIndex.Value].Duration;

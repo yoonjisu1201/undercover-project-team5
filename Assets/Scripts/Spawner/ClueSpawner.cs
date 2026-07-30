@@ -205,14 +205,31 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
 
     public void RespawnClues()
     {
+        PrepareForNextRound();
+        SpawnForNextRound();
+    }
+
+    // 라운드 전환이 시작되면 인벤토리와 이전 라운드의 필드 단서를 먼저 정리합니다.
+    public void PrepareForNextRound()
+    {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
         {
-            Debug.LogWarning("[ClueSpawner] 서버에서만 단서를 재생성할 수 있습니다.", this);
+            Debug.LogWarning("[ClueSpawner] 서버에서만 단서를 정리할 수 있습니다.", this);
             return;
         }
 
         RoundManager.Instance?.ClearAllPlayerInventories();
         ClearSpawned();
+    }
+
+    // 다른 라운드 스포너의 재배치가 끝난 뒤 새 라운드 단서만 생성합니다.
+    public void SpawnForNextRound()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        {
+            Debug.LogWarning("[ClueSpawner] 서버에서만 단서를 생성할 수 있습니다.", this);
+            return;
+        }
 
         if (_spawnCluesAtRoundStart)
         {
@@ -240,7 +257,9 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     private void DespawnAllFieldClues()
     {
         // 최초 스폰 단서뿐만 아니라 플레이어가 다시 버린 단서까지 찾는다.
-        PickupItem[] fieldItems = FindObjectsByType<PickupItem>(FindObjectsSortMode.None);
+        PickupItem[] fieldItems = FindObjectsByType<PickupItem>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None);
 
         foreach (PickupItem fieldItem in fieldItems)
         {
