@@ -21,6 +21,11 @@ public class WaitingRoomUI : MonoBehaviour
     [SerializeField] private Button _readyButton;
     [SerializeField] private WaitingRoomReadyManager _readyManager;
 
+    [Header("=== 닉네임 설정 ===")]
+    [SerializeField] private TMP_InputField _nicknameInputField;
+    [SerializeField] private Button _nicknameConfirmButton;
+    [SerializeField] private GameObject _nicknameSettingPanel;
+
     [Header("=== 역할 선택 관련 ===")]
     [SerializeField] private Button _fieldRoleButton;
     [SerializeField] private Button _headquartersRoleButton;
@@ -74,6 +79,10 @@ public class WaitingRoomUI : MonoBehaviour
         _readyButton.onClick.AddListener(HandleReadyButtonClicked);
         _fieldRoleButton.onClick.AddListener(HandleFieldRoleButtonClicked);
         _headquartersRoleButton.onClick.AddListener(HandleHeadquartersRoleButtonClicked);
+
+        _nicknameInputField.characterLimit = Player.MaxPlayerNameLength;
+        _nicknameConfirmButton.onClick.AddListener(HandleNicknameConfirmButtonClicked);
+
         UpdateJoinCodeText();
         GameSessionManager.Instance.OnSessionJoined += UpdateJoinCodeText; // 조인 완료가 씬 로드보다 늦을 때를 대비한 재확인용
 
@@ -126,6 +135,8 @@ public class WaitingRoomUI : MonoBehaviour
         _fieldRoleButton.onClick.RemoveListener(HandleFieldRoleButtonClicked);
         _headquartersRoleButton.onClick.RemoveListener(HandleHeadquartersRoleButtonClicked);
 
+        _nicknameConfirmButton.onClick.RemoveListener(HandleNicknameConfirmButtonClicked);
+
         if (GameSessionManager.Instance != null)
         {
             GameSessionManager.Instance.OnSessionJoined -= UpdateJoinCodeText;
@@ -163,7 +174,18 @@ public class WaitingRoomUI : MonoBehaviour
 		GameSessionManager.Instance.LeaveSession();
 	}
 
-	private void HandleMicMuteButtonClicked()
+    private void HandleNicknameConfirmButtonClicked()
+    {
+        NetworkObject localPlayerObject = NetworkManager.Singleton.LocalClient.PlayerObject;
+
+        if (localPlayerObject.TryGetComponent(out Player localPlayer))
+        {
+            localPlayer.SetPlayerName(_nicknameInputField.text);
+            _nicknameSettingPanel.SetActive(false);
+        }
+    }
+
+    private void HandleMicMuteButtonClicked()
 	{
 		VivoxManager.Instance.ToggleMicMute();
 		UpdateMicMuteButtonColor();
