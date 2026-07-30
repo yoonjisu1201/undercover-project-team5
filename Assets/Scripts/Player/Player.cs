@@ -24,7 +24,7 @@ public class Player : NetworkBehaviour {
 	[HideInInspector] public PlayerInfoPresenter PlayerInfoPresenter;
 	[HideInInspector] public PlayerRenderer PlayerRenderer;
 
-    public const int MaxPlayerNameLength = 8;
+    public const int MaxPlayerNameLength = 6;
 
     private bool _isNetworkStarted => NetworkManager != null && NetworkManager.Singleton.IsListening;
 
