@@ -59,6 +59,7 @@ public sealed class HqItemSpawner : MonoBehaviour
         }
 
         _hasSpawned = true;
+        Quaternion spawnRotation = GetInitialSpawnRotation();
 
         foreach (Transform spawnPoint in _spawnPoints)
         {
@@ -68,7 +69,10 @@ public sealed class HqItemSpawner : MonoBehaviour
                 continue;
             }
 
-            GameObject toolObject = Instantiate(_item.WorldPrefab, spawnPoint.position, spawnPoint.rotation);
+            GameObject toolObject = Instantiate(
+                _item.WorldPrefab,
+                spawnPoint.position,
+                spawnRotation);
 
             if (!toolObject.TryGetComponent(out PickupItem pickupItem) ||
                 !toolObject.TryGetComponent(out NetworkObject networkObject))
@@ -81,6 +85,21 @@ public sealed class HqItemSpawner : MonoBehaviour
             pickupItem.Configure(_item);
             networkObject.Spawn(destroyWithScene: true);
         }
+    }
+
+    private Quaternion GetInitialSpawnRotation()
+    {
+        Transform prefabTransform = _item.WorldPrefab.transform;
+
+        if (_item.ItemId != "AlienCaptureGun")
+        {
+            return prefabTransform.rotation;
+        }
+
+        Vector3 eulerAngles = prefabTransform.eulerAngles;
+        eulerAngles.x = -90f;
+        eulerAngles.z = -90f;
+        return Quaternion.Euler(eulerAngles);
     }
 
     public void ClearSpawned()
