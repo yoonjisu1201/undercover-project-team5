@@ -112,13 +112,13 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7514292908372362598}
-  - component: {fileID: 7951411725782929063}
   - component: {fileID: -9032277129262460047}
   - component: {fileID: 2296733832737361192}
   - component: {fileID: 2895245744311800230}
   - component: {fileID: -1146294042711275724}
   - component: {fileID: 5780773502730476271}
   - component: {fileID: 8110043387697849792}
+  - component: {fileID: 5498217525838706730}
   m_Layer: 6
   m_Name: BeaconTracker
   m_TagString: Untagged
@@ -150,29 +150,6 @@ Transform:
   - {fileID: 4071777278687953970}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
---- !u!136 &7951411725782929063
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2870915099984190048}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.04
-  m_Height: 0.03
-  m_Direction: 2
-  m_Center: {x: 0, y: 0, z: 0.005}
 --- !u!114 &-9032277129262460047
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -185,7 +162,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1628138154
+  GlobalObjectIdHash: 3585697808
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -441,6 +418,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemRigidbodySettler
   ShowTopMostFoldoutHeaderGroup: 1
   _alignToGround: 1
+--- !u!65 &5498217525838706730
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2870915099984190048}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.0825484, y: 0.083339624, z: 0.03149825}
+  m_Center: {x: 0.000017103554, y: -0.00018545092, z: 0.0053717284}
 --- !u!1 &3124751880928360203
 GameObject:
   m_ObjectHideFlags: 0
@@ -881,7 +879,7 @@ Transform:
   m_GameObject: {fileID: 4393953481163136259}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0.0202}
+  m_LocalPosition: {x: 0, y: 0, z: 0.0171}
   m_LocalScale: {x: 0.025, y: 0.025, z: 0.008}
   m_ConstrainProportionsScale: 0
   m_Children: []
