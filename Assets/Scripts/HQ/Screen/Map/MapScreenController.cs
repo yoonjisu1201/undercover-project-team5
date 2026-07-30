@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class MapScreenController : ScreenBase, IDragHandler, IScrollHandler {
 	[Header("=== 조작할 미니맵 카메라 ===")]
@@ -19,10 +20,33 @@ public class MapScreenController : ScreenBase, IDragHandler, IScrollHandler {
 
 	private Vector3 _defaultPosition;
 	private float _defaultOrthographicSize;
+	private Slider _zoomSlider;
+	private Button _zoomInButton;
+	private Button _zoomOutButton;
 
 	private void Awake() {
 		_defaultPosition = _minimapCamera.transform.position;
 		_defaultOrthographicSize = _minimapCamera.orthographicSize;
+
+		Transform zoomControl = transform.Find("ZoomControl");
+		if (zoomControl == null) {
+			return;
+		}
+
+		_zoomSlider = zoomControl.Find("ZoomSlider")?.GetComponent<Slider>();
+		_zoomInButton = zoomControl.Find("ZoomInButton")?.GetComponent<Button>();
+		_zoomOutButton = zoomControl.Find("ZoomOutButton")?.GetComponent<Button>();
+
+		_zoomSlider?.onValueChanged.AddListener(OnZoomSliderChanged);
+		_zoomInButton?.onClick.AddListener(ZoomIn);
+		_zoomOutButton?.onClick.AddListener(ZoomOut);
+		SyncZoomSlider();
+	}
+
+	private void OnDestroy() {
+		_zoomSlider?.onValueChanged.RemoveListener(OnZoomSliderChanged);
+		_zoomInButton?.onClick.RemoveListener(ZoomIn);
+		_zoomOutButton?.onClick.RemoveListener(ZoomOut);
 	}
 
 	// 지도 화면을 열 때마다 카메라 위치와 확대 비율을 기본값으로 되돌림
@@ -30,6 +54,7 @@ public class MapScreenController : ScreenBase, IDragHandler, IScrollHandler {
 		base.ActivateScreen();
 		// _minimapCamera.transform.position = _defaultPosition;
 		// _minimapCamera.orthographicSize = _defaultOrthographicSize;
+		SyncZoomSlider();
 	}
 
 	public void OnDrag(PointerEventData eventData) {
@@ -43,8 +68,40 @@ public class MapScreenController : ScreenBase, IDragHandler, IScrollHandler {
 	}
 
 	public void OnScroll(PointerEventData eventData) {
-		float size = _minimapCamera.orthographicSize - eventData.scrollDelta.y * _zoomSensitivity;
+		SetOrthographicSize(_minimapCamera.orthographicSize - eventData.scrollDelta.y * _zoomSensitivity);
+	}
+
+	private void ZoomIn() {
+		SetOrthographicSize(_minimapCamera.orthographicSize - _zoomSensitivity);
+	}
+
+	private void ZoomOut() {
+		SetOrthographicSize(_minimapCamera.orthographicSize + _zoomSensitivity);
+	}
+
+	private void OnZoomSliderChanged(float normalizedZoom) {
+		SetOrthographicSize(Mathf.Lerp(_maxOrthographicSize, _minOrthographicSize, normalizedZoom), false);
+	}
+
+	private void SetOrthographicSize(float size, bool syncSlider = true) {
 		_minimapCamera.orthographicSize = Mathf.Clamp(size, _minOrthographicSize, _maxOrthographicSize);
+
+		if (syncSlider) {
+			SyncZoomSlider();
+		}
+	}
+
+	private void SyncZoomSlider() {
+		if (_zoomSlider == null) {
+			return;
+		}
+
+		float normalizedZoom = Mathf.InverseLerp(
+			_maxOrthographicSize,
+			_minOrthographicSize,
+			_minimapCamera.orthographicSize
+		);
+		_zoomSlider.SetValueWithoutNotify(normalizedZoom);
 	}
 
 	private Vector3 ClampToPanBounds(Vector3 position) {

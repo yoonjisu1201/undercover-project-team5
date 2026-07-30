@@ -16,16 +16,42 @@ public class SubwayMapUI : MonoBehaviour, IDragHandler, IScrollHandler {
 	[SerializeField] [Range(0.1f, 0.5f)] private float _wheelSpeed; 
 	[SerializeField] [Range(0.5f, 1.0f)] private float _minScale;
 	[SerializeField] [Range(2.0f, 4.0f)] private float _maxScale;
+
+	private Slider _zoomSlider;
+	private Button _zoomInButton;
+	private Button _zoomOutButton;
 	
 	public event Action OnWindowClosed;
+
+	private void Awake() {
+		Transform zoomControl = transform.Find("ZoomControl");
+		if (zoomControl == null) {
+			return;
+		}
+
+		_zoomSlider = zoomControl.Find("ZoomSlider")?.GetComponent<Slider>();
+		_zoomInButton = zoomControl.Find("ZoomInButton")?.GetComponent<Button>();
+		_zoomOutButton = zoomControl.Find("ZoomOutButton")?.GetComponent<Button>();
+
+		_zoomSlider?.onValueChanged.AddListener(OnZoomSliderChanged);
+		_zoomInButton?.onClick.AddListener(ZoomIn);
+		_zoomOutButton?.onClick.AddListener(ZoomOut);
+	}
 	
 	private void OnEnable() {
 		_closeButton.onClick.AddListener(() => gameObject.SetActive(false));
+		SyncZoomSlider();
 	}
 
 	private void OnDisable() {
 		OnWindowClosed?.Invoke();
 		_closeButton.onClick.RemoveAllListeners();
+	}
+
+	private void OnDestroy() {
+		_zoomSlider?.onValueChanged.RemoveListener(OnZoomSliderChanged);
+		_zoomInButton?.onClick.RemoveListener(ZoomIn);
+		_zoomOutButton?.onClick.RemoveListener(ZoomOut);
 	}
 
 	public void OnDrag(PointerEventData eventData) {
@@ -34,15 +60,38 @@ public class SubwayMapUI : MonoBehaviour, IDragHandler, IScrollHandler {
 	}
 	
 	public void OnScroll(PointerEventData eventData) {
-		float nextScale = Mathf.Clamp(
-			_subwayMap.localScale.x +
-			eventData.scrollDelta.y * _wheelSpeed,
-			_minScale,
-			_maxScale
-		);
+		SetScale(_subwayMap.localScale.x + eventData.scrollDelta.y * _wheelSpeed);
+	}
 
-		_subwayMap.localScale = Vector3.one * nextScale;
+	private void ZoomIn() {
+		SetScale(_subwayMap.localScale.x + _wheelSpeed);
+	}
+
+	private void ZoomOut() {
+		SetScale(_subwayMap.localScale.x - _wheelSpeed);
+	}
+
+	private void OnZoomSliderChanged(float normalizedZoom) {
+		SetScale(Mathf.Lerp(_minScale, _maxScale, normalizedZoom), false);
+	}
+
+	private void SetScale(float scale, bool syncSlider = true) {
+		float clampedScale = Mathf.Clamp(scale, _minScale, _maxScale);
+		_subwayMap.localScale = Vector3.one * clampedScale;
 		ClampPosition();
+
+		if (syncSlider) {
+			SyncZoomSlider();
+		}
+	}
+
+	private void SyncZoomSlider() {
+		if (_zoomSlider == null) {
+			return;
+		}
+
+		float normalizedZoom = Mathf.InverseLerp(_minScale, _maxScale, _subwayMap.localScale.x);
+		_zoomSlider.SetValueWithoutNotify(normalizedZoom);
 	}
 	
 	private void ClampPosition()
