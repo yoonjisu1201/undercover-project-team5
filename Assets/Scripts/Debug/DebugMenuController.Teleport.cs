@@ -70,6 +70,31 @@ public sealed partial class DebugMenuController
         RefreshButtonLabels();
     }
 
+    // 역할 변경 직후 현재 역할에 맞는 본부 또는 필드 위치로 이동합니다.
+    private void MoveLocalPlayerToRoleArea(Role role)
+    {
+        Player player = GetLocalPlayer();
+        HqEntrance entrance = FindFirstObjectByType<HqEntrance>();
+        HqExit exit = FindFirstObjectByType<HqExit>();
+        if (player == null || entrance == null || exit == null)
+        {
+            ShowStatus("역할에 맞는 이동 지점을 찾지 못했습니다.");
+            return;
+        }
+
+        if (role == Role.Headquarter)
+        {
+            if (!IsCloserToHq(player.transform.position, entrance, exit))
+            {
+                SaveFieldReturnPose(player);
+            }
+            TeleportToSafeHqPosition(player, entrance);
+            return;
+        }
+
+        TeleportFromHqToField(player, exit);
+    }
+
     // 자신을 제외하고 소유자 ID로 정렬된 플레이어 중 지정 순번으로 이동합니다.
     private void TeleportToOtherPlayer(int index)
     {

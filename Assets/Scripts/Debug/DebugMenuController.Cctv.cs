@@ -3,6 +3,8 @@ using UnityEngine;
 
 public sealed partial class DebugMenuController
 {
+    private int _selectedCctvIndex = -1;
+
     // CCTV를 선택하고 전원 제어 하위 메뉴를 토글합니다.
     public void OnSelectCctv1Click() => SelectCctv(0);
     public void OnSelectCctv2Click() => SelectCctv(1);

@@ -118,7 +118,7 @@ public class ArrestChaseUI : MonoBehaviour
         {
             _participantIcons[i].color = i < holdingCount ? _participantActiveColor : Color.white;
         }
-        _participantCountText.text = $"{holdingCount}/{ArrestChaseManager.RequiredParticipants}";
+        _participantCountText.text = $"{holdingCount}/{ArrestChaseManager.Instance.CurrentRequiredParticipants}";
     }
 
     // 대상 NPC의 월드 좌표를 화면 좌표로 변환해 타겟팅 프레임(UI_TargetReticle) 위치를 갱신한다.
@@ -195,7 +195,7 @@ public class ArrestChaseUI : MonoBehaviour
 
         string desiredMessage = !hasToolEquipped
             ? "검거 도구가 필요합니다"
-            : ArrestChaseManager.Instance.HoldingCount < ArrestChaseManager.RequiredParticipants
+            : ArrestChaseManager.Instance.HoldingCount < ArrestChaseManager.Instance.CurrentRequiredParticipants
                 ? "다른 요원 1명이 필요합니다"
                 : null;
 

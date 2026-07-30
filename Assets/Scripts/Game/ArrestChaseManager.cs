@@ -20,6 +20,9 @@ public class ArrestChaseManager : NetworkBehaviour
 
     // 추격에 필요한 인원
     public const int RequiredParticipants = 2;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    private bool _debugSoloCaptureEnabled;
+#endif
 
     [SerializeField, Min(0.1f)] private float _captureRadius = 5f;      // 대상 NPC 기준, 이 반경 안에 있어야 인원으로 카운트된다.
     [SerializeField, Min(0.1f)] private float _gaugeFillDuration = 5f;   // 조건 충족 시 0 -> 1까지 채우는 데 걸리는 시간(초)
@@ -55,6 +58,20 @@ public class ArrestChaseManager : NetworkBehaviour
     public ArrestChaseState CurrentState => _state.Value;
     public float Gauge => _gauge.Value; // 0~1
     public int HoldingCount => _holdingCount.Value;
+    public int CurrentRequiredParticipants =>
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        _debugSoloCaptureEnabled ? 1 :
+#endif
+        RequiredParticipants;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    // 디버그 메뉴에서 혼자 검거할 수 있도록 필요 인원을 한 명으로 전환합니다.
+    public void SetDebugSoloCaptureEnabled(bool enabled)
+    {
+        if (!IsServer) return;
+        _debugSoloCaptureEnabled = enabled;
+    }
+#endif
 
     // UI가 구독해서 게이지 바/안내 문구를 갱신하는 데 쓰는 이벤트. ArrestVoteManager의 이벤트 패턴과 동일하다.
     public event Action<ArrestChaseState> OnStateChanged;
@@ -155,7 +172,7 @@ public class ArrestChaseManager : NetworkBehaviour
         _holdingCount.Value = holdingCount; // UI가 참여 아이콘/안내 문구를 판단할 수 있도록 매 프레임 동기화
 
         // 반경+도구+홀드 조건을 모두 만족하는 인원이 필요 인원 수 이상이어야 게이지가 오른다.
-        if (holdingCount >= RequiredParticipants)
+        if (holdingCount >= CurrentRequiredParticipants)
         {
             // 조건 충족: 게이지를 채운다. _gaugeFillDuration초 동안 유지하면 가득 찬다.
             _gauge.Value = Mathf.Min(1f, _gauge.Value + Time.deltaTime / _gaugeFillDuration);

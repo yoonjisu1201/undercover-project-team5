@@ -155,6 +155,19 @@ public sealed class BatterySpawner : MonoBehaviour, IRoundSpawner
         return spawnQueue;
     }
 
+    // 기존 건전지를 정리하고 현재 해방된 지역을 기준으로 다시 생성합니다.
+    public void RespawnBatteries()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        {
+            Debug.LogWarning("[BatterySpawner] 서버에서만 건전지를 재생성할 수 있습니다.", this);
+            return;
+        }
+
+        ClearSpawned();
+        SpawnAsync(_spawnCoordinator, this.GetCancellationTokenOnDestroy()).Forget();
+    }
+
     // 이 스포너가 생성한 건전지와 예약 위치를 정리해 다음 라운드에 다시 생성할 수 있게 한다.
     public void ClearSpawned()
     {

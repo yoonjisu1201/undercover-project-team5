@@ -25,6 +25,7 @@ public sealed class NpcRandomWander : MonoBehaviour
     private NpcMovement _movement;
     private NpcStateMachine _stateMachine;
     private MapRegion _spawnRegion;
+    private MapRegionController _regionController;
     private float _nextMoveTime;
     private bool _hasRequestedMove;
 
@@ -48,6 +49,7 @@ public sealed class NpcRandomWander : MonoBehaviour
     public void Initialize(MapRegion spawnRegion)
     {
         _spawnRegion = spawnRegion;
+        _regionController = FindFirstObjectByType<MapRegionController>();
     }
 
     private void Reset()
@@ -130,6 +132,8 @@ public sealed class NpcRandomWander : MonoBehaviour
             return false;
         }
 
+        _regionController ??= FindFirstObjectByType<MapRegionController>();
+
         Vector3 center = _wanderArea.transform.TransformPoint(_wanderArea.center);
         Vector3 scale = _wanderArea.transform.lossyScale;
         float radius = _wanderArea.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
@@ -157,9 +161,13 @@ public sealed class NpcRandomWander : MonoBehaviour
             }
 
             Vector3 sphereClosestPoint = _wanderArea.ClosestPoint(navMeshHit.position);
+            bool isInsideAvailableRegion = _regionController != null
+                ? _regionController.TryGetUnlockedRegionAt(navMeshHit.position, out _)
+                : _spawnRegion.IsUnlocked &&
+                  _spawnRegion.Contains(navMeshHit.position) &&
+                  _spawnRegion.SpawnArea.IsNearGroundSurface(navMeshHit.position);
             if ((sphereClosestPoint - navMeshHit.position).sqrMagnitude > Mathf.Epsilon ||
-                !_spawnRegion.Contains(navMeshHit.position) ||
-                !_spawnRegion.SpawnArea.IsNearGroundSurface(navMeshHit.position) ||
+                !isInsideAvailableRegion ||
                 (navMeshHit.position - transform.position).sqrMagnitude < minimumDistanceSquared)
             {
                 continue;

@@ -67,6 +67,12 @@ public class RoundManager : NetworkBehaviour
     private readonly NetworkVariable<double> _roundEndTime =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    private readonly NetworkVariable<bool> _debugTimeStopped =
+        new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    private readonly NetworkVariable<float> _debugStoppedRemainingTime =
+        new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     // 결과 확인 버튼을 누른 클라이언트 목록. 접속 중인 전원이 모이면 웨이팅룸으로 전환한다.
     private readonly NetworkList<ulong> _confirmedClients = new();
 
@@ -87,6 +93,7 @@ public class RoundManager : NetworkBehaviour
     // 검거 투표가 진행되는 동안 라운드 타이머를 멈추기 위한 상태 (서버만 사용)
     private bool _isPausedForVote;
     private double _votePauseStartTime;
+    private bool _isStartingNextRound;
 
     // 스폰 완료 확인 응답을 보낸 클라이언트 목록 (서버만 사용, 네트워크 동기화 불필요)
     private readonly HashSet<ulong> _spawnReadyConfirmedClients = new();
@@ -113,6 +120,7 @@ public class RoundManager : NetworkBehaviour
 
     // 결과 패널에서 "Round 클리어 시점의 Round 남은 시간"을 표시하기 위한 값
     public float RoundRemainingTimeAtClear => _roundRemainingTimeAtClear.Value;
+    public bool IsDebugTimeStopped => _debugTimeStopped.Value;
 
     public event Action<RoundState> OnRoundStateChanged; // 라운드 상태가 바뀔 때마다 전달 (늦참 클라이언트는 스폰 시 현재 상태로 1회 발동)
     public event Action<RoundState> OnRoundResult; // 결과 패널을 띄워야 하는 상태(RoundClear/Fail/Success) 진입 시 발동
@@ -247,7 +255,7 @@ public class RoundManager : NetworkBehaviour
         }
 
         if (!IsSpawned || !IsServer) return;
-        if (_isPausedForVote) return; // 검거 투표 진행 중에는 시간초과 판정도 멈춘다
+        if (_isPausedForVote || _debugTimeStopped.Value) return;
         if (NetworkManager.ServerTime.Time < _roundEndTime.Value) return;
 
         switch (_currentState.Value)
@@ -256,16 +264,44 @@ public class RoundManager : NetworkBehaviour
                 _currentState.Value = RoundState.Fail; // 시간 초과로 실패 처리
                 break;
             case RoundState.RoundClear:
-                _currentRoundIndex.Value++;
-                ResetMiniGamesForNewRound();
-                ResetNpcTrackersForNewRound();
-                _clueSpawner.RespawnClues(); // 다음 라운드 마다 단서 재생성 (인벤토리 초기화 포함)
-                _captureGunSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 검거도구 재생성
-                _trackerSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 위치추적기 재생성
-                _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[_currentRoundIndex.Value].Duration;
-                _currentState.Value = RoundState.InRound; // 대기 시간 종료, 다음 라운드 자동 시작
-                AnnounceRoundStartRpc(_currentRoundIndex.Value);
+                if (!_isStartingNextRound)
+                {
+                    StartNextRoundAsync(this.GetCancellationTokenOnDestroy()).Forget();
+                }
                 break;
+        }
+    }
+
+    // 최신 필드 해방 상태로 NPC를 다시 배치한 뒤 다음 라운드를 시작합니다.
+    private async UniTaskVoid StartNextRoundAsync(CancellationToken cancellationToken)
+    {
+        _isStartingNextRound = true;
+
+        try
+        {
+            _currentRoundIndex.Value++;
+            _debugTimeStopped.Value = false;
+            _debugStoppedRemainingTime.Value = 0f;
+            ResetMiniGamesForNewRound();
+            ResetNpcTrackersForNewRound();
+
+            if (_npcSpawner != null)
+            {
+                await _npcSpawner.RespawnAsync(cancellationToken);
+            }
+
+            FindFirstObjectByType<MiniGameSpawner>()?.RespawnMiniGameMachines();
+            FindFirstObjectByType<BatterySpawner>()?.RespawnBatteries();
+            _clueSpawner.RespawnClues(); // 다음 라운드 마다 단서 재생성 (인벤토리 초기화 포함)
+            _captureGunSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 검거도구 재생성
+            _trackerSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 위치추적기 재생성
+            _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[_currentRoundIndex.Value].Duration;
+            _currentState.Value = RoundState.InRound;
+            AnnounceRoundStartRpc(_currentRoundIndex.Value);
+        }
+        finally
+        {
+            _isStartingNextRound = false;
         }
     }
 
@@ -277,6 +313,8 @@ public class RoundManager : NetworkBehaviour
 
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _currentRoundIndex.Value = 0;
+        _debugTimeStopped.Value = false;
+        _debugStoppedRemainingTime.Value = 0f;
         ResetMiniGamesForNewRound();
         ResetNpcTrackersForNewRound();
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[0].Duration;
@@ -335,7 +373,11 @@ public class RoundManager : NetworkBehaviour
         // 검거 투표 중에는 타이머가 멈춰있는 상태라, 투표로 흘러간 시간을 빼기 위해
         // 현재 시각이 아니라 투표(일시정지) 시작 시각을 기준으로 계산한다.
         double referenceTime = _isPausedForVote ? _votePauseStartTime : NetworkManager.ServerTime.Time;
-        float remainingAtClear = Mathf.Max(0f, (float)(_roundEndTime.Value - referenceTime));
+        float remainingAtClear = _debugTimeStopped.Value
+            ? _debugStoppedRemainingTime.Value
+            : Mathf.Max(0f, (float)(_roundEndTime.Value - referenceTime));
+        _debugTimeStopped.Value = false;
+        _debugStoppedRemainingTime.Value = 0f;
         _roundRemainingTimeAtClear.Value = remainingAtClear;
 
         float clearWaitDuration = _rounds[_currentRoundIndex.Value].ClearWaitDuration;
@@ -402,6 +444,35 @@ public class RoundManager : NetworkBehaviour
         NetworkManager.SceneManager.LoadScene(_waitingRoomSceneName, LoadSceneMode.Single);
     }
 
+    // 디버그 메뉴에서 라운드 제한시간만 정지하거나 저장된 시간부터 재개합니다.
+    public bool SetDebugTimeStopped(bool stopped)
+    {
+        if (!IsServer || _currentState.Value != RoundState.InRound)
+        {
+            return false;
+        }
+
+        if (stopped == _debugTimeStopped.Value)
+        {
+            return true;
+        }
+
+        if (stopped)
+        {
+            _debugStoppedRemainingTime.Value =
+                Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));
+        }
+        else
+        {
+            _roundEndTime.Value =
+                NetworkManager.ServerTime.Time + _debugStoppedRemainingTime.Value;
+            _debugStoppedRemainingTime.Value = 0f;
+        }
+
+        _debugTimeStopped.Value = stopped;
+        return true;
+    }
+
     // 클라이언트 UI(시계 등)가 매 프레임 호출해서 남은 시간을 계산한다.
     // Fail/Success 등 라운드 진행 상태가 아닐 때는 재계산하지 않고, 직전에 계산된 값을 그대로 반환한다.
     // (그래야 성공/실패 순간 남아있던 시간이 0으로 바뀌지 않고 그대로 화면에 유지된다)
@@ -415,7 +486,11 @@ public class RoundManager : NetworkBehaviour
             || arrestVoteState == ArrestVoteState.Passed
             || arrestVoteState == ArrestVoteState.Rejected;
 
-        if (!isVotingInProgress &&
+        if (_debugTimeStopped.Value)
+        {
+            _cachedRemainingTime = _debugStoppedRemainingTime.Value;
+        }
+        else if (!isVotingInProgress &&
             (_currentState.Value == RoundState.InRound || _currentState.Value == RoundState.RoundClear))
         {
             _cachedRemainingTime = Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));

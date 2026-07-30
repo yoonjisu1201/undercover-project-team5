@@ -16,6 +16,29 @@ public sealed class MapRegionController : MonoBehaviour
 
     public IReadOnlyList<MapRegion> Regions => _regions;
 
+    // 월드 위치를 포함하는 해방 지역을 반환합니다.
+    public bool TryGetUnlockedRegionAt(Vector3 position, out MapRegion region)
+    {
+        if (_regions != null)
+        {
+            foreach (MapRegion candidate in _regions)
+            {
+                if (candidate != null &&
+                    candidate.IsUnlocked &&
+                    candidate.SpawnArea != null &&
+                    candidate.Contains(position) &&
+                    candidate.SpawnArea.IsNearGroundSurface(position))
+                {
+                    region = candidate;
+                    return true;
+                }
+            }
+        }
+
+        region = null;
+        return false;
+    }
+
     // 현재 해금된 구역의 NavMesh 삼각형을 갱신합니다.
     public bool RefreshSpawnAreas()
     {
