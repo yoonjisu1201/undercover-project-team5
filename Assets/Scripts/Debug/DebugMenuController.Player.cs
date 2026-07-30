@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -134,4 +133,3 @@ public sealed partial class DebugMenuController
         return FindObjectsByType<Player>(FindObjectsSortMode.None).FirstOrDefault(player => player.IsOwner);
     }
 }
-#endif

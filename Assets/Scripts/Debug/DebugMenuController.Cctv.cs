@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using UnityEngine;
 
 public sealed partial class DebugMenuController
@@ -84,4 +83,3 @@ public sealed partial class DebugMenuController
         }
     }
 }
-#endif

@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
@@ -152,4 +151,3 @@ public sealed partial class DebugMenuController
         }
     }
 }
-#endif

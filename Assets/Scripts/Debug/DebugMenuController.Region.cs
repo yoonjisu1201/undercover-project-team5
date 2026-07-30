@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Linq;
 using Unity.Netcode;
@@ -49,4 +48,3 @@ public sealed partial class DebugMenuController
     [Rpc(SendTo.Everyone)]
     private void ApplyRegionUnlockRpc(string regionId) => ApplyRegionUnlock(regionId);
 }
-#endif

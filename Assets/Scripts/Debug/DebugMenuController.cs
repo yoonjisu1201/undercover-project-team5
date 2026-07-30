@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
@@ -118,4 +117,3 @@ public sealed partial class DebugMenuController : NetworkBehaviour
         ClearSavedFieldReturnPoses();
     }
 }
-#endif

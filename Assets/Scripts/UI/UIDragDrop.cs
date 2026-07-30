@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Scripting;
 using UnityEngine.UI;
 
 public interface IUIDragDropContext
@@ -11,23 +12,37 @@ public interface IUIDragDropContext
     void RefreshItemPositions();
 }
 
-public class UIDraggableItem : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler
+[Preserve]
+public class UIDraggableItem : MonoBehaviour,
+    IInitializePotentialDragHandler,
+    IBeginDragHandler,
+    IDragHandler,
+    IEndDragHandler,
+    IDropHandler
 {
     private IUIDragDropContext _context;
     private RectTransform _rect;
     private RectTransform _dragRoot;
+    private Canvas _rootCanvas;
     private CanvasGroup _canvasGroup;
-    private Vector3 _dragOffset;
+    private Vector2 _dragOffset;
 
     public int CurrentSlotIndex { get; set; } = -1;
     public object Payload { get; private set; }
+
+    // 해상도 및 DPI에 따른 EventSystem 드래그 임계값 차이 없이 즉시 드래그를 시작합니다.
+    public void OnInitializePotentialDrag(PointerEventData eventData)
+    {
+        eventData.useDragThreshold = false;
+    }
 
     protected void InitializeDrag(IUIDragDropContext context, object payload)
     {
         _context = context;
         Payload = payload;
         _rect = (RectTransform)transform;
-        _dragRoot = (RectTransform)GetComponentInParent<Canvas>().rootCanvas.transform;
+        _rootCanvas = GetComponentInParent<Canvas>().rootCanvas;
+        _dragRoot = (RectTransform)_rootCanvas.transform;
         _canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
     }
 
@@ -38,19 +53,17 @@ public class UIDraggableItem : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         _rect.SetParent(_dragRoot, true);
         _rect.SetAsLastSibling();
 
-        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
-                _dragRoot, eventData.position, eventData.pressEventCamera, out Vector3 pointerPosition))
+        if (TryGetPointerLocalPosition(eventData, out Vector2 pointerPosition))
         {
-            _dragOffset = _rect.position - pointerPosition;
+            _dragOffset = _rect.anchoredPosition - pointerPosition;
         }
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
-                _dragRoot, eventData.position, eventData.pressEventCamera, out Vector3 point))
+        if (TryGetPointerLocalPosition(eventData, out Vector2 pointerPosition))
         {
-            _rect.position = point + _dragOffset;
+            _rect.anchoredPosition = pointerPosition + _dragOffset;
         }
     }
 
@@ -69,8 +82,23 @@ public class UIDraggableItem : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             _context.DropOnItem(this, dragged);
         }
     }
+
+    // 빌드 해상도와 CanvasScaler 배율에 맞춰 포인터를 루트 캔버스의 로컬 좌표로 변환합니다.
+    private bool TryGetPointerLocalPosition(PointerEventData eventData, out Vector2 localPosition)
+    {
+        Camera eventCamera = _rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay
+            ? null
+            : _rootCanvas.worldCamera ?? eventData.pressEventCamera;
+
+        return RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            _dragRoot,
+            eventData.position,
+            eventCamera,
+            out localPosition);
+    }
 }
 
+[Preserve]
 public class UIDropSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler, IPointerExitHandler
 {
     private IUIDragDropContext _context;
@@ -139,6 +167,7 @@ public class UIDropSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler, IPo
     }
 }
 
+[Preserve]
 public class UIDropPool : MonoBehaviour, IDropHandler
 {
     private IUIDragDropContext _context;

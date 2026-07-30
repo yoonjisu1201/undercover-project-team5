@@ -1,4 +1,3 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System.Reflection;
 using Unity.Netcode;
 using UnityEngine;
@@ -211,4 +210,3 @@ public sealed partial class DebugMenuController
         ((NetworkVariable<MontageState>)MontageStateField.GetValue(manager)).Value = state;
     }
 }
-#endif
