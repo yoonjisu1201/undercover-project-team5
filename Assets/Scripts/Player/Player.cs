@@ -23,8 +23,10 @@ public class Player : NetworkBehaviour {
 	[HideInInspector] public PlayerInteraction PlayerInteraction;
 	[HideInInspector] public PlayerInfoPresenter PlayerInfoPresenter;
 	[HideInInspector] public PlayerRenderer PlayerRenderer;
-	
-	private bool _isNetworkStarted => NetworkManager != null && NetworkManager.Singleton.IsListening;
+
+    public const int MaxPlayerNameLength = 6;
+
+    private bool _isNetworkStarted => NetworkManager != null && NetworkManager.Singleton.IsListening;
 
 	// 플레이어명. 모두 조회 가능하고, 자기 자신만 수정 가능하도록
 	private readonly NetworkVariable<FixedString32Bytes> _playerName = new NetworkVariable<FixedString32Bytes>(
@@ -59,6 +61,7 @@ public class Player : NetworkBehaviour {
 			return $"Player {OwnerClientId + 1}";
 		}
 	}
+	
 	public Color PlayerColor => _playerColor.Value;
 	public Role PlayerRole {
 		get => _playerRole.Value;
@@ -87,7 +90,21 @@ public class Player : NetworkBehaviour {
 		Layers.HideLayerFromCamera(GetComponentInChildren<Camera>(), Layers.MinimapOnly);
 	}
 
-	public override void OnNetworkSpawn() {
+    public void SetPlayerName(string playerName)
+    {
+        if (!IsOwner || string.IsNullOrWhiteSpace(playerName))
+        {
+            return;
+        }
+
+        string limitedName = playerName.Length > MaxPlayerNameLength
+            ? playerName.Substring(0, MaxPlayerNameLength)
+            : playerName;
+
+        _playerName.Value = new FixedString32Bytes(limitedName);
+    }
+
+    public override void OnNetworkSpawn() {
 		
 		if (IsOwner) {
 			// 색상은 처음 스폰 시에 랜덤하게 정한다. 추후 설정할 수 있게 해도 됨
@@ -101,7 +118,6 @@ public class Player : NetworkBehaviour {
 		_playerColor.OnValueChanged += HandlePlayerColorChanged;
 		_playerRole.OnValueChanged += HandlePlayerRoleChanged;
 		
-		// 추후 이름 변경되거나, 색이 변경되면 알맞은 함수 호출하도록
 		PlayerNameChanged += PlayerInfoPresenter.HandlePlayerNameChanged;
 		PlayerColorChanged += PlayerInfoPresenter.HandlePlayerColorChanged;
 		
