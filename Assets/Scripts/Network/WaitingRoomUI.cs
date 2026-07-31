@@ -1,9 +1,11 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Unity.Netcode;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Components;
+using UnityEngine.SceneManagement;
 
 // TestRoom1 씬의 나가기 버튼, 조인코드 표시 텍스트와 GameSessionManager를 연결한다.
 
@@ -49,6 +51,9 @@ public class WaitingRoomUI : MonoBehaviour
     private bool _isHost;
     private bool _isReady;
 
+    // 현재 구독 중인 Player들의 역할 변경. 슬롯이 바뀔 때마다 전부 해제하고 현재 슬롯 기준으로 다시 구독한다.
+    private readonly List<Player> _subscribedPlayers = new();
+
     // 매 갱신마다 GetComponent를 반복 호출하지 않도록 Start에서 1회 캐싱한다.
     private LocalizeStringEvent _selectedRoleLocalize;
     private LocalizeStringEvent _headquartersAvailabilityLocalize;
@@ -81,7 +86,7 @@ public class WaitingRoomUI : MonoBehaviour
 
         if (_isHost)
         {
-            UpdateStartButtonAndText(); // OnListChanged는 구독 이후 변경만 알려주므로 현재 상태를 직접 1회 반영
+            UpdateStartButtonAndText(); // 이벤트는 구독 이후 변경만 알려주므로 현재 상태를 직접 1회 반영
         }
         else
         {
@@ -89,9 +94,27 @@ public class WaitingRoomUI : MonoBehaviour
         }
 
         UpdateMicMuteButtonColor();
-        UpdateRoleSelection();
-		UpdateOutputMuteButtonColor();
+        UpdateOutputMuteButtonColor();
+
+        // 다른 플레이어들의 PlayerObject가 씬 전환 중이라 아직 재연결되지 않았을 수 있으므로,
+        // 준비돼 있으면 바로, 아니면 씬 동기화가 끝난 뒤에 구독/역할 선택 UI를 초기화한다.
+        if (NetworkManager.Singleton.LocalClient?.PlayerObject != null)
+        {
+            RefreshPlayerSubscriptions();
+            UpdateRoleSelection();
+        }
+        else
+        {
+            NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += HandleInitialLoadCompleted;
+        }
 	}
+
+    private void HandleInitialLoadCompleted(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+    {
+        NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleInitialLoadCompleted;
+        RefreshPlayerSubscriptions();
+        UpdateRoleSelection();
+    }
 
 	private void OnDestroy()
 	{
@@ -111,6 +134,12 @@ public class WaitingRoomUI : MonoBehaviour
         if (_readyManager != null)
         {
             _readyManager.Slots.OnListChanged -= HandleSlotsChanged;
+        }
+        UnsubscribeAllPlayers();
+
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleInitialLoadCompleted;
         }
     }
 
@@ -170,6 +199,38 @@ public class WaitingRoomUI : MonoBehaviour
 
     private void HandleSlotsChanged(NetworkListEvent<WaitingRoomReadyManager.PlayerSlot> _)
     {
+        RefreshPlayerSubscriptions();
+        RefreshRoleDependentUI();
+    }
+
+    // 입장/퇴장으로 슬롯 구성이 바뀔 때마다 호출된다.
+    // 본부 선택 가능 여부(IsHeadquartersAvailableFor)와 시작 가능 여부(HaveHqAgent)가
+    // 다른 플레이어의 역할에 따라 달라지므로, 현재 슬롯에 있는 Player들의 역할 변경을 직접 구독해서 감지한다.
+    private void RefreshPlayerSubscriptions()
+    {
+        UnsubscribeAllPlayers();
+
+        foreach (var slot in _readyManager.Slots)
+        {
+            Player player = slot.Player;
+            player.PlayerRoleChanged += HandlePlayerRoleChanged;
+            _subscribedPlayers.Add(player);
+        }
+    }
+
+    private void UnsubscribeAllPlayers()
+    {
+        foreach (var player in _subscribedPlayers)
+        {
+            player.PlayerRoleChanged -= HandlePlayerRoleChanged;
+        }
+        _subscribedPlayers.Clear();
+    }
+
+    private void HandlePlayerRoleChanged(Role oldRole, Role newRole) => RefreshRoleDependentUI();
+
+    private void RefreshRoleDependentUI()
+    {
         if (_isHost)
         {
             UpdateStartButtonAndText();
@@ -191,11 +252,15 @@ public class WaitingRoomUI : MonoBehaviour
     // Slot(접속된 유저들의 상태)가 변경될때마다 호출된다.
     private void UpdateRoleSelection()
     {
-        ulong localClientId = NetworkManager.Singleton.LocalClientId;
-        _readyManager.TryGetRole(localClientId, out Role selectedRole);
+        if (!NetworkManager.Singleton.LocalClient.PlayerObject.TryGetComponent(out Player player)) {
+	        Debug.LogError($"[UpdateRoleSelection] 잘못된 Player의 요청입니다");
+	        return;
+        }
+
+        Role selectedRole = player.PlayerRole;
 
         bool isField = selectedRole == Role.Field;
-        bool headquartersAvailable = _readyManager.IsHeadquartersAvailableFor(localClientId);
+        bool headquartersAvailable = _readyManager.IsHeadquartersAvailableFor(NetworkManager.Singleton.LocalClientId);
 
         _fieldRoleButton.targetGraphic.color = isField ? FieldRoleColor : UnselectedRoleColor;
         _headquartersRoleButton.targetGraphic.color = isField ? UnselectedRoleColor : HeadquartersRoleColor;

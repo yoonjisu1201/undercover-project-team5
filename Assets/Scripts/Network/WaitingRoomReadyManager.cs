@@ -1,19 +1,21 @@
 using System;
 using Unity.Netcode;
+using UnityEngine;
 
 // 대기방 좌석과 준비 상태를 서버가 관리한다.
 // WaitingRoom 씬이 로드될 때마다 (최초 생성/게임 종료 후 재입장) 새로 스폰되며 상태가 자동 초기화된다.
 public class WaitingRoomReadyManager : NetworkBehaviour
 {
-    //대기룸에서 플레이어 목록UI에 사용할 플레이어 넘버, 준비상태를 나타내는 구조체
+    // 대기룸에서 플레이어 목록UI에 사용할 플레이어 넘버, 준비상태를 나타내는 구조체
     public struct PlayerSlot : IEquatable<PlayerSlot>, INetworkSerializeByMemcpy
     {
         public ulong ClientId;
         public bool IsReady;
-        public Role Role;
+        // 슬롯에서 플레이어 편하게 가져올 수 있게 추가한 코드
+        public Player Player => NetworkManager.Singleton.ConnectedClients[ClientId].PlayerObject.GetComponent<Player>();
 
         public bool Equals(PlayerSlot other) =>
-            ClientId == other.ClientId && IsReady == other.IsReady && Role == other.Role;
+            ClientId == other.ClientId && IsReady == other.IsReady;
     }
 
     public const int MinPlayersToStart = 1; // TODO: 테스트용 임시 변경, 테스트 끝나면 3으로 되돌릴 것
@@ -28,26 +30,11 @@ public class WaitingRoomReadyManager : NetworkBehaviour
         foreach (var slot in _slots)
         {
             // 이미 다른 유저가 본부이고, 그 본부 유저가 내가 아니라면 False 반환
-            if (slot.Role == Role.Headquarter && slot.ClientId != clientId) {
+            if (slot.Player.PlayerRole == Role.Headquarter && slot.ClientId != clientId) {
                 return false;
             }
         }
         return true;
-    }
-
-    public bool TryGetRole(ulong clientId, out Role role)
-    {
-        foreach (var slot in _slots)
-        {
-            if (slot.ClientId != clientId)
-                continue;
-
-            role = slot.Role;
-            return true;
-        }
-
-        role = Role.Field;
-        return false;
     }
 
     // 접속 인원이 최소 인원 이상이고, 방장을 제외한 전원이 준비를 마쳤을 때 시작 가능하다.
@@ -72,11 +59,10 @@ public class WaitingRoomReadyManager : NetworkBehaviour
     public bool HaveHqAgent {
         get {
             foreach (var slot in _slots) {
-                if (slot.Role == Role.Headquarter) {
+                if (slot.Player.PlayerRole == Role.Headquarter) {
                     return true;
                 }
             }
-            
             return false;
         }
     }
@@ -119,11 +105,11 @@ public class WaitingRoomReadyManager : NetworkBehaviour
         {
             insertIndex++;
         }
+        
         _slots.Insert(insertIndex, new PlayerSlot
         {
             ClientId = clientId,
             IsReady = false,
-            Role = Role.Field
         });
     }
 
@@ -178,16 +164,6 @@ public class WaitingRoomReadyManager : NetworkBehaviour
         {
             player.PlayerRole = role;
         }
-        
-        // _slot 값 찾아서 변경
-        for (int i = 0; i < _slots.Count; i++) {
-            if (_slots[i].ClientId != clientId) {
-                continue;
-            }
-
-            var slot = _slots[i];
-            slot.Role = role;
-            _slots[i] = slot;
-        }
+        else { Debug.LogError($"[WaitingRoomReadyManager] clientId {clientId}의 PlayerObject를 찾을 수 없어 역할을 {role}로 변경하지 못했습니다."); }
     }
 }
