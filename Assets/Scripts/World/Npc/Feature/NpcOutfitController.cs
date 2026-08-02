@@ -1,9 +1,9 @@
-using Unity.Netcode;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class NpcOutfitController : MonoBehaviour {
-	[Header("=== 사용 가능한 Outfit List 모두 등록하기 ===")]
+	[Header("=== 사용 가능한 Outfit List 모두 등록하기 (본체와 같은 스켈레톤을 공유하는 자식들) ===")]
 	[SerializeField] private GameObject[] _beardList;
 	[SerializeField] private GameObject[] _eyebrowList;
 	[SerializeField] private GameObject[] _glassesList;
@@ -24,7 +24,7 @@ public class NpcOutfitController : MonoBehaviour {
 	[Range(0.0f, 1.0f)] [SerializeField] private float _hairPossibility = 0.8f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _hatPossibility = 0.5f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _headphonePossibility = 0.5f;
-	[Range(0.0f, 1.0f)] [SerializeField] private float _glovePossibility = 0.3f;
+	[Range(0.0f, 1.0f)] [SerializeField] private float _glovePossibility = 1f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _maskPossibility = 0.5f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _pantPossibility = 1f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _shoePossibility = 1f;
@@ -64,7 +64,7 @@ public class NpcOutfitController : MonoBehaviour {
 	}
 
 
-	// Possibility기반으로 그 부위 입을지 말지
+	// Possibility 기반으로 그 부위 입을지 말지
 	private static bool ShouldEquip(float possibility) {
 		return possibility >= 1f ||
 		       possibility > 0f && Random.value < possibility;
@@ -72,7 +72,7 @@ public class NpcOutfitController : MonoBehaviour {
 
 	// 특정 파트에 무언가를 입을지 말지, 입는다면 뭘 입을지 결정한다.
 	private static int GetRandomPartIndex(GameObject[] partList, float possibility) {
-		int partCount = partList.Length;
+		int partCount = partList?.Length ?? 0;
 
 		if (partCount == 0 || !ShouldEquip(possibility)) {
 			return -1;
@@ -136,7 +136,7 @@ public class NpcOutfitController : MonoBehaviour {
 	}
 
 	private static void AddModuleAt(GameObject[] modules, int index, List<GameObject> results) {
-		if (index >= 0 && index < modules.Length && modules[index] != null) {
+		if (modules != null && index >= 0 && index < modules.Length && modules[index] != null) {
 			results.Add(modules[index]);
 		}
 	}
