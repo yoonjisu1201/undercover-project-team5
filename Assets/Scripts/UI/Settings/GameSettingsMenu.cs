@@ -17,7 +17,10 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private const string MicVolumeKey = "MicVolume";
     private const string ResolutionIndexKey = "ResolutionIndex";
     private const string FullScreenKey = "FullScreen";
+    private const string FrameRateKey = "FrameRate";
+    private const string VSyncKey = "VSync";
     private const string MouseSensitivityKey = "MouseSensitivity";
+    private const int DefaultFrameRate = 120;
 
     // 지원되는 해상도 목록 (가로 x 세로)
     private static readonly Vector2Int[] SupportedResolutions =
@@ -52,6 +55,9 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [Header("Graphics Settings")]
     [SerializeField] private TMP_Text _resolutionText;
     [SerializeField] private Toggle _fullScreenToggle;
+    [SerializeField] private Slider _frameRateSlider;
+    [SerializeField] private TMP_Text _frameRateText;
+    [SerializeField] private Toggle _vSyncToggle;
 
     [Header("Gameplay Settings")]
     [SerializeField] private Slider _sensitivitySlider;
@@ -89,6 +95,13 @@ public sealed class GameSettingsMenu : MonoBehaviour
         bool isFullScreen = PlayerPrefs.GetInt(FullScreenKey, Screen.fullScreen ? 1 : 0) == 1;
         _fullScreenToggle.SetIsOnWithoutNotify(isFullScreen);
         ApplyResolution(isFullScreen);
+
+        int frameRate = Mathf.Clamp(PlayerPrefs.GetInt(FrameRateKey, DefaultFrameRate), 30, 240);
+        _frameRateSlider?.SetValueWithoutNotify(frameRate);
+
+        bool vSyncEnabled = PlayerPrefs.GetInt(VSyncKey, QualitySettings.vSyncCount > 0 ? 1 : 0) == 1;
+        _vSyncToggle?.SetIsOnWithoutNotify(vSyncEnabled);
+        ApplyFrameSettings(frameRate, vSyncEnabled);
     }
 
     private void InitializeSensitivity()
@@ -163,6 +176,36 @@ public sealed class GameSettingsMenu : MonoBehaviour
     {
         Screen.fullScreen = isFullScreen;
         PlayerPrefs.SetInt(FullScreenKey, isFullScreen ? 1 : 0);
+    }
+
+    public void SetFrameRate(float value)
+    {
+        int frameRate = Mathf.Clamp(Mathf.RoundToInt(value), 30, 240);
+        bool vSyncEnabled = _vSyncToggle != null && _vSyncToggle.isOn;
+        ApplyFrameSettings(frameRate, vSyncEnabled);
+    }
+
+    public void SetVSync(bool enabled)
+    {
+        int frameRate = _frameRateSlider != null
+            ? Mathf.RoundToInt(_frameRateSlider.value)
+            : PlayerPrefs.GetInt(FrameRateKey, DefaultFrameRate);
+
+        ApplyFrameSettings(frameRate, enabled);
+    }
+
+    private void ApplyFrameSettings(int frameRate, bool vSyncEnabled)
+    {
+        QualitySettings.vSyncCount = vSyncEnabled ? 1 : 0;
+        Application.targetFrameRate = vSyncEnabled ? -1 : frameRate;
+
+        if (_frameRateText != null)
+        {
+            _frameRateText.text = $"{frameRate} FPS";
+        }
+
+        PlayerPrefs.SetInt(FrameRateKey, frameRate);
+        PlayerPrefs.SetInt(VSyncKey, vSyncEnabled ? 1 : 0);
     }
 
     public void SetMouseSensitivity(float sensitivity)  // 마우스 감도 설정
@@ -276,10 +319,16 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     private async UniTaskVoid InitializeVivoxSettingsAsync()
     {
-        await UniTask.WaitUntil(() => VivoxManager.Instance != null);
-        await UniTask.WaitUntil(() => VivoxManager.IsLoggedIn);
+        var destroyCancellationToken = this.GetCancellationTokenOnDestroy();
 
-        if (!isActiveAndEnabled || _vivoxEventsSubscribed)
+        await UniTask.WaitUntil(
+            () => VivoxManager.Instance != null,
+            cancellationToken: destroyCancellationToken);
+        await UniTask.WaitUntil(
+            () => VivoxManager.IsLoggedIn,
+            cancellationToken: destroyCancellationToken);
+
+        if (this == null || !isActiveAndEnabled || _vivoxEventsSubscribed)
         {
             return;
         }

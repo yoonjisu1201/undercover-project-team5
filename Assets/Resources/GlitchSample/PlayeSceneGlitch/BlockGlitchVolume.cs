@@ -5,7 +5,7 @@ namespace GlitchSample
 {
     [Serializable]
     [VolumeComponentMenu("Glitch Sample/Block Glitch")]
-    public sealed class BlockGlitchVolume : VolumeComponent
+    public sealed class UndercoverBlockGlitchVolume : VolumeComponent
     {
         public ClampedFloatParameter intensity = new(0f, 0f, 1f);
         public ClampedFloatParameter blockDensity = new(0.82f, 0f, 1f);

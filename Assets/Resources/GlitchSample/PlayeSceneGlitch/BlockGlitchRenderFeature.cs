@@ -91,7 +91,7 @@ namespace GlitchSample
                 return;
             }
 
-            BlockGlitchVolume volume = VolumeManager.instance.stack.GetComponent<BlockGlitchVolume>();
+            UndercoverBlockGlitchVolume volume = VolumeManager.instance.stack.GetComponent<UndercoverBlockGlitchVolume>();
             if (volume == null || !volume.active || volume.intensity.value <= 0f)
             {
                 return;

@@ -9,7 +9,7 @@ using URPGlitch;
 public sealed class CCTVGlitchController : MonoBehaviour
 {
     private AnalogGlitchVolume _analogGlitch;
-    private BlockGlitchVolume _blockGlitch;
+    private UndercoverBlockGlitchVolume _blockGlitch;
     private CCTVHub _cctvHub;
     private Material _wallDisconnectedMaterial;
     private MeshRenderer[] _wallScreens;
