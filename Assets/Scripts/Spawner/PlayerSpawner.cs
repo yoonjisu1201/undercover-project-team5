@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Unity.Netcode;
@@ -21,8 +22,39 @@ public class PlayerSpawner : MonoBehaviour, IRoundSpawner
     [Header("HQ Spawn Settings")]
     [SerializeField] private Transform _hqSpawnPoint;
 
+    [Header("Field Spawn Points (차 앞 고정 스폰)")]
+    [SerializeField] private Transform[] _fieldSpawnPoints;
+
     public int SpawnCount => NetworkManager.Singleton?.ConnectedClientsList.Count ?? 0;
     public SpawnRule Rule => _spawnRule;
+
+    // 현장 역할 플레이어들 중 이 플레이어가 몇 번째인지에 따라 고정 스폰 포인트를 배정한다.
+    private bool TryGetFixedFieldSpawnPose(Player player, out Vector3 position, out Quaternion rotation)
+    {
+        if (_fieldSpawnPoints == null || _fieldSpawnPoints.Length == 0)
+        {
+            position = default;
+            rotation = Quaternion.identity;
+            return false;
+        }
+
+        var fieldPlayers = FindObjectsByType<Player>(FindObjectsSortMode.None)
+            .Where(p => p.PlayerRole == Role.Field)
+            .OrderBy(p => p.OwnerClientId)
+            .ToList();
+
+        int index = fieldPlayers.IndexOf(player);
+        if (index < 0 || index >= _fieldSpawnPoints.Length || _fieldSpawnPoints[index] == null)
+        {
+            position = default;
+            rotation = Quaternion.identity;
+            return false;
+        }
+
+        position = _fieldSpawnPoints[index].position;
+        rotation = _fieldSpawnPoints[index].rotation;
+        return true;
+    }
 
     public bool TryGetSiteSpawnPose(out Vector3 position, out Quaternion rotation)
     {
@@ -83,6 +115,18 @@ public class PlayerSpawner : MonoBehaviour, IRoundSpawner
                 emergencyEscape.RecordRoundSpawnPose(
                     _hqSpawnPoint.position,
                     _hqSpawnPoint.rotation);
+            }
+
+            return;
+        }
+
+        if (TryGetFixedFieldSpawnPose(player, out Vector3 fixedPosition, out Quaternion fixedRotation))
+        {
+            move.TeleportToPosition(fixedPosition, fixedRotation);
+
+            if (playerObject.TryGetComponent(out PlayerEmergencyEscape fixedEmergencyEscape))
+            {
+                fixedEmergencyEscape.RecordRoundSpawnPose(fixedPosition, fixedRotation);
             }
 
             return;
