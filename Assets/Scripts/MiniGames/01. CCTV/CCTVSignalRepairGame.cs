@@ -6,8 +6,7 @@ using UnityEngine.UI;
 // CCTV별 배선 입력을 처리하고 연결 상태와 화면을 동기화합니다.
 public sealed class CCTVSignalRepairGame : MonoBehaviour
 {
-    private const int CameraCount = CCTVConnectionStateStore.CameraCount;
-    private const int WireCount = CCTVConnectionStateStore.RequiredConnectionCount;
+    private const int WireCount = CCTVPoint.RequiredConnectionCount;
 
     [Header("CCTV 선택")]
     [SerializeField] private Button[] _cameraButtons;
@@ -27,7 +26,7 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     [SerializeField] private TMP_Text _progressText;
     [SerializeField] private GameObject _resultOverlay;
 
-    private readonly CCTVRepairPuzzleState[] _states = new CCTVRepairPuzzleState[CameraCount];
+    private CCTVRepairPuzzleState[] _states;
     private readonly Color[] _wireColors =
     {
         new Color(0.95f, 0.18f, 0.18f), // 빨강
@@ -37,12 +36,16 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     };
 
     private int _selectedCamera;
+    private CCTVHub _cctvHub;
+
+    private int CameraCount => _cctvHub.CameraCount;
 
     // CCTV별 퍼즐 상태와 버튼, 드래그 단자를 초기화한다.
     private void Awake()
     {
-        // 본부 오브젝트의 활성 여부와 무관한 공용 상태를 기준으로 초기 배선을 맞춥니다.
-        CCTVConnectionStateStore.EnsureInitialized();
+        // 이 미니게임은 프리팹으로 동적 생성되어 씬의 CCTVHub를 미리 참조할 수 없으므로 직접 찾는다.
+        _cctvHub = FindFirstObjectByType<CCTVHub>();
+        _states = new CCTVRepairPuzzleState[CameraCount];
 
         // 각 CCTV가 서로 다른 단자 배치를 갖도록 퍼즐 상태를 따로 만듭니다.
         for (int cameraIndex = 0; cameraIndex < CameraCount; cameraIndex++)
@@ -73,7 +76,7 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     // 화면이 활성화되면 서버 상태 변경을 구독하고 최신 배선 수를 복구합니다.
     private void OnEnable()
     {
-        CCTVConnectionStateStore.OnCameraConnectionStateChanged +=
+        _cctvHub.OnAnyPointStateChanged +=
             HandleSharedConnectionStateChanged;
 
         // UI를 다시 열었을 때 그동안 서버에서 바뀐 연결 상태를 복구합니다.
@@ -92,7 +95,7 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     // 화면이 비활성화되면 서버 상태 변경 구독을 해제합니다.
     private void OnDisable()
     {
-        CCTVConnectionStateStore.OnCameraConnectionStateChanged -=
+        _cctvHub.OnAnyPointStateChanged -=
             HandleSharedConnectionStateChanged;
     }
 
@@ -175,7 +178,7 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     }
 
     // 미니게임에서 바뀐 연결 마스크를 서버에 보내 모든 클라이언트의 CCTV에 반영합니다.
-    private static void SetSharedConnectionMask(int cameraIndex, int connectionMask)
+    private void SetSharedConnectionMask(int cameraIndex, int connectionMask)
     {
         if (CCTVConnectionNetworkState.Instance != null)
         {
@@ -186,7 +189,7 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
         }
 
         // 네트워크 없이 프리팹만 테스트하는 경우에는 로컬 상태만 갱신합니다.
-        CCTVConnectionStateStore.SetConnectionMask(cameraIndex, connectionMask);
+        _cctvHub.ApplyConnectionMask(cameraIndex, connectionMask);
     }
 
     // 서버에서 CCTV가 다시 끊기거나 복구되면 보관 중인 퍼즐 배선도 같은 수로 맞춥니다.
@@ -206,7 +209,7 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     // 공용 저장소의 연결 수를 지정한 CCTV 퍼즐에 반영합니다.
     private void SyncCameraStateFromStore(int cameraIndex)
     {
-        _states[cameraIndex].SyncConnectionMask(CCTVConnectionStateStore.GetConnectionMask(cameraIndex));
+        _states[cameraIndex].SyncConnectionMask(_cctvHub.GetPoint(cameraIndex).ConnectionMask);
     }
 
     // CCTV 선택 카드의 문구, 색상, 선택 가능 상태와 진행도를 갱신한다.

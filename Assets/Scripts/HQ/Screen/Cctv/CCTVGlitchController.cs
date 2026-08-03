@@ -25,19 +25,17 @@ public sealed class CCTVGlitchController : MonoBehaviour
         cctvVolume.profile.TryGet(out _analogGlitch);
         cctvVolume.profile.TryGet(out _blockGlitch);
 
-        CCTVConnectionStateStore.EnsureInitialized();
         SetGlitchActive(false);
     }
 
     // 공용 CCTV 상태 변경 이벤트를 구독합니다.
     private void OnEnable()
     {
-        CCTVConnectionStateStore.OnCameraConnectionStateChanged += HandleCameraConnectionStateChanged;
-
-        // Start 이후 다시 활성화된 경우 CCTV 번호 변경 이벤트도 다시 구독합니다.
+        // Start 이후 다시 활성화된 경우 CCTV 번호/연결 상태 변경 이벤트도 다시 구독합니다.
         if (_cctvHub != null)
         {
             _cctvHub.OnCctvNumberChanged += HandleCctvNumberChanged;
+            _cctvHub.OnAnyPointStateChanged += HandleCameraConnectionStateChanged;
         }
     }
 
@@ -47,6 +45,7 @@ public sealed class CCTVGlitchController : MonoBehaviour
         // CCTVHub가 Awake에서 카메라 위치 목록을 만든 뒤 현재 카메라 상태를 반영합니다.
         _cctvHub = GetComponentInParent<CCTVHub>();
         _cctvHub.OnCctvNumberChanged += HandleCctvNumberChanged;
+        _cctvHub.OnAnyPointStateChanged += HandleCameraConnectionStateChanged;
 
         InitializeWallScreens();
         RefreshGlitchState();
@@ -56,11 +55,10 @@ public sealed class CCTVGlitchController : MonoBehaviour
     // 비활성화할 때 이벤트를 해제해 재활성화 시 중복 구독되는 것을 방지합니다.
     private void OnDisable()
     {
-        CCTVConnectionStateStore.OnCameraConnectionStateChanged -= HandleCameraConnectionStateChanged;
-
         if (_cctvHub != null)
         {
             _cctvHub.OnCctvNumberChanged -= HandleCctvNumberChanged;
+            _cctvHub.OnAnyPointStateChanged -= HandleCameraConnectionStateChanged;
         }
     }
 
@@ -91,7 +89,7 @@ public sealed class CCTVGlitchController : MonoBehaviour
             return;
         }
 
-        CCTVConnectionState state = CCTVConnectionStateStore.GetState(_cctvHub.UsingCctvNumber);
+        CCTVConnectionState state = _cctvHub.GetPoint(_cctvHub.UsingCctvNumber).ConnectionState;
         SetGlitchActive(state == CCTVConnectionState.Partial);
     }
 
@@ -109,7 +107,7 @@ public sealed class CCTVGlitchController : MonoBehaviour
     // 모든 벽면 CCTV 화면에 현재 연결 상태를 반영합니다.
     private void RefreshAllWallScreens()
     {
-        for (int cameraIndex = 0; cameraIndex < CCTVConnectionStateStore.CameraCount; cameraIndex++)
+        for (int cameraIndex = 0; cameraIndex < _cctvHub.CameraCount; cameraIndex++)
         {
             RefreshWallScreens(cameraIndex);
         }
@@ -126,15 +124,15 @@ public sealed class CCTVGlitchController : MonoBehaviour
             }
 
             // 완전 단절 상태만 정지 이미지를 사용합니다.
-            bool isDisconnected = CCTVConnectionStateStore.GetState(cameraIndex) == CCTVConnectionState.Disconnected;
+            bool isDisconnected = _cctvHub.GetPoint(cameraIndex).ConnectionState == CCTVConnectionState.Disconnected;
             _wallScreens[screenIndex].sharedMaterial = isDisconnected ? _wallDisconnectedMaterial : _wallDefaultMaterials[screenIndex];
         }
     }
 
     // 이름순 벽면 화면을 1~5번 CCTV에 순환 배정합니다. 예: 01·06·11번 화면은 CCTV 1에 대응합니다.
-    private static int GetCameraIndexForWallScreen(int screenIndex)
+    private int GetCameraIndexForWallScreen(int screenIndex)
     {
-        return screenIndex % CCTVConnectionStateStore.CameraCount;
+        return screenIndex % _cctvHub.CameraCount;
     }
 
     // CCTV 전용 Analog 및 Block 글리치 효과를 함께 켜거나 끕니다.
