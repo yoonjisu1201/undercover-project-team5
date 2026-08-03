@@ -1,4 +1,5 @@
 using System;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -19,6 +20,9 @@ public sealed class MapRegion : MonoBehaviour
     [Tooltip("벽, 출입 차단물, NavMeshObstacle이 포함된 오브젝트 등을 등록합니다.")]
     [SerializeField] private GameObject[] _lockObjects = Array.Empty<GameObject>();
 
+    [Header("바리게이트")]
+    [SerializeField] private GameObject _barricadeGroup;
+
     public string RegionId => _regionId;
     public BoxCollider Bounds => _bounds;
     public MapSpawnArea SpawnArea => _spawnArea;
@@ -37,7 +41,7 @@ public sealed class MapRegion : MonoBehaviour
 
     private void Awake()
     {
-        ApplyUnlockState(_unlockedAtStart, notify: false);
+        ApplyUnlockState(_unlockedAtStart, _barricadeGroup, notify: false);
     }
 
     private void OnValidate()
@@ -55,24 +59,24 @@ public sealed class MapRegion : MonoBehaviour
 
 
     // 현재 구역의 해금 상태를 변경합니다.
-    public void SetUnlocked(bool unlocked)
+    public void SetUnlocked(bool unlocked, GameObject barricadeGroup)
     {
         if (IsUnlocked == unlocked)
         {
             return;
         }
 
-        ApplyUnlockState(unlocked, notify: true);
+        ApplyUnlockState(unlocked, barricadeGroup, notify: true);
     }
 
     public void Unlock()
     {
-        SetUnlocked(true);
+        SetUnlocked(true, _barricadeGroup);
     }
 
     public void Lock()
     {
-        SetUnlocked(false);
+        SetUnlocked(false, _barricadeGroup);
     }
 
 
@@ -91,7 +95,7 @@ public sealed class MapRegion : MonoBehaviour
     }
 
     // 구역 해금 상태를 적용합니다.
-    private void ApplyUnlockState(bool unlocked, bool notify)
+    private void ApplyUnlockState(bool unlocked, GameObject barricadeGroup, bool notify)
     {
         IsUnlocked = unlocked;
 
@@ -106,6 +110,10 @@ public sealed class MapRegion : MonoBehaviour
             if (lockObject != null)
             {
                 lockObject.SetActive(!unlocked);
+            }
+            if (barricadeGroup != null)
+            {
+                barricadeGroup.SetActive(!unlocked);
             }
         }
 
