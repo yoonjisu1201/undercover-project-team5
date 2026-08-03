@@ -26,6 +26,9 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     public float CurrentHp => _currentHp.Value;
     public bool IsDowned => _isDowned.Value;
 
+    // 디버그 메뉴 전용 무적 상태.
+    public bool IsDebugInvincible { get; private set; }
+
     // 본부(HqSafeZone) 트리거 안에 있는 동안은 감소를 멈춘다.
     private bool _isInHeadquarters;
 
@@ -76,6 +79,7 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
         }
 
         if (_isDowned.Value || amount <= 0f) return;
+        if (IsDebugInvincible) return;
 
         _currentHp.Value = Mathf.Max(0f, _currentHp.Value - amount);
 
@@ -89,6 +93,13 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     public void TakeAlienAttackDamage()
     {
         TakeDamage(_alienAttackDamage);
+    }
+
+    // 디버그 메뉴 전용: 무적 상태를 설정한다. 서버에서만 호출 가능하다.
+    public void SetDebugInvincible(bool invincible)
+    {
+        if (!IsServer) return;
+        IsDebugInvincible = invincible;
     }
 
     // 쓰러진 플레이어를 다른 플레이어가 소생시킬 때 호출한다.
