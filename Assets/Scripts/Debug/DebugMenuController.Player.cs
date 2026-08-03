@@ -69,6 +69,7 @@ public sealed partial class DebugMenuController
         }
 
         RefreshHqFieldButtonLabel();
+        RefreshDebugLightButtonLabel();
     }
 
     // 현재 위치에 따라 목적지 버튼 문구를 갱신합니다.

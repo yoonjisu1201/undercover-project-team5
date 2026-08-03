@@ -3,7 +3,7 @@ using UnityEngine;
 // CCTV 한 대의 단자 배치와 현재 연결된 전선을 관리합니다.
 public sealed class CCTVRepairPuzzleState
 {
-    private const int WireCount = CCTVConnectionStateStore.RequiredConnectionCount;
+    private const int WireCount = CCTVPoint.RequiredConnectionCount;
 
     public readonly int[] TargetColors;
     public readonly int[] ConnectedTargets = { -1, -1, -1, -1 };
@@ -62,7 +62,7 @@ public sealed class CCTVRepairPuzzleState
     // 서버 연결 마스크에 표시된 전선만 정확히 복구하고 나머지는 해제합니다.
     public void SyncConnectionMask(int connectionMask)
     {
-        int sanitizedConnectionMask = connectionMask & CCTVConnectionStateStore.FullConnectionMask;
+        int sanitizedConnectionMask = connectionMask & CCTVPoint.FullConnectionMask;
         for (int wireIndex = 0; wireIndex < WireCount; wireIndex++)
         {
             bool isConnected = (sanitizedConnectionMask & (1 << wireIndex)) != 0;

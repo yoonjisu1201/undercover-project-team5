@@ -41,7 +41,7 @@ public class CCTVScreenController : ScreenBase
 		_cctvHub.OnCctvNumberChanged += SetUiText;
 
 		// 본부 컨트롤러 활성 여부와 무관하게 공용 연결 상태 변경을 구독합니다.
-		CCTVConnectionStateStore.OnCameraConnectionStateChanged += HandleCameraConnectionStateChanged;
+		_cctvHub.OnAnyPointStateChanged += HandleCameraConnectionStateChanged;
 	}
 
 	// 화면이 닫히면 등록했던 버튼과 CCTV 상태 변경 이벤트를 해제합니다.
@@ -52,7 +52,7 @@ public class CCTVScreenController : ScreenBase
 
 		_cctvHub.OnCctvNumberChanged -= SetUiText;
 
-		CCTVConnectionStateStore.OnCameraConnectionStateChanged -= HandleCameraConnectionStateChanged;
+		_cctvHub.OnAnyPointStateChanged -= HandleCameraConnectionStateChanged;
 	}
 
 	// 이전 CCTV 화면으로 이동합니다.
@@ -93,7 +93,7 @@ public class CCTVScreenController : ScreenBase
 			return;
 		}
 
-		bool shouldShow = CCTVConnectionStateStore.GetState(cameraIndex) == CCTVConnectionState.Disconnected;
+		bool shouldShow = _cctvHub.GetPoint(cameraIndex).ConnectionState == CCTVConnectionState.Disconnected;
 		_disconnectedOverlay.SetActive(shouldShow);
 	}
 }

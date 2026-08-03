@@ -6,6 +6,9 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
 {
     private readonly NetworkList<int> _connectionMasks = new();
 
+    [Header("=== CCTV Hub 등록 ===")]
+    [SerializeField] private CCTVHub _cctvHub;
+
     public static CCTVConnectionNetworkState Instance { get; private set; }
 
     // 다른 CCTV 시스템이 현재 네트워크 상태를 찾을 수 있도록 인스턴스를 등록합니다.
@@ -42,7 +45,7 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
     public void RequestConnectionMask(int cameraIndex, int connectionMask)
     {
         // 조작한 클라이언트 화면은 RPC 왕복을 기다리지 않고 즉시 갱신합니다.
-        CCTVConnectionStateStore.SetConnectionMask(cameraIndex, connectionMask);
+        _cctvHub.ApplyConnectionMask(cameraIndex, connectionMask);
 
         if (IsSpawned)
         {
@@ -58,7 +61,7 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
             return;
         }
 
-        _connectionMasks[cameraIndex] = connectionMask & CCTVConnectionStateStore.FullConnectionMask;
+        _connectionMasks[cameraIndex] = connectionMask & CCTVPoint.FullConnectionMask;
     }
 
     // 서버가 관리하는 지정 CCTV의 연결 마스크를 반환합니다.
@@ -81,18 +84,23 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
             return;
         }
 
-        _connectionMasks[cameraIndex] = connectionMask & CCTVConnectionStateStore.FullConnectionMask;
+        _connectionMasks[cameraIndex] = connectionMask & CCTVPoint.FullConnectionMask;
     }
 
-    // 서버가 Partial CCTV 두 개와 각 초기 연결 수를 한 번만 결정합니다.
+    // 서버가 Partial CCTV 두 개와 각 초기 연결 수를 결정합니다.
     private void InitializeServerState()
     {
-        for (int cameraIndex = 0; cameraIndex < CCTVConnectionStateStore.CameraCount; cameraIndex++)
+        for (int cameraIndex = 0; cameraIndex < _cctvHub.CameraCount; cameraIndex++)
         {
             _connectionMasks.Add(0);
         }
 
-        int[] cameraIndexes = { 0, 1, 2, 3, 4 };
+        int[] cameraIndexes = new int[_cctvHub.CameraCount];
+        for (int index = 0; index < cameraIndexes.Length; index++)
+        {
+            cameraIndexes[index] = index;
+        }
+
         for (int index = cameraIndexes.Length - 1; index > 0; index--)
         {
             int swapIndex = Random.Range(0, index + 1);
@@ -114,7 +122,7 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
         }
 
         int connectionMask = 0;
-        int clampedConnectionCount = Mathf.Clamp(connectionCount, 0, CCTVConnectionStateStore.RequiredConnectionCount);
+        int clampedConnectionCount = Mathf.Clamp(connectionCount, 0, CCTVPoint.RequiredConnectionCount);
         for (int index = 0; index < clampedConnectionCount; index++)
         {
             connectionMask |= 1 << wireIndexes[index];
@@ -126,21 +134,21 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
     // 복제 목록의 한 항목이 바뀌면 로컬 공용 저장소에도 같은 연결 마스크를 기록합니다.
     private void HandleConnectionMaskChanged(NetworkListEvent<int> changeEvent)
     {
-        if (changeEvent.Index < 0 || changeEvent.Index >= CCTVConnectionStateStore.CameraCount)
+        if (changeEvent.Index < 0 || changeEvent.Index >= _cctvHub.CameraCount)
         {
             return;
         }
 
-        CCTVConnectionStateStore.SetConnectionMask(changeEvent.Index, _connectionMasks[changeEvent.Index]);
+        _cctvHub.ApplyConnectionMask(changeEvent.Index, _connectionMasks[changeEvent.Index]);
     }
 
     // 처음 스폰된 클라이언트가 현재 복제 목록 전체를 로컬 화면에 반영하도록 합니다.
     private void ApplyAllStatesLocally()
     {
-        int count = Mathf.Min(_connectionMasks.Count, CCTVConnectionStateStore.CameraCount);
+        int count = Mathf.Min(_connectionMasks.Count, _cctvHub.CameraCount);
         for (int cameraIndex = 0; cameraIndex < count; cameraIndex++)
         {
-            CCTVConnectionStateStore.SetConnectionMask(cameraIndex, _connectionMasks[cameraIndex]);
+            _cctvHub.ApplyConnectionMask(cameraIndex, _connectionMasks[cameraIndex]);
         }
     }
 }

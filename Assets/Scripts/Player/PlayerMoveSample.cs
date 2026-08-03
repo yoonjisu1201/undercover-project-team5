@@ -22,6 +22,11 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private float _riseMultiplier = 2f;   // 올라갈 때 중력 배수 (클수록 정점에 빨리 도달 = 상승이 빨라짐)
 	[SerializeField] private Rigidbody _rigidbody;
 
+	[Header("경사 미끄러짐 방지")]
+	[SerializeField] private PhysicsMaterial _gripMaterial; // 멈춰 있을 때 경사에 고정 (높은 마찰)
+	private CapsuleCollider _bodyCollider;
+	private PhysicsMaterial _slideMaterial;                 // 이동 중 사용 (초기 마찰0 머티리얼)
+
 	[Header("카메라 관련")]
 	[SerializeField] private GameObject _headPivot;
 	[SerializeField] private Camera _camera;
@@ -82,6 +87,12 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		_animator = GetComponent<Animator>();
 		_health = GetComponent<PlayerHealth>();
+
+		_bodyCollider = GetComponent<CapsuleCollider>();
+		if (_bodyCollider != null)
+		{
+			_slideMaterial = _bodyCollider.sharedMaterial; // 인스펙터에 붙어 있는 마찰0 머티리얼
+		}
 
 		if (_headBone != null)
 		{
@@ -260,6 +271,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			_jumpRequested = false;
 			SetMovingState(false);
 			SetRunningState(false);
+			UpdateFrictionMaterial(false);
 			ApplyAirGravity();
 			return;
 		}
@@ -280,6 +292,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		SetMovingState(isMoving);
 		SetRunningState(isRunning);
 
+		UpdateFrictionMaterial(isMoving);
+
 		// forward/right에서 y를 제거해 수평 이동만 남긴다
 		Vector3 forward = transform.forward;
 		Vector3 right = transform.right;
@@ -298,6 +312,21 @@ public class PlayerMoveSample : NetworkBehaviour
 		// 벽 뚫리지 않게 하기 위해 MovePosition -> linearVelocity로 수정
 		delta.y = _rigidbody.linearVelocity.y;
 		_rigidbody.linearVelocity = delta;
+	}
+
+	// 이동 중이거나 공중이면 마찰0(벽을 미끄러져 지나감), 지면에 멈춰 있으면 높은 마찰(경사에서 안 미끄러짐)
+	private void UpdateFrictionMaterial(bool isMoving)
+	{
+		if (_bodyCollider == null || _gripMaterial == null)
+		{
+			return;
+		}
+
+		PhysicsMaterial target = (isMoving || !IsGrounded()) ? _slideMaterial : _gripMaterial;
+		if (_bodyCollider.sharedMaterial != target)
+		{
+			_bodyCollider.sharedMaterial = target;
+		}
 	}
 
 
