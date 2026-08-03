@@ -26,6 +26,9 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     public float CurrentHp => _currentHp.Value;
     public bool IsDowned => _isDowned.Value;
 
+    // 본부(HqSafeZone) 트리거 안에 있는 동안은 감소를 멈춘다.
+    private bool _isInHeadquarters;
+
     public override void OnNetworkSpawn()
     {
         if (IsServer)
@@ -45,12 +48,22 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
 
     private void Update()
     {
-        if (!IsServer || !IsSpawned || _isDowned.Value) return;
+        if (!IsServer || !IsSpawned || _isDowned.Value || _isInHeadquarters) return;
 
         // 로딩(NPC/단서 스폰, 몽타주 로딩 등) 도중에는 라운드가 아직 InRound가 아니므로 감소하지 않는다.
         if (RoundManager.Instance == null || RoundManager.Instance.CurrentState != RoundState.InRound) return;
 
         TakeDamage(_decayPerSecond * Time.deltaTime); //가만히 있어도 HP감소
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (IsServer && other.GetComponent<HqSafeZone>() != null) { _isInHeadquarters = true; }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (IsServer && other.GetComponent<HqSafeZone>() != null) { _isInHeadquarters = false; }
     }
 
     // 외부(공격 시스템 등)에서 데미지를 입힐 때 호출하는 공개 진입점. 서버에서만 호출 가능하다.
