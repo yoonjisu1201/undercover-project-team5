@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class MapScreenController : ScreenBase, IDragHandler, IScrollHandler {
+public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler {
 	[Header("=== 조작할 미니맵 카메라 ===")]
 	[SerializeField] private Camera _minimapCamera;
 

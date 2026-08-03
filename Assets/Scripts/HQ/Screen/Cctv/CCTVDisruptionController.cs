@@ -7,6 +7,9 @@ public sealed class CCTVDisruptionController : NetworkBehaviour
     [SerializeField, Min(1f)] private float _minimumInterval = 180f;
     [SerializeField, Min(1f)] private float _maximumInterval = 300f;
 
+    [Header("=== CCTV Hub 등록 ===")]
+    [SerializeField] private CCTVHub _cctvHub;
+
     private double _nextDisruptionTime;
 
     public static CCTVDisruptionController Instance { get; private set; }
@@ -83,15 +86,15 @@ public sealed class CCTVDisruptionController : NetworkBehaviour
             return;
         }
 
-        int[] connectedCameraIndexes = new int[CCTVConnectionStateStore.CameraCount];
-        int[] partialCameraIndexes = new int[CCTVConnectionStateStore.CameraCount];
+        int[] connectedCameraIndexes = new int[_cctvHub.CameraCount];
+        int[] partialCameraIndexes = new int[_cctvHub.CameraCount];
         int connectedCount = 0;
         int partialCount = 0;
 
-        for (int cameraIndex = 0; cameraIndex < CCTVConnectionStateStore.CameraCount; cameraIndex++)
+        for (int cameraIndex = 0; cameraIndex < _cctvHub.CameraCount; cameraIndex++)
         {
             int connectionMask = networkState.GetServerConnectionMask(cameraIndex);
-            if (connectionMask == CCTVConnectionStateStore.FullConnectionMask)
+            if (connectionMask == CCTVPoint.FullConnectionMask)
             {
                 connectedCameraIndexes[connectedCount++] = cameraIndex;
             }
@@ -126,7 +129,7 @@ public sealed class CCTVDisruptionController : NetworkBehaviour
     // Partial 고장 상태에 사용할 한두 가닥의 무작위 연결 마스크를 만듭니다.
     private static int CreateRandomPartialMask()
     {
-        int firstWireIndex = Random.Range(0, CCTVConnectionStateStore.RequiredConnectionCount);
+        int firstWireIndex = Random.Range(0, CCTVPoint.RequiredConnectionCount);
         int connectionMask = 1 << firstWireIndex;
 
         if (Random.value < 0.5f)
@@ -134,7 +137,7 @@ public sealed class CCTVDisruptionController : NetworkBehaviour
             int secondWireIndex;
             do
             {
-                secondWireIndex = Random.Range(0, CCTVConnectionStateStore.RequiredConnectionCount);
+                secondWireIndex = Random.Range(0, CCTVPoint.RequiredConnectionCount);
             }
             while (secondWireIndex == firstWireIndex);
 

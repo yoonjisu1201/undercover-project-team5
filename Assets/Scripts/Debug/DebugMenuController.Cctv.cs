@@ -4,6 +4,9 @@ public sealed partial class DebugMenuController
 {
     private int _selectedCctvIndex = -1;
 
+    [Header("=== CCTV Hub 등록 ===")]
+    [SerializeField] private CCTVHub _cctvHub;
+
     // CCTV를 선택하고 전원 제어 하위 메뉴를 토글합니다.
     public void OnSelectCctv1Click() => SelectCctv(0);
     public void OnSelectCctv2Click() => SelectCctv(1);
@@ -34,7 +37,7 @@ public sealed partial class DebugMenuController
     // 선택된 CCTV 상태를 연결 마스크로 변환해 네트워크 상태에 반영합니다.
     private void SetSelectedCctvState(CCTVConnectionState state)
     {
-        if (_selectedCctvIndex < 0 || _selectedCctvIndex >= CCTVConnectionStateStore.CameraCount)
+        if (_selectedCctvIndex < 0 || _selectedCctvIndex >= _cctvHub.CameraCount)
         {
             ShowStatus("선택한 CCTV 번호가 올바르지 않습니다.");
             return;
@@ -42,7 +45,7 @@ public sealed partial class DebugMenuController
 
         int connectionMask = state switch
         {
-            CCTVConnectionState.Connected => CCTVConnectionStateStore.FullConnectionMask,
+            CCTVConnectionState.Connected => CCTVPoint.FullConnectionMask,
             CCTVConnectionState.Partial => 1,
             _ => 0
         };
@@ -53,7 +56,7 @@ public sealed partial class DebugMenuController
         }
         else
         {
-            CCTVConnectionStateStore.SetConnectionMask(_selectedCctvIndex, connectionMask);
+            _cctvHub.ApplyConnectionMask(_selectedCctvIndex, connectionMask);
         }
 
         string stateLabel = state switch
@@ -66,19 +69,18 @@ public sealed partial class DebugMenuController
     }
 
     // CCTV 수리 화면 완료용으로 모든 CCTV를 정상 연결 상태로 복구합니다.
-    private static void SetAllCctvConnected()
+    private void SetAllCctvConnected()
     {
-        for (int cameraIndex = 0; cameraIndex < CCTVConnectionStateStore.CameraCount; cameraIndex++)
+        for (int cameraIndex = 0; cameraIndex < _cctvHub.CameraCount; cameraIndex++)
         {
             if (CCTVConnectionNetworkState.Instance != null)
             {
                 CCTVConnectionNetworkState.Instance.RequestConnectionMask(
-                    cameraIndex, CCTVConnectionStateStore.FullConnectionMask);
+                    cameraIndex, CCTVPoint.FullConnectionMask);
             }
             else
             {
-                CCTVConnectionStateStore.SetConnectionMask(
-                    cameraIndex, CCTVConnectionStateStore.FullConnectionMask);
+                _cctvHub.ApplyConnectionMask(cameraIndex, CCTVPoint.FullConnectionMask);
             }
         }
     }
