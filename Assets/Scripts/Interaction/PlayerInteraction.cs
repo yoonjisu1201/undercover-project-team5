@@ -21,11 +21,13 @@ public class PlayerInteraction : NetworkBehaviour
 
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
+    private PlayerHealth _health;
 
     private void Awake()
     {
         _actions = new CustomInputActions();
         _inventory = GetComponent<PlayerInventory>();
+        _health = GetComponent<PlayerHealth>();
     }
 
     private void OnEnable()
@@ -141,6 +143,12 @@ public class PlayerInteraction : NetworkBehaviour
     {
         if (!IsOwner)
         {
+            return;
+        }
+
+        if (_health.IsDowned)
+        {
+            SetCurrentTarget(null);
             return;
         }
 

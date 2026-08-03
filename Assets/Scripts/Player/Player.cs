@@ -15,6 +15,7 @@ public enum Role : byte
 [RequireComponent(typeof(PlayerMoveSample),
 	typeof(PlayerInventory),
 	typeof(PlayerInteraction))]
+[RequireComponent(typeof(PlayerHealth))]
 [RequireComponent(typeof(PlayerRenderer))]
 public class Player : NetworkBehaviour {
 	// 외부에서 GetComponent<Player>() 후 바로 필요한 컴포넌트 찾아갈 수 있도록 컴포넌트 Public으로 노출
@@ -23,6 +24,7 @@ public class Player : NetworkBehaviour {
 	[HideInInspector] public PlayerInteraction PlayerInteraction;
 	[HideInInspector] public PlayerInfoPresenter PlayerInfoPresenter;
 	[HideInInspector] public PlayerRenderer PlayerRenderer;
+	[HideInInspector] public PlayerHealth PlayerHealth;
 
     public const int MaxPlayerNameLength = 6;
 
@@ -85,7 +87,8 @@ public class Player : NetworkBehaviour {
 		PlayerInteraction = GetComponent<PlayerInteraction>();
 		PlayerInfoPresenter = GetComponent<PlayerInfoPresenter>();
 		PlayerRenderer = GetComponent<PlayerRenderer>();
-		
+		PlayerHealth = GetComponent<PlayerHealth>();
+
 		// 메인 카메라는 MinimapOnly인 레이어를 보지 못하도록
 		Layers.HideLayerFromCamera(GetComponentInChildren<Camera>(), Layers.MinimapOnly);
 	}

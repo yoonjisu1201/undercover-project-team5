@@ -52,6 +52,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	private CustomInputActions _actions;
 
 	private Animator _animator;
+	private PlayerHealth _health;
 	private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
 	private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
 	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
@@ -80,6 +81,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		_actions.Enable();
 
 		_animator = GetComponent<Animator>();
+		_health = GetComponent<PlayerHealth>();
 
 		if (_headBone != null)
 		{
@@ -253,7 +255,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		UpdateJumpAnimation();
 
-		if (GameplayUiMode.IsMovementBlocked)    // UI 조작 중에는 이동을 받지 않음
+		if (GameplayUiMode.IsMovementBlocked || _health.IsDowned)    // UI 조작 중이거나 다운 상태면 이동을 받지 않음
 		{
 			_jumpRequested = false;
 			SetMovingState(false);
