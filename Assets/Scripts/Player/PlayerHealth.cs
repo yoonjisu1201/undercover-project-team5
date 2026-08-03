@@ -26,6 +26,9 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     public float CurrentHp => _currentHp.Value;
     public bool IsDowned => _isDowned.Value;
 
+    // 외계인 복제체 등 외부 AI가 타겟 유효성(본부 안전구역 여부)을 확인할 때 쓴다.
+    public bool IsInHeadquarters => _isInHeadquarters;
+
     // 디버그 메뉴 전용 무적 상태.
     public bool IsDebugInvincible { get; private set; }
 
