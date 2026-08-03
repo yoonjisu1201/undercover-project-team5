@@ -73,7 +73,9 @@ public sealed class ClueModuleCapture : IDisposable
         previewModule.transform.SetParent(_moduleSpawnPoint, false);
 
         // 스킨 파츠는 현재 포즈가 적용된 Mesh로 Bake한다.
-        if (sourceModule.TryGetComponent(out SkinnedMeshRenderer skinnedRenderer))
+        // 일부 에셋은 렌더러가 파츠 루트가 아니라 자식 오브젝트에 붙어있으므로 자식까지 탐색한다.
+        SkinnedMeshRenderer skinnedRenderer = sourceModule.GetComponentInChildren<SkinnedMeshRenderer>(true);
+        if (skinnedRenderer != null)
         {
             _createdMesh = new Mesh();
             skinnedRenderer.BakeMesh(_createdMesh, true);
@@ -83,8 +85,9 @@ public sealed class ClueModuleCapture : IDisposable
         }
 
         // 일반 파츠는 원본 Mesh와 Material을 그대로 참조한다.
-        if (sourceModule.TryGetComponent(out MeshFilter sourceMeshFilter) &&
-            sourceModule.TryGetComponent(out MeshRenderer sourceMeshRenderer))
+        MeshFilter sourceMeshFilter = sourceModule.GetComponentInChildren<MeshFilter>(true);
+        MeshRenderer sourceMeshRenderer = sourceModule.GetComponentInChildren<MeshRenderer>(true);
+        if (sourceMeshFilter != null && sourceMeshRenderer != null)
         {
             previewModule.AddComponent<MeshFilter>().sharedMesh = sourceMeshFilter.sharedMesh;
             previewModule.AddComponent<MeshRenderer>().sharedMaterials = sourceMeshRenderer.sharedMaterials;
