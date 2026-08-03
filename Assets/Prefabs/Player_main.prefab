@@ -20497,6 +20497,9 @@ GameObject:
   - component: {fileID: 8271242711255620274}
   - component: {fileID: -7996457364632384375}
   - component: {fileID: 2126864538568221489}
+  - component: {fileID: 4949385795961339240}
+  - component: {fileID: 5760245555164092444}
+  - component: {fileID: -4622950870519651781}
   m_Layer: 0
   m_Name: Player_main
   m_TagString: Untagged
@@ -20590,6 +20593,7 @@ MonoBehaviour:
   PlayerInteraction: {fileID: 0}
   PlayerInfoPresenter: {fileID: 0}
   PlayerRenderer: {fileID: 0}
+  PlayerHealth: {fileID: 0}
 --- !u!114 &2890800428293612904
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -21312,6 +21316,79 @@ MonoBehaviour:
   handRaise: -0.02
   handForward: 0.12
   activeParameter: IsUsingArrestTool
+--- !u!114 &4949385795961339240
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6952733e9aa65db4986d6372c1ad0fac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerHealth
+  ShowTopMostFoldoutHeaderGroup: 1
+  _maxHp: 100
+  _decayPerSecond: 1
+  _reviveHpAmount: 50
+  _alienAttackDamage: 20
+--- !u!114 &5760245555164092444
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3fe91dc294731a9428c0941ea7579110, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.Outlinable
+  complexMaskingMode: 0
+  drawingMode: 1
+  outlineLayer: 0
+  outlineTargets: []
+  renderStyle: 1
+  outlineParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+  backParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+  frontParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+--- !u!114 &-4622950870519651781
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7fe6155fad1d344a8b66d1d768f87a3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerReviveInteractable
+  ShowTopMostFoldoutHeaderGroup: 1
+  _outlineFadeDuration: 0.15
+  _rangeTolerance: 2
 --- !u!1 &2536676161924006567
 GameObject:
   m_ObjectHideFlags: 0

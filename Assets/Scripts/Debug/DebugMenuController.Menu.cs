@@ -26,6 +26,7 @@ public sealed partial class DebugMenuController
     [SerializeField] private Button _soloCaptureButton;
     [SerializeField] private Button _criminalFreezeButton;
     [SerializeField] private Button _timeStopButton;
+    [SerializeField] private Button _invincibleButton;
 
     [Header("Feedback")]
     [SerializeField] private TMP_Text _fastWalkButtonText;
