@@ -1,19 +1,17 @@
-using System;
-using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
-// 필드 지역 해방과 상태 동기화를 처리합니다.
+// 사용할 필드 지역 선택과 상태 동기화를 처리합니다.
 public sealed partial class DebugMenuController
 {
-    public void OnUnlockRegionAClick() => UnlockRegion("A");
-    public void OnUnlockRegionBClick() => UnlockRegion("B");
-    public void OnUnlockRegionCClick() => UnlockRegion("C");
-    public void OnUnlockRegionDClick() => UnlockRegion("D");
-    public void OnUnlockRegionEClick() => UnlockRegion("E");
-    public void OnUnlockRegionFClick() => UnlockRegion("F");
+    public void OnUnlockRegionAClick() => SelectRegion("A");
+    public void OnUnlockRegionBClick() => SelectRegion("B");
+    public void OnUnlockRegionCClick() => SelectRegion("C");
+    public void OnUnlockRegionDClick() => SelectRegion("D");
+    public void OnUnlockRegionEClick() => SelectRegion("E");
+    public void OnUnlockRegionFClick() => SelectRegion("F");
 
-    private void UnlockRegion(string regionId)
+    private void SelectRegion(string regionId)
     {
         if (!IsSpawned)
         {
@@ -21,30 +19,25 @@ public sealed partial class DebugMenuController
             return;
         }
 
-        RequestUnlockRegionRpc(regionId);
+        RequestSelectRegionRpc(regionId);
     }
 
-    // 로컬 지역을 해방하고 공용 스폰 지역 캐시를 갱신합니다.
-    private void ApplyRegionUnlock(string regionId)
+    private void ApplyRegionSelection(string regionId)
     {
-        MapRegion region = FindObjectsByType<MapRegion>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-            .FirstOrDefault(candidate =>
-                string.Equals(candidate.RegionId, regionId, StringComparison.OrdinalIgnoreCase));
-        if (region == null)
+        MapRegionController regionController = FindFirstObjectByType<MapRegionController>();
+        if (regionController == null || !regionController.SelectRegion(regionId))
         {
             ShowStatus($"지역 {regionId}를 찾지 못했습니다.");
             return;
         }
 
-        region.Unlock();
-        FindFirstObjectByType<MapRegionController>()?.RefreshSpawnAreas();
         RefreshRegionButtonColors();
-        ShowStatus($"지역 {regionId}를 해방했습니다.");
+        ShowStatus($"지역 {regionId}를 선택했습니다.");
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestUnlockRegionRpc(string regionId) => ApplyRegionUnlockRpc(regionId);
+    private void RequestSelectRegionRpc(string regionId) => ApplyRegionSelectionRpc(regionId);
 
     [Rpc(SendTo.Everyone)]
-    private void ApplyRegionUnlockRpc(string regionId) => ApplyRegionUnlock(regionId);
+    private void ApplyRegionSelectionRpc(string regionId) => ApplyRegionSelection(regionId);
 }

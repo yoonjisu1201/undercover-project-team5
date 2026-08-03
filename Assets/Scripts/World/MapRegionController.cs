@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
-// 맵 구역 목록과 현재 해금된 구역의 공용 NavMesh 스폰 영역을 관리합니다.
+// 한 번에 선택된 하나의 맵 구역과 NavMesh 스폰 영역을 관리합니다.
 public sealed class MapRegionController : MonoBehaviour
 {
     [Header("Map Regions")]
@@ -15,16 +15,74 @@ public sealed class MapRegionController : MonoBehaviour
     private readonly List<MapRegion> _availableRegions = new();
 
     public IReadOnlyList<MapRegion> Regions => _regions;
+    public MapRegion SelectedRegion { get; private set; }
 
-    // 월드 위치를 포함하는 해방 지역을 반환합니다.
-    public bool TryGetUnlockedRegionAt(Vector3 position, out MapRegion region)
+    private void Awake()
+    {
+        MapRegion startingRegion = null;
+
+        if (_regions != null)
+        {
+            foreach (MapRegion region in _regions)
+            {
+                if (region != null && region.SelectedAtStart)
+                {
+                    startingRegion = region;
+                    break;
+                }
+            }
+        }
+
+        if (startingRegion == null)
+        {
+            Debug.LogError("[MapRegionController] 기본으로 사용할 MapRegion을 하나 지정해야 합니다.", this);
+            return;
+        }
+
+        SelectRegion(startingRegion.RegionId);
+    }
+
+    public bool SelectRegion(string regionId)
+    {
+        MapRegion selectedRegion = null;
+
+        if (_regions != null)
+        {
+            foreach (MapRegion region in _regions)
+            {
+                if (region != null && string.Equals(region.RegionId, regionId, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    selectedRegion = region;
+                    break;
+                }
+            }
+        }
+
+        if (selectedRegion == null)
+        {
+            Debug.LogError($"[MapRegionController] 지역 {regionId}를 찾지 못했습니다.", this);
+            return false;
+        }
+
+        foreach (MapRegion region in _regions)
+        {
+            region?.SetSelected(region == selectedRegion);
+        }
+
+        SelectedRegion = selectedRegion;
+        RefreshSpawnAreas();
+        return true;
+    }
+
+    // 월드 위치를 포함하는 선택 지역을 반환합니다.
+    public bool TryGetSelectedRegionAt(Vector3 position, out MapRegion region)
     {
         if (_regions != null)
         {
             foreach (MapRegion candidate in _regions)
             {
                 if (candidate != null &&
-                    candidate.IsUnlocked &&
+                    candidate.IsSelected &&
                     candidate.SpawnArea != null &&
                     candidate.Contains(position) &&
                     candidate.SpawnArea.IsNearGroundSurface(position))
@@ -39,7 +97,7 @@ public sealed class MapRegionController : MonoBehaviour
         return false;
     }
 
-    // 현재 해금된 구역의 NavMesh 삼각형을 갱신합니다.
+    // 현재 선택된 구역의 NavMesh 삼각형을 갱신합니다.
     public bool RefreshSpawnAreas()
     {
         _availableRegions.Clear();
@@ -54,7 +112,7 @@ public sealed class MapRegionController : MonoBehaviour
 
         foreach (MapRegion region in _regions)
         {
-            if (region == null || !region.IsUnlocked || region.SpawnArea == null)
+            if (region == null || !region.IsSelected || region.SpawnArea == null)
             {
                 continue;
             }
@@ -71,7 +129,7 @@ public sealed class MapRegionController : MonoBehaviour
         return _availableRegions.Count > 0;
     }
 
-    // 현재 사용 가능한 구역 중 하나를 면적 비율로 선택해 NavMesh 위치를 반환합니다.
+    // 현재 선택된 구역에서 NavMesh 위치를 반환합니다.
     public bool TryGetRandomSpawnPoint(out MapRegion region, out Vector3 position)
     {
         for (int attempt = 0; attempt < _maxSpawnAttempts && _availableRegions.Count > 0; attempt++)
@@ -88,8 +146,7 @@ public sealed class MapRegionController : MonoBehaviour
         return false;
     }
 
-    // 해금된 구역이 여러개일 경우, 각 구역의 NavMesh 면적 비율을 계산하여 NPC 생성 확률을 조정합니다. 
-    // 면적이 큰 구역일수록 선택될 확률이 높습니다.
+    // 선택된 구역의 NavMesh 영역을 반환합니다.
     private MapRegion SelectRegionByNavigableArea()
     {
         float totalArea = 0f;

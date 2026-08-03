@@ -178,7 +178,7 @@ public sealed partial class DebugMenuController
             Quaternion rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
             SaveFieldReturnPose(player.OwnerClientId, position, rotation);
             TeleportLocalPlayer(position, rotation);
-            ShowStatus($"해방된 {region.RegionId} 지역의 임의 위치로 이동했습니다.");
+            ShowStatus($"선택된 {region.RegionId} 지역의 임의 위치로 이동했습니다.");
             return;
         }
 

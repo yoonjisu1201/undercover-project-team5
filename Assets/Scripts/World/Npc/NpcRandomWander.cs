@@ -162,8 +162,8 @@ public sealed class NpcRandomWander : MonoBehaviour
 
             Vector3 sphereClosestPoint = _wanderArea.ClosestPoint(navMeshHit.position);
             bool isInsideAvailableRegion = _regionController != null
-                ? _regionController.TryGetUnlockedRegionAt(navMeshHit.position, out _)
-                : _spawnRegion.IsUnlocked &&
+                ? _regionController.TryGetSelectedRegionAt(navMeshHit.position, out _)
+                : _spawnRegion.IsSelected &&
                   _spawnRegion.Contains(navMeshHit.position) &&
                   _spawnRegion.SpawnArea.IsNearGroundSurface(navMeshHit.position);
             if ((sphereClosestPoint - navMeshHit.position).sqrMagnitude > Mathf.Epsilon ||

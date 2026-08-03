@@ -61,7 +61,7 @@ public sealed partial class DebugMenuController
     public void OnCctvMenuClick() => ToggleRootSubMenu(_cctvPanel);
     public void OnRoundMenuClick() => ToggleRootSubMenu(_roundPanel);
 
-    // 지역 메뉴를 열고 현재 해방 상태의 색상을 반영합니다.
+    // 지역 메뉴를 열고 현재 선택 상태의 색상을 반영합니다.
     public void OnRegionMenuClick()
     {
         ToggleRootSubMenu(_regionPanel);
@@ -117,7 +117,7 @@ public sealed partial class DebugMenuController
         _closeButton?.SetActive(true);
     }
 
-    // A~F 지역 버튼 색상을 현재 해방 상태에 맞춥니다.
+    // A~F 지역 버튼 색상을 현재 선택 상태에 맞춥니다.
     private void RefreshRegionButtonColors()
     {
         if (_regionButtons == null) return;
@@ -132,10 +132,10 @@ public sealed partial class DebugMenuController
             if (button == null) continue;
 
             string regionId = ((char)('A' + index)).ToString();
-            bool isUnlocked = regions.Any(region =>
+            bool isSelected = regions.Any(region =>
                 string.Equals(region.RegionId, regionId, StringComparison.OrdinalIgnoreCase) &&
-                region.IsUnlocked);
-            SetButtonStateColor(button, isUnlocked ? UnlockedRegionButtonColor : LockedRegionButtonColor);
+                region.IsSelected);
+            SetButtonStateColor(button, isSelected ? UnlockedRegionButtonColor : LockedRegionButtonColor);
         }
     }
 
