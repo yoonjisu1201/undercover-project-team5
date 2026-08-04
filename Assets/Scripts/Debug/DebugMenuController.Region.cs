@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -11,7 +9,6 @@ public sealed partial class DebugMenuController
     public void OnUnlockRegionCClick() => UnlockRegion("C");
     public void OnUnlockRegionDClick() => UnlockRegion("D");
     public void OnUnlockRegionEClick() => UnlockRegion("E");
-    public void OnUnlockRegionFClick() => UnlockRegion("F");
 
     private void UnlockRegion(string regionId)
     {
@@ -27,19 +24,15 @@ public sealed partial class DebugMenuController
     // 로컬 지역을 해방하고 공용 스폰 지역 캐시를 갱신합니다.
     private void ApplyRegionUnlock(string regionId)
     {
-        MapRegion region = FindObjectsByType<MapRegion>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-            .FirstOrDefault(candidate =>
-                string.Equals(candidate.RegionId, regionId, StringComparison.OrdinalIgnoreCase));
-        if (region == null)
+        MapRegionController regionController = FindFirstObjectByType<MapRegionController>();
+        if (regionController == null || !regionController.SetActiveRegion(regionId))
         {
             ShowStatus($"지역 {regionId}를 찾지 못했습니다.");
             return;
         }
 
-        region.Unlock();
-        FindFirstObjectByType<MapRegionController>()?.RefreshSpawnAreas();
         RefreshRegionButtonColors();
-        ShowStatus($"지역 {regionId}를 해방했습니다.");
+        ShowStatus($"지역 {regionId}를 선택했습니다.");
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
