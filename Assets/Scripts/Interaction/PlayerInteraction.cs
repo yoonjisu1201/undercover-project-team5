@@ -13,6 +13,7 @@ public class PlayerInteraction : NetworkBehaviour
     [SerializeField] private ItemCatalog _itemCatalog;
     [SerializeField] private InventoryUI _inventoryUI;
     [SerializeField] private string _clueItemIdPrefix = "Clue";
+    [SerializeField] private string _guideBookItemId = "GuideBook";
 
     // 상호작용 범위 안의 후보 목록과, 그중 현재 조준된 대상.
     private readonly HashSet<InteractableBase> _nearbyInteractables = new();  // SphereCollider 안에 있는 상호작용 가능 오브젝트
@@ -158,7 +159,11 @@ public class PlayerInteraction : NetworkBehaviour
 
             if (_actions.Player.Interact.WasPressedThisFrame())
             {
-                TryCloseVisibleClue();
+                // 가이드 북이 열려 있으면 먼저 닫고, 아니면 단서 UI를 닫는다.
+                if (!TryCloseGuideBook())
+                {
+                    TryCloseVisibleClue();
+                }
             }
 
             return;
@@ -216,7 +221,44 @@ public class PlayerInteraction : NetworkBehaviour
         if (TryGetClueIndex(itemId, out int clueIndex))
         {
             ShowClue(clueIndex);
+            return;
         }
+
+        // 가이드 북을 주우면 바로 가이드 북 UI를 켠다.
+        if (itemId == _guideBookItemId)
+        {
+            ShowGuideBook();
+        }
+    }
+
+    private void ShowGuideBook()
+    {
+        GuideBookDisplay display = FindFirstObjectByType<GuideBookDisplay>(FindObjectsInactive.Include);
+        if (display == null)
+        {
+            Debug.LogWarning("[PlayerInteraction] GuideBookDisplay를 찾지 못했습니다.");
+            return;
+        }
+
+        display.Show();
+    }
+
+    // 활성화된 가이드 북 UI가 있으면 닫고 true를 반환한다.
+    private static bool TryCloseGuideBook()
+    {
+        GuideBookDisplay[] displays = FindObjectsByType<GuideBookDisplay>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (GuideBookDisplay display in displays)
+        {
+            if (!display.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            display.Close();
+            return true;
+        }
+
+        return false;
     }
 
     // 같은 대상을 계속 조준 중이어도, 선택 슬롯이 바뀌면(예: 스크롤로 추적기 선택/해제) 안내 문구를 바로 갱신한다.
