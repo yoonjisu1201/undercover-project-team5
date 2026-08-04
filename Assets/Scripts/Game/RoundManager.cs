@@ -284,6 +284,7 @@ public class RoundManager : NetworkBehaviour
             _debugStoppedRemainingTime.Value = 0f;
             ResetMiniGamesForNewRound();
             ResetNpcTrackersForNewRound();
+            ResetPlayerHealthForNewRound();
 
             // 이전 라운드 인벤토리와 필드 단서를 먼저 제거해 전환 중 드롭된 단서가 남지 않게 합니다.
             _clueSpawner?.PrepareForNextRound();
@@ -356,6 +357,21 @@ public class RoundManager : NetworkBehaviour
         foreach (NpcTracker tracker in trackedNpcs)
         {
             tracker.ResetForNewRound();
+        }
+    }
+
+    // 서버가 라운드 시작/재시작 시점에 모든 플레이어의 체력을 초기화한다.
+    private void ResetPlayerHealthForNewRound()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        PlayerHealth[] playerHealths = FindObjectsByType<PlayerHealth>(FindObjectsSortMode.None);
+        foreach (PlayerHealth playerHealth in playerHealths)
+        {
+            playerHealth.ResetForNewRound();
         }
     }
 

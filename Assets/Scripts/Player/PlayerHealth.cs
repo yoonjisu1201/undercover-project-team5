@@ -105,6 +105,15 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
         IsDebugInvincible = invincible;
     }
 
+    // 라운드 시작/재시작 시 체력을 최대치로 되돌리고 다운 상태를 해제한다. 서버에서만 호출 가능하다.
+    public void ResetForNewRound()
+    {
+        if (!IsServer) return;
+
+        _currentHp.Value = _maxHp;
+        _isDowned.Value = false;
+    }
+
     // 쓰러진 플레이어를 다른 플레이어가 소생시킬 때 호출한다.
     public void Revive()
     {
