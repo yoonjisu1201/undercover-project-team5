@@ -20,13 +20,13 @@ public sealed partial class DebugMenuController
     [SerializeField] private GameObject _cctvPowerPanel;
     [SerializeField] private GameObject _regionPanel;
     [SerializeField] private GameObject _roundPanel;
+    [SerializeField] private GameObject _hpPanel;
     [SerializeField] private GameObject _closeButton;
     [SerializeField] private Button[] _regionButtons;
     [SerializeField] private Button _criminalMarkerButton;
     [SerializeField] private Button _soloCaptureButton;
     [SerializeField] private Button _criminalFreezeButton;
     [SerializeField] private Button _timeStopButton;
-    [SerializeField] private Button _invincibleButton;
 
     [Header("Feedback")]
     [SerializeField] private TMP_Text _fastWalkButtonText;
@@ -60,6 +60,7 @@ public sealed partial class DebugMenuController
     public void OnInterferenceMenuClick() => ToggleRootSubMenu(_interferencePanel);
     public void OnCctvMenuClick() => ToggleRootSubMenu(_cctvPanel);
     public void OnRoundMenuClick() => ToggleRootSubMenu(_roundPanel);
+    public void OnHpMenuClick() => ToggleRootSubMenu(_hpPanel);
 
     // 지역 메뉴를 열고 현재 해방 상태의 색상을 반영합니다.
     public void OnRegionMenuClick()
@@ -110,7 +111,7 @@ public sealed partial class DebugMenuController
         {
             _teleportPanel, _playerPanel, _miniGamePanel, _itemPanel, _rolePanel,
             _criminalPanel, _interferencePanel, _cctvPanel, _cctvPowerPanel, _regionPanel,
-            _roundPanel
+            _roundPanel, _hpPanel
         };
 
         foreach (GameObject panel in panels) panel?.SetActive(false);

@@ -4,7 +4,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 public enum RoundState
@@ -248,12 +247,6 @@ public class RoundManager : NetworkBehaviour
 
     private void Update()
     {
-        //임시 검거 테스트용: 실제 검거 판정 시스템 생기면 제거
-        if (IsSpawned && Keyboard.current != null && Keyboard.current.f1Key.wasPressedThisFrame)
-        {
-            ReportArrestServerRpc();
-        }
-
         if (!IsSpawned || !IsServer) return;
         if (_isPausedForVote || _debugTimeStopped.Value) return;
         if (NetworkManager.ServerTime.Time < _roundEndTime.Value) return;
@@ -284,6 +277,7 @@ public class RoundManager : NetworkBehaviour
             _debugStoppedRemainingTime.Value = 0f;
             ResetMiniGamesForNewRound();
             ResetNpcTrackersForNewRound();
+            ResetPlayerHealthForNewRound();
 
             // 이전 라운드 인벤토리와 필드 단서를 먼저 제거해 전환 중 드롭된 단서가 남지 않게 합니다.
             _clueSpawner?.PrepareForNextRound();
@@ -356,6 +350,21 @@ public class RoundManager : NetworkBehaviour
         foreach (NpcTracker tracker in trackedNpcs)
         {
             tracker.ResetForNewRound();
+        }
+    }
+
+    // 서버가 라운드 시작/재시작 시점에 모든 플레이어의 체력을 초기화한다.
+    private void ResetPlayerHealthForNewRound()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        PlayerHealth[] playerHealths = FindObjectsByType<PlayerHealth>(FindObjectsSortMode.None);
+        foreach (PlayerHealth playerHealth in playerHealths)
+        {
+            playerHealth.ResetForNewRound();
         }
     }
 
