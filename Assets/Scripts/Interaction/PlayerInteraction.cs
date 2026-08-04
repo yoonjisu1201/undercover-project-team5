@@ -23,6 +23,8 @@ public class PlayerInteraction : NetworkBehaviour
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
     private PlayerHealth _health;
+    
+    public CartBase CarryingCart { get; set; }
 
     private void Awake()
     {
@@ -146,10 +148,18 @@ public class PlayerInteraction : NetworkBehaviour
         {
             return;
         }
-
+        
+        // 쓰러지면 상호작용 불가능하게 + 혹시라도 카트와 상호작용중이었다면 카트 놓도록
         if (_health.IsDowned)
         {
             SetCurrentTarget(null);
+            if (CarryingCart != null) { CarryingCart.ReleaseCart(); }
+            return;
+        }
+        
+        // 카트 끌고있을때도 다른 물체와 상호작용 불가능하게 함
+        if (CarryingCart != null) {
+            UpdateCartInteraction();
             return;
         }
 
@@ -481,5 +491,16 @@ public class PlayerInteraction : NetworkBehaviour
         string interactionText = _currentTarget?.GetInteractionText(gameObject);
         bool showKeyHint = _currentTarget?.ShowInteractionKeyHint(gameObject) ?? true;
         _inventoryUI?.SetInteractionPrompt(interactionText, showKeyHint);
+    }
+    
+    // 카트를 끌고 있을 때는 다른 오브젝트와 상호작용 불가능하게 한다
+    private void UpdateCartInteraction() {
+        SetCurrentTarget(null);
+        _inventoryUI.SetInteractionPrompt($"{CarryingCart.CartName}카트 놓기");
+            
+        // 카트 끄는 도중 상호작용키 다시 누르면 카트를 놓는다.
+        if (_actions.Player.Interact.WasPressedThisFrame()) {
+            CarryingCart.ReleaseCart();
+        }
     }
 }
