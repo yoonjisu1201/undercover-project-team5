@@ -9,7 +9,7 @@ using UnityEngine.UI;
 //   - 다음(BottomNext) : 현재 페이지가 위로 접혀 올라가며 다음 페이지를 드러낸다.
 //   - 이전(TopPrevious): 이전 페이지가 위에서 펴져 내려와 현재 페이지를 덮는다.
 [DisallowMultipleComponent]
-public class OperationGuidePageFlipper : MonoBehaviour
+public class GuideBook : MonoBehaviour
 {
     [Header("페이지 (논리 순서대로: Page_01 ~ Page_05)")]
     [SerializeField] private List<RectTransform> _pages = new List<RectTransform>();
@@ -46,9 +46,15 @@ public class OperationGuidePageFlipper : MonoBehaviour
 
     // 버튼 onClick은 인스펙터에서 위=GoPrevious / 아래=GoNext로 연결한다.
 
+    private void OnEnable()
+    {
+        GameplayUiMode.Instance?.ActivateCursor();
+    }
+
     private void OnDisable()
     {
-        _flip?.Kill();
+        _flip?.Kill();  // 페이지 넘기는 중에 꺼지면 Tween이 남아있어도 화면에 표시되지 않으므로 강제 종료
+        GameplayUiMode.Instance?.DeactivateCursor();
     }
 
     // 다음 페이지: 현재 페이지(맨 앞)가 위로 접혀 올라가며 뒤의 다음 페이지를 드러낸다.
@@ -127,5 +133,21 @@ public class OperationGuidePageFlipper : MonoBehaviour
         if (_pageUpIndicator == null || !_pageUpIndicator.activeSelf || _index != 0) return;
         if (Quaternion.Angle(Quaternion.identity, dropping.localRotation) <= _flipAngle * _pageUpRevealFrac)
             _pageUpIndicator.SetActive(false);
+    }
+
+    public void Show()
+    {
+        gameObject.SetActive(true);
+    }
+
+    public void Close()
+    {
+        gameObject.SetActive(false);
+    }
+
+    // X 버튼을 눌러 ui를 닫는다
+    public void OnButtonClick()
+    {
+        Close();
     }
 }
