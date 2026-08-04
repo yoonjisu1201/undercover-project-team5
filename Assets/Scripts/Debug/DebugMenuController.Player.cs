@@ -72,19 +72,12 @@ public sealed partial class DebugMenuController
         RefreshDebugLightButtonLabel();
     }
 
-    // 현재 위치에 따라 목적지 버튼 문구를 갱신합니다.
+    // 본부 이동 버튼 문구를 설정합니다.
     private void RefreshHqFieldButtonLabel()
     {
         if (_hqFieldButtonText == null) return;
 
-        Player player = GetLocalPlayer();
-        HqEntrance entrance = FindFirstObjectByType<HqEntrance>();
-        HqExit exit = FindFirstObjectByType<HqExit>();
-        _hqFieldButtonText.text =
-            player != null && entrance != null && exit != null &&
-            IsCloserToHq(player.transform.position, entrance, exit)
-                ? "필드로 이동"
-                : "본부로 이동";
+        _hqFieldButtonText.text = "본부로 이동";
     }
 
     // 자신을 제외한 최대 세 명의 이름과 버튼 표시 여부를 갱신합니다.

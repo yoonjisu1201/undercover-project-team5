@@ -22,6 +22,7 @@ public class ClueUI : MonoBehaviour
 
     private SceneCursorSettings _sceneCursorSettings;   // 씬 커서 설정을 관리하는 컴포넌트
     private CustomInputActions _actions;    // 사용자 입력을 처리하는 커스텀 입력 액션
+    private string _descriptionTemplate;    // {parts} 자리표시자를 포함한 원본 설명 문구 (부위명 치환용)
 
     private void Awake()
     {
@@ -54,7 +55,7 @@ public class ClueUI : MonoBehaviour
     }
 
 
-    public void ShowClueImage(Texture clueTexture, string clueType)
+    public void ShowClueImage(Texture clueTexture, string clueType, string partName = null)
     {
         bool hasImage = clueTexture != null;
 
@@ -72,13 +73,33 @@ public class ClueUI : MonoBehaviour
         {
             _imageLabel.text = clueType;
         }
+
+        if (partName != null)   // 설명 문구의 {parts}를 실제 부위명으로 치환
+        {
+            ApplyDescriptionPart(partName);
+        }
+    }
+
+    // 최초 문구를 템플릿으로 캐싱한 뒤 {parts}를 부위명으로 바꿔 설명 텍스트에 반영한다.
+    private void ApplyDescriptionPart(string partName)
+    {
+        if (_discriptionText == null)
+        {
+            return;
+        }
+
+        _descriptionTemplate ??= _discriptionText.text;
+
+        // 부위명을 볼드 + 짙은 빨간색으로 강조한다. (TMP Rich Text 필요)
+        string highlighted = $"<b><size=110%><color=#8B0000>{partName}</color></size></b>";
+        _discriptionText.text = _descriptionTemplate.Replace("{parts}", highlighted);
     }
 
 
 
     public void ClearClueImage(string clueType)
     {
-        ShowClueImage(null, clueType);
+        ShowClueImage(null, clueType, "???");
     }
 
     public void Close()

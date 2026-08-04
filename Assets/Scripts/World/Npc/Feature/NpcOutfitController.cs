@@ -124,25 +124,27 @@ public class NpcOutfitController : MonoBehaviour {
 		SetActivePart(_torsoList, feature.TorsoNumber);
 	}
 
-	public void GetEquippedModules(OutfitFeature feature, List<GameObject> results) {
+	public void GetEquippedModules(OutfitFeature feature, List<GameObject> results, List<MontageParts> partResults) {
 		results.Clear();
+		partResults.Clear();
 
-		AddModuleAt(_beardList, feature.BeardNumber, results);
-		AddModuleAt(_eyebrowList, feature.EyebrowsNumber, results);
-		AddModuleAt(_glassesList, feature.GlassesNumber, results);
-		AddModuleAt(_hairList, feature.HairNumber, results);
-		AddModuleAt(_hatList, feature.HatNumber, results);
-		AddModuleAt(_headPhoneList, feature.HeadphoneNumber, results);
-		AddModuleAt(_leftArmList, feature.ArmNumber, results);
-		AddModuleAt(_maskList, feature.MaskNumber, results);
-		AddModuleAt(_pantsList, feature.PantsNumber, results);
-		AddModuleAt(_shoesList, feature.ShoesNumber, results);
-		AddModuleAt(_torsoList, feature.TorsoNumber, results);
+		AddModuleAt(_beardList, feature.BeardNumber, MontageParts.Beard, results, partResults);
+		AddModuleAt(_eyebrowList, feature.EyebrowsNumber, MontageParts.Eyebrows, results, partResults);
+		AddModuleAt(_glassesList, feature.GlassesNumber, MontageParts.Glasses, results, partResults);
+		AddModuleAt(_hairList, feature.HairNumber, MontageParts.Hair, results, partResults);
+		AddModuleAt(_hatList, feature.HatNumber, MontageParts.Hats, results, partResults);
+		AddModuleAt(_headPhoneList, feature.HeadphoneNumber, MontageParts.Headphones, results, partResults);
+		AddModuleAt(_leftArmList, feature.ArmNumber, MontageParts.Arms, results, partResults);
+		AddModuleAt(_maskList, feature.MaskNumber, MontageParts.Masks, results, partResults);
+		AddModuleAt(_pantsList, feature.PantsNumber, MontageParts.Pants, results, partResults);
+		AddModuleAt(_shoesList, feature.ShoesNumber, MontageParts.Shoes, results, partResults);
+		AddModuleAt(_torsoList, feature.TorsoNumber, MontageParts.Torso, results, partResults);
 	}
 
-	private static void AddModuleAt(GameObject[] modules, int index, List<GameObject> results) {
+	private static void AddModuleAt(GameObject[] modules, int index, MontageParts part, List<GameObject> results, List<MontageParts> partResults) {
 		if (modules != null && index >= 0 && index < modules.Length && modules[index] != null) {
 			results.Add(modules[index]);
+			partResults.Add(part);
 		}
 	}
 }
