@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using Unity.Collections;
 using Unity.Netcode;
@@ -29,6 +30,11 @@ public class Player : NetworkBehaviour {
     public const int MaxPlayerNameLength = 6;
 
     private bool _isNetworkStarted => NetworkManager != null && NetworkManager.Singleton.IsListening;
+
+	// 현재 스폰되어 접속 중인 Player만 모아둔다. 클라이언트마다 로컬로 유지되며, 스폰/디스폰 시
+	// 자신을 등록/해제하므로 FindObjectsByType 없이 전체 접속자 목록을 바로 조회할 수 있다.
+	private static readonly List<Player> _activeInstances = new();
+	public static IReadOnlyList<Player> ActiveInstances => _activeInstances;
 
 	// 플레이어명. 모두 조회 가능하고, 자기 자신만 수정 가능하도록
 	private readonly NetworkVariable<FixedString32Bytes> _playerName = new NetworkVariable<FixedString32Bytes>(
@@ -108,7 +114,8 @@ public class Player : NetworkBehaviour {
     }
 
     public override void OnNetworkSpawn() {
-		
+		_activeInstances.Add(this);
+
 		if (IsOwner) {
 			// 색상은 처음 스폰 시에 랜덤하게 정한다. 추후 설정할 수 있게 해도 됨
 			_playerColor.Value = Random.ColorHSV();
@@ -133,6 +140,7 @@ public class Player : NetworkBehaviour {
 		_playerName.OnValueChanged -= HandlePlayerNameChanged;
 		_playerColor.OnValueChanged -= HandlePlayerColorChanged;
 		_playerRole.OnValueChanged -= HandlePlayerRoleChanged;
+		_activeInstances.Remove(this);
 	}
 	
 	private void HandlePlayerNameChanged(
