@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 1779914736344389554}
   - component: {fileID: 323249176553284041}
   - component: {fileID: 6716339712251728376}
+  - component: {fileID: 3109488768563264567}
   m_Layer: 0
   m_Name: Alien_main
   m_TagString: Untagged
@@ -74,15 +75,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3053326673
-  InScenePlacedSourceGlobalObjectIdHash: 0
+  GlobalObjectIdHash: 2404244433
+  InScenePlacedSourceGlobalObjectIdHash: 3053326673
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   <InScenePlaced>k__BackingField: 0
   ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 1
+  SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
@@ -229,6 +230,21 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _wanderRadius: 15
   _navMeshSampleDistance: 1
+--- !u!114 &3109488768563264567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1669351557380495861}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39c29fbff36a62345b29fa9b9d431664, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AlienCloneAttack
+  ShowTopMostFoldoutHeaderGroup: 1
+  _attackRange: 2
+  _attackCooldown: 1.5
 --- !u!1001 &6442056155241012506
 PrefabInstance:
   m_ObjectHideFlags: 0

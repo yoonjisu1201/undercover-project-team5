@@ -50,6 +50,7 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
         if (_isDowned.Value || amount <= 0f) return;
 
         _currentHp.Value = Mathf.Max(0f, _currentHp.Value - amount);
+        Debug.Log($"[AlienCloneHealth] {amount} 데미지 적용, 남은 HP: {_currentHp.Value}/{_maxHp}");
 
         if (_currentHp.Value <= 0f)
         {

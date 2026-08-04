@@ -19,6 +19,9 @@ public class AlienCloneController : NetworkBehaviour
     private PlayerHealth _currentTarget;
     private readonly List<PlayerHealth> _playersInRange = new();
 
+    // AlienCloneAttack이 사거리 판정에 쓸 수 있도록 현재 타겟을 읽기 전용으로 노출한다.
+    public PlayerHealth CurrentTarget => _currentTarget;
+
     // 네트워크 스폰 시 NavMeshAgent를 캐싱하고 스폰 위치를 배회 기준점으로 저장한다.
     public override void OnNetworkSpawn()
     {
