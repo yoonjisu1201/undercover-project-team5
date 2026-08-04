@@ -21,6 +21,7 @@ public class ClueModulePreview : MonoBehaviour
     [SerializeField] private RenderTexture _renderTexture;
 
     private readonly List<GameObject> _equippedModules = new();
+    private readonly List<MontageParts> _equippedParts = new();
     private readonly List<Texture2D> _capturedTextures = new();
     private ClueModuleCapture _moduleCapture;
 
@@ -102,13 +103,14 @@ public class ClueModulePreview : MonoBehaviour
         // UI 슬롯을 최대한 채우고, 착용 모듈보다 슬롯이 많으면 처음부터 다시 사용한다. -> 단서 중복
         for (int i = 0; i < clueSlots.Count; i++)
         {
-            GameObject module = _equippedModules[i % _equippedModules.Count];
+            int moduleIndex = i % _equippedModules.Count;   // 모듈이 슬롯보다 적으면 처음부터 다시 사용한다. (단서 중복)
+            GameObject module = _equippedModules[moduleIndex];  // 착용 모듈을 단서 UI 슬롯에 맞춰 순서대로 촬영한다.
             Texture2D texture = await _moduleCapture.CaptureAsync(module, cancellationToken);
 
             if (texture != null)
             {
-                // 단서 UI 슬롯에 촬영된 텍스처를 적용하고, 확대 이미지 단서로 표시한다.
-                ApplyCapturedTexture(clueSlots[i], texture, i);
+                // 단서 UI 슬롯에 촬영된 텍스처를 적용하고, 단서 설명에 부위명을 표시한다.
+                ApplyCapturedTexture(clueSlots[i], texture, i, GetPartLabel(_equippedParts[moduleIndex]));
             }
 
             _moduleCapture.ReleasePreview();
@@ -152,7 +154,7 @@ public class ClueModulePreview : MonoBehaviour
         }
 
         // 동기화된 범인의 Outfit Feature에 해당하는 실제 파츠만 가져온다.
-        outfitController.GetEquippedModules(criminalManager.CriminalFeature.Outfit, _equippedModules);
+        outfitController.GetEquippedModules(criminalManager.CriminalFeature.Outfit, _equippedModules, _equippedParts);
         if (_equippedModules.Count > 0)
         {
             return true;
@@ -172,8 +174,27 @@ public class ClueModulePreview : MonoBehaviour
             int randomIndex = random.Next(i + 1);
             (_equippedModules[i], _equippedModules[randomIndex]) =
                 (_equippedModules[randomIndex], _equippedModules[i]);
+            (_equippedParts[i], _equippedParts[randomIndex]) =
+                (_equippedParts[randomIndex], _equippedParts[i]);
         }
     }
+
+    // 촬영된 파츠(MontageParts)를 단서 설명에 노출할 한글 부위명으로 변환한다.
+    private static string GetPartLabel(MontageParts part) => part switch
+    {
+        MontageParts.Hats => "모자",
+        MontageParts.Hair => "머리",
+        MontageParts.Torso => "상의",
+        MontageParts.Pants => "하의",
+        MontageParts.Shoes => "신발",
+        MontageParts.Arms => "손",
+        MontageParts.Glasses => "안경",
+        MontageParts.Masks => "마스크",
+        MontageParts.Headphones => "헤드폰",
+        MontageParts.Beard => "수염",
+        MontageParts.Eyebrows => "눈썹",
+        _ => "의상"
+    };
 
     // 단서 UI 슬롯을 찾아서 (ClueUI, RawImage) 리스트로 반환한다.
     private List<(ClueUI clueUi, RawImage clueImage)> FindClueSlots()
@@ -210,11 +231,11 @@ public class ClueModulePreview : MonoBehaviour
         background.gameObject.SetActive(true);
     }
 
-    private void ApplyCapturedTexture((ClueUI clueUi, RawImage clueImage) clueSlot, Texture2D texture, int clueIndex)
+    private void ApplyCapturedTexture((ClueUI clueUi, RawImage clueImage) clueSlot, Texture2D texture, int clueIndex, string partLabel)
     {
         _capturedTextures.Add(texture);
         clueSlot.clueImage.texture = texture;
-        clueSlot.clueUi.ShowClueImage(texture, $"확대 이미지 단서 {clueIndex + 1}");
+        clueSlot.clueUi.ShowClueImage(texture, $"확대 이미지 단서 {clueIndex + 1}", partLabel);
     }
 
     private void OnDestroy()

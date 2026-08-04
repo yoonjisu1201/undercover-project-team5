@@ -114,6 +114,5 @@ public sealed partial class DebugMenuController : NetworkBehaviour
     {
         SetMenuVisible(false);
         RestoreWalkSpeed();
-        ClearSavedFieldReturnPoses();
     }
 }
