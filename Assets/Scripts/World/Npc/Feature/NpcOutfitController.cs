@@ -56,9 +56,14 @@ public class NpcOutfitController : MonoBehaviour {
 	private static void SetActivePart(GameObject[] partList, int activeIndex) {
 		for (int index = 0; index < partList.Length; index++) {
 			GameObject part = partList[index];
-
+			
+			// 파츠 미사용시 그냥 삭제
 			if (part != null) {
-				part.SetActive(index == activeIndex);
+				if (index == activeIndex) {
+					part.SetActive(index == activeIndex);	
+				} else {
+					Destroy(part);
+				}
 			}
 		}
 	}
