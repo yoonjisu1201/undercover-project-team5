@@ -281,7 +281,7 @@ public class RoundManager : NetworkBehaviour
 
             // 이전 라운드 인벤토리와 필드 단서를 먼저 제거해 전환 중 드롭된 단서가 남지 않게 합니다.
             _clueSpawner?.PrepareForNextRound();
-            _playerSpawner?.RespawnHeadquarterPlayers();
+            _playerSpawner?.RespawnAllPlayers();
 
             if (_npcSpawner != null)
             {

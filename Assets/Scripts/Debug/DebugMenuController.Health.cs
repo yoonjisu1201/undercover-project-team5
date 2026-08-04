@@ -37,7 +37,6 @@ public sealed partial class DebugMenuController
     [Rpc(SendTo.SpecifiedInParams)]
     private void ApplyInvincibleStateRpc(bool invincible, RpcParams rpcParams = default)
     {
-        SetToggleButtonState(_invincibleButton, invincible);
         ShowStatus(invincible ? "무적 상태를 켰습니다." : "무적 상태를 껐습니다.");
     }
 

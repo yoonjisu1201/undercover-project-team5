@@ -16,6 +16,42 @@ public sealed class MapRegionController : MonoBehaviour
 
     public IReadOnlyList<MapRegion> Regions => _regions;
 
+    // 한 번에 하나의 맵만 사용하도록 선택한 구역만 활성화합니다.
+    public bool SetActiveRegion(string regionId)
+    {
+        if (_regions == null)
+        {
+            return false;
+        }
+
+        MapRegion selectedRegion = null;
+        foreach (MapRegion region in _regions)
+        {
+            if (region != null &&
+                string.Equals(region.RegionId, regionId, System.StringComparison.OrdinalIgnoreCase))
+            {
+                selectedRegion = region;
+                break;
+            }
+        }
+
+        if (selectedRegion == null)
+        {
+            return false;
+        }
+
+        foreach (MapRegion region in _regions)
+        {
+            if (region != null)
+            {
+                region.SetUnlocked(region == selectedRegion);
+            }
+        }
+
+        RefreshSpawnAreas();
+        return true;
+    }
+
     // 월드 위치를 포함하는 해방 지역을 반환합니다.
     public bool TryGetUnlockedRegionAt(Vector3 position, out MapRegion region)
     {
