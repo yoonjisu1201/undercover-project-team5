@@ -1255,7 +1255,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: UI DESIGN MOCKUP  -  MONTAGESCREEN REFERENCE
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
   m_sharedMaterial: {fileID: -2647956062019823955, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
@@ -1284,7 +1284,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 10
+  m_fontSize: 14
   m_fontSizeBase: 14
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -2095,6 +2095,8 @@ GameObject:
   - component: {fileID: 694242111959790684}
   - component: {fileID: 6196314103248127341}
   - component: {fileID: 1829021722042207524}
+  - component: {fileID: 1513533670830315818}
+  - component: {fileID: 3540494660628036605}
   m_Layer: 0
   m_Name: ShopUIDesignCanvas
   m_TagString: Untagged
@@ -2143,7 +2145,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 20
   m_TargetDisplay: 0
 --- !u!114 &694242111959790684
 MonoBehaviour:
@@ -2198,6 +2200,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShopScreenUI
   _shopScreen: {fileID: 7668905219939741103}
+  _shopManager: {fileID: 3540494660628036605}
   _medicalTabButton: {fileID: 4578905476444439103}
   _consumablesTabButton: {fileID: 7797714604374140317}
   _equipmentTabButton: {fileID: 458160521505890186}
@@ -2234,9 +2237,6 @@ MonoBehaviour:
     m_FallbackState: 0
     m_WaitForCompletion: 0
     m_LocalVariables: []
-  _shopItems:
-  - {fileID: 11400000, guid: 4c4ce2155c8849e4cb068015d1eef351, type: 2}
-  - {fileID: 11400000, guid: e1643aca22cf9604396e4aa4d24f7de2, type: 2}
   _itemContent: {fileID: 8312578234282199070}
   _itemSlotPrefab: {fileID: 1022509267991064385, guid: 09ad1d0ab8772644aadd89c6d46d23f6, type: 3}
   _previewIcon: {fileID: 8827078341616018433}
@@ -2268,6 +2268,51 @@ MonoBehaviour:
   references:
     version: 2
     RefIds: []
+--- !u!114 &1513533670830315818
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3712104931996384499}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 1374785957
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  <InScenePlaced>k__BackingField: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &3540494660628036605
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3712104931996384499}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9094f60c1c3f14f49b2802d539f36da0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  _shopItems:
+  - {fileID: 11400000, guid: 4c4ce2155c8849e4cb068015d1eef351, type: 2}
+  - {fileID: 11400000, guid: e1643aca22cf9604396e4aa4d24f7de2, type: 2}
+  _initialCredits: 1000
+  _testCreditAmount: 100
+  _spawnOffset: {x: 0, y: 0.5, z: 2}
 --- !u!1 &3729179142446901833
 GameObject:
   m_ObjectHideFlags: 0
@@ -3879,7 +3924,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -106}
+  m_AnchoredPosition: {x: 0, y: 0.000030517578}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!114 &590412233020106013
@@ -3899,7 +3944,7 @@ MonoBehaviour:
     m_Right: 20
     m_Top: 20
     m_Bottom: 20
-  m_ChildAlignment: 1
+  m_ChildAlignment: 0
   m_StartCorner: 0
   m_StartAxis: 0
   m_CellSize: {x: 220, y: 185}

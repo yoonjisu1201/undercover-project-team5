@@ -15,15 +15,18 @@ public sealed class ShopItemSlotUI : MonoBehaviour {
 
 	public ShopItemData Data => _data;
 
-	private void Awake() {
+	private void Awake() 
+	{
 		_button.onClick.AddListener(HandleClicked);
 	}
 
-	private void OnDestroy() {
+	private void OnDestroy() 
+	{
 		_button.onClick.RemoveListener(HandleClicked);
 	}
 
-	public void Setup(ShopItemData data, Action<ShopItemData> onSelected) {
+	public void Setup(ShopItemData data, Action<ShopItemData> onSelected) 
+	{
 		_data = data;
 		_onSelected = onSelected;
 		_icon.sprite = data.Icon;
@@ -31,11 +34,13 @@ public sealed class ShopItemSlotUI : MonoBehaviour {
 		SetSelected(false);
 	}
 
-	public void SetSelected(bool selected) {
+	public void SetSelected(bool selected) 
+	{
 		_background.color = selected ? _selectedColor : _normalColor;
 	}
 
-	private void HandleClicked() {
+	private void HandleClicked() 
+	{
 		_onSelected?.Invoke(_data);
 	}
 }
