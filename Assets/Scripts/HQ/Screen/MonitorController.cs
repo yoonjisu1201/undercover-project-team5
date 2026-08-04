@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 
-public class MonitorController : MonoBehaviour {
+public class MonitorController : MonoBehaviour, IClosableUi {
 	[Header("=== CCTV 버튼 및 화면 등록 ===")] 
 	[SerializeField] private ScreenBase _cctvScreen;
 	[SerializeField] private Button _cctvButton;
@@ -40,6 +40,7 @@ public class MonitorController : MonoBehaviour {
 		_mapButton.onClick.AddListener(OnMapButtonClicked);
 		_montageButton.onClick.AddListener(OnMontageButtonClicked);
 		_closeButton.onClick.AddListener(OnCloseButtonClicked);
+		GameplayUiMode.Instance?.RegisterUi(this);
 	}
 
 	// 버튼 해제
@@ -48,6 +49,12 @@ public class MonitorController : MonoBehaviour {
 		_mapButton.onClick.RemoveListener(OnMapButtonClicked);
 		_montageButton.onClick.RemoveListener(OnMontageButtonClicked);
 		_closeButton.onClick.RemoveListener(OnCloseButtonClicked);
+		GameplayUiMode.Instance?.UnregisterUi(this);
+	}
+
+	// ESC 등으로 닫으면 닫기 버튼과 동일하게 처리한다. (IClosableUi)
+	public void Close() {
+		OnCloseButtonClicked();
 	}
 
 	private void OnCctvButtonClicked() {

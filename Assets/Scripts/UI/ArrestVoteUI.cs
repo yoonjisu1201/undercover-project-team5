@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class ArrestVoteUI : MonoBehaviour
+public class ArrestVoteUI : MonoBehaviour, IClosableUi
 {
     [SerializeField] private TMP_Text _remainingVoteText;  //남은 검거 투표 횟수
     [SerializeField] private TMP_Text _votePanelRemainingVoteText;  //VotePannel 내부에 남은 투표 횟수를 추가로 표시할 텍스트 (선택)
@@ -114,6 +114,8 @@ public class ArrestVoteUI : MonoBehaviour
             _cursorActivated = false;
             GameplayUiMode.Instance?.DeactivateCursor();
         }
+
+        GameplayUiMode.Instance?.UnregisterUi(this);
     }
 
     // NPC 상호작용(ArrestCandidateInteractable)에서 검거 후보 지정 시 호출. 이미 투표 중이거나 횟수가 소진됐으면 패널 대신 안내만 띄운다.
@@ -132,6 +134,7 @@ public class ArrestVoteUI : MonoBehaviour
         _pendingCandidate = candidate;
         _startVotePanel.SetActive(true);
         UpdateCursorState();
+        GameplayUiMode.Instance?.RegisterUi(this);   // ESC로 '아니요' 처리 가능하게 등록
 
         // 확인 패널이 뜨는 시점에 캡처해서 투표 화면까지 이어서 쓴다.
         _candidatePortrait.ShowCandidate(candidate.NetworkObject);
@@ -145,6 +148,7 @@ public class ArrestVoteUI : MonoBehaviour
 
         _startVotePanel.SetActive(false);
         UpdateCursorState();
+        GameplayUiMode.Instance?.UnregisterUi(this);
     }
 
     // 확인 패널에서 [아니요]를 누르면 멈춰뒀던 NPC 이동을 재개하고 패널만 닫는다.
@@ -154,8 +158,30 @@ public class ArrestVoteUI : MonoBehaviour
         _pendingCandidate = null;
         _startVotePanel.SetActive(false);
         UpdateCursorState();
+        GameplayUiMode.Instance?.UnregisterUi(this);
 
         _candidatePortrait.Clear(); // 투표를 시작하지 않았으니 캡처해둔 이미지삭제
+    }
+
+    // ESC(스택)로 닫을 때: 지정 확인창이면 '아니요'와 동일, 판정 결과창이면 로컬에서 결과창만 감춘다.
+    public void Close()
+    {
+        if (_startVotePanel.activeSelf)
+        {
+            ConfirmStartNo();   // #4: ESC = 아니요
+            return;
+        }
+
+        // #6: 판정 결과창(시민/외계인)은 자동 카운트다운보다 빨리 로컬에서 닫는다. (서버 상태는 그대로)
+        if (_arrestSuccessPanel.activeSelf || _wrongTargetPanel.activeSelf)
+        {
+            _arrestSuccessPanel.SetActive(false);
+            _wrongTargetPanel.SetActive(false);
+            _resultCountdownText.gameObject.SetActive(false);
+            _votePanel.SetActive(false);
+            GameplayUiMode.Instance?.UnregisterUi(this);
+            UpdateCursorState();
+        }
     }
 
     // 이번 라운드 검거 투표 횟수가 소진됐을 때 안내 문구를 2초간 띄운다.
@@ -247,6 +273,16 @@ public class ArrestVoteUI : MonoBehaviour
         {
             _yesButton.interactable = true;
             _noButton.interactable = true;
+        }
+
+        // 판정 결과창(시민/외계인)일 때만 ESC로 닫을 수 있게 스택에 등록한다.
+        if (state == ArrestVoteState.Judged)
+        {
+            GameplayUiMode.Instance?.RegisterUi(this);
+        }
+        else if (!_startVotePanel.activeSelf)   // 지정 확인창이 열려있는 경우는 건드리지 않는다
+        {
+            GameplayUiMode.Instance?.UnregisterUi(this);
         }
     }
 

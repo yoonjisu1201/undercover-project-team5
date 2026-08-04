@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 라운드 결과(라운드 클리어/성공/실패)를 표시하고, 확인 버튼을 누르면 대기방으로 돌아가도록 서버에 알린다.
-public class RoundResultPanelUI : MonoBehaviour
+public class RoundResultPanelUI : MonoBehaviour, IClosableUi
 {
     [SerializeField] private GameObject _panel;
     [SerializeField] private TMP_Text _resultText;
@@ -104,6 +104,7 @@ public class RoundResultPanelUI : MonoBehaviour
                     _inventoryCanvas.SetActive(true);
                 }
                 _nextRoundText.SetActive(false);
+                GameplayUiMode.Instance?.UnregisterUi(this);
                 GameplayUiMode.Instance?.DeactivateCursor();
                 break;
         }
@@ -129,9 +130,25 @@ public class RoundResultPanelUI : MonoBehaviour
     {
         _panel.SetActive(true);
         _inventoryCanvas.SetActive(false);
+        GameplayUiMode.Instance?.RegisterUi(this);
         GameplayUiMode.Instance?.ActivateCursor();
         CaptureCriminalPortrait();
         ShowRandomClueImages();
+    }
+
+    // ESC: 서버 상태(라운드 진행)는 그대로 두고 로컬에서 결과 UI만 감춘다.
+    public void Close()
+    {
+        if (!_panel.activeSelf)
+        {
+            return;
+        }
+
+        _panel.SetActive(false);
+        _inventoryCanvas.SetActive(true);
+        _nextRoundText.SetActive(false);
+        GameplayUiMode.Instance?.UnregisterUi(this);
+        GameplayUiMode.Instance?.DeactivateCursor();
     }
 
     // 촬영된 단서 이미지 중 서로 다른 것을 무작위로 골라 슬롯 수만큼 표시한다. 패널이 뜰 때마다 다시 뽑는다.

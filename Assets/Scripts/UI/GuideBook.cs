@@ -9,7 +9,7 @@ using UnityEngine.UI;
 //   - 다음(BottomNext) : 현재 페이지가 위로 접혀 올라가며 다음 페이지를 드러낸다.
 //   - 이전(TopPrevious): 이전 페이지가 위에서 펴져 내려와 현재 페이지를 덮는다.
 [DisallowMultipleComponent]
-public class GuideBook : MonoBehaviour
+public class GuideBook : MonoBehaviour, IClosableUi
 {
     [Header("페이지 (논리 순서대로: Page_01 ~ Page_05)")]
     [SerializeField] private List<RectTransform> _pages = new List<RectTransform>();
@@ -48,12 +48,14 @@ public class GuideBook : MonoBehaviour
 
     private void OnEnable()
     {
+        GameplayUiMode.Instance?.RegisterUi(this);
         GameplayUiMode.Instance?.ActivateCursor();
     }
 
     private void OnDisable()
     {
         _flip?.Kill();  // 페이지 넘기는 중에 꺼지면 Tween이 남아있어도 화면에 표시되지 않으므로 강제 종료
+        GameplayUiMode.Instance?.UnregisterUi(this);
         GameplayUiMode.Instance?.DeactivateCursor();
     }
 

@@ -303,6 +303,12 @@ public sealed class GameSettingsMenu : MonoBehaviour
             return;
         }
 
+        // 떠 있는 UI(단서·가이드 북 등)가 있으면 맨 위 것부터 닫고, 다 닫혔을 때만 설정창을 연다.
+        if (GameplayUiMode.Instance != null && GameplayUiMode.Instance.CloseTopUi())
+        {
+            return;
+        }
+
         SetMenuActive(true);
     }
 

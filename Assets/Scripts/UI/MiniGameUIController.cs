@@ -3,12 +3,28 @@ using TMPro;
 using UnityEngine;
 
 // 모든 미니게임 UI의 종료와 완료 확인을 공통 처리한다.
-public sealed class MiniGameUIController : MonoBehaviour
+public sealed class MiniGameUIController : MonoBehaviour, IClosableUi
 {
     private MiniGameInteractable _owner;
     private TMP_Text _timerText;
     private bool _completionReady;
     private bool _isClosing;
+
+    private void OnEnable()
+    {
+        GameplayUiMode.Instance?.RegisterUi(this);
+    }
+
+    private void OnDisable()
+    {
+        GameplayUiMode.Instance?.UnregisterUi(this);
+    }
+
+    // ESC(스택)로 닫을 땐 '취소'로 처리한다. (버튼의 Close()는 완료 처리라 구분)
+    void IClosableUi.Close()
+    {
+        CloseWithoutCompletion();
+    }
 
     // 프리팹에 있는 공통 타이머 텍스트를 찾아둔다.
     private void Awake()
