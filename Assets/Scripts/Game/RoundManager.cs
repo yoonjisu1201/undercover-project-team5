@@ -4,7 +4,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 public enum RoundState
@@ -248,12 +247,6 @@ public class RoundManager : NetworkBehaviour
 
     private void Update()
     {
-        //임시 검거 테스트용: 실제 검거 판정 시스템 생기면 제거
-        if (IsSpawned && Keyboard.current != null && Keyboard.current.f1Key.wasPressedThisFrame)
-        {
-            ReportArrestServerRpc();
-        }
-
         if (!IsSpawned || !IsServer) return;
         if (_isPausedForVote || _debugTimeStopped.Value) return;
         if (NetworkManager.ServerTime.Time < _roundEndTime.Value) return;
