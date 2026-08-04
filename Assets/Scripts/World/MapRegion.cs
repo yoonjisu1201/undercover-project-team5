@@ -108,7 +108,6 @@ public sealed class MapRegion : MonoBehaviour
                 lockObject.SetActive(!unlocked);
             }
         }
-
         if (notify)
         {
             UnlockStateChanged?.Invoke(this, unlocked);
