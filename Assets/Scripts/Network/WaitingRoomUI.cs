@@ -9,7 +9,7 @@ using UnityEngine.SceneManagement;
 
 // TestRoom1 씬의 나가기 버튼, 조인코드 표시 텍스트와 GameSessionManager를 연결한다.
 
-public class WaitingRoomUI : MonoBehaviour
+public class WaitingRoomUI : MonoBehaviour, IClosableUi
 {
 	[Header("참조")]
 	[SerializeField] private Button _leaveButton;
@@ -83,6 +83,12 @@ public class WaitingRoomUI : MonoBehaviour
         _nicknameInputField.characterLimit = Player.MaxPlayerNameLength;
         _nicknameConfirmButton.onClick.AddListener(HandleNicknameConfirmButtonClicked);
 
+        // 닉네임 패널이 열려 있으면 ESC 닫기 스택에 등록한다. (ESC 시 설정창보다 먼저 닫히도록)
+        if (_nicknameSettingPanel.activeSelf)
+        {
+            GameplayUiMode.Instance?.RegisterUi(this);
+        }
+
         UpdateJoinCodeText();
         GameSessionManager.Instance.OnSessionJoined += UpdateJoinCodeText; // 조인 완료가 씬 로드보다 늦을 때를 대비한 재확인용
 
@@ -137,6 +143,8 @@ public class WaitingRoomUI : MonoBehaviour
 
         _nicknameConfirmButton.onClick.RemoveListener(HandleNicknameConfirmButtonClicked);
 
+        GameplayUiMode.Instance?.UnregisterUi(this);
+
         if (GameSessionManager.Instance != null)
         {
             GameSessionManager.Instance.OnSessionJoined -= UpdateJoinCodeText;
@@ -174,6 +182,13 @@ public class WaitingRoomUI : MonoBehaviour
 		GameSessionManager.Instance.LeaveSession();
 	}
 
+    // ESC로 닫으면 이름 적용 없이 닉네임 패널을 취소(닫기)한다. (IClosableUi)
+    public void Close()
+    {
+        _nicknameSettingPanel.SetActive(false);
+        GameplayUiMode.Instance?.UnregisterUi(this);
+    }
+
     private void HandleNicknameConfirmButtonClicked()
     {
         NetworkObject localPlayerObject = NetworkManager.Singleton.LocalClient.PlayerObject;
@@ -182,6 +197,7 @@ public class WaitingRoomUI : MonoBehaviour
         {
             localPlayer.SetPlayerName(_nicknameInputField.text);
             _nicknameSettingPanel.SetActive(false);
+            GameplayUiMode.Instance?.UnregisterUi(this);
         }
     }
 

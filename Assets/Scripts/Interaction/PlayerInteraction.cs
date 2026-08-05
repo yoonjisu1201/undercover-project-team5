@@ -1,8 +1,12 @@
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
-public class PlayerInteraction : NetworkBehaviour
+// 플레이어 상호작용의 코어: 참조/라이프사이클과 프레임별 입력 분배를 담당한다.
+// 세부 로직은 partial로 분리되어 있다.
+//   - PlayerInteraction.Targeting.cs : 화면 중심 조준으로 대상 감지·선택
+//   - PlayerInteraction.ItemUI.cs    : 아이템 획득 시 단서·가이드 북 UI 여닫기
+//   - PlayerInteraction.Drop.cs      : 선택한 아이템 드롭
+public partial class PlayerInteraction : NetworkBehaviour
 {
     // 인스펙터에서 연결하는 참조와 상호작용 범위를 조절하는 값.
     [Header("상호작용 설정")]
@@ -15,16 +19,13 @@ public class PlayerInteraction : NetworkBehaviour
     [SerializeField] private string _clueItemIdPrefix = "Clue";
     [SerializeField] private string _guideBookItemId = "GuideBook";
 
-    // 상호작용 범위 안의 후보 목록과, 그중 현재 조준된 대상.
-    private readonly HashSet<InteractableBase> _nearbyInteractables = new();  // SphereCollider 안에 있는 상호작용 가능 오브젝트
-    private readonly Dictionary<InteractableBase, int> _overlapCounts = new();
     private InteractableBase _currentTarget;  // 현재 상호작용 가능한 대상
 
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
     private PlayerHealth _health;
-    
-    public CartBase CarryingCart { get; set; }
+
+    public CartBase CarryingCart { get; set; } // 플레이어가 끌고 있는 카트. null이면 카트를 끌고 있지 않다.
 
     private void Awake()
     {
@@ -81,84 +82,22 @@ public class PlayerInteraction : NetworkBehaviour
         }
     }
 
-    // 상호작용 범위에 들어온 대상을 후보 목록에 추가한다.
-    private void OnTriggerEnter(Collider other) // SphereCollider에 들어온 아이템을 nearbyInteractables에 추가
-    {
-        if (!IsOwner)
-        {
-            return;
-        }
-
-        if (IsWanderAreaCollider(other))
-        {
-            return; // NPC 배회 반경 콜라이더는 상호작용 판정 대상이 아니다
-        }
-
-        InteractableBase newTarget = other.GetComponentInParent<InteractableBase>();
-        if (newTarget != null)
-        {
-            _overlapCounts.TryGetValue(newTarget, out int overlapCount);
-            _overlapCounts[newTarget] = overlapCount + 1;
-            _nearbyInteractables.Add(newTarget);
-        }
-    }
-
-    // 범위를 벗어난 대상을 제거하고, 선택 중이었다면 선택도 해제한다.
-    private void OnTriggerExit(Collider other)  // SphereCollider에서 나간 상호작용 대상을 nearbyInteractables에서 제거
-    {
-        if (!IsOwner)
-        {
-            return;
-        }
-
-        if (IsWanderAreaCollider(other))
-        {
-            return;
-        }
-
-        InteractableBase outTarget = other.GetComponentInParent<InteractableBase>();
-        if (outTarget == null)
-        {
-            return;
-        }
-
-        if (_overlapCounts.TryGetValue(outTarget, out int overlapCount) && overlapCount > 1)
-        {
-            _overlapCounts[outTarget] = overlapCount - 1;
-            return;
-        }
-
-        _overlapCounts.Remove(outTarget);
-        _nearbyInteractables.Remove(outTarget);
-        if (ReferenceEquals(outTarget, _currentTarget))
-        {
-            SetCurrentTarget(null);
-        }
-    }
-
-    // NPC의 배회 반경 콜라이더인지 확인한다. 같은 오브젝트에 다른 콜라이더(몸체 등)가 있을 수 있으므로 참조까지 비교한다.
-    private static bool IsWanderAreaCollider(Collider other)
-    {
-        return other.TryGetComponent(out NpcRandomWander wander) && wander.WanderAreaCollider == other;
-    }
-
     private void Update()
     {
         if (!IsOwner)
         {
             return;
         }
-        
+
         // 쓰러지면 상호작용 불가능하게 + 혹시라도 카트와 상호작용중이었다면 카트 놓도록
         if (_health.IsDowned)
         {
             SetCurrentTarget(null);
-            if (CarryingCart != null) { CarryingCart.ReleaseCart(); }
             return;
         }
-        
-        // 카트 끌고있을때도 다른 물체와 상호작용 불가능하게 함
-        if (CarryingCart != null) {
+
+        if (CarryingCart != null)
+        {
             UpdateCartInteraction();
             return;
         }
@@ -209,120 +148,6 @@ public class PlayerInteraction : NetworkBehaviour
         TryShowSelectedClue();
     }
 
-    private static bool TryCloseVisibleClue()
-    {
-        ClueUI[] clueDisplays = FindObjectsByType<ClueUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        foreach (ClueUI clueDisplay in clueDisplays)
-        {
-            if (!clueDisplay.gameObject.activeInHierarchy)
-            {
-                continue;
-            }
-
-            clueDisplay.Close();
-            return true;
-        }
-
-        return false;
-    }
-
-    private void HandleItemAdded(string itemId, int _)
-    {
-        if (TryGetClueIndex(itemId, out int clueIndex))
-        {
-            ShowClue(clueIndex);
-            return;
-        }
-
-        // 가이드 북을 주우면 바로 가이드 북 UI를 켠다.
-        if (itemId == _guideBookItemId)
-        {
-            ShowGuideBook();
-        }
-    }
-
-    private void ShowGuideBook()
-    {
-        GuideBookDisplay display = FindFirstObjectByType<GuideBookDisplay>(FindObjectsInactive.Include);
-        if (display == null)
-        {
-            Debug.LogWarning("[PlayerInteraction] GuideBookDisplay를 찾지 못했습니다.");
-            return;
-        }
-
-        display.Show();
-    }
-
-    // 활성화된 가이드 북 UI가 있으면 닫고 true를 반환한다.
-    private static bool TryCloseGuideBook()
-    {
-        GuideBookDisplay[] displays = FindObjectsByType<GuideBookDisplay>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        foreach (GuideBookDisplay display in displays)
-        {
-            if (!display.gameObject.activeInHierarchy)
-            {
-                continue;
-            }
-
-            display.Close();
-            return true;
-        }
-
-        return false;
-    }
-
-    // 같은 대상을 계속 조준 중이어도, 선택 슬롯이 바뀌면(예: 스크롤로 추적기 선택/해제) 안내 문구를 바로 갱신한다.
-    private void HandleInventoryChanged()
-    {
-        if (_currentTarget != null)
-        {
-            _inventoryUI?.SetInteractionPrompt(
-                _currentTarget.GetInteractionText(gameObject),
-                _currentTarget.ShowInteractionKeyHint(gameObject));
-        }
-    }
-
-    private void TryShowSelectedClue()
-    {
-        if (_inventory == null || !_inventory.TryGetSelectedItem(out string itemId))
-        {
-            return;
-        }
-
-        if (TryGetClueIndex(itemId, out int clueIndex))
-        {
-            ShowClue(clueIndex);
-        }
-    }
-
-    private bool TryGetClueIndex(string itemId, out int clueIndex)
-    {
-        clueIndex = -1;
-
-        if (string.IsNullOrWhiteSpace(itemId) || !itemId.StartsWith(_clueItemIdPrefix))
-        {
-            return false;
-        }
-
-        string numberText = itemId[_clueItemIdPrefix.Length..].Trim();
-        return int.TryParse(numberText, out int clueNumber) &&
-               (clueIndex = clueNumber - 1) >= 0;
-    }
-
-    private void ShowClue(int clueIndex)
-    {
-        ClueUI[] clueDisplays = FindObjectsByType<ClueUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        System.Array.Sort(clueDisplays, (left, right) => string.CompareOrdinal(left.name, right.name));
-
-        if (clueIndex >= clueDisplays.Length)
-        {
-            Debug.LogWarning($"표시할 ClueDisplay가 부족합니다. 단서 번호: {clueIndex + 1}");
-            return;
-        }
-
-        clueDisplays[clueIndex].gameObject.SetActive(true);
-    }
-
     private void TryInteract()
     {
         if (_currentTarget == null)
@@ -334,173 +159,5 @@ public class PlayerInteraction : NetworkBehaviour
         IInteractable target = _currentTarget;
         SetCurrentTarget(null);
         target.Interact(gameObject);
-    }
-
-    private void TryDropSelectedItem()
-    {
-        if (_inventory == null || _itemCatalog == null || _playerCamera == null)
-        {
-            return;
-        }
-
-        // 로컬에서 드롭 가능 여부를 확인하고, 실제 생성과 인벤토리 차감은 서버에 요청한다.
-        //--- 선택한 슬롯에 아이템이 있는지 확인 ---//
-        if (!_inventory.TryGetSelectedItem(out string itemId)) { Debug.Log("선택한 슬롯에 아이템이 없습니다."); return; }
-        if (!_itemCatalog.TryGet(itemId, out ItemData itemData)) { Debug.Log($"ItemCatalog에 '{itemId}'가 없습니다."); return; }
-        if (itemData.WorldPrefab == null) { Debug.Log($"'{itemId}'의 WorldPrefab이 없습니다."); return; }
-
-        Transform cameraTransform = _playerCamera.transform;
-        Vector3 dropPosition = cameraTransform.position + cameraTransform.forward * 1f;
-        Vector3 dropVelocity = cameraTransform.forward * 2f + Vector3.up;
-
-        RequestDropRpc(itemId, dropPosition, dropVelocity);
-        TryCloseVisibleClue();
-    }
-
-    [Rpc(SendTo.Server)]
-    private void RequestDropRpc(string itemId, Vector3 dropPosition, Vector3 dropVelocity)
-    {
-        // 클라이언트 요청을 신뢰하지 않고 서버에서도 다시 검증한다.
-        if (_inventory == null || _itemCatalog == null)
-        {
-            return;
-        }
-
-        if (!_itemCatalog.TryGet(itemId, out ItemData itemData) || itemData.WorldPrefab == null)
-        {
-            return;
-        }
-
-        if (!_inventory.TryRemoveSelectedItemOnServer(itemId))
-        {
-            return;
-        }
-
-        // 서버가 월드 아이템을 생성하고 네트워크 오브젝트로 스폰한다.
-        // 건전지는 원통이 옆으로 눕도록 고정 회전을 사용한다.
-        // 나머지 아이템은 프리팹 원본 자세를 유지하면서 플레이어가 바라보는 Y축 방향을 따른다.
-        Quaternion playerYaw = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
-        Quaternion dropRotation = itemId.StartsWith("Battery", System.StringComparison.OrdinalIgnoreCase)
-            ? Quaternion.Euler(90f, 0f, 90f)
-            : playerYaw * itemData.WorldPrefab.transform.rotation;
-        GameObject droppedObject = Instantiate(itemData.WorldPrefab, dropPosition, dropRotation);
-
-        //--- 드롭한 단서가 기존 단서 번호를 유지하도록 데이터 전달 ---//
-        if (droppedObject.TryGetComponent(out PickupItem droppedPickupItem))
-        {
-            droppedPickupItem.Configure(itemData);
-        }
-
-        if (!droppedObject.TryGetComponent(out NetworkObject droppedNetworkObject))
-        {
-            Debug.LogError($"'{itemData.WorldPrefab.name}' 프리팹에 NetworkObject가 없습니다.");
-            Destroy(droppedObject);
-            return;
-        }
-
-        // 방금 버린 아이템을 바로 다시 줍지 못하도록 잠시 막는다.
-        if (droppedObject.TryGetComponent(out PickupItem droppedItem))
-        {
-            droppedItem.BlockInteraction(_dropInteractionDelay);
-        }
-
-        droppedNetworkObject.Spawn();
-
-        // 플레이어가 바라보는 방향으로 초기 속도를 적용한다.
-        if (droppedObject.TryGetComponent(out Rigidbody rigidbody))
-        {
-            rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
-            rigidbody.linearVelocity = dropVelocity;
-        }
-    }
-
-    private void UpdateCurrentTarget()
-    {
-        if (_playerCamera == null)
-        {
-            SetCurrentTarget(null);
-            return;
-        }
-
-        _nearbyInteractables.RemoveWhere(target => target == null); // 파괴된 대상 제거
-        // 파괴된 대상을 정리한 뒤, 가장 가까운 후보를 찾는다.
-
-        InteractableBase closestTarget = null;
-        float closestDistanceSqr = float.MaxValue;
-
-        Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-        // 화면 중앙과의 거리를 기준으로 조준 대상을 비교한다.
-
-        foreach (InteractableBase target in _nearbyInteractables)
-        {
-            if (target == null)
-            {
-                continue;
-            }
-
-            if (!target.CanInteract(gameObject))  // 상호작용이 차단된 대상은 무시
-            {
-                continue;
-            }
-
-            Vector3 screenPos = _playerCamera.WorldToScreenPoint(target.InteractionPosition);
-
-            if (screenPos.z < 0)
-            {
-                continue; // 대상이 카메라 뒤에 있는 경우 무시
-            }
-
-            Vector2 targetScreenPos = new Vector2(screenPos.x, screenPos.y);
-
-            // 화면 중심과 대상의 스크린 좌표 간의 거리 제곱 계산
-            // 제곱 거리를 사용해 불필요한 제곱근 계산을 피한다.
-            float distanceSqr = (targetScreenPos - screenCenter).sqrMagnitude;
-
-            // 대상별 배율(AimRadiusMultiplier)을 반영해 판정 반경을 계산한다 (예: 계속 움직이는 NPC는 더 넓게).
-            float radiusPixels = Screen.height * _screenCenterRadius * target.AimRadiusMultiplier;
-            float radiusSqr = radiusPixels * radiusPixels;
-
-            if (distanceSqr > radiusSqr)
-            {
-                continue; // 아이템이 상호작용 가능한 영역 밖에 있는 경우 무시
-            }
-
-            if (distanceSqr < closestDistanceSqr)
-            {
-                closestDistanceSqr = distanceSqr;
-                closestTarget = target;
-            }
-        }
-        SetCurrentTarget(closestTarget);
-    }
-
-    private void SetCurrentTarget(InteractableBase nextTarget)
-    {
-        if (ReferenceEquals(_currentTarget, nextTarget))
-        {
-            return;
-        }
-
-        // 이전에 선택된 대상의 아웃라인을 끈다.
-        _currentTarget?.SetOutline(false);
-
-        _currentTarget = nextTarget;
-        _currentTarget?.SetOutline(true);
-
-        string interactionText = _currentTarget?.GetInteractionText(gameObject);
-        bool showKeyHint = _currentTarget?.ShowInteractionKeyHint(gameObject) ?? true;
-        _inventoryUI?.SetInteractionPrompt(interactionText, showKeyHint);
-    }
-    
-    // 카트를 끌고 있을 때는 다른 오브젝트와 상호작용 불가능하게 한다
-    private void UpdateCartInteraction() {
-        SetCurrentTarget(null);
-        _inventoryUI.SetInteractionPrompt($"{CarryingCart.CartName}카트 놓기");
-            
-        // 카트 끄는 도중 상호작용키 다시 누르면 카트를 놓는다.
-        if (_actions.Player.Interact.WasPressedThisFrame()) {
-            CarryingCart.ReleaseCart();
-        }
     }
 }
