@@ -4,7 +4,7 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public abstract class CartBase : InteractableBase {
 	private const ulong Empty = ulong.MaxValue;
-	
+
 	[SerializeField] private float _holdDistance = 2f;
 	
 	private Rigidbody _rigidbody;
@@ -15,6 +15,10 @@ public abstract class CartBase : InteractableBase {
 	
 	// 카트이름(추후 추가될까봐.. 고급카트 일반카트 이런거)
 	public abstract string CartName { get; }
+
+	[Header("=== 왼쪽, 오른쪽 핸들(IK붙을 위치) ===")]
+	[SerializeField] public Transform LeftHandle;
+	[SerializeField] public Transform RightHandle;
 	
 	// 해당 카트의 소유자가 있는가?
 	public bool IsHolderExists => _currentHolderId.Value != Empty;
