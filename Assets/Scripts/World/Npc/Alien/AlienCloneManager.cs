@@ -18,6 +18,11 @@ public class AlienCloneManager : MonoBehaviour
     [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 2f;
 
     private readonly List<AlienCloneHealth> _aliveClones = new();
+
+    // 디버그 메뉴에서 주기적인 스폰을 끄거나, 범인과 함께 분신도 정지시킬 때 사용한다. 서버에서만 의미가 있다.
+    public bool SpawningEnabled { get; private set; } = true;
+    public bool ClonesFrozen { get; private set; }
+
     // 지난 프레임에 읽은 라운드 잔여시간. 이번 프레임과의 차이로 "실제로 흐른 라운드 시간"을 계산하는 기준값.
     private float _lastRoundRemainingTime;
     private float _elapsedSinceLastSpawn;
@@ -52,6 +57,9 @@ public class AlienCloneManager : MonoBehaviour
         float currentRemaining = RoundManager.Instance.GetRemainingTime();
         float elapsed = Mathf.Max(0f, _lastRoundRemainingTime - currentRemaining);
         _lastRoundRemainingTime = currentRemaining;
+
+        // 스폰을 막아둔 동안에는 경과 시간도 쌓지 않는다. 다시 허용한 순간 한꺼번에 몰려 나오는 것을 막기 위함.
+        if (!SpawningEnabled) return;
 
         _elapsedSinceLastSpawn += elapsed;
         if (_elapsedSinceLastSpawn < _spawnInterval) return;
@@ -93,6 +101,13 @@ public class AlienCloneManager : MonoBehaviour
 
         networkObject.Spawn(destroyWithScene: true);
         _aliveClones.Add(health);
+
+        // 정지 상태에서 새로 스폰된 분신도 곧바로 멈춘 상태로 시작한다.
+        if (ClonesFrozen && instance.TryGetComponent(out AlienCloneController spawnedController))
+        {
+            spawnedController.SetFrozen(true);
+        }
+
         // Died는 HP가 0이 될 때 딱 한 번만 발동되고 그 직후 곧바로 디스폰(파괴)되므로,
         // 별도로 구독 해제를 하지 않아도 이 델리게이트가 계속 남아있을 일이 없다.
         health.Died += () => HandleCloneDied(health, networkObject);
@@ -185,20 +200,52 @@ public class AlienCloneManager : MonoBehaviour
         }
     }
 
+    // 주기적인 분신 스폰을 켜거나 끈다.
+    public void SetSpawningEnabled(bool enabled)
+    {
+        SpawningEnabled = enabled;
+    }
+
+    // 살아있는 분신 전체의 이동을 멈추거나 다시 풀어준다. 이후 새로 스폰되는 분신도 같은 상태를 따른다.
+    public void SetClonesFrozen(bool frozen)
+    {
+        ClonesFrozen = frozen;
+
+        foreach (AlienCloneHealth health in _aliveClones)
+        {
+            if (health != null && health.TryGetComponent(out AlienCloneController controller))
+            {
+                controller.SetFrozen(frozen);
+            }
+        }
+    }
+
+    // 살아있는 분신을 모두 디스폰하고 제거한 마릿수를 반환한다.
+    public int DespawnAllClones()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return 0;
+
+        int removedCount = 0;
+        foreach (AlienCloneHealth health in _aliveClones)
+        {
+            if (health != null && health.TryGetComponent(out NetworkObject networkObject) && networkObject.IsSpawned)
+            {
+                networkObject.Despawn(destroy: true);
+                removedCount++;
+            }
+        }
+
+        _aliveClones.Clear();
+        return removedCount;
+    }
+
     // 라운드가 끝나면(InRound를 벗어나면) 지금까지 스폰된 외계인 복제체를 전부 강제로 디스폰시킨다.
     private void HandleRoundStateChanged(RoundState state)
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
         if (state == RoundState.InRound) return;
 
-        foreach (AlienCloneHealth health in _aliveClones)
-        {
-            if (health != null && health.TryGetComponent(out NetworkObject networkObject) && networkObject.IsSpawned)
-            {
-                networkObject.Despawn(destroy: true);
-            }
-        }
-
-        _aliveClones.Clear();
+        DespawnAllClones();
+        ClonesFrozen = false;
     }
 }

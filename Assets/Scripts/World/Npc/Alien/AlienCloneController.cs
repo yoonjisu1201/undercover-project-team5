@@ -18,6 +18,8 @@ public class AlienCloneController : NetworkBehaviour
     private Vector3 _spawnPosition;
     private PlayerHealth _currentTarget;
     private readonly List<PlayerHealth> _playersInRange = new();
+    // 디버그 메뉴에서 범인과 함께 정지시켰을 때, 추적·배회를 모두 멈춘다.
+    private bool _isFrozen;
 
     // AlienCloneAttack이 사거리 판정에 쓸 수 있도록 현재 타겟을 읽기 전용으로 노출한다.
     public PlayerHealth CurrentTarget => _currentTarget;
@@ -37,11 +39,29 @@ public class AlienCloneController : NetworkBehaviour
         }
     }
 
+    // 이동을 멈추거나 다시 풀어준다. 서버에서만 호출된다.
+    public void SetFrozen(bool frozen)
+    {
+        _isFrozen = frozen;
+
+        if (_agent == null || !_agent.isOnNavMesh) return;
+
+        if (frozen)
+        {
+            _agent.ResetPath();
+        }
+
+        _agent.isStopped = frozen;
+    }
+
     // 서버에서만 매 프레임 실행되는 AI 루프. 타겟이 있으면 추적하고, 없으면 배회한다.
     private void Update()
     {
         // ① 실행 자격 체크: 서버가 아니거나, 아직 스폰 안 됐거나, NavMesh 위에 없으면 아무것도 안 함
         if (!IsServer || !IsSpawned || !_agent.isOnNavMesh) return;
+
+        // ①-1 정지 상태면 목적지를 새로 잡지 않는다 (디버그 메뉴의 범인 정지와 함께 걸린 상태)
+        if (_isFrozen) return;
 
         // ② 기존 타겟 무효화: 다운되거나 본부에 들어갔으면 더 이상 쫓지 않음
         if (_currentTarget != null && !IsValidTarget(_currentTarget))

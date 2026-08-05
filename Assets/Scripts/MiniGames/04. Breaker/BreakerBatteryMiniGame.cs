@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -26,16 +27,24 @@ public sealed partial class BreakerBatteryMiniGame : MonoBehaviour, IUIDragDropC
     private PlayerInventory _playerInventory;
     private ItemCatalog _itemCatalog;
     private TMP_Text _currentValueText;
-    private TMP_Text _targetValueText;
     private Image _wattFill;
     private RectTransform _wattFillRect;
     private float _wattFillMinAnchorX;
     private float _wattFillMaxAnchorX;
-    private Button _confirmButton;
-    private Button _retryButton;
-    // 현재 보유한 건전지로 만들 수 있는 조합 중 무작위로 선택한 목표 전력이다.
+    // 전원이 켜져 있어 배터리를 만질 수 없는 동안 전원판을 어둡게 덮는 오버레이다.
+    [SerializeField] private GameObject _dimmer;
+    // 레버를 내려 배치를 수정할 수 있을 때만 '다시 하기', 전원이 들어와 측정 중일 때만 '확인'을 누를 수 있다.
+    // 버튼은 계속 보이되 못 누르는 상태에서는 회색으로 흐려진다.
+    [SerializeField] private Button _retryButton;
+    [SerializeField] private Button _confirmButton;
+    // 전원·측정·완료 상태를 글로 보여준다. 목표 전력 수치는 C(계기판) 역할의 정보라 여기서는 드러내지 않는다.
+    [SerializeField] private TMP_Text _statusText;
+    // 현재 보유한 건전지로 만들 수 있는 조합 중 무작위로 선택한 목표 전력이다. A에게는 수치로 보여주지 않는다.
     private int _targetWatt;
-    private bool _completed;
+    // 레버·게이지 등 다른 역할과 공유하는 전원/전력 상태다. B가 레버를 올려두는 동안(On)에는 배치를 바꿀 수 없다.
+    private BreakerCircuitState _circuitState;
+    // C 화면의 바늘 연출이 끝나는 시점에 맞춰 이 화면의 결과 창을 띄우기 위한 대기 트윈이다.
+    private Tween _resultTween;
 
     private void Awake()
     {
@@ -43,27 +52,96 @@ public sealed partial class BreakerBatteryMiniGame : MonoBehaviour, IUIDragDropC
         SetupScrollableInventory();
         SetupSlots(FindChild(transform, "PowerBoard"));
         StageInventoryBatteries();
-        SelectRandomTargetWatt();
         RebuildInventoryGrid();
     }
 
-    // 현재 슬롯의 전력 합계를 사용자가 확정했을 때만 정답으로 판정한다.
-    private void ConfirmAnswer()
+    // 닫혀 있는 동안 새로 주운 건전지를 다시 열 때 보관함에 반영한다.
+    // Awake에서 이미 들고 있던 건전지를 모두 옮겼으므로 첫 활성화에서는 아무 일도 하지 않는다.
+    private void OnEnable()
     {
-        if (_completed)
+        StageNewBatteries();
+    }
+
+    private void OnDestroy()
+    {
+        if (_circuitState != null)
+        {
+            _circuitState.OnCircuitChanged -= HandleCircuitChanged;
+            _circuitState.OnMeasurementRequested -= ScheduleResultOverlay;
+        }
+
+        _resultTween?.Kill();
+    }
+
+    // 소유 기계의 공유 회로 상태와 연결하고 목표 전력을 최초 한 번 등록한다.
+    public void Initialize(BreakerCircuitState circuitState)
+    {
+        _circuitState = circuitState;
+        if (_circuitState == null)
         {
             return;
         }
 
-        int current = _slots.Where(item => item != null).Sum(item => item.Watt);
-        CheckAnswer(current);
+        _circuitState.OnCircuitChanged += HandleCircuitChanged;
+        _circuitState.OnMeasurementRequested += ScheduleResultOverlay;
+        SelectRandomTargetWatt();
+        HandleCircuitChanged();
+    }
+
+    // 확인을 누르면 C 화면에서 바늘이 올라가는 동안 기다렸다가, 완료된 경우에만 같은 시점에 결과 창을 띄운다.
+    private void ScheduleResultOverlay()
+    {
+        _resultTween?.Kill();
+        _resultTween = DOVirtual.DelayedCall(
+            BreakerCircuitState.MeasurementSweepSeconds + BreakerCircuitState.ResultDelaySeconds,
+            () =>
+            {
+                if (_circuitState != null && _circuitState.IsCompleted)
+                {
+                    GetComponent<MiniGameUIController>()?.ShowCompletedState();
+                }
+            });
+    }
+
+    // 회로 상태(전원/전력/완료 여부)가 바뀔 때마다 화면을 다시 그린다.
+    private void HandleCircuitChanged()
+    {
+        if (_circuitState.IsCompleted)
+        {
+            // 완료된 뒤에는 보관 중이던 배터리를 실제 인벤토리로 되돌리지 않고 소모한다.
+            DiscardStoredBatteries();
+        }
+
+        // B가 레버를 내리고 있지 않으면(전원 On) 배터리를 만질 수 없으므로 전원판을 어둡게 덮는다.
+        bool powerOn = _circuitState.PowerOn;
+        if (_dimmer != null)
+        {
+            _dimmer.SetActive(powerOn);
+        }
+
+        // 배치를 바꿀 수 있을 때만 '다시 하기', 전원이 들어와 측정된 뒤에만 '확인'을 쓸 수 있다.
+        SetButtonUsable(_retryButton, !powerOn);
+        SetButtonUsable(_confirmButton, powerOn);
+
+        UpdateStatusText();
+        RefreshItemPositions();
+    }
+
+    // 버튼을 숨기지 않고 못 누르게만 한다. 흐려지는 표현은 Button의 Disabled Color가 담당한다.
+    private static void SetButtonUsable(Button button, bool usable)
+    {
+        if (button != null)
+        {
+            button.interactable = usable;
+        }
     }
 
     // 모든 슬롯을 비우고 배터리들을 각각의 원래 인벤토리 셀로 되돌린다.
     private void ResetBatteries()
     {
-        if (_completed)
+        if (_circuitState != null && _circuitState.PowerOn)
         {
+            // 전원이 켜져 있으면(레버를 올린 상태) 배치를 건드릴 수 없다.
             return;
         }
 
@@ -73,12 +151,18 @@ public sealed partial class BreakerBatteryMiniGame : MonoBehaviour, IUIDragDropC
         }
 
         Array.Clear(_slots, 0, _slots.Length);
-        _currentValueText.color = Color.white;
         RefreshItemPositions();
     }
 
     public void DropOnSlot(UIDraggableItem item, int slotIndex)
     {
+        if (_circuitState != null && _circuitState.PowerOn)
+        {
+            // 전원이 켜져 있으면(레버를 올린 상태) 배치를 건드릴 수 없다.
+            RefreshItemPositions();
+            return;
+        }
+
         if (item is not BatteryDragItem battery)
         {
             // 이 미니게임의 배터리가 아닌 드래그 항목은 슬롯 상태를 바꾸지 않는다.
@@ -132,6 +216,13 @@ public sealed partial class BreakerBatteryMiniGame : MonoBehaviour, IUIDragDropC
 
     public void ReturnToPool(UIDraggableItem item)
     {
+        if (_circuitState != null && _circuitState.PowerOn)
+        {
+            // 전원이 켜져 있으면(레버를 올린 상태) 배치를 건드릴 수 없다.
+            RefreshItemPositions();
+            return;
+        }
+
         // 배터리를 전원 슬롯에서 해제하고 원래 인벤토리 셀로 반환한다.
         if (item is not BatteryDragItem battery)
         {
@@ -168,30 +259,9 @@ public sealed partial class BreakerBatteryMiniGame : MonoBehaviour, IUIDragDropC
         int current = _slots.Where(item => item != null).Sum(item => item.Watt);
         _currentValueText.text = $"{current:000} W";
         UpdateWattGauge(current);
-        if (!_completed)
-        {
-            // 오답 확인 뒤 배치를 수정하면 경고색을 해제한다.
-            _currentValueText.color = Color.white;
-        }
+        _currentValueText.color = Color.white;
+
+        // 전원이 꺼져 있을 때 A가 바꾼 배치만 공유 상태에 보고한다 (On일 때는 서버가 어차피 무시한다).
+        _circuitState?.ReportCurrentWatt(current);
     }
-
-    private void CheckAnswer(int current)
-    {
-        // 목표 전력과 다르면 현재 수치를 빨간색으로 표시하고 배치를 계속 수정할 수 있게 한다.
-        if (current != _targetWatt)
-        {
-            _currentValueText.color = new Color(1f, 0.3f, 0.3f);
-            return;
-        }
-
-        _completed = true;
-        DiscardStoredBatteries();
-        // 목표 전력에 정확히 도달한 최초 한 번만 완료 UI와 종료 가능 상태를 활성화한다.
-        _currentValueText.color = new Color(0.15f, 0.85f, 0.82f);
-        _confirmButton.interactable = false;
-        _retryButton.interactable = false;
-        GetComponent<MiniGameUIController>().MarkCompletionReady();
-        FindChild(transform, "ResultOverlay").gameObject.SetActive(true);
-    }
-
 }

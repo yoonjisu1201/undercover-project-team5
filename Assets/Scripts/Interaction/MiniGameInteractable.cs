@@ -26,6 +26,9 @@ public sealed class MiniGameInteractable : InteractableBase
     private static MiniGameInteractable _activeInteractable;
 
     public bool IsCompleted => _isCompleted.Value;
+
+    // 완료 여부가 바뀔 때마다 알린다. 배터리 회로처럼 다른 컴포넌트가 완료 시점에 반응해야 할 때 사용한다.
+    public event System.Action<bool> IsCompletedChanged;
     public override string InteractionText => IsCompleted ? "완료된 게임" : _interactionText;
     public override bool CanInteract(GameObject interactor) => _uiPrefab != null && _activeInteractable == null;
 
@@ -98,12 +101,20 @@ public sealed class MiniGameInteractable : InteractableBase
         }
 
         controller.Initialize(this);
+
+        // 미니게임별 초기화가 실패해도 커서 없이 UI만 열린 상태로 갇히지 않도록 커서를 먼저 활성화한다.
+        GameplayUiMode.Instance?.ActivateCursor();
+
+        // 배터리 미니게임은 레버·게이지 등 다른 역할과 공유하는 상태를 별도 컴포넌트에서 관리한다.
+        if (_uiInstance.TryGetComponent(out BreakerBatteryMiniGame breakerGame))
+        {
+            breakerGame.Initialize(GetComponent<BreakerCircuitState>());
+        }
+
         if (IsCompleted)
         {
             controller.ShowCompletedState();
         }
-
-        GameplayUiMode.Instance?.ActivateCursor();
     }
 
     // 결과 확인을 누른 클라이언트가 서버에 완료 확정을 요청한다.
@@ -134,6 +145,22 @@ public sealed class MiniGameInteractable : InteractableBase
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void CompleteMiniGameRpc(Vector3 requestingPlayerPosition)
     {
+        CompleteMiniGameInternal(requestingPlayerPosition);
+    }
+
+    // 브레이커 회로처럼 서버 로직이 스스로 완료 조건을 감지했을 때, 클라이언트 요청 RPC 없이 직접 호출한다.
+    public void ServerCompleteFromGameplay(Vector3 requestingPlayerPosition)
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        CompleteMiniGameInternal(requestingPlayerPosition);
+    }
+
+    private void CompleteMiniGameInternal(Vector3 requestingPlayerPosition)
+    {
         if (_isCompleted.Value)
         {
             return;
@@ -146,7 +173,17 @@ public sealed class MiniGameInteractable : InteractableBase
     // 다른 플레이어가 완료했으면 현재 열려 있는 UI도 완료 안내로 전환한다.
     private void HandleCompletionChanged(bool previousValue, bool currentValue)
     {
+        IsCompletedChanged?.Invoke(currentValue);
+
         if (!currentValue || _uiInstance == null)
+        {
+            return;
+        }
+
+        // 브레이커의 두 화면(배터리 패널·계기판)은 바늘 연출이 끝나는 같은 시점에 스스로 결과 창을 띄운다.
+        // 여기서 미리 띄우면 연출이 잘린다.
+        if (_uiInstance.TryGetComponent(out BreakerGaugeMonitorUI _) ||
+            _uiInstance.TryGetComponent(out BreakerBatteryMiniGame _))
         {
             return;
         }

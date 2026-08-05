@@ -98,20 +98,32 @@ public sealed partial class DebugMenuController
         SetToggleButtonState(_soloCaptureButton, enabled);
     }
 
-    // 서버가 범인의 이동을 정지하거나 다시 배회할 수 있도록 해제합니다.
+    // 서버가 범인과 외계인 분신의 이동을 함께 정지하거나 다시 풀어줍니다.
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestToggleCriminalFreezeRpc()
+    {
+        _criminalFrozen = !_criminalFrozen;
+
+        ApplyCriminalMovementFreeze(_criminalFrozen);
+
+        // 분신은 라운드 중간에 계속 새로 스폰되므로, 매니저가 정지 상태를 들고 있다가 새 분신에도 적용한다.
+        FindFirstObjectByType<AlienCloneManager>()?.SetClonesFrozen(_criminalFrozen);
+
+        ApplyCriminalFreezeStateRpc(_criminalFrozen);
+    }
+
+    // 범인 NPC 한 마리의 이동 정지를 적용합니다. 범인이 아직 없어도 분신 정지는 그대로 진행됩니다.
+    private void ApplyCriminalMovementFreeze(bool frozen)
     {
         CriminalNpcManager criminalManager = FindFirstObjectByType<CriminalNpcManager>();
         NetworkObject criminal = criminalManager?.CriminalNpc;
         if (criminal == null || !criminal.TryGetComponent(out NpcMovement movement))
         {
-            Debug.LogWarning("[DebugMenu] 정지할 범인 NPC의 이동 컴포넌트를 찾지 못했습니다.");
+            Debug.LogWarning("[DebugMenu] 정지할 범인 NPC의 이동 컴포넌트를 찾지 못했습니다. 외계인 분신만 적용합니다.");
             return;
         }
 
-        _criminalFrozen = !_criminalFrozen;
-        if (_criminalFrozen)
+        if (frozen)
         {
             criminal.GetComponent<NpcStateMachine>()?.RequestIdle();
             movement.HoldExternally();
@@ -120,8 +132,6 @@ public sealed partial class DebugMenuController
         {
             movement.ReleaseExternalHold();
         }
-
-        ApplyCriminalFreezeStateRpc(_criminalFrozen);
     }
 
     // 모든 클라이언트에서 범인 정지 버튼의 토글 색상을 동기화합니다.
@@ -140,6 +150,7 @@ public sealed partial class DebugMenuController
         }
 
         _criminalFrozen = false;
+        FindFirstObjectByType<AlienCloneManager>()?.SetClonesFrozen(false);
         ApplyCriminalFreezeStateRpc(false);
     }
 

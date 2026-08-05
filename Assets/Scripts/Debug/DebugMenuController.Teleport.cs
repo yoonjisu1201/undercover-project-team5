@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
@@ -94,10 +93,7 @@ public sealed partial class DebugMenuController
     // 이름과 인스턴스 ID로 정렬된 미니게임 중 지정 순번 앞으로 이동합니다.
     private void TeleportToMiniGame(int index)
     {
-        MiniGameInteractable[] miniGames = FindObjectsByType<MiniGameInteractable>(FindObjectsSortMode.None)
-            .OrderBy(miniGame => miniGame.name, StringComparer.Ordinal)
-            .ThenBy(miniGame => miniGame.GetInstanceID())
-            .ToArray();
+        MiniGameInteractable[] miniGames = GetOrderedMiniGames();
         if (index < 0 || index >= miniGames.Length)
         {
             ShowStatus($"미니게임 {index + 1}을 찾지 못했습니다.");

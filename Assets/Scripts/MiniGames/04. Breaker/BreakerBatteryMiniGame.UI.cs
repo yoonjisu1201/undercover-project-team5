@@ -20,13 +20,16 @@ public sealed partial class BreakerBatteryMiniGame
 
         Transform powerBoard = FindChild(transform, "PowerBoard");
         _currentValueText = FindChild(powerBoard, "CurrentValue").GetComponent<TMP_Text>();
-        _targetValueText = FindChild(powerBoard, "TargetValue").GetComponent<TMP_Text>();
-        _wattFill = FindChild(powerBoard, "Fill").GetComponent<Image>();
-        _wattFillRect = _wattFill.rectTransform;
-        _wattFillMinAnchorX = _wattFillRect.anchorMin.x;
-        _wattFillMaxAnchorX = _wattFillRect.anchorMax.x;
-        _confirmButton = FindChild(powerBoard, "ConfirmButton").GetComponent<Button>();
-        _retryButton = FindChild(powerBoard, "RetryButton").GetComponent<Button>();
+
+        // 목표 대비 눈금은 HQ 계기판(C) 역할로 옮겨졌으므로 A 화면 프리팹에는 게이지가 없을 수 있다.
+        Transform wattFill = FindChild(powerBoard, "Fill");
+        _wattFill = wattFill != null ? wattFill.GetComponent<Image>() : null;
+        if (_wattFill != null)
+        {
+            _wattFillRect = _wattFill.rectTransform;
+            _wattFillMinAnchorX = _wattFillRect.anchorMin.x;
+            _wattFillMaxAnchorX = _wattFillRect.anchorMax.x;
+        }
         _itemCatalog = FindFirstObjectByType<ItemCatalog>();
         _playerInventory = FindLocalInventory();
     }
@@ -62,6 +65,22 @@ public sealed partial class BreakerBatteryMiniGame
         RefreshItemPositions();
     }
 
+    // 기존 셀은 그대로 두고 새로 보관된 건전지만 빈 셀에 채운다.
+    private void AppendInventoryCells(int startIndex)
+    {
+        EnsureInventoryCellCount(Mathf.Max(MinimumVisibleCellCount, _stagedBatteryItemIds.Count));
+
+        for (int index = startIndex; index < _stagedBatteryItemIds.Count; index++)
+        {
+            RectTransform cell = _inventoryCells[index];
+            cell.gameObject.SetActive(true);
+            BindInventoryItem(cell, _stagedBatteryItemIds[index]);
+        }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_inventoryContent);
+        RefreshItemPositions();
+    }
+
     // 프리팹의 8칸을 우선 사용하고, 초과 수량만 첫 셀 템플릿을 복제한다.
     private void EnsureInventoryCellCount(int requiredCount)
     {
@@ -84,7 +103,13 @@ public sealed partial class BreakerBatteryMiniGame
 
     private void BindInventoryItem(RectTransform cell, string itemId)
     {
+        // 복제된 셀은 원본 배터리가 전원 슬롯으로 옮겨간 상태였으면 배터리 자식이 없다.
         BatteryDragItem battery = cell.GetComponentInChildren<BatteryDragItem>(true);
+        if (battery == null)
+        {
+            return;
+        }
+
         Image image = battery.GetComponent<Image>();
 
         if (!TryGetBatteryWatt(itemId, out int watt))
@@ -148,15 +173,47 @@ public sealed partial class BreakerBatteryMiniGame
         ResetBatteries();
     }
 
-    // Unity Button의 On Click 이벤트에서 현재 전력 조합을 확인한다.
+    // Unity Button의 On Click 이벤트에서 측정을 요청한다. C(계기판)들이 바늘 연출과 결과 창을 이어서 처리한다.
+    // 여기서 패널을 닫으면 UI가 파괴돼 배치가 사라지므로, 닫기는 '뒤로' 버튼에만 맡긴다.
     public void OnConfirmButtonClick()
     {
-        ConfirmAnswer();
+        _circuitState?.RequestMeasurement();
+        UpdateStatusText();
+    }
+
+    // 전원 여부와 완료 여부를 글로 알려준다. 목표까지 얼마나 남았는지는 C(계기판)만 알 수 있어야 하므로 방향도 밝히지 않는다.
+    private void UpdateStatusText()
+    {
+        if (_statusText == null)
+        {
+            return;
+        }
+
+        if (_circuitState == null)
+        {
+            _statusText.text = "회로 연결 대기 중";
+            return;
+        }
+
+        if (_circuitState.IsCompleted)
+        {
+            _statusText.text = "전력 연결 완료";
+            return;
+        }
+
+        _statusText.text = _circuitState.PowerOn
+            ? "측정 중 — 목표 전력과 맞지 않습니다"
+            : "전원 차단 중 — 건전지를 배치하세요";
     }
 
     // 게이지 업데이트
     private void UpdateWattGauge(int currentWatt)
     {
+        if (_wattFill == null)
+        {
+            return;
+        }
+
         // 목표를 초과해도 게이지 길이는 100%에서 멈추고 색상만 빨간색으로 바뀐다.
         float ratio = _targetWatt > 0 ? Mathf.Clamp01((float)currentWatt / _targetWatt) : 0f;
         Vector2 anchorMax = _wattFillRect.anchorMax;
