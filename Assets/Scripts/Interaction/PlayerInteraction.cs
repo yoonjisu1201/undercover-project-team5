@@ -25,7 +25,7 @@ public partial class PlayerInteraction : NetworkBehaviour
     private PlayerInventory _inventory;
     private PlayerHealth _health;
 
-    public CartBase CarringCart { get; set; } // 플레이어가 끌고 있는 카트. null이면 카트를 끌고 있지 않다.
+    public CartBase CarryingCart { get; set; } // 플레이어가 끌고 있는 카트. null이면 카트를 끌고 있지 않다.
 
     private void Awake()
     {
