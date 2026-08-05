@@ -3219,6 +3219,41 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &2723932471073787768
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8067450563844769478}
+  m_Layer: 5
+  m_Name: MarkerParent
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &8067450563844769478
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2723932471073787768}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8334844554143606776}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &3028383537769462256
 GameObject:
   m_ObjectHideFlags: 0
@@ -4394,6 +4429,58 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &4445454179703317101
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2948369268430541341}
+  - component: {fileID: 5265976469438037111}
+  m_Layer: 5
+  m_Name: MinimapMarkerController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &2948369268430541341
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4445454179703317101}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8334844554143606776}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &5265976469438037111
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4445454179703317101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5eb92adcd88a3e45a425a02af1c5896, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  _minimapCamera: {fileID: 0}
+  _markerParent: {fileID: 8067450563844769478}
+  _cctvMarkerPrefab: {fileID: 6468626646469549361, guid: bd59e64143440f04b9bdd39a22de1584, type: 3}
+  _cctvHub: {fileID: 0}
 --- !u!1 &4529723763119075375
 GameObject:
   m_ObjectHideFlags: 0
@@ -6200,6 +6287,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7003385059504406665}
+  - component: {fileID: 5376338529875218265}
+  - component: {fileID: 6778227579111907277}
   - component: {fileID: 8985554511732749083}
   - component: {fileID: 3048408784461252845}
   m_Layer: 0
@@ -6230,6 +6319,39 @@ Transform:
   - {fileID: 1835600849448151874}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &5376338529875218265
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6490300938387753069}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 11, y: 5, z: 13}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &6778227579111907277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6490300938387753069}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 763514808ec60f54abfaf71f9ce55888, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HqSafeZone
 --- !u!114 &8985554511732749083
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7903,6 +8025,7 @@ GameObject:
   - component: {fileID: 6374784790310406761}
   - component: {fileID: 1938166754376607412}
   - component: {fileID: 4892353221095666977}
+  - component: {fileID: 6252428573230142109}
   m_Layer: 0
   m_Name: DoorToOutside
   m_TagString: Untagged
@@ -8015,6 +8138,32 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _outlineFadeDuration: 0.15
   _fieldSpawnPoint: {fileID: 0}
+--- !u!114 &6252428573230142109
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8157832192961436749}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3382073079
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  <InScenePlaced>k__BackingField: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!1 &8343229284444697152
 GameObject:
   m_ObjectHideFlags: 0
@@ -11884,6 +12033,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 846292922200601444, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2717865403665527685}
+    - targetCorrespondingSourceObject: {fileID: 846292922200601444, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2948369268430541341}
+    - targetCorrespondingSourceObject: {fileID: 846292922200601444, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8067450563844769478}
     - targetCorrespondingSourceObject: {fileID: 846292922200601444, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6555898451727155015}

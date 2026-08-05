@@ -3,7 +3,7 @@ using EPOOutline;
 using Unity.Netcode;
 using UnityEngine;
 
-[RequireComponent(typeof(Outlinable))]
+[RequireComponent(typeof(Outlinable), typeof(NetworkObject))]
 public abstract class InteractableBase : NetworkBehaviour, IInteractable
 {
     public abstract string InteractionText { get; }
@@ -43,6 +43,7 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
                     continue;
                 }
 
+
                 combinedBounds.Encapsulate(interactionCollider.bounds);
             }
 
@@ -61,7 +62,7 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
     private Color _backOutlineColor;    // 후면 외곽선 색상 저장
     private float _outlineVisibility;   // 외곽선 투명도
 
-    private void Awake()
+    protected virtual void Awake()
     {
         _interactionColliders = GetComponentsInChildren<Collider>();
 
