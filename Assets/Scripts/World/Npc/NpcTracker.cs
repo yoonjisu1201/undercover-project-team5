@@ -41,9 +41,10 @@ public class NpcTracker : NetworkBehaviour
     }
 
     // OnNetworkDespawn을 거치지 않고 파괴되는 경우(예: 강제 Destroy)를 대비한 안전장치.
-    private void OnDestroy()
+    public override void OnDestroy()
     {
         _trackedInstances.Remove(this);
+        base.OnDestroy();
     }
 
     // PlayerInteraction이 E키(Interact 액션) 입력을 받았을 때, 실제로 부착 요청을 보내기 전에 로컬에서 먼저 확인하는 진입점.

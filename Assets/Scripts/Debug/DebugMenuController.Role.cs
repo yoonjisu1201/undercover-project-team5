@@ -1,8 +1,14 @@
 using Unity.Netcode;
+using UnityEngine;
+using UnityEngine.UI;
 
 // 로컬 플레이어의 디버그 역할 변경을 처리합니다.
 public sealed partial class DebugMenuController
 {
+    [Header("Role")]
+    [SerializeField] private Button _fieldRoleButton;
+    [SerializeField] private Button _headquarterRoleButton;
+
     public void OnChangeRoleToHeadquarterClick() => ChangeLocalRole(Role.Headquarter, "본부");
     public void OnChangeRoleToFieldClick() => ChangeLocalRole(Role.Field, "필드");
 
@@ -18,6 +24,20 @@ public sealed partial class DebugMenuController
         RequestChangePlayerRoleRpc(role);
         MoveLocalPlayerToRoleArea(role);
         ShowStatus($"로컬 플레이어의 역할을 {roleName}로 변경했습니다.");
+    }
+
+    // 현재 역할 버튼만 초록, 나머지는 빨강으로 칠합니다.
+    private void RefreshRoleButtonColors()
+    {
+        Player localPlayer = GetLocalPlayer();
+        if (localPlayer == null)
+        {
+            return;
+        }
+
+        bool isHeadquarter = localPlayer.PlayerRole == Role.Headquarter;
+        SetOnOffButtonColor(_headquarterRoleButton, isHeadquarter);
+        SetOnOffButtonColor(_fieldRoleButton, !isHeadquarter);
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]

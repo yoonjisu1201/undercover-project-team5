@@ -14,6 +14,9 @@ public sealed partial class DebugMenuController : NetworkBehaviour
     private const string WaitingRoomSceneName = "WaitingRoom";
     private static readonly Color LockedRegionButtonColor = new(0.04f, 0.13f, 0.16f, 1f);
     private static readonly Color UnlockedRegionButtonColor = new(0.05f, 0.72f, 0.55f, 1f);
+    // 켜짐/현재 상태는 초록, 꺼짐/비활성 상태는 빨강으로 구분한다. (역할 버튼, 외계인 스폰 토글 등)
+    private static readonly Color OnStateButtonColor = new(0.13f, 0.7f, 0.3f, 1f);
+    private static readonly Color OffStateButtonColor = new(0.75f, 0.16f, 0.2f, 1f);
     private float _nextLocationLabelRefreshTime;
 
     // 메뉴를 닫힌 초기 상태로 만들고 표시 텍스트를 동기화합니다.
@@ -71,6 +74,10 @@ public sealed partial class DebugMenuController : NetworkBehaviour
             _nextLocationLabelRefreshTime = Time.unscaledTime + 0.2f;
             RefreshHqFieldButtonLabel();
             RefreshRoundTimeStopButton();
+            // 역할 변경과 레버 조작은 서버를 거쳐 반영되므로, 결과가 도착한 뒤 색이 맞도록 주기적으로 다시 칠한다.
+            RefreshRoleButtonColors();
+            RefreshBreakerPowerButton();
+            RefreshInvincibleButton();
         }
 
         if (_menuRoot != null &&

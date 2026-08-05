@@ -55,9 +55,21 @@ public sealed partial class DebugMenuController
 
     // 각 루트 하위 메뉴를 열거나 닫습니다.
     public void OnItemMenuClick() => ToggleRootSubMenu(_itemPanel);
-    public void OnRoleMenuClick() => ToggleRootSubMenu(_rolePanel);
-    public void OnCriminalMenuClick() => ToggleRootSubMenu(_criminalPanel);
     public void OnInterferenceMenuClick() => ToggleRootSubMenu(_interferencePanel);
+
+    // 역할 메뉴를 열고 현재 역할 색상을 반영합니다.
+    public void OnRoleMenuClick()
+    {
+        ToggleRootSubMenu(_rolePanel);
+        RefreshRoleButtonColors();
+    }
+
+    // 범인 메뉴를 열 때 외계인 하위 메뉴는 접은 상태에서 시작합니다.
+    public void OnCriminalMenuClick()
+    {
+        ToggleRootSubMenu(_criminalPanel);
+        _alienPanel?.SetActive(false);
+    }
     public void OnCctvMenuClick() => ToggleRootSubMenu(_cctvPanel);
     public void OnRoundMenuClick() => ToggleRootSubMenu(_roundPanel);
     public void OnHpMenuClick() => ToggleRootSubMenu(_hpPanel);
@@ -111,7 +123,8 @@ public sealed partial class DebugMenuController
         {
             _teleportPanel, _playerPanel, _miniGamePanel, _itemPanel, _rolePanel,
             _criminalPanel, _interferencePanel, _cctvPanel, _cctvPowerPanel, _regionPanel,
-            _roundPanel, _hpPanel
+            _roundPanel, _hpPanel, _missionPanel, _missionCompletePanel, _missionSoloPanel,
+            _alienPanel
         };
 
         foreach (GameObject panel in panels) panel?.SetActive(false);
@@ -137,6 +150,15 @@ public sealed partial class DebugMenuController
                 string.Equals(region.RegionId, regionId, StringComparison.OrdinalIgnoreCase) &&
                 region.IsUnlocked);
             SetButtonStateColor(button, isUnlocked ? UnlockedRegionButtonColor : LockedRegionButtonColor);
+        }
+    }
+
+    // 초록(켜짐)/빨강(꺼짐)으로 상태를 구분하는 버튼 색을 칠합니다.
+    private static void SetOnOffButtonColor(Button button, bool isOn)
+    {
+        if (button != null)
+        {
+            SetButtonStateColor(button, isOn ? OnStateButtonColor : OffStateButtonColor);
         }
     }
 

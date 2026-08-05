@@ -1,9 +1,13 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UI;
 
 // 로컬 플레이어의 디버그 무적 상태(체력 감소 없음) 토글과 체력 즉시 회복을 처리합니다.
 public sealed partial class DebugMenuController
 {
+    [Header("Health")]
+    [SerializeField] private Button _invincibleButton;
+
     // 디버그 메뉴 버튼에서 호출. 서버에 자신의 무적 상태 토글을 요청한다.
     public void OnToggleInvincibleClick()
     {
@@ -37,7 +41,20 @@ public sealed partial class DebugMenuController
     [Rpc(SendTo.SpecifiedInParams)]
     private void ApplyInvincibleStateRpc(bool invincible, RpcParams rpcParams = default)
     {
+        SetOnOffButtonColor(_invincibleButton, invincible);
         ShowStatus(invincible ? "무적 상태를 켰습니다." : "무적 상태를 껐습니다.");
+    }
+
+    // 다른 경로로 무적이 해제된 경우까지 포함해 버튼 색을 현재 상태와 맞춥니다. 무적이면 초록, 아니면 빨강입니다.
+    private void RefreshInvincibleButton()
+    {
+        Player localPlayer = GetLocalPlayer();
+        if (localPlayer == null || !localPlayer.TryGetComponent(out PlayerHealth health))
+        {
+            return;
+        }
+
+        SetOnOffButtonColor(_invincibleButton, health.IsDebugInvincible);
     }
 
     // 디버그 메뉴 버튼에서 호출. 서버에 자신의 체력을 최대치로 채워달라고 요청한다.
