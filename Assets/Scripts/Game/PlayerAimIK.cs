@@ -32,6 +32,13 @@ public sealed class PlayerAimIK : MonoBehaviour
 
     public Vector3 AimDirection => CalculateAimDirection(out _);
 
+    // PlayerHandIK가 이 값을 보고 지금 이 IK를 적용할지 판단한다.
+    public bool IsActive =>
+        gun != null
+        && gunAimAxis.sqrMagnitude >= Mathf.Epsilon
+        && gunUpAxis.sqrMagnitude >= Mathf.Epsilon
+        && (!hasActiveParameter || animator.GetBool(activeParameterHash));
+
     private void Awake()
     {
         animator = GetComponent<Animator>();
@@ -55,20 +62,9 @@ public sealed class PlayerAimIK : MonoBehaviour
         }
     }
 
-    private void OnAnimatorIK(int layerIndex)
+    // PlayerHandIK가 IsActive를 확인한 뒤 호출한다.
+    public void ApplyIK(int layerIndex)
     {
-        if (gun == null
-            || gunAimAxis.sqrMagnitude < Mathf.Epsilon
-            || gunUpAxis.sqrMagnitude < Mathf.Epsilon)
-        {
-            return;
-        }
-
-        if (hasActiveParameter && !animator.GetBool(activeParameterHash))
-        {
-            return;
-        }
-
         // 총 프리팹의 로컬 축을 카메라 상하 조준 방향에 맞춘다.
         Vector3 localAim = gunAimAxis.normalized;
         Vector3 localUp = Vector3.ProjectOnPlane(gunUpAxis, localAim).normalized;
