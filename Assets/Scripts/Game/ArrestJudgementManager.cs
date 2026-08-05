@@ -119,6 +119,15 @@ public class ArrestJudgementManager : NetworkBehaviour
 
         _arrestResult.Value = ArrestResult.Success;
 
+        if (candidate.TryGetComponent(out CriminalAlienReveal alienReveal))
+        {
+            alienReveal.Reveal();
+        }
+        else
+        {
+            Debug.LogError("[ArrestJudgementManager] 범인 NPC에 CriminalAlienReveal이 없습니다.", candidate);
+        }
+
         // 실제 추격전(게이지 채우기)은 판정 결과 패널까지 다 끝난 뒤(OnJudgementPhaseEnded) 시작한다.
         _pendingChaseCandidate = candidate;
     }
