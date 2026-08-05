@@ -91,6 +91,20 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
             _isDowned.Value = true;
         }
     }
+    
+    // 외부(공격 시스템 등)에서 체력을 회복시킬 때 호출하는 공개 진입점. 서버에서만 호출 가능하다.
+    public void RestoreHealth(float amount) {
+        if (!IsServer)
+        {
+            Debug.LogError("[PlayerHealth] RestoreHealth는 서버에서만 호출할 수 있습니다.");
+            return;
+        }
+
+        if (_isDowned.Value || amount <= 0f) return;
+        if (IsDebugInvincible) return;
+
+        _currentHp.Value = Mathf.Min(_maxHp, _currentHp.Value + amount);
+    }
 
     // 외계인(복제체) 공격 시스템이 호출할 진입점. 실제 공격 판정/AI 로직은 이번 범위 밖이라 아직 없음.
     public void TakeAlienAttackDamage()
