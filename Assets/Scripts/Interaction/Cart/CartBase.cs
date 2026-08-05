@@ -1,8 +1,5 @@
-﻿using MCPForUnity.External.Tommy;
-using TMPro;
-using Unity.Netcode;
+﻿using Unity.Netcode;
 using UnityEngine;
-using Unity.Netcode.Components;
 
 [RequireComponent(typeof(Rigidbody))]
 public abstract class CartBase : InteractableBase {
