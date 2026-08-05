@@ -22,6 +22,7 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
     [SerializeField] private GameObject _voteExhaustedPanel;  //"검거 투표 횟수가 소진되었습니다" 안내 패널
     private const float VoteExhaustedNoticeSeconds = 3f;
     private CancellationTokenSource _voteExhaustedCts;
+    private const float RevealedNoticeSeconds = 1.5f;
 
     [SerializeField] private GameObject _voteAreaPanel;          //O/X 투표 버튼이 있는 패널 (Generated_VoteArea)
     [SerializeField] private GameObject _voteAreaPassedPanel;    //가결 결과 패널 (Generated_VoteArea를 가리고 표시)
@@ -30,10 +31,14 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
 
     [SerializeField] private GameObject _wrongTargetPanel;       //Judged 상태에서 "범인이 아니었음"을 보여주는 패널
     [SerializeField] private GameObject _arrestSuccessPanel;     //Judged 상태에서 "범인이 맞았음"을 보여주는 패널
+    [SerializeField] private GameObject _revealedPanel;          //"외계인이 본 모습을 드러냈습니다!" 안내 문구, 성공 판정 시 잠깐 표시
 
     [SerializeField] private ArrestCandidatePortrait _candidatePortrait; //검거 후보 NPC 실시간 이미지
     // 커서를 풀어준 상태인지. GameplayUiMode의 Activate/Deactivate를 정확히 짝 맞춰 호출하기 위해 기록해둔다.
     private bool _cursorActivated;
+
+    // 판정 결과 패널이 Close()로 닫기 전까지는 자동으로 닫히지 않게 하기 위한 플래그.
+    private bool _resultPanelLocallyOpen;
 
     // 이번 투표 사이클에서 후보 이미지를 이미 캡처했는지. NetworkVariable 동기화 순서에 상관없이 한 번만 캡처하기 위함.
     private bool _hasCapturedForCurrentVote;
@@ -50,6 +55,7 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
         _resultCountdownText.gameObject.SetActive(false);
         _wrongTargetPanel.SetActive(false);
         _arrestSuccessPanel.SetActive(false);
+        _revealedPanel.SetActive(false);
 
         //검거 횟수가 변경될때마다 UI 변경하기 위한 이벤트 구독
         ArrestVoteManager.Instance.OnRemainingVoteAttemptsChanged += HandleRemainingVoteAttemptsChanged;
@@ -87,7 +93,6 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
                 _remainingTimeText.text = Mathf.CeilToInt(ArrestVoteManager.Instance.GetRemainingVoteTime()).ToString();
                 break;
             case ArrestVoteState.Passed:
-            case ArrestVoteState.Judged:
             case ArrestVoteState.Rejected:
                 // 결과 화면이 Idle로 돌아가기까지 남은 시간을 갱신한다
                 _resultCountdownText.text = Mathf.CeilToInt(ArrestVoteManager.Instance.GetRemainingResultTime()).ToString();
@@ -179,6 +184,7 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
             _wrongTargetPanel.SetActive(false);
             _resultCountdownText.gameObject.SetActive(false);
             _votePanel.SetActive(false);
+            _resultPanelLocallyOpen = false;
             GameplayUiMode.Instance?.UnregisterUi(this);
             UpdateCursorState();
         }
@@ -198,6 +204,14 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
     {
         await UniTask.Delay(TimeSpan.FromSeconds(VoteExhaustedNoticeSeconds), cancellationToken: cancellationToken);
         _voteExhaustedPanel.SetActive(false);
+    }
+
+    // 성공 판정(진짜 범인 검거) 순간, "외계인이 본 모습을 드러냈습니다!" 안내를 1초간 띄운다.
+    private async UniTaskVoid ShowRevealedNoticeAsync()
+    {
+        _revealedPanel.SetActive(true);
+        await UniTask.Delay(TimeSpan.FromSeconds(RevealedNoticeSeconds), cancellationToken: this.GetCancellationTokenOnDestroy());
+        _revealedPanel.SetActive(false);
     }
 
     // 투표 패널/확인 패널 중 하나라도 열려 있으면 커서를 풀어준다.
@@ -235,16 +249,16 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
     // 투표 중이거나 결과를 보여주는 동안 패널을 보여주고 커서를 풀어서 버튼을 클릭할 수 있게 한다.
     private void HandleVoteStateChanged(ArrestVoteState state)
     {
-        bool panelVisible = state == ArrestVoteState.Voting
-            || state == ArrestVoteState.Passed
-            || state == ArrestVoteState.Judged
-            || state == ArrestVoteState.Rejected;
-        _votePanel.SetActive(panelVisible);
-        UpdateCursorState();
-
         if (state != ArrestVoteState.Voting)
         {
             _hasCapturedForCurrentVote = false; // 다음 투표를 위해 리셋
+        }
+        else
+        {
+            // 새 검거 투표가 시작되면, 안 닫고 남아있던 이전 판정 결과 패널을 정리한다.
+            _resultPanelLocallyOpen = false;
+            _arrestSuccessPanel.SetActive(false);
+            _wrongTargetPanel.SetActive(false);
         }
 
         // 투표 중일 때만 O/X 버튼 영역을 보여주고, 가결/부결 결과 패널로 그 영역을 가린다.
@@ -260,12 +274,22 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
         bool isJudgedWrongTarget = state == ArrestVoteState.Judged
             && ArrestJudgementManager.Instance != null
             && ArrestJudgementManager.Instance.CurrentArrestResult == ArrestResult.WrongTarget;
-        _arrestSuccessPanel.SetActive(isJudgedSuccess);
-        _wrongTargetPanel.SetActive(isJudgedWrongTarget);
 
-        // 투표 결과(가결/판정/부결) 화면일 때만 카운트다운 텍스트를 보여준다.
+        // 판정 결과 패널은 한 번 뜨면 Close()(ESC 또는 닫기 버튼)를 눌러야만 닫힌다. 시간 제한을 없애기 위함.
+        if (isJudgedSuccess || isJudgedWrongTarget)
+        {
+            _resultPanelLocallyOpen = true;
+        }
+        if (isJudgedSuccess) _arrestSuccessPanel.SetActive(true);
+        if (isJudgedWrongTarget) _wrongTargetPanel.SetActive(true);
+        if (isJudgedSuccess) ShowRevealedNoticeAsync().Forget();
+
+        bool panelVisible = state != ArrestVoteState.Idle || _resultPanelLocallyOpen;
+        _votePanel.SetActive(panelVisible);
+        UpdateCursorState();
+
+        // 투표 결과(가결/부결) 화면일 때만 카운트다운 텍스트를 보여준다. 판정 결과(Judged)는 시간 제한이 없다.
         _resultCountdownText.gameObject.SetActive(state == ArrestVoteState.Passed
-            || state == ArrestVoteState.Judged
             || state == ArrestVoteState.Rejected);
 
         // 새 투표가 시작될 때마다 O/X 버튼을 다시 눌러진 상태로 되돌린다.
@@ -275,8 +299,8 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
             _noButton.interactable = true;
         }
 
-        // 판정 결과창(시민/외계인)일 때만 ESC로 닫을 수 있게 스택에 등록한다.
-        if (state == ArrestVoteState.Judged)
+        // 판정 결과창(시민/외계인)이 로컬에 떠 있는 동안은 ESC로 닫을 수 있게 스택에 등록한다.
+        if (_resultPanelLocallyOpen)
         {
             GameplayUiMode.Instance?.RegisterUi(this);
         }
