@@ -6501,6 +6501,7 @@ Transform:
   - {fileID: 3505134947892311812}
   - {fileID: 2882712532331569318}
   - {fileID: 1835600849448151874}
+  - {fileID: 8311904220731230609}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8985554511732749083
@@ -6536,6 +6537,83 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 11, y: 5, z: 13}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &6504805183237038135
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8311904220731230609}
+  - component: {fileID: 4926314903565254377}
+  - component: {fileID: 7771774794876232404}
+  m_Layer: 0
+  m_Name: ShopManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8311904220731230609
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6504805183237038135}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7003385059504406665}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4926314903565254377
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6504805183237038135}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 1374785957
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  <InScenePlaced>k__BackingField: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &7771774794876232404
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6504805183237038135}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9094f60c1c3f14f49b2802d539f36da0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ShopManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  _shopItems:
+  - {fileID: 11400000, guid: 4c4ce2155c8849e4cb068015d1eef351, type: 2}
+  - {fileID: 11400000, guid: e1643aca22cf9604396e4aa4d24f7de2, type: 2}
+  _initialCredits: 1000
+  _testCreditAmount: 100
 --- !u!1 &6824370622836637793
 GameObject:
   m_ObjectHideFlags: 0
@@ -12968,6 +13046,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: -481
       objectReference: {fileID: 0}
+    - target: {fileID: 8624252671029413973, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
+      propertyPath: _shopManager
+      value:
+      objectReference: {fileID: 7771774794876232404}
     - target: {fileID: 9060762713668050830, guid: 80014c54890801b4bb70a0d33556bc27, type: 3}
       propertyPath: m_SizeDelta.y
       value: 0

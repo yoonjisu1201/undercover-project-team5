@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -45,14 +48,17 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 
 	[Header("=== 버튼 ===")]
 	[SerializeField] private Button _purchaseButton;
-	[SerializeField] private Button _backButton;
 
 	[Header("=== 공용 코인 표시 ===")]
 	[SerializeField] private TMP_Text _creditsText;
 
-	[Header("=== 구매 안내 ===")]
-	[SerializeField] private TMP_Text _purchaseMessageText;
+	[Header("=== 구매 경고 ===")]
+	[SerializeField] private GameObject _inventoryFullWarning;
+	[SerializeField] private TMP_Text _inventoryFullMessageText;
 	[SerializeField] private LocalizedString _inventoryFullMessage;
+
+	private const float InventoryFullWarningSeconds = 2f;
+	private CancellationTokenSource _inventoryFullWarningCts;
 
 	private readonly List<ShopItemSlotUI> _spawnedSlots = new List<ShopItemSlotUI>();
 
@@ -64,7 +70,6 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 		_consumablesTabButton.onClick.AddListener(ShowConsumables);
 		_equipmentTabButton.onClick.AddListener(ShowEquipment);
 		_purchaseButton.onClick.AddListener(HandlePurchaseClicked);
-		_backButton.onClick.AddListener(HandleBackClicked);
 
 		_shopManager.CreditsChanged += HandleCreditsChanged;
 		_shopManager.InventoryFull += HandleInventoryFull;
@@ -79,10 +84,12 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 		_consumablesTabButton.onClick.RemoveListener(ShowConsumables);
 		_equipmentTabButton.onClick.RemoveListener(ShowEquipment);
 		_purchaseButton.onClick.RemoveListener(HandlePurchaseClicked);
-		_backButton.onClick.RemoveListener(HandleBackClicked);
 
 		_shopManager.CreditsChanged -= HandleCreditsChanged;
 		_shopManager.InventoryFull -= HandleInventoryFull;
+
+		HideInventoryFullWarning();
+		SetShopActive(false);
 	}
 
 	private void Update() 
@@ -219,7 +226,7 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 			return;
 		}
 
-		_purchaseMessageText.text = string.Empty;
+		HideInventoryFullWarning();
 		_shopManager.RequestPurchaseRpc(_selectedItem.ItemData.ItemId);
 	}
 
@@ -231,17 +238,45 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 
 	private void HandleInventoryFull()
 	{
-		_purchaseMessageText.text = _inventoryFullMessage.GetLocalizedString();
+		_inventoryFullWarningCts?.Cancel();
+		_inventoryFullWarningCts?.Dispose();
+		_inventoryFullWarningCts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+
+		_inventoryFullMessageText.text = _inventoryFullMessage.GetLocalizedString();
+		_inventoryFullWarning.SetActive(true);
+		HideInventoryFullWarningAfterDelayAsync(_inventoryFullWarningCts.Token).Forget();
+	}
+
+	private async UniTaskVoid HideInventoryFullWarningAfterDelayAsync(CancellationToken cancellationToken)
+	{
+		await UniTask.Delay(
+			TimeSpan.FromSeconds(InventoryFullWarningSeconds),
+			ignoreTimeScale: true,
+			cancellationToken: cancellationToken);
+
+		_inventoryFullWarning.SetActive(false);
+		_inventoryFullWarningCts?.Dispose();
+		_inventoryFullWarningCts = null;
+	}
+
+	private void HideInventoryFullWarning()
+	{
+		_inventoryFullWarningCts?.Cancel();
+		_inventoryFullWarningCts?.Dispose();
+		_inventoryFullWarningCts = null;
+
+		_inventoryFullWarning.SetActive(false);
 	}
 
 	public void Open()
 	{
-		_purchaseMessageText.text = string.Empty;
+		HideInventoryFullWarning();
 		SetShopActive(true);
 	}
 
 	public void Close()
 	{
+		HideInventoryFullWarning();
 		SetShopActive(false);
 	}
 
@@ -266,8 +301,4 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 		}
 	}
 
-	private void HandleBackClicked() 
-	{
-		Close();
-	}
 }

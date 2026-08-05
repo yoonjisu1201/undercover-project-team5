@@ -81,10 +81,14 @@ public class MonitorController : MonoBehaviour, IClosableUi {
 
 	private void OnShopButtonClicked()
 	{
+		DisableAllScreens();
 		_shopScreen.Open();
 	}
 	
 	private void OnCloseButtonClicked() {
+		DisableAllScreens();
+		_cctvScreen.ActivateScreen();
+
 		gameObject.SetActive(false);
 		OnScreenClosed?.Invoke();
 	}
@@ -94,5 +98,7 @@ public class MonitorController : MonoBehaviour, IClosableUi {
 		foreach (ScreenBase screen in _screens) {
 			screen.DisableScreen();
 		}
+
+		_shopScreen.Close();
 	}
 }
