@@ -15,6 +15,11 @@ public class MonitorController : MonoBehaviour, IClosableUi {
 	[Header("=== 몽타주 화면 및 버튼 등록 ===")] 
 	[SerializeField] private ScreenBase _montageScreen;
 	[SerializeField] private Button _montageButton;
+
+	[Header("=== 상점 화면 및 버튼 등록 ===")]
+	[SerializeField] private ShopScreenUI _shopScreen;
+	[SerializeField] private Button _shopButton;
+
 	[SerializeField] private Button _closeButton;
 	
 	public event Action OnScreenClosed;
@@ -39,6 +44,7 @@ public class MonitorController : MonoBehaviour, IClosableUi {
 		_cctvButton.onClick.AddListener(OnCctvButtonClicked);
 		_mapButton.onClick.AddListener(OnMapButtonClicked);
 		_montageButton.onClick.AddListener(OnMontageButtonClicked);
+		_shopButton.onClick.AddListener(OnShopButtonClicked);
 		_closeButton.onClick.AddListener(OnCloseButtonClicked);
 		GameplayUiMode.Instance?.RegisterUi(this);
 	}
@@ -48,6 +54,7 @@ public class MonitorController : MonoBehaviour, IClosableUi {
 		_cctvButton.onClick.RemoveListener(OnCctvButtonClicked);
 		_mapButton.onClick.RemoveListener(OnMapButtonClicked);
 		_montageButton.onClick.RemoveListener(OnMontageButtonClicked);
+		_shopButton.onClick.RemoveListener(OnShopButtonClicked);
 		_closeButton.onClick.RemoveListener(OnCloseButtonClicked);
 		GameplayUiMode.Instance?.UnregisterUi(this);
 	}
@@ -70,6 +77,11 @@ public class MonitorController : MonoBehaviour, IClosableUi {
 	private void OnMontageButtonClicked() {
 		DisableAllScreens();
 		_montageScreen.ActivateScreen();
+	}
+
+	private void OnShopButtonClicked()
+	{
+		_shopScreen.Open();
 	}
 	
 	private void OnCloseButtonClicked() {

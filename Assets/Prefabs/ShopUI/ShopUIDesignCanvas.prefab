@@ -2265,6 +2265,16 @@ MonoBehaviour:
   _purchaseButton: {fileID: 5536837836057363867}
   _backButton: {fileID: 7336985291579047043}
   _creditsText: {fileID: 594524214176677920}
+  _purchaseMessageText: {fileID: 3812571529596127236}
+  _inventoryFullMessage:
+    m_TableReference:
+      m_TableCollectionName: Language Table
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key: shop_inventory_full
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
   references:
     version: 2
     RefIds: []
@@ -2312,7 +2322,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: e1643aca22cf9604396e4aa4d24f7de2, type: 2}
   _initialCredits: 1000
   _testCreditAmount: 100
-  _spawnOffset: {x: 0, y: 0.5, z: 2}
 --- !u!1 &3729179142446901833
 GameObject:
   m_ObjectHideFlags: 0
@@ -2536,7 +2545,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 000,000
+  m_text: 0
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
   m_sharedMaterial: {fileID: -2647956062019823955, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
@@ -3924,7 +3933,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0.000030517578}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!114 &590412233020106013
@@ -4580,7 +4589,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 9052414739762355913}
   m_Direction: 2
   m_Value: 0
-  m_Size: 1
+  m_Size: 0.96899223
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:

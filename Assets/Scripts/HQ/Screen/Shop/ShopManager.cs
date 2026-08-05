@@ -11,9 +11,6 @@ public sealed class ShopManager : NetworkBehaviour {
 	[SerializeField] private int _initialCredits = 1000;
 	[SerializeField] private int _testCreditAmount = 100;
 
-	[Header("=== 아이템 생성 위치 ===")]
-	[SerializeField] private Vector3 _spawnOffset = new Vector3(0f, 0.5f, 2f);
-
 	private readonly NetworkVariable<int> _credits =
 		new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -21,6 +18,7 @@ public sealed class ShopManager : NetworkBehaviour {
 	public int Credits => _credits.Value;
 
 	public event Action<int> CreditsChanged;
+	public event Action InventoryFull;
 
 	public override void OnNetworkSpawn() 
 	{
@@ -90,18 +88,24 @@ public sealed class ShopManager : NetworkBehaviour {
 			return;
 		}
 
-		Transform buyerTransform = buyerClient.PlayerObject.transform;
-		Vector3 spawnPosition = buyerTransform.TransformPoint(_spawnOffset);
+		if (!buyerClient.PlayerObject.TryGetComponent(out PlayerInventory inventory))
+		{
+			return;
+		}
 
-		GameObject itemObject = Instantiate(itemData.WorldPrefab, spawnPosition, itemData.WorldPrefab.transform.rotation);
-
-		PickupItem pickupItem = itemObject.GetComponent<PickupItem>();
-		NetworkObject networkObject = itemObject.GetComponent<NetworkObject>();
-
-		pickupItem.Configure(itemData);
-		networkObject.Spawn(destroyWithScene: true);
+		if (!inventory.TryAddItemOnServer(itemData.ItemId))
+		{
+			NotifyInventoryFullRpc(RpcTarget.Single(buyerClientId, RpcTargetUse.Temp));
+			return;
+		}
 
 		_credits.Value -= shopItem.Price;
+	}
+
+	[Rpc(SendTo.SpecifiedInParams)]
+	private void NotifyInventoryFullRpc(RpcParams rpcParams = default)
+	{
+		InventoryFull?.Invoke();
 	}
 
 	private ShopItemData FindShopItem(string itemId) 

@@ -6,7 +6,8 @@ using UnityEngine.Localization;
 using UnityEngine.Localization.Components;
 using UnityEngine.UI;
 
-public sealed class ShopScreenUI : MonoBehaviour {
+public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
+{
 	[Header("=== 화면 ===")]
 	[SerializeField] private GameObject _shopScreen;
 
@@ -49,6 +50,10 @@ public sealed class ShopScreenUI : MonoBehaviour {
 	[Header("=== 공용 코인 표시 ===")]
 	[SerializeField] private TMP_Text _creditsText;
 
+	[Header("=== 구매 안내 ===")]
+	[SerializeField] private TMP_Text _purchaseMessageText;
+	[SerializeField] private LocalizedString _inventoryFullMessage;
+
 	private readonly List<ShopItemSlotUI> _spawnedSlots = new List<ShopItemSlotUI>();
 
 	private ShopItemData _selectedItem;
@@ -62,6 +67,7 @@ public sealed class ShopScreenUI : MonoBehaviour {
 		_backButton.onClick.AddListener(HandleBackClicked);
 
 		_shopManager.CreditsChanged += HandleCreditsChanged;
+		_shopManager.InventoryFull += HandleInventoryFull;
 
 		SetCategory(ShopCategory.Medical);
 		HandleCreditsChanged(_shopManager.Credits);
@@ -76,23 +82,14 @@ public sealed class ShopScreenUI : MonoBehaviour {
 		_backButton.onClick.RemoveListener(HandleBackClicked);
 
 		_shopManager.CreditsChanged -= HandleCreditsChanged;
+		_shopManager.InventoryFull -= HandleInventoryFull;
 	}
 
 	private void Update() 
 	{
 		Keyboard keyboard = Keyboard.current;
 
-		if (keyboard == null) 
-		{
-			return;
-		}
-
-		if (keyboard.rightBracketKey.wasPressedThisFrame) 
-		{
-			SetShopActive(!_shopScreen.activeSelf);
-		}
-
-		if (keyboard.leftBracketKey.wasPressedThisFrame && _shopManager.IsSpawned) 
+		if (keyboard != null && keyboard.leftBracketKey.wasPressedThisFrame && _shopManager.IsSpawned) 
 		{
 			_shopManager.RequestAddCreditsRpc();
 		}
@@ -202,7 +199,7 @@ public sealed class ShopScreenUI : MonoBehaviour {
 		_detailDescription.StringReference = _detailDescriptionPlaceholder;
 		_detailDescription.RefreshString();
 
-		_priceValue.text = "000,000";
+		_priceValue.text = "0";
 
 		RefreshPurchaseButton();
 	}
@@ -222,6 +219,7 @@ public sealed class ShopScreenUI : MonoBehaviour {
 			return;
 		}
 
+		_purchaseMessageText.text = string.Empty;
 		_shopManager.RequestPurchaseRpc(_selectedItem.ItemData.ItemId);
 	}
 
@@ -231,7 +229,24 @@ public sealed class ShopScreenUI : MonoBehaviour {
 		RefreshPurchaseButton();
 	}
 
-	private void SetShopActive(bool active) {
+	private void HandleInventoryFull()
+	{
+		_purchaseMessageText.text = _inventoryFullMessage.GetLocalizedString();
+	}
+
+	public void Open()
+	{
+		_purchaseMessageText.text = string.Empty;
+		SetShopActive(true);
+	}
+
+	public void Close()
+	{
+		SetShopActive(false);
+	}
+
+	private void SetShopActive(bool active)
+	{
 		if (_shopScreen.activeSelf == active) 
 		{
 			return;
@@ -241,16 +256,18 @@ public sealed class ShopScreenUI : MonoBehaviour {
 
 		if (active) 
 		{
+			GameplayUiMode.Instance?.RegisterUi(this);
 			GameplayUiMode.Instance?.ActivateCursor();
 		} 
 		else 
 		{
+			GameplayUiMode.Instance?.UnregisterUi(this);
 			GameplayUiMode.Instance?.DeactivateCursor();
 		}
 	}
 
 	private void HandleBackClicked() 
 	{
-		SetShopActive(false);
+		Close();
 	}
 }
