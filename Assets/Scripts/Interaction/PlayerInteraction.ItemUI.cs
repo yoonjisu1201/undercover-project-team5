@@ -128,6 +128,7 @@ public partial class PlayerInteraction
         if (_actions.Player.Interact.WasPressedThisFrame())
         {
             CarryingCart.ReleaseCart();
+            _inventoryUI.SetInteractionPrompt("");
         }
     }
 }

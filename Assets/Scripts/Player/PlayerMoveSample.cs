@@ -12,6 +12,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	private const string MouseSensitivityKey = "MouseSensitivity";
 
 	[Header("이동 관련")]
+	[SerializeField] private float _moveSpeedWithCart = 3f;
 	[SerializeField] private float _moveSpeed = 5f;
 	[SerializeField] private float _rotateSpeed = 0.5f;
 	[SerializeField] private float _runSpeedMultiplier = 1.5f;
@@ -57,7 +58,8 @@ public class PlayerMoveSample : NetworkBehaviour
 	private CustomInputActions _actions;
 
 	private Animator _animator;
-	private PlayerHealth _health;
+	private PlayerHealth _playerHealth;
+	private PlayerInteraction _playerInteraction;
 	private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
 	private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
 	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
@@ -73,7 +75,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
-
+	
 	public GameObject HeadPivot => _headPivot;
 
 	// 팔 IK와 레이저가 카메라 상하 조준을 따라가도록 소유자는 로컬 값, 다른 클라이언트는 동기화 값을 제공한다.
@@ -86,7 +88,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		_actions.Enable();
 
 		_animator = GetComponent<Animator>();
-		_health = GetComponent<PlayerHealth>();
+		_playerHealth = GetComponent<PlayerHealth>();
+		_playerInteraction = GetComponent<PlayerInteraction>();
 
 		_bodyCollider = GetComponent<CapsuleCollider>();
 		if (_bodyCollider != null)
@@ -266,7 +269,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		UpdateJumpAnimation();
 
-		if (GameplayUiMode.IsMovementBlocked || _health.IsDowned)    // UI 조작 중이거나 다운 상태면 이동을 받지 않음
+		if (GameplayUiMode.IsMovementBlocked || _playerHealth.IsDowned)    // UI 조작 중이거나 다운 상태면 이동을 받지 않음
 		{
 			_jumpRequested = false;
 			SetMovingState(false);
@@ -287,7 +290,10 @@ public class PlayerMoveSample : NetworkBehaviour
 		Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
 
 		bool isMoving = move.sqrMagnitude > 0.01f;
-		bool isRunning = isMoving && _actions.Player.Shift.IsPressed();
+		bool isRunning = 
+			isMoving 
+			&& _actions.Player.Shift.IsPressed()
+			&& _playerInteraction.CarryingCart == null; // 카트 끄는 중에는 달릴 수 없다.
 
 		SetMovingState(isMoving);
 		SetRunningState(isRunning);
@@ -301,9 +307,15 @@ public class PlayerMoveSample : NetworkBehaviour
 		right.y = 0;
 		forward.Normalize();
 		right.Normalize();
-
-		// Shift를 "누르고 있는 동안" 달리기 속도 적용
-		float speed = isRunning ? _moveSpeed * _runSpeedMultiplier : _moveSpeed;
+		
+		float speed =
+			// 카트 끄는 중이면, 카트 속도 적용
+			_playerInteraction.CarryingCart != null 
+				? _moveSpeedWithCart 
+				// 카트 끄는 중 아니라면, isRunning여부 체크해서 알맞은 속도 적용
+				: isRunning 
+					? _moveSpeed * _runSpeedMultiplier 
+					: _moveSpeed;
 
 		// MovePosition은 메서드 → 목표 위치를 계산해서 넘긴다 (fixedDeltaTime 사용)
 		Vector3 delta = (forward * move.y + right * move.x) * speed;
