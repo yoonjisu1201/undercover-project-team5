@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 323249176553284041}
   - component: {fileID: 6716339712251728376}
   - component: {fileID: 3109488768563264567}
+  - component: {fileID: 5716618513219137754}
   m_Layer: 0
   m_Name: Alien_main
   m_TagString: Untagged
@@ -215,6 +216,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AlienCloneHealth
   ShowTopMostFoldoutHeaderGroup: 1
   _maxHp: 50
+  _damageFlashDuration: 0.15
 --- !u!114 &6716339712251728376
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -245,6 +247,105 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _attackRange: 2
   _attackCooldown: 1.5
+  _attackHitbox: {fileID: 1292111371259201089}
+--- !u!114 &5716618513219137754
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1669351557380495861}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8d0727d5ae3244e3b569694d3912374, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkAnimator
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkAnimatorExpanded: 0
+  AuthorityMode: 0
+  m_Animator: {fileID: -431146914508662855}
+  TransitionStateInfoList: []
+  AnimatorParameterEntries:
+    ParameterEntries:
+    - name: IsRunning
+      NameHash: -887662580
+      Synchronize: 1
+      ParameterType: 4
+    - name: Attack
+      NameHash: 1080829965
+      Synchronize: 1
+      ParameterType: 9
+    - name: Death
+      NameHash: 646380074
+      Synchronize: 1
+      ParameterType: 9
+  AnimatorParametersExpanded: 0
+--- !u!1 &8501621199767183132
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 86266181694582067}
+  - component: {fileID: 3982252521682981146}
+  - component: {fileID: 1292111371259201089}
+  m_Layer: 0
+  m_Name: RightHandAttackHitbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &86266181694582067
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8501621199767183132}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3422265605405907152}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!135 &3982252521682981146
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8501621199767183132}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 0
+  serializedVersion: 3
+  m_Radius: 0.1
+  m_Center: {x: 0, y: 0.07, z: 0}
+--- !u!114 &1292111371259201089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8501621199767183132}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d35365ff804398f4fa73ca2225c7ef04, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AlienAttackHitbox
 --- !u!1001 &6442056155241012506
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -323,9 +424,17 @@ PrefabInstance:
       objectReference: {fileID: 9100000, guid: 8106e20dc31c4984586bdd2056e60a72, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 8509713805901809098, guid: bca8a4a76cdc9d34bb04b6bdbdef45a5, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 86266181694582067}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: bca8a4a76cdc9d34bb04b6bdbdef45a5, type: 3}
+--- !u!4 &3422265605405907152 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8509713805901809098, guid: bca8a4a76cdc9d34bb04b6bdbdef45a5, type: 3}
+  m_PrefabInstance: {fileID: 6442056155241012506}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &6839981075624573681 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: bca8a4a76cdc9d34bb04b6bdbdef45a5, type: 3}

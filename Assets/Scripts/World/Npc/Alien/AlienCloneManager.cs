@@ -6,7 +6,9 @@ using UnityEngine.AI;
 // 라운드 타이머가 일정 시간(검거 투표 등으로 멈춰있는
 // 동안은 제외) 줄어들 때마다 여러 마리를 한 번에 스폰한다. 스폰 위치는 접속한 플레이어들 중 본부에 없는 플레이어끼리 비교해
 // 가장 고립된 플레이어 주변으로 정하고, 그런 플레이어가 없으면(전원 본부에 있음) 맵 임의 위치로 스폰한다.
-// 스폰한 개체의 Died 이벤트를 구독해 HP가 0이 되면 실제로 디스폰시킨다.
+// ===== [검토표시-수정-시작] =====
+// 스폰한 개체의 사망 애니메이션 완료 이벤트를 구독해 애니메이션이 끝나면 실제로 디스폰시킨다.
+// ===== [검토표시-수정-끝] =====
 public class AlienCloneManager : MonoBehaviour
 {
     [Header("스폰 설정 (임시 기본값, 추후 밸런싱 이슈로 조정)")]
@@ -114,16 +116,17 @@ public class AlienCloneManager : MonoBehaviour
 
         networkObject.Spawn(destroyWithScene: true);
         _aliveClones.Add(health);
-
         // 정지 상태에서 새로 스폰된 분신도 곧바로 멈춘 상태로 시작한다.
         if (ClonesFrozen && instance.TryGetComponent(out AlienCloneController spawnedController))
         {
             spawnedController.SetFrozen(true);
         }
 
-        // Died는 HP가 0이 될 때 딱 한 번만 발동되고 그 직후 곧바로 디스폰(파괴)되므로,
+        // ===== [검토표시-수정-시작] =====
+        // 사망 애니메이션 완료 이벤트는 애니메이션 마지막에 한 번만 발동되고 그 직후 디스폰(파괴)되므로,
         // 별도로 구독 해제를 하지 않아도 이 델리게이트가 계속 남아있을 일이 없다.
-        health.Died += () => HandleCloneDied(health, networkObject);
+        health.DeathAnimationCompleted += () => HandleCloneDeathAnimationCompleted(health, networkObject);
+        // ===== [검토표시-수정-끝] =====
         return true;
     }
 
@@ -202,8 +205,9 @@ public class AlienCloneManager : MonoBehaviour
         return true;
     }
 
-    // HP가 0이 된 외계인 복제체를 목록에서 빼고 실제로 디스폰시킨다.
-    private void HandleCloneDied(AlienCloneHealth health, NetworkObject networkObject)
+    // ===== [검토표시-수정-시작] =====
+    // 사망 애니메이션이 끝난 외계인 복제체를 목록에서 빼고 실제로 디스폰시킨다.
+    private void HandleCloneDeathAnimationCompleted(AlienCloneHealth health, NetworkObject networkObject)
     {
         _aliveClones.Remove(health);
 
@@ -212,6 +216,7 @@ public class AlienCloneManager : MonoBehaviour
             networkObject.Despawn(destroy: true);
         }
     }
+    // ===== [검토표시-수정-끝] =====
 
     // 주기적인 분신 스폰을 켜거나 끈다.
     public void SetSpawningEnabled(bool enabled)

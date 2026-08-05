@@ -10,11 +10,18 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class AlienCloneController : NetworkBehaviour
 {
+    // ===== [검토표시-추가-시작] =====
+    private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
+    // ===== [검토표시-추가-끝] =====
+
     [Header("배회 설정")]
     [SerializeField, Min(0f)] private float _wanderRadius = 15f;
     [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 1f;
 
     private NavMeshAgent _agent;
+    // ===== [검토표시-추가-시작] =====
+    private Animator _animator;
+    // ===== [검토표시-추가-끝] =====
     private Vector3 _spawnPosition;
     private PlayerHealth _currentTarget;
     private readonly List<PlayerHealth> _playersInRange = new();
@@ -28,6 +35,9 @@ public class AlienCloneController : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _agent = GetComponent<NavMeshAgent>();
+        // ===== [검토표시-추가-시작] =====
+        _animator = GetComponent<Animator>();
+        // ===== [검토표시-추가-끝] =====
         _spawnPosition = transform.position;
 
         // 서버가 아닌 인스턴스는 NavMeshAgent가 스스로 Transform을 갱신하지 않게 해서
@@ -59,6 +69,10 @@ public class AlienCloneController : NetworkBehaviour
     {
         // ① 실행 자격 체크: 서버가 아니거나, 아직 스폰 안 됐거나, NavMesh 위에 없으면 아무것도 안 함
         if (!IsServer || !IsSpawned || !_agent.isOnNavMesh) return;
+
+        // ===== [검토표시-추가-시작] =====
+        _animator.SetBool(IsRunningHash, _agent.velocity.sqrMagnitude > 0.01f);
+        // ===== [검토표시-추가-끝] =====
 
         // ①-1 정지 상태면 목적지를 새로 잡지 않는다 (디버그 메뉴의 범인 정지와 함께 걸린 상태)
         if (_isFrozen) return;
