@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 
-public class MonitorController : MonoBehaviour, IClosableUi
+public class HqScreenController : MonoBehaviour, IClosableUi
 {
 	[Header("=== CCTV 버튼 및 화면 등록 ===")]
 	[SerializeField] private ScreenBase _cctvScreen;
@@ -26,21 +26,25 @@ public class MonitorController : MonoBehaviour, IClosableUi
 	public event Action OnScreenClosed;
 
 	private readonly List<ScreenBase> _screens = new List<ScreenBase>();
-
-	// Awake에서 스크린들 모아서 Screens로 합쳐두기.
+	
+	private ScreenBase _currentScreen;
+	
 	// 추후 모든 스크린에 대해 같은 동작 할 때를 대비
-	private void Awake()
-	{
-		_screens.Add(_cctvScreen);
-		_screens.Add(_mapScreen);
-		_screens.Add(_montageScreen);
-		_screens.Add(_shopScreen);
-
-		// 처음 시작 시에 CCTV 스크린으로 시작. 이 패널은 비활성화 상태로
-		_cctvScreen.gameObject.SetActive(true);
-		_mapScreen.gameObject.SetActive(false);
-		_montageScreen.gameObject.SetActive(false);
-		_shopScreen.gameObject.SetActive(false);
+	public void Initialize() {
+		// 모든 자식 Screens들 모아서 초기화 후 합쳐두기.
+		var screens = GetComponentsInChildren<ScreenBase>(includeInactive : true);
+		foreach (var screen in screens) {
+			screen.Initialize();
+			screen.gameObject.SetActive(false);
+			_screens.Add(screen);
+		}
+		
+		// 처음 시작 시에 CCTV 스크린으로 시작.
+		_currentScreen = _cctvScreen;
+		
+		// 모든 화면 비활성화
+		gameObject.SetActive(false);
+		DeactivateAllScreens();
 	}
 
 	// 버튼 등록
@@ -52,6 +56,8 @@ public class MonitorController : MonoBehaviour, IClosableUi
 		_shopButton.onClick.AddListener(OnShopButtonClicked);
 		_closeButton.onClick.AddListener(OnCloseButtonClicked);
 		GameplayUiMode.Instance?.RegisterUi(this);
+		
+		_currentScreen.ActivateScreen();
 	}
 
 	// 버튼 해제
@@ -63,6 +69,8 @@ public class MonitorController : MonoBehaviour, IClosableUi
 		_shopButton.onClick.RemoveListener(OnShopButtonClicked);
 		_closeButton.onClick.RemoveListener(OnCloseButtonClicked);
 		GameplayUiMode.Instance?.UnregisterUi(this);
+		
+		DeactivateAllScreens();
 	}
 
 	// ESC 등으로 닫으면 닫기 버튼과 동일하게 처리한다. (IClosableUi)
@@ -73,41 +81,42 @@ public class MonitorController : MonoBehaviour, IClosableUi
 
 	private void OnCctvButtonClicked()
 	{
-		DisableAllScreens();
+		DeactivateAllScreens();
 		_cctvScreen.ActivateScreen();
+		_currentScreen = _cctvScreen;
 	}
 
 	private void OnMapButtonClicked()
 	{
-		DisableAllScreens();
+		DeactivateAllScreens();
 		_mapScreen.ActivateScreen();
+		_currentScreen = _mapScreen;
 	}
 
 	private void OnMontageButtonClicked()
 	{
-		DisableAllScreens();
+		DeactivateAllScreens();
 		_montageScreen.ActivateScreen();
+		_currentScreen = _montageScreen;
 	}
 
 	private void OnShopButtonClicked()
 	{
-		DisableAllScreens();
+		DeactivateAllScreens();
 		_shopScreen.ActivateScreen();
+		_currentScreen = _shopScreen;
 	}
 
 	private void OnCloseButtonClicked()
 	{
-
 		gameObject.SetActive(false);
 		OnScreenClosed?.Invoke();
 	}
 
 	// 모든 스크린 한번에 끄기
-	private void DisableAllScreens()
-	{
-		foreach (ScreenBase screen in _screens)
-		{
-			screen.DisableScreen();
+	private void DeactivateAllScreens() {
+		foreach (ScreenBase screen in _screens) {
+			screen.DeactivateScreen();
 		}
 	}
 }
