@@ -29,6 +29,9 @@ public sealed class MiniGameInteractable : InteractableBase
 
     // 완료 여부가 바뀔 때마다 알린다. 배터리 회로처럼 다른 컴포넌트가 완료 시점에 반응해야 할 때 사용한다.
     public event System.Action<bool> IsCompletedChanged;
+
+    // 라운드가 새로 시작될 때 서버에서 알린다. 미니게임이 자체적으로 들고 있는 정답·진행 상태를 초기화할 시점이다.
+    public event System.Action ServerRoundReset;
     public override string InteractionText => IsCompleted ? "완료된 게임" : _interactionText;
     public override bool CanInteract(GameObject interactor) => _uiPrefab != null && _activeInteractable == null;
 
@@ -139,6 +142,9 @@ public sealed class MiniGameInteractable : InteractableBase
 
         _isCompleted.Value = false;
         _puzzleSeed.Value = CreatePuzzleSeed();
+
+        // 시드만 바꿔서는 자체 상태(정답 주파수, 진행 단계 등)를 들고 있는 미니게임이 초기화되지 않는다.
+        ServerRoundReset?.Invoke();
     }
 
     // 서버가 완료 상태를 한 번만 기록하고 모든 클라이언트에 보일 단서를 생성한다.
