@@ -51,6 +51,10 @@ public class AlienCloneManager : MonoBehaviour
 
         _aliveClones.RemoveAll(clone => clone == null);
 
+        // InRound를 벗어난 동안에는 스폰 주기를 굴리지 않는다. RoundClear 중에 스폰되면
+        // 다음 라운드 전환에서는 디스폰하지 않아 그대로 넘어간다.
+        if (RoundManager.Instance.CurrentState != RoundState.InRound) return;
+
         // Time.deltaTime 대신 라운드 잔여시간의 감소량을 쓴다: 검거 투표 등으로 RoundManager가
         // 타이머를 멈추면 GetRemainingTime()도 같이 안 줄어들어서 elapsed가 0이 되고, 스폰도 같이 멈춘다.
         // Mathf.Max(0f, ...)는 다음 라운드 시작 때 잔여시간이 갑자기 확 늘어나는 순간(음수 elapsed)을 막기 위함.
@@ -243,7 +247,13 @@ public class AlienCloneManager : MonoBehaviour
     private void HandleRoundStateChanged(RoundState state)
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
-        if (state == RoundState.InRound) return;
+
+        // 새 라운드는 외계인 스폰 주기를 0부터 다시 센다.
+        if (state == RoundState.InRound)
+        {
+            _elapsedSinceLastSpawn = 0f;
+            return;
+        }
 
         DespawnAllClones();
         ClonesFrozen = false;
