@@ -10,18 +10,17 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class AlienCloneController : NetworkBehaviour
 {
-    // ===== [검토표시-추가-시작] =====
+    // Animator 파라미터: AlienAnimator의 IsRunning Bool과 이름이 일치해야 한다.
     private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
-    // ===== [검토표시-추가-끝] =====
 
     [Header("배회 설정")]
     [SerializeField, Min(0f)] private float _wanderRadius = 15f;
     [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 1f;
 
     private NavMeshAgent _agent;
-    // ===== [검토표시-추가-시작] =====
+    // Alien_main 루트의 Animator를 캐싱해 이동 상태를 IsRunning 파라미터에 반영한다.
+    // Animator Controller 연결 자체는 Alien_main 프리팹 Inspector에서 설정된다.
     private Animator _animator;
-    // ===== [검토표시-추가-끝] =====
     private Vector3 _spawnPosition;
     private PlayerHealth _currentTarget;
     private readonly List<PlayerHealth> _playersInRange = new();
@@ -31,13 +30,12 @@ public class AlienCloneController : NetworkBehaviour
     // AlienCloneAttack이 사거리 판정에 쓸 수 있도록 현재 타겟을 읽기 전용으로 노출한다.
     public PlayerHealth CurrentTarget => _currentTarget;
 
-    // 네트워크 스폰 시 NavMeshAgent를 캐싱하고 스폰 위치를 배회 기준점으로 저장한다.
+    // 네트워크 스폰 시 같은 루트의 NavMeshAgent와 Animator를 캐싱하고 스폰 위치를 배회 기준점으로 저장한다.
+    // 프리팹의 NetworkAnimator가 이 Animator와 IsRunning 파라미터를 클라이언트에 동기화한다.
     public override void OnNetworkSpawn()
     {
         _agent = GetComponent<NavMeshAgent>();
-        // ===== [검토표시-추가-시작] =====
         _animator = GetComponent<Animator>();
-        // ===== [검토표시-추가-끝] =====
         _spawnPosition = transform.position;
 
         // 서버가 아닌 인스턴스는 NavMeshAgent가 스스로 Transform을 갱신하지 않게 해서
@@ -70,9 +68,11 @@ public class AlienCloneController : NetworkBehaviour
         // ① 실행 자격 체크: 서버가 아니거나, 아직 스폰 안 됐거나, NavMesh 위에 없으면 아무것도 안 함
         if (!IsServer || !IsSpawned || !_agent.isOnNavMesh) return;
 
-        // ===== [검토표시-추가-시작] =====
-        _animator.SetBool(IsRunningHash, _agent.velocity.sqrMagnitude > 0.01f);
-        // ===== [검토표시-추가-끝] =====
+        // Agent가 정지되지 않았고 유효한 경로를 따라 목적지로 이동 중일 때만 Run 상태로 전환한다.
+        // 공격으로 Agent가 정지되거나 목적지에 도착하면 false가 되어 Idle 상태로 복귀한다.
+        bool isRunning = !_agent.isStopped && _agent.hasPath && _agent.remainingDistance > _agent.stoppingDistance;
+
+        _animator.SetBool(IsRunningHash, isRunning);
 
         // ①-1 정지 상태면 목적지를 새로 잡지 않는다 (디버그 메뉴의 범인 정지와 함께 걸린 상태)
         if (_isFrozen) return;
