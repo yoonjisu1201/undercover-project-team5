@@ -209,6 +209,11 @@ public class NpcOutfitController : MonoBehaviour {
 
 		GameObject part = Instantiate(parts[partIndex], _partRoot);
 
+		// Instantiate는 부모 레이어를 물려받지 않고 프리팹 자신의 레이어를 그대로 쓴다.
+		// 파츠 프리팹은 전부 Default(0)로 추출돼 있어서, 그대로 두면 NPC를 미니맵/CCTV
+		// 카메라에서 제외한 레이어 설정(#411)이 파츠에는 적용되지 않는다. NPC 레이어를 물려준다.
+		part.layer = gameObject.layer;
+
 		// 파츠 프리팹의 SMR은 본 참조 없이 저장돼 있으므로, 이 NPC의 스켈레톤으로 바인딩해준다.
 		if (part.TryGetComponent(out SkinnedMeshRenderer partRenderer)) {
 			partRenderer.bones = _bones;

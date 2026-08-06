@@ -12,7 +12,7 @@ using UnityEngine;
 // 메뉴를 1 → 2 → 3 순서로 실행한다. 3번은 프리팹에서 파츠 자식을 지우는 되돌릴 수 없는 단계라,
 // 2번 검증과 실제 플레이 확인을 통과한 뒤에 실행한다.
 public static class NpcPartExtractor {
-	private const string TargetPrefabPath = "Assets/Prefabs/Npc/NPC_main_BugTest.prefab";
+	private const string TargetPrefabPath = "Assets/Prefabs/Npc/NPC_main.prefab";
 	private const string PartsFolder = "Assets/Imported/Modular 3D Characters Vol.1/Prefabs/NPC_Parts";
 	private const string CatalogPath = "Assets/Prefabs/Npc/NpcPartCatalog.asset";
 	private const string PartRootName = "HumanVisual";
