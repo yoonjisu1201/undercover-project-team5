@@ -63,6 +63,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
 	private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
 	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
+	private static readonly int IsDownedHash = Animator.StringToHash("IsDowned");
 	private readonly NetworkVariable<bool> _networkIsMoving = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 	private readonly NetworkVariable<bool> _networkIsRunning = new NetworkVariable<bool>(
 			false,
@@ -75,6 +76,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
+	private bool _isGettingUp;
 	
 	public GameObject HeadPivot => _headPivot;
 
@@ -166,6 +168,16 @@ public class PlayerMoveSample : NetworkBehaviour
 		ApplyAnimatorBool(IsJumpingHash, value);
 	}
 
+	private void HandleDownedStateChanged(bool isDowned)
+	{
+		ApplyAnimatorBool(IsDownedHash, isDowned);
+		if (isDowned)
+		{
+			SetJumpingState(false);
+		}
+		_isGettingUp = !isDowned;
+	}
+
 	private void UpdateJumpAnimation()
 	{
 		if (_isJumping && _rigidbody.linearVelocity.y <= 0f && IsGrounded())
@@ -182,10 +194,12 @@ public class PlayerMoveSample : NetworkBehaviour
 		_networkIsMoving.OnValueChanged += HandleMovingChanged;
 		_networkIsRunning.OnValueChanged += HandleRunningChanged;
 		_networkIsJumping.OnValueChanged += HandleJumpingChanged;
+		_playerHealth.DownedStateChanged += HandleDownedStateChanged;
 
 		HandleMovingChanged(false, _networkIsMoving.Value);
 		HandleRunningChanged(false, _networkIsRunning.Value);
 		HandleJumpingChanged(false, _networkIsJumping.Value);
+		ApplyAnimatorBool(IsDownedHash, _playerHealth.IsDowned);
 
 		if (!IsOwner)
 		{
@@ -203,6 +217,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		_networkIsMoving.OnValueChanged -= HandleMovingChanged;
 		_networkIsRunning.OnValueChanged -= HandleRunningChanged;
 		_networkIsJumping.OnValueChanged -= HandleJumpingChanged;
+		_playerHealth.DownedStateChanged -= HandleDownedStateChanged;
 		base.OnNetworkDespawn();
 	}
 
@@ -269,7 +284,17 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		UpdateJumpAnimation();
 
-		if (GameplayUiMode.IsMovementBlocked || _playerHealth.IsDowned)    // UI 조작 중이거나 다운 상태면 이동을 받지 않음
+		if (_isGettingUp &&
+			!_animator.IsInTransition(0) &&
+			_animator.GetCurrentAnimatorStateInfo(0).IsName("Base Layer.Idle"))
+		{
+			_isGettingUp = false;
+		}
+
+		// UI 조작 중이거나 다운/기상 상태면 이동을 받지 않음
+		if (GameplayUiMode.IsMovementBlocked ||
+			_playerHealth.IsDowned ||
+			_isGettingUp)
 		{
 			_jumpRequested = false;
 			SetMovingState(false);
