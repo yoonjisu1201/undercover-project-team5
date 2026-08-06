@@ -9,7 +9,7 @@ using UnityEngine.Localization;
 using UnityEngine.Localization.Components;
 using UnityEngine.UI;
 
-public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
+public sealed class ShopScreenUI : ScreenBase, IClosableUi
 {
 	[Header("=== 화면 ===")]
 	[SerializeField] private GameObject _shopScreen;
@@ -64,7 +64,7 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 
 	private ShopItemData _selectedItem;
 
-	private void OnEnable() 
+	private void OnEnable()
 	{
 		_medicalTabButton.onClick.AddListener(ShowMedical);
 		_consumablesTabButton.onClick.AddListener(ShowConsumables);
@@ -78,7 +78,7 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 		HandleCreditsChanged(_shopManager.Credits);
 	}
 
-	private void OnDisable() 
+	private void OnDisable()
 	{
 		_medicalTabButton.onClick.RemoveListener(ShowMedical);
 		_consumablesTabButton.onClick.RemoveListener(ShowConsumables);
@@ -91,38 +91,38 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 		HideInventoryFullWarning();
 	}
 
-	private void Update() 
+	private void Update()
 	{
 
 	}
 
-	private void ShowMedical() 
+	private void ShowMedical()
 	{
 		SetCategory(ShopCategory.Medical);
 	}
 
-	private void ShowConsumables() 
+	private void ShowConsumables()
 	{
 		SetCategory(ShopCategory.Consumables);
 	}
 
-	private void ShowEquipment() 
+	private void ShowEquipment()
 	{
 		SetCategory(ShopCategory.Equipment);
 	}
 
-	private void SetCategory(ShopCategory category) 
+	private void SetCategory(ShopCategory category)
 	{
-		_medicalTabBackground.color = 
+		_medicalTabBackground.color =
 			category == ShopCategory.Medical ? _tabActiveColor : _tabInactiveColor;
 
-		_consumablesTabBackground.color = 
+		_consumablesTabBackground.color =
 			category == ShopCategory.Consumables ? _tabActiveColor : _tabInactiveColor;
 
-		_equipmentTabBackground.color = 
+		_equipmentTabBackground.color =
 			category == ShopCategory.Equipment ? _tabActiveColor : _tabInactiveColor;
 
-		switch (category) 
+		switch (category)
 		{
 			case ShopCategory.Medical:
 				_headerSubtitle.StringReference = _medicalSubtitle;
@@ -144,7 +144,7 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 
 	private void RefreshSlots(ShopCategory category)
 	{
-		foreach (ShopItemSlotUI slot in _spawnedSlots) 
+		foreach (ShopItemSlotUI slot in _spawnedSlots)
 		{
 			Destroy(slot.gameObject);
 		}
@@ -153,7 +153,7 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 
 		foreach (ShopItemData item in _shopManager.ShopItems)
 		{
-			if (item.Category != category) 
+			if (item.Category != category)
 			{
 				continue;
 			}
@@ -164,10 +164,11 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 		}
 	}
 
-	private void SelectItem(ShopItemData item) {
+	private void SelectItem(ShopItemData item)
+	{
 		_selectedItem = item;
 
-		foreach (ShopItemSlotUI slot in _spawnedSlots) 
+		foreach (ShopItemSlotUI slot in _spawnedSlots)
 		{
 			slot.SetSelected(slot.Data == item);
 		}
@@ -205,7 +206,7 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 		RefreshPurchaseButton();
 	}
 
-	private void RefreshPurchaseButton() 
+	private void RefreshPurchaseButton()
 	{
 		_purchaseButton.interactable =
 			_selectedItem != null &&
@@ -213,9 +214,9 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 			_shopManager.Credits >= _selectedItem.Price;
 	}
 
-	private void HandlePurchaseClicked() 
+	private void HandlePurchaseClicked()
 	{
-		if (_selectedItem == null || !_shopManager.IsSpawned) 
+		if (_selectedItem == null || !_shopManager.IsSpawned)
 		{
 			return;
 		}
@@ -262,8 +263,9 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 		_inventoryFullWarning.SetActive(false);
 	}
 
-	public void Open()
+	public override void ActivateScreen()
 	{
+		base.ActivateScreen();
 		HideInventoryFullWarning();
 		SetShopActive(true);
 	}
