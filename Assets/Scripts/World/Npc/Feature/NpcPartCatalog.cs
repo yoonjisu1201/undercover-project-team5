@@ -69,27 +69,4 @@ public class NpcPartCatalog : ScriptableObject {
 
 		return parts ?? Array.Empty<GameObject>();
 	}
-
-#if UNITY_EDITOR
-	// NpcPartExtractor가 리플렉션으로 읽고 쓸 때 사용한다.
-	// NpcOutfitController가 같은 필드명을 쓰므로 양쪽에 공통으로 적용된다.
-	public static string GetPartListFieldName(NpcPartSlot slot) => slot switch {
-		NpcPartSlot.Beard => "_beardList",
-		NpcPartSlot.Eyebrow => "_eyebrowList",
-		NpcPartSlot.Glasses => "_glassesList",
-		NpcPartSlot.Hair => "_hairList",
-		NpcPartSlot.Hat => "_hatList",
-		NpcPartSlot.Headphone => "_headPhoneList",
-		NpcPartSlot.LeftArm => "_leftArmList",
-		NpcPartSlot.RightArm => "_rightArmList",
-		NpcPartSlot.Mask => "_maskList",
-		NpcPartSlot.Pants => "_pantsList",
-		NpcPartSlot.Shoes => "_shoesList",
-		NpcPartSlot.Torso => "_torsoList",
-		_ => null
-	};
-
-	public const string BoneNamesFieldName = "_boneNames";
-	public const string RootBoneNameFieldName = "_rootBoneName";
-#endif
 }
