@@ -18,8 +18,7 @@ public class CCTVScreenController : ScreenBase
 	private GameObject _disconnectedOverlay;
 
 	// 한 번에 하나의 CCTV만 표시하므로 공용 Disconnected 오버레이 하나만 캐시합니다.
-	private void Awake()
-	{
+	public override void Initialize() {
 		Transform overlayTransform = transform.Find("DisconnectedCamera");
 		if (overlayTransform == null)
 		{
@@ -28,11 +27,15 @@ public class CCTVScreenController : ScreenBase
 		}
 
 		_disconnectedOverlay = overlayTransform.gameObject;
+		
+		// 스폰 시에는 비활성화상태로 시작
+		_cctvHub.CctvCamera.enabled = false;
 	}
 
-	// 화면이 열리면 이동 버튼과 CCTV 상태 변경 이벤트를 구독합니다.
-	private void OnEnable()
-	{
+	// 화면이 열리면 이동 버튼과 CCTV 상태 변경 이벤트를 구독합니다. 추가로 CCTV 카메라를 활성화합니다.
+	public override void ActivateScreen() {
+		base.ActivateScreen();
+		
 		// 미니게임에서 연결 상태가 바뀌면 현재 CCTV 오버레이도 즉시 갱신합니다.
 		_leftButton.onClick.AddListener(OnPreviousClicked);
 		_rightButton.onClick.AddListener(OnNextClicked);
@@ -42,6 +45,16 @@ public class CCTVScreenController : ScreenBase
 
 		// 본부 컨트롤러 활성 여부와 무관하게 공용 연결 상태 변경을 구독합니다.
 		_cctvHub.OnAnyPointStateChanged += HandleCameraConnectionStateChanged;
+		
+		// 카메라 활성화
+		_cctvHub.CctvCamera.enabled = true;
+	}
+
+	public override void DeactivateScreen() {
+		base.DeactivateScreen();
+		
+		// 카메라 비활성화
+		_cctvHub.CctvCamera.enabled = false;
 	}
 
 	// 화면이 닫히면 등록했던 버튼과 CCTV 상태 변경 이벤트를 해제합니다.
@@ -53,6 +66,9 @@ public class CCTVScreenController : ScreenBase
 		_cctvHub.OnCctvNumberChanged -= SetUiText;
 
 		_cctvHub.OnAnyPointStateChanged -= HandleCameraConnectionStateChanged;
+		
+		// 카메라 비활성화
+		_cctvHub.CctvCamera.enabled = false;
 	}
 
 	// 이전 CCTV 화면으로 이동합니다.

@@ -15,6 +15,9 @@ public class CCTVHub : MonoBehaviour {
 	// CCTV를 특정 포인트들로 옮겨가면서 여러 위치의 CCTV를 구현
 	private int _usingCctvNumber;
 	public int UsingCctvNumber => _usingCctvNumber;
+	
+	// 사용하는 CCTV 외부에서 접근 가능하도록 공유
+	public Camera CctvCamera => _cctvCamera;
 
 	public event Action<int> OnCctvNumberChanged;
 

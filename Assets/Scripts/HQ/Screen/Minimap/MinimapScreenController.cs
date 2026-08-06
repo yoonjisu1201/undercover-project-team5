@@ -24,7 +24,8 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 	private Button _zoomInButton;
 	private Button _zoomOutButton;
 
-	private void Awake() {
+
+	public override void Initialize() {
 		_defaultPosition = _minimapCamera.transform.position;
 		_defaultOrthographicSize = _minimapCamera.orthographicSize;
 
@@ -41,20 +42,30 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 		_zoomInButton?.onClick.AddListener(ZoomIn);
 		_zoomOutButton?.onClick.AddListener(ZoomOut);
 		SyncZoomSlider();
+		
+		// 처음엔 카메라 꺼두고 시작
+		_minimapCamera.enabled = false;
 	}
-
+	
 	private void OnDestroy() {
 		_zoomSlider?.onValueChanged.RemoveListener(OnZoomSliderChanged);
 		_zoomInButton?.onClick.RemoveListener(ZoomIn);
 		_zoomOutButton?.onClick.RemoveListener(ZoomOut);
 	}
-
-	// 지도 화면을 열 때마다 카메라 위치와 확대 비율을 기본값으로 되돌림
+	
 	public override void ActivateScreen() {
 		base.ActivateScreen();
-		// _minimapCamera.transform.position = _defaultPosition;
-		// _minimapCamera.orthographicSize = _defaultOrthographicSize;
 		SyncZoomSlider();
+		
+		// 카메라 활성화
+		_minimapCamera.enabled = true;
+	}
+
+	public override void DeactivateScreen() {
+		base.DeactivateScreen();
+		
+		// 카메라 비활성화
+		_minimapCamera.enabled = false;
 	}
 
 	public void OnDrag(PointerEventData eventData) {

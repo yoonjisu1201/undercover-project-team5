@@ -2,7 +2,7 @@
 
 public class HqScreen : InteractableBase {
 	[Header("=== 등장할 콘솔창 ===")]
-	[SerializeField] private MonitorController _consoleUi;
+	[SerializeField] private HqScreenController _consoleUi;
 	[Header("=== 상호작용 시에 꺼주기 위한 UI들 등록 ===")]
 	[SerializeField] private InventoryUI _inventoryUI;
 	[SerializeField] private MontageShareUI _montageUI;
