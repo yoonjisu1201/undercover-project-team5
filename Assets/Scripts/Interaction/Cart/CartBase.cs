@@ -8,6 +8,12 @@ public abstract class CartBase : InteractableBase
 
 	[SerializeField] private float _holdDistance = 2f;
 
+	[Header("=== 끌림 물리 (관성/스윙 조절) ===")]
+	[SerializeField] private float _followStiffness = 12f;   // 목표 지점으로 당기는 세기. 높이면 딱 붙어 따라온다
+	[SerializeField] private float _followDamping = 8f;      // 목표 속도에 수렴하는 속도. 낮추면 출렁임이 커진다
+	[SerializeField] private float _yawStiffness = 10f;      // 홀더가 바라보는 방향으로 회전하는 세기
+	[SerializeField] private float _yawDamping = 6f;
+
 	private Rigidbody _rigidbody;
 	private Collider _collider;
 
@@ -63,6 +69,7 @@ public abstract class CartBase : InteractableBase
 		if (_currentHolderId.Value == clientId)
 		{
 			_currentHolderId.Value = Empty;
+			NetworkObject.RemoveOwnership();
 		}
 	}
 
@@ -95,6 +102,9 @@ public abstract class CartBase : InteractableBase
 
 		// 아니라면, currentHolderId를 업데이트
 		_currentHolderId.Value = rpcParams.Receive.SenderClientId;
+
+		// 카트를 잡은 클라이언트가 끌림 물리를 직접 계산하도록 소유권을 넘긴다
+		NetworkObject.ChangeOwnership(rpcParams.Receive.SenderClientId);
 	}
 
 	[Rpc(SendTo.Server)]
@@ -114,24 +124,34 @@ public abstract class CartBase : InteractableBase
 
 		// currentHolderId를 빼기
 		_currentHolderId.Value = Empty;
+
+		NetworkObject.RemoveOwnership();
 	}
 
 
-	// 상호작용중인 플레이어가 있다면, 그 플레이어 따라가야 함
-	// BasicCart에 별도의 Update()(체력 회복 오라)가 있어서 이름이 겹치면 hiding되므로 LateUpdate 사용
-	protected virtual void LateUpdate()
+	// 홀더를 향해 물리적으로 끌려가게 한다. 카트를 잡은 클라이언트가 소유권을 가지고 직접 시뮬레이션하며,
+	// 그 결과는 NetworkTransform이 나머지 클라이언트로 복제한다.
+	protected virtual void FixedUpdate()
 	{
-		if (_currentHolder == null) { return; }
+		if (_currentHolder == null || !IsOwner) { return; }
 
 		Vector3 targetPosition = _currentHolder.transform.position + _currentHolder.transform.forward * _holdDistance;
-		// y좌표는 자체적으로 가지게 하기
-		targetPosition.y = transform.position.y;
 
-		Quaternion targetRotation =
-			Quaternion.LookRotation(_currentHolder.transform.forward, Vector3.up);
+		// 높이는 중력에 맡기고 수평 성분만 제어한다
+		Vector3 toTarget = targetPosition - _rigidbody.position;
+		toTarget.y = 0f;
 
-		_rigidbody.MovePosition(targetPosition);
-		_rigidbody.MoveRotation(targetRotation);
+		Vector3 horizontalVelocity = _rigidbody.linearVelocity;
+		horizontalVelocity.y = 0f;
+
+		// 위치 오차를 목표 속도로 바꾸고 그 속도에 맞춰가는 형태라, 급정지/코너링에서 관성이 남는다
+		Vector3 desiredVelocity = toTarget * _followStiffness;
+		_rigidbody.AddForce((desiredVelocity - horizontalVelocity) * _followDamping, ForceMode.Acceleration);
+
+		float yawError = Mathf.DeltaAngle(_rigidbody.rotation.eulerAngles.y, _currentHolder.transform.eulerAngles.y);
+		float desiredYawRate = yawError * Mathf.Deg2Rad * _yawStiffness;
+		float yawRateError = desiredYawRate - _rigidbody.angularVelocity.y;
+		_rigidbody.AddTorque(Vector3.up * (yawRateError * _yawDamping), ForceMode.Acceleration);
 	}
 
 	protected virtual void HandleHolderIdChanged(ulong oldId, ulong newId)
@@ -148,9 +168,6 @@ public abstract class CartBase : InteractableBase
 			{
 				Physics.IgnoreCollision(_collider, holderCollider, true);
 			}
-
-			// 잡았을 때 Kinematic 꺼주기.
-			_rigidbody.isKinematic = false;
 		}
 
 		// newId가 null이라면 소유 해제한 것. 이미 있던 소유자 해제한다
@@ -168,9 +185,6 @@ public abstract class CartBase : InteractableBase
 				}
 			}
 			_currentHolder = null;
-
-			// 놓았을 때 kinematic 켜주기.
-			_rigidbody.isKinematic = true;
 		}
 	}
 }
