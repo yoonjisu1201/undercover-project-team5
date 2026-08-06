@@ -68,12 +68,21 @@ public class AlienCloneManager : MonoBehaviour
         _elapsedSinceLastSpawn += elapsed;
         if (_elapsedSinceLastSpawn < _spawnInterval) return;
 
-        // _spawnCountPerCycle마리가 전부 스폰될 때까지 재시도한다(무한 루프 방지용 시도 횟수 상한 포함).
+        // _spawnCountPerCycle은 동시에 살아있을 수 있는 최대 마릿수다. 이미 꽉 찼으면 이번 주기는 건너뛴다.
+        int missingCount = _spawnCountPerCycle - _aliveClones.Count;
+
+        if (missingCount <= 0)
+        {
+            _elapsedSinceLastSpawn = 0f;
+            return;
+        }
+
+        // 부족한 만큼 전부 스폰될 때까지 재시도한다(무한 루프 방지용 시도 횟수 상한 포함).
         // 전부 채웠을 때만 타이머를 리셋하고, 못 채웠으면 다음 프레임에 이어서 재시도한다.
         int spawnedCount = 0;
         int attemptLimit = _spawnCountPerCycle * 10;
 
-        for (int attempt = 0; spawnedCount < _spawnCountPerCycle && attempt < attemptLimit; attempt++)
+        for (int attempt = 0; spawnedCount < missingCount && attempt < attemptLimit; attempt++)
         {
             if (SpawnClone())
             {
@@ -81,7 +90,7 @@ public class AlienCloneManager : MonoBehaviour
             }
         }
 
-        if (spawnedCount == _spawnCountPerCycle)
+        if (spawnedCount == missingCount)
         {
             _elapsedSinceLastSpawn = 0f;
         }
