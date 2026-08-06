@@ -86,7 +86,15 @@ public class MontageDressUpUI : ScreenBase {
 	// 탭 버튼은 한 번만 생성하면 되므로 중복 생성을 막기 위한 플래그
 	private bool _initialized;
 
-	private void OnEnable() {
+	public override void Initialize() {
+		base.Initialize();
+		
+		BuildTabs();
+	}
+
+	public override void ActivateScreen() {
+		base.ActivateScreen();
+		
 		if (_syncManager == null) {
 			Debug.LogError("[MontageDressUpUi] MontageSyncManager가 없어 몽타주 화면을 구성할 수 없습니다.", this);
 			return;
@@ -99,17 +107,22 @@ public class MontageDressUpUI : ScreenBase {
 		
 		// 현장 요원은 몽타주를 볼 수만 있고 조합할 수는 없으므로 조작 UI를 만들지 않는다
 		if (!IsLocalPlayerHeadquarter()) { return; }
-
-		BuildTabs();
+		
 		SetActiveTab(_activePart);
+		
+		// 카메라 활성화
+		_syncManager.MontageCamera.enabled = true;
 	}
 
-	private void OnDisable() {
+	public override void DeactivateScreen() {
 		_syncManager.OnMontageStateChanged -= HandleMontageStateChanged;
 		_montageShareButton.onClick.RemoveListener(ShareMontage);
 		_montageResetButton.onClick.RemoveListener(ResetMontage);
+		
+		// 카메라 비활성화
+		_syncManager.MontageCamera.enabled = false;
 	}
-
+	
 	private static bool IsLocalPlayerHeadquarter() {
 		if (!NetworkManager.Singleton.LocalClient.PlayerObject.TryGetComponent<Player>(out var player)) {
 			Debug.LogError($"[MontageDressUpUi] PlayerObject 로딩 실패");

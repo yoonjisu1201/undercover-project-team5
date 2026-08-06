@@ -1,3 +1,4 @@
+using System;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -5,7 +6,7 @@ using UnityEngine;
 public class MontageShareManager : MontageSyncBase {
 
 	[Header("=== 공유 시에 바로 그 당시 몽타주 상태 가져오기 위함 ===")] 
-	[SerializeField] private MontageSyncManager _syncManager; 
+	[SerializeField] private MontageSyncManager _syncManager;
 
 	public NetworkVariable<float> LastSharedTime = new NetworkVariable<float>(-100f);
 	
@@ -44,5 +45,12 @@ public class MontageShareManager : MontageSyncBase {
 		}
 
 		base.HandleRoundStateChanged(state);
+	}
+
+	protected override void HandleStateChanged(MontageState previous, MontageState current) {
+		base.HandleStateChanged(previous, current);
+		
+		// 몽타주 상태 변경한 후에 1회 렌더링해서 변경사항 반영하기
+		_montageCamera.Render();
 	}
 }

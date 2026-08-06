@@ -7,6 +7,8 @@ using UnityEngine;
 /// 결과물 자체를 네트워크로 보낼 수 없습니다. 그래서 파츠별 옷 id만 서버 권위로 동기화하고
 /// 조립은 각 클라이언트가 로컬에서 똑같이 수행합니다.
 public class MontageSyncManager : MontageSyncBase {
+	
+	public Camera MontageCamera => _montageCamera;
 
 	/// 본부 요원이 옷을 갈아입히거나 벗을 때 호출합니다. 실제 반영은 서버 검증을 거친 뒤 전원에게 일어납니다.
 	/// 벗길 때는 clothId에 MontageState.None을 넘깁니다.
