@@ -28,8 +28,10 @@ public class CCTVScreenController : ScreenBase
 
 		_disconnectedOverlay = overlayTransform.gameObject;
 		
-		// 스폰 시에는 비활성화상태로 시작
+		// 카메라 비활성화상태로 시작
 		_cctvHub.CctvCamera.enabled = false;
+		// 본부에 빈 화면 나오지 않도록 1회 렌더링
+		_cctvHub.CctvCamera.Render();
 	}
 
 	// 화면이 열리면 이동 버튼과 CCTV 상태 변경 이벤트를 구독합니다. 추가로 CCTV 카메라를 활성화합니다.
@@ -53,13 +55,6 @@ public class CCTVScreenController : ScreenBase
 	public override void DeactivateScreen() {
 		base.DeactivateScreen();
 		
-		// 카메라 비활성화
-		_cctvHub.CctvCamera.enabled = false;
-	}
-
-	// 화면이 닫히면 등록했던 버튼과 CCTV 상태 변경 이벤트를 해제합니다.
-	private void OnDisable()
-	{
 		_leftButton.onClick.RemoveListener(OnPreviousClicked);
 		_rightButton.onClick.RemoveListener(OnNextClicked);
 

@@ -14,6 +14,9 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 
 	[Header("=== 몽타주에 입힐 옷 대신 로드해줄 오브젝트 ===")]
 	[SerializeField] protected MontageClothCatalog _catalog;
+	
+	[Header("=== 몽타주 공유 시에 사용하는 카메라 ===")]
+	[SerializeField] protected Camera _montageCamera;
 
 	protected readonly NetworkVariable<MontageState> _montageState = new NetworkVariable<MontageState>(
 		MontageState.Empty,
@@ -78,9 +81,14 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 		// OnValueChanged는 최초 동기화값에는 발동하지 않으므로 현재 값을 직접 한 번 적용한다.
 		// 준비되기 전에 도착해 무시된 변경도 여기서 최신값으로 함께 반영된다.
 		ApplyFull(_montageState.Value);
+		
+		// 초기화 완료 후 카메라 끄고(렉 줄이기 위해)
+		// 초기 렌더 정보 만들기 위해 1회 수동 렌더링
+		_montageCamera.enabled = false;
+		_montageCamera.Render();
 	}
 
-	private void HandleStateChanged(MontageState previous, MontageState current) {
+	protected virtual void HandleStateChanged(MontageState previous, MontageState current) {
 		// 준비 전에 도착한 변경은 버린다. Initialize가 최신값으로 대신 적용한다
 		if (_isReady) {
 			foreach (MontageParts part in AllParts) {

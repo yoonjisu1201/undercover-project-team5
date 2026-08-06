@@ -17,17 +17,12 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 	[Header("=== 카메라 이동 가능 범위 (XZ 평면 좌표) ===")]
 	[SerializeField] private Vector2 _panBoundsMin;
 	[SerializeField] private Vector2 _panBoundsMax;
-
-	private Vector3 _defaultPosition;
-	private float _defaultOrthographicSize;
+	
 	private Slider _zoomSlider;
 	private Button _zoomInButton;
 	private Button _zoomOutButton;
-
-
+	
 	public override void Initialize() {
-		_defaultPosition = _minimapCamera.transform.position;
-		_defaultOrthographicSize = _minimapCamera.orthographicSize;
 
 		Transform zoomControl = transform.Find("ZoomControl");
 		if (zoomControl == null) {
@@ -45,6 +40,8 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 		
 		// 처음엔 카메라 꺼두고 시작
 		_minimapCamera.enabled = false;
+		// 본부에 빈 화면 나오지 않도록 1회 렌더링
+		_minimapCamera.Render();
 	}
 	
 	private void OnDestroy() {
