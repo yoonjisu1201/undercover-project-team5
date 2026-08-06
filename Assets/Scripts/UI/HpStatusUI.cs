@@ -36,7 +36,8 @@ public sealed class HpStatusUI : MonoBehaviour
     }
 
     private void HandleHpChanged(float previousValue, float newValue) => Render();
-    private void HandleDownedStateChanged(bool isDowned) => Render();
+    // #392: DownedStateChanged가 이전/현재 값을 전달하므로 시그니처만 맞추고, UI는 값과 무관하게 다시 그린다.
+    private void HandleDownedStateChanged(bool _, bool isDowned) => Render();
 
     private void Render()
     {
