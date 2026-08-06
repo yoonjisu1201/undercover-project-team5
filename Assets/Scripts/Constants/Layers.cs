@@ -14,4 +14,5 @@ public static class Layers {
 	public static readonly int MinimapOnly = LayerMask.NameToLayer("MinimapOnly");
 	public static readonly int LocalPlayerHead = LayerMask.NameToLayer("LocalPlayerHead");
 	public static readonly int LocalCameraOnly =  LayerMask.NameToLayer("LocalCameraOnly");
+	public static readonly int NotInMinimap = LayerMask.NameToLayer("NotInMinimap");
 }
