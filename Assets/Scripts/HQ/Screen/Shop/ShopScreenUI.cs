@@ -9,11 +9,8 @@ using UnityEngine.Localization;
 using UnityEngine.Localization.Components;
 using UnityEngine.UI;
 
-public sealed class ShopScreenUI : ScreenBase, IClosableUi
+public sealed class ShopScreenUI : ScreenBase
 {
-	[Header("=== 화면 ===")]
-	[SerializeField] private GameObject _shopScreen;
-
 	[Header("=== 상점 관리 ===")]
 	[SerializeField] private ShopManager _shopManager;
 
@@ -267,22 +264,5 @@ public sealed class ShopScreenUI : ScreenBase, IClosableUi
 	{
 		base.ActivateScreen();
 		HideInventoryFullWarning();
-		SetShopActive(true);
-	}
-
-	public void Close()
-	{
-		HideInventoryFullWarning();
-		SetShopActive(false);
-	}
-
-	private void SetShopActive(bool active)
-	{
-		if (_shopScreen.activeSelf == active)
-		{
-			return;
-		}
-
-		_shopScreen.SetActive(active);
 	}
 }
