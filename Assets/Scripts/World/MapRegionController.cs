@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using Random = UnityEngine.Random;
 
 // 맵 구역 목록과 현재 해금된 구역의 공용 NavMesh 스폰 영역을 관리합니다.
 public sealed class MapRegionController : MonoBehaviour
@@ -11,13 +13,25 @@ public sealed class MapRegionController : MonoBehaviour
     [Header("Spawn Point Settings")]
     [SerializeField, Min(1)] private int _maxSpawnAttempts = 50;
     [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 1f;
+    
+    [Header("=== 특정 위치가 해금되면 CCTV도 열어주기 위해 CCTVHub등록 ===")]
+    [SerializeField] private CCTVHub _cctvHub;
+
+    [Header("=== 씬 시작 시 활성화할 구역 ===")]
+    [SerializeField] private RegionId _initialRegionId;
 
     private readonly List<MapRegion> _availableRegions = new();
 
     public IReadOnlyList<MapRegion> Regions => _regions;
 
+    // 씬 시작 시 초기 구역을 활성화하고, CCTV 초기화합니다.
+    private void Awake() {
+        _cctvHub.Initialize();
+        SetActiveRegion(_initialRegionId);
+    }
+
     // 한 번에 하나의 맵만 사용하도록 선택한 구역만 활성화합니다.
-    public bool SetActiveRegion(string regionId)
+    public bool SetActiveRegion(RegionId regionId)
     {
         if (_regions == null)
         {
@@ -28,7 +42,7 @@ public sealed class MapRegionController : MonoBehaviour
         foreach (MapRegion region in _regions)
         {
             if (region != null &&
-                string.Equals(region.RegionId, regionId, System.StringComparison.OrdinalIgnoreCase))
+                region.RegionId == regionId)
             {
                 selectedRegion = region;
                 break;
@@ -48,6 +62,11 @@ public sealed class MapRegionController : MonoBehaviour
             }
         }
 
+        if (_cctvHub != null)
+        {
+            _cctvHub.ActivateCCTVInRegion(regionId);
+        }
+        
         RefreshSpawnAreas();
         return true;
     }

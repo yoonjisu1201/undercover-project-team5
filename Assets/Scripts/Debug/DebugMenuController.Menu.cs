@@ -144,10 +144,10 @@ public sealed partial class DebugMenuController
         {
             Button button = _regionButtons[index];
             if (button == null) continue;
-
-            string regionId = ((char)('A' + index)).ToString();
+            
+            RegionId regionId = (RegionId)index;
             bool isUnlocked = regions.Any(region =>
-                string.Equals(region.RegionId, regionId, StringComparison.OrdinalIgnoreCase) &&
+                region.RegionId == regionId &&
                 region.IsUnlocked);
             SetButtonStateColor(button, isUnlocked ? UnlockedRegionButtonColor : LockedRegionButtonColor);
         }

@@ -2,14 +2,21 @@ using System;
 using UnityEngine;
 using UnityEngine.Serialization;
 
+public enum RegionId {
+    A,
+    B,
+    C,
+    D,
+    E
+}
+
 // Box Collider로 정의된 맵 구역의 해금 상태와 관련 오브젝트를 관리합니다.
 [RequireComponent(typeof(BoxCollider))]
 public sealed class MapRegion : MonoBehaviour
 {
     [Header("구역 설정")]
-    [SerializeField] private string _regionId;
+    [SerializeField] private RegionId _regionId;
     [SerializeField] private BoxCollider _bounds;
-    [SerializeField] private bool _unlockedAtStart;
 
     [Header("구역 콘텐츠")]
     [FormerlySerializedAs("_clueSpawnArea")]
@@ -19,10 +26,10 @@ public sealed class MapRegion : MonoBehaviour
     [Tooltip("벽, 출입 차단물, NavMeshObstacle이 포함된 오브젝트 등을 등록합니다.")]
     [SerializeField] private GameObject[] _lockObjects = Array.Empty<GameObject>();
 
-    public string RegionId => _regionId;
+    public RegionId RegionId => _regionId;
     public BoxCollider Bounds => _bounds;
     public MapSpawnArea SpawnArea => _spawnArea;
-    public bool IsUnlocked { get; private set; }
+    public bool IsUnlocked { get; private set; } = false;
 
 
     // 구역 해금 상태가 실제로 변경된 뒤 호출됩니다.
@@ -33,11 +40,6 @@ public sealed class MapRegion : MonoBehaviour
         _bounds = GetComponent<BoxCollider>();
         _bounds.isTrigger = true;
         TryGetComponent(out _spawnArea);
-    }
-
-    private void Awake()
-    {
-        ApplyUnlockState(_unlockedAtStart, notify: false);
     }
 
     private void OnValidate()
