@@ -27,15 +27,15 @@ public sealed partial class DebugMenuController
         ShowStatus("범인 위치로 이동했습니다.");
     }
 
-    // 정렬된 미니게임 목록의 위치로 이동합니다.
-    public void OnTeleportMiniGame1Click() => TeleportToMiniGame(0);
-    public void OnTeleportMiniGame2Click() => TeleportToMiniGame(1);
-    public void OnTeleportMiniGame3Click() => TeleportToMiniGame(2);
-    public void OnTeleportMiniGame4Click() => TeleportToMiniGame(3);
-    public void OnTeleportMiniGame5Click() => TeleportToMiniGame(4);
-    public void OnTeleportMiniGame6Click() => TeleportToMiniGame(5);
-    public void OnTeleportMiniGame7Click() => TeleportToMiniGame(6);
-    public void OnTeleportMiniGame8Click() => TeleportToMiniGame(7);
+    // 정렬된 미션 목록의 위치로 이동합니다.
+    public void OnTeleportMission1Click() => TeleportToMission(0);
+    public void OnTeleportMission2Click() => TeleportToMission(1);
+    public void OnTeleportMission3Click() => TeleportToMission(2);
+    public void OnTeleportMission4Click() => TeleportToMission(3);
+    public void OnTeleportMission5Click() => TeleportToMission(4);
+    public void OnTeleportMission6Click() => TeleportToMission(5);
+    public void OnTeleportMission7Click() => TeleportToMission(6);
+    public void OnTeleportMission8Click() => TeleportToMission(7);
 
     // 로컬 플레이어를 본부로 한 번에 이동시킵니다.
     public void OnToggleHqFieldClick()
@@ -90,19 +90,19 @@ public sealed partial class DebugMenuController
         ShowStatus($"{GetPlayerDisplayName(target)} 위치로 이동했습니다.");
     }
 
-    // 이름과 인스턴스 ID로 정렬된 미니게임 중 지정 순번 앞으로 이동합니다.
-    private void TeleportToMiniGame(int index)
+    // 이름과 인스턴스 ID로 정렬된 미션 중 지정 순번 앞으로 이동합니다.
+    private void TeleportToMission(int index)
     {
-        MiniGameInteractable[] miniGames = GetOrderedMiniGames();
-        if (index < 0 || index >= miniGames.Length)
+        MissionInteractable[] missions = GetOrderedMissions();
+        if (index < 0 || index >= missions.Length)
         {
-            ShowStatus($"미니게임 {index + 1}을 찾지 못했습니다.");
+            ShowStatus($"미션 {index + 1}을 찾지 못했습니다.");
             return;
         }
 
-        Transform target = miniGames[index].transform;
+        Transform target = missions[index].transform;
         TeleportLocalPlayer(target.position - target.forward * 2f, target.rotation);
-        ShowStatus($"미니게임 {index + 1} 위치로 이동했습니다.");
+        ShowStatus($"미션 {index + 1} 위치로 이동했습니다.");
     }
 
     // 로컬 플레이어 이동 컴포넌트를 통해 목적지보다 조금 높은 위치로 순간이동합니다.
