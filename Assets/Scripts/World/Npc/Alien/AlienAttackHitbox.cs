@@ -28,6 +28,13 @@ public class AlienAttackHitbox : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        // ===== [검토표시-추가-시작] =====
+        if (other.isTrigger)
+        {
+            return;
+        }
+        // ===== [검토표시-추가-끝] =====
+
         PlayerHealth playerHealth = other.GetComponentInParent<PlayerHealth>();
 
         if (playerHealth == null ||
