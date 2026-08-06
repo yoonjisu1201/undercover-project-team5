@@ -17,11 +17,10 @@ public enum CCTVConnectionState
 // CCTV 한 지점이 자기 카메라 번호와 연결 상태를 직접 소유한다.
 public sealed class CCTVPoint : MonoBehaviour
 {
-    public const int CameraCount = 5;
     public const int RequiredConnectionCount = 4;
     public const int FullConnectionMask = (1 << RequiredConnectionCount) - 1;
 
-    public int CameraNumber { get; private set; }
+    public int CameraNumber { get; private set; } = -1;
 
     public CCTVConnectionState ConnectionState
         => ConnectionMask == FullConnectionMask
@@ -37,6 +36,11 @@ public sealed class CCTVPoint : MonoBehaviour
     public void Initialize(int cameraNumber)
     {
         CameraNumber = cameraNumber;
+    }
+    
+    public void Deactivate() {
+        OnConnectionStateChanged = null;
+        CameraNumber = -1;
     }
 
     // 4비트 연결 마스크를 반영하고, 실제로 값이 바뀐 경우에만 이벤트를 쏜다.

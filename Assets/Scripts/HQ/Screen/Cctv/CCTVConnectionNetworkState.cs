@@ -95,6 +95,11 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
             _connectionMasks.Add(0);
         }
 
+        if (_cctvHub.CameraCount < 2)
+        {
+            return;
+        }
+
         int[] cameraIndexes = new int[_cctvHub.CameraCount];
         for (int index = 0; index < cameraIndexes.Length; index++)
         {
