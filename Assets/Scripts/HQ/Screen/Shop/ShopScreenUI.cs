@@ -289,16 +289,4 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 
 		_shopScreen.SetActive(active);
 
-		if (active) 
-		{
-			GameplayUiMode.Instance?.RegisterUi(this);
-			GameplayUiMode.Instance?.ActivateCursor();
-		} 
-		else 
-		{
-			GameplayUiMode.Instance?.UnregisterUi(this);
-			GameplayUiMode.Instance?.DeactivateCursor();
-		}
-	}
-
 }
