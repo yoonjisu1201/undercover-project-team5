@@ -89,7 +89,6 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 		_shopManager.InventoryFull -= HandleInventoryFull;
 
 		HideInventoryFullWarning();
-		SetShopActive(false);
 	}
 
 	private void Update() 

@@ -86,8 +86,6 @@ public class MonitorController : MonoBehaviour, IClosableUi {
 	}
 	
 	private void OnCloseButtonClicked() {
-		DisableAllScreens();
-		_cctvScreen.ActivateScreen();
 
 		gameObject.SetActive(false);
 		OnScreenClosed?.Invoke();
