@@ -166,19 +166,21 @@ public class PlayerMoveSample : NetworkBehaviour
 	}
 
 	// #392: PlayerHealth.DownedStateChanged -> Animator IsDowned -> Downed/Getting Up 전이 흐름의 연결 지점이다.
-	private void HandleDownedStateChanged(bool wasDowned, bool isDowned)
+	private void HandleDownedStateChanged(bool previousValue, bool value)
 	{
-		// Jumping은 PlayerMove가 동기화하지만, Downed는 PlayerHealth가 이미 동기화하므로 Animator만 갱신한다.
-		ApplyAnimatorBool(IsDownedHash, isDowned);
-		if (isDowned)
-		{
-			// 다운 애니메이션과 점프 상태가 겹치지 않도록 기존 점프 동기화 경로로 해제한다.
-			SetJumpingState(false);
-		}
+		ApplyAnimatorBool(IsDownedHash, value);
 
-		// 최초 정상 스폰(false -> false)이 아니라 실제 소생(true -> false)일 때만 기상 중으로 본다.
-		_isGettingUp = wasDowned && !isDowned;
-	}
+		if (value)
+		{
+			_jumpRequested = false;
+
+			SetMovingState(false);
+			SetRunningState(false);
+			SetJumpingState(false);
+		}		
+
+		_isGettingUp = previousValue && !value;
+	}		
 
 	private void UpdateJumpAnimation()
 	{
