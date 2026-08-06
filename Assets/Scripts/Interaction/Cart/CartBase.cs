@@ -9,6 +9,7 @@ public abstract class CartBase : InteractableBase
 	[SerializeField] private float _holdDistance = 2f;
 
 	private Rigidbody _rigidbody;
+	private Collider _collider;
 
 	// 현재 이 카트 잡고있는사람의 ID(네트워크 직렬화용 ID)
 	private readonly NetworkVariable<ulong> _currentHolderId = new NetworkVariable<ulong>(Empty);
@@ -29,6 +30,7 @@ public abstract class CartBase : InteractableBase
 		base.Awake();
 
 		_rigidbody = GetComponent<Rigidbody>();
+		_collider = GetComponent<Collider>();
 	}
 
 	public override void OnNetworkSpawn()
@@ -116,7 +118,8 @@ public abstract class CartBase : InteractableBase
 
 
 	// 상호작용중인 플레이어가 있다면, 그 플레이어 따라가야 함
-	protected virtual void FixedUpdate()
+	// BasicCart에 별도의 Update()(체력 회복 오라)가 있어서 이름이 겹치면 hiding되므로 LateUpdate 사용
+	protected virtual void LateUpdate()
 	{
 		if (_currentHolder == null) { return; }
 
@@ -139,8 +142,15 @@ public abstract class CartBase : InteractableBase
 			_currentHolder = NetworkManager.Singleton.ConnectedClients[newId].PlayerObject.GetComponent<Player>();
 			_currentHolder.PlayerInteraction.CarryingCart = this;
 
-			// 잡았을 때 Kinematic 꺼주기. 서버만 하는 이유는 어차피 클라는 서버 값 따라갈 것이므로(NetworkTransform)
-			if (IsServer) { _rigidbody.isKinematic = false; }
+			// 카트가 잡은 사람 바로 앞에 배치되기 때문에 서로 계속 부딫혀 못 밀리는 걸 방지.
+			Collider holderCollider = _currentHolder.GetComponent<Collider>();
+			if (_collider != null && holderCollider != null)
+			{
+				Physics.IgnoreCollision(_collider, holderCollider, true);
+			}
+
+			// 잡았을 때 Kinematic 꺼주기.
+			_rigidbody.isKinematic = false;
 		}
 
 		// newId가 null이라면 소유 해제한 것. 이미 있던 소유자 해제한다
@@ -150,11 +160,17 @@ public abstract class CartBase : InteractableBase
 			if (_currentHolder != null)
 			{
 				_currentHolder.PlayerInteraction.CarryingCart = null;
+
+				Collider holderCollider = _currentHolder.GetComponent<Collider>();
+				if (_collider != null && holderCollider != null)
+				{
+					Physics.IgnoreCollision(_collider, holderCollider, false);
+				}
 			}
 			_currentHolder = null;
 
-			// 놓았을 때 kinematic 켜주기. 충돌로 인해 밀리는 일 방지
-			if (IsServer) { _rigidbody.isKinematic = true; }
+			// 놓았을 때 kinematic 켜주기.
+			_rigidbody.isKinematic = true;
 		}
 	}
 }
