@@ -94,12 +94,7 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 
 	private void Update() 
 	{
-		Keyboard keyboard = Keyboard.current;
 
-		if (keyboard != null && keyboard.leftBracketKey.wasPressedThisFrame && _shopManager.IsSpawned) 
-		{
-			_shopManager.RequestAddCreditsRpc();
-		}
 	}
 
 	private void ShowMedical() 
@@ -282,11 +277,11 @@ public sealed class ShopScreenUI : MonoBehaviour, IClosableUi
 
 	private void SetShopActive(bool active)
 	{
-		if (_shopScreen.activeSelf == active) 
+		if (_shopScreen.activeSelf == active)
 		{
 			return;
 		}
 
 		_shopScreen.SetActive(active);
-
+	}
 }

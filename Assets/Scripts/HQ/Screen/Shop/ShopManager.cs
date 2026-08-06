@@ -9,7 +9,6 @@ public sealed class ShopManager : NetworkBehaviour {
 
 	[Header("=== 공용 코인 ===")]
 	[SerializeField] private int _initialCredits = 1000;
-	[SerializeField] private int _testCreditAmount = 100;
 
 	private readonly NetworkVariable<int> _credits =
 		new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -44,12 +43,6 @@ public sealed class ShopManager : NetworkBehaviour {
 		}
 
 		_credits.Value += amount;
-	}
-
-	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-	public void RequestAddCreditsRpc() 
-	{
-		AddCreditsOnServer(_testCreditAmount);
 	}
 
 	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
