@@ -63,6 +63,8 @@ public class PlayerMoveSample : NetworkBehaviour
 	private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
 	private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
 	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
+	// #392: PlayerHealth의 동기화된 다운 상태를 Animator의 Downed/Getting Up 전이에 연결한다.
+	private static readonly int IsDownedHash = Animator.StringToHash("IsDowned");
 	private readonly NetworkVariable<bool> _networkIsMoving = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 	private readonly NetworkVariable<bool> _networkIsRunning = new NetworkVariable<bool>(
 			false,
@@ -75,6 +77,8 @@ public class PlayerMoveSample : NetworkBehaviour
 			NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
+	// #392: 실제 소생 후 Getting Up에서 Idle로 돌아갈 때까지 이동을 차단한다.
+	private bool _isGettingUp;
 	
 	public GameObject HeadPivot => _headPivot;
 
@@ -119,16 +123,11 @@ public class PlayerMoveSample : NetworkBehaviour
 		_animator?.SetBool(hash, value);
 	}
 
-	private void SyncAnimatorBool(
-		int hash,
-		NetworkVariable<bool> networkState,
-		bool value)
+	private void SyncAnimatorBool(int hash, NetworkVariable<bool> networkState, bool value)
 	{
 		ApplyAnimatorBool(hash, value);
 
-		if (IsSpawned &&
-			IsOwner &&
-			networkState.Value != value)
+		if (IsSpawned && IsOwner && networkState.Value != value)
 		{
 			networkState.Value = value;
 		}
@@ -166,6 +165,23 @@ public class PlayerMoveSample : NetworkBehaviour
 		ApplyAnimatorBool(IsJumpingHash, value);
 	}
 
+	// #392: PlayerHealth.DownedStateChanged -> Animator IsDowned -> Downed/Getting Up 전이 흐름의 연결 지점이다.
+	private void HandleDownedStateChanged(bool previousValue, bool value)
+	{
+		ApplyAnimatorBool(IsDownedHash, value);
+
+		if (value)
+		{
+			_jumpRequested = false;
+
+			SetMovingState(false);
+			SetRunningState(false);
+			SetJumpingState(false);
+		}		
+
+		_isGettingUp = previousValue && !value;
+	}		
+
 	private void UpdateJumpAnimation()
 	{
 		if (_isJumping && _rigidbody.linearVelocity.y <= 0f && IsGrounded())
@@ -182,10 +198,14 @@ public class PlayerMoveSample : NetworkBehaviour
 		_networkIsMoving.OnValueChanged += HandleMovingChanged;
 		_networkIsRunning.OnValueChanged += HandleRunningChanged;
 		_networkIsJumping.OnValueChanged += HandleJumpingChanged;
+		// #392: PlayerHealth의 NetworkVariable 변경 알림을 모든 클라이언트의 Animator에 반영한다.
+		_playerHealth.DownedStateChanged += HandleDownedStateChanged;
 
 		HandleMovingChanged(false, _networkIsMoving.Value);
 		HandleRunningChanged(false, _networkIsRunning.Value);
 		HandleJumpingChanged(false, _networkIsJumping.Value);
+		// #392: 기존 상태 초기화와 형식을 맞추되, false를 이전 값으로 넘겨 최초 스폰을 소생으로 판정하지 않는다.
+		HandleDownedStateChanged(false, _playerHealth.IsDowned);
 
 		if (!IsOwner)
 		{
@@ -203,6 +223,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		_networkIsMoving.OnValueChanged -= HandleMovingChanged;
 		_networkIsRunning.OnValueChanged -= HandleRunningChanged;
 		_networkIsJumping.OnValueChanged -= HandleJumpingChanged;
+		// #392: OnNetworkSpawn에서 등록한 다운 상태 구독을 네트워크 수명 종료 시 해제한다.
+		_playerHealth.DownedStateChanged -= HandleDownedStateChanged;
 		base.OnNetworkDespawn();
 	}
 
@@ -269,7 +291,18 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		UpdateJumpAnimation();
 
-		if (GameplayUiMode.IsMovementBlocked || _playerHealth.IsDowned)    // UI 조작 중이거나 다운 상태면 이동을 받지 않음
+		// #392: Getting Up -> Idle 전환과 블렌딩이 모두 끝난 뒤에만 이동 잠금을 해제한다.
+		if (_isGettingUp &&
+			!_animator.IsInTransition(0) &&
+			_animator.GetCurrentAnimatorStateInfo(0).IsName("Base Layer.Idle"))
+		{
+			_isGettingUp = false;
+		}
+
+		// #392: 다운 중에는 PlayerHealth, 소생 후 기상 중에는 _isGettingUp으로 이동을 차단한다.
+		if (GameplayUiMode.IsMovementBlocked ||
+			_playerHealth.IsDowned ||
+			_isGettingUp)
 		{
 			_jumpRequested = false;
 			SetMovingState(false);

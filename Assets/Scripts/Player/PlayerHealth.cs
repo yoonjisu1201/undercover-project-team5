@@ -20,7 +20,8 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
 
     // 외부에서 변경 감지 구독
     public event Action<float, float> HpChanged;
-    public event Action<bool> DownedStateChanged;
+    // #392: 다운과 소생의 전환 방향을 구독자가 구분할 수 있도록 이전 값과 현재 값을 함께 전달한다.
+    public event Action<bool, bool> DownedStateChanged;
 
     public float MaxHp => _maxHp;
     public float CurrentHp => _currentHp.Value;
@@ -150,6 +151,7 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
 
     private void HandleDownedStateChanged(bool previousValue, bool newValue)
     {
-        DownedStateChanged?.Invoke(newValue);
+        // #392: PlayerHealth가 받은 NetworkVariable 변경값을 애니메이션 구독자까지 그대로 전달한다.
+        DownedStateChanged?.Invoke(previousValue, newValue);
     }
 }
