@@ -115,12 +115,20 @@ public class MontageDressUpUI : ScreenBase {
 	}
 
 	public override void DeactivateScreen() {
+		base.DeactivateScreen();
+
+		if (_syncManager == null) {
+			return;
+		}
+
 		_syncManager.OnMontageStateChanged -= HandleMontageStateChanged;
-		_montageShareButton.onClick.RemoveListener(ShareMontage);
-		_montageResetButton.onClick.RemoveListener(ResetMontage);
+		_montageShareButton?.onClick.RemoveListener(ShareMontage);
+		_montageResetButton?.onClick.RemoveListener(ResetMontage);
 		
 		// 카메라 비활성화
-		_syncManager.MontageCamera.enabled = false;
+		if (_syncManager.MontageCamera != null) {
+			_syncManager.MontageCamera.enabled = false;
+		}
 	}
 	
 	private static bool IsLocalPlayerHeadquarter() {
