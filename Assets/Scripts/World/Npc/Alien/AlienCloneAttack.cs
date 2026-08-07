@@ -18,6 +18,8 @@ public class AlienCloneAttack : NetworkBehaviour
     [Header("공격 설정")]
     [SerializeField, Min(0f)] private float _attackRange = 2f;
     [SerializeField, Min(0.01f)] private float _attackCooldown = 1.5f;
+    [SerializeField, Min(0.01f)] private float _attackStateTimeout = 1.2f;
+    [SerializeField, Min(0f)] private float _attackTurnSpeed = 720f;
     // Inspector 연결: Alien_main 프리팹의 RightHandAttackHitbox 컴포넌트를 할당한다.
     [SerializeField] private AlienAttackHitbox _attackHitbox;
 
@@ -28,6 +30,7 @@ public class AlienCloneAttack : NetworkBehaviour
     private NavMeshAgent _agent;
     private NetworkAnimator _networkAnimator;
     private bool _isAttacking;
+    private float _attackStateTimer;
     private float _cooldownTimer;   // 공격 쿨다운 타이머
     private bool _isDiedSubscribed; // 서버에서만 죽었는지 확인하는 변수
 
@@ -86,6 +89,8 @@ public class AlienCloneAttack : NetworkBehaviour
             return;
         }
 
+        UpdateAttackStateTimer();
+
         _cooldownTimer -= Time.deltaTime;
         if (_isAttacking || _cooldownTimer > 0f)
         {
@@ -105,11 +110,13 @@ public class AlienCloneAttack : NetworkBehaviour
 
         // 사거리 안에 들어오면 이동을 멈춘 뒤 NetworkAnimator로 Attack Trigger를 동기화한다.
         _isAttacking = true;
+        _attackStateTimer = _attackStateTimeout;
         if (_agent != null && _agent.isOnNavMesh)
         {
             _agent.isStopped = true;
         }
 
+        FaceTarget(target.transform.position);
         _networkAnimator.SetTrigger(AttackHash);
         _cooldownTimer = _attackCooldown;
 
@@ -157,10 +164,7 @@ public class AlienCloneAttack : NetworkBehaviour
         }
 
         _isAttacking = false;
-        if (_agent != null && _agent.isOnNavMesh)
-        {
-            _agent.isStopped = false;
-        }
+        _attackStateTimer = 0f;
     }
 
     // AlienCloneHealth.Died 이벤트 처리.
@@ -173,8 +177,26 @@ public class AlienCloneAttack : NetworkBehaviour
         }
 
         _isAttacking = false;
+        _attackStateTimer = 0f;
         _attackHitbox?.EndSwing();
         _controller?.StopForDeath();
+    }
+
+    private void UpdateAttackStateTimer()
+    {
+        if (!_isAttacking)
+        {
+            return;
+        }
+
+        _attackStateTimer -= Time.deltaTime;
+        if (_attackStateTimer > 0f)
+        {
+            return;
+        }
+
+        _isAttacking = false;
+        _attackHitbox?.EndSwing();
     }
 
     // NavMeshAgent가 추적하는 평면과 동일하게 높이 차이를 제외한 XZ 거리로 사거리를 판단한다.
@@ -184,5 +206,28 @@ public class AlienCloneAttack : NetworkBehaviour
         offset.y = 0f;
 
         return offset.sqrMagnitude <= _attackRange * _attackRange;
+    }
+
+    private void FaceTarget(Vector3 targetPosition)
+    {
+        Vector3 direction = targetPosition - transform.position;
+        direction.y = 0f;
+
+        if (direction.sqrMagnitude <= 0.0001f)
+        {
+            return;
+        }
+
+        Quaternion targetRotation = Quaternion.LookRotation(direction);
+        if (_attackTurnSpeed <= 0f)
+        {
+            transform.rotation = targetRotation;
+            return;
+        }
+
+        transform.rotation = Quaternion.RotateTowards(
+            transform.rotation,
+            targetRotation,
+            _attackTurnSpeed * Time.deltaTime);
     }
 }

@@ -173,7 +173,7 @@ NavMeshAgent:
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
-  m_StoppingDistance: 0
+  m_StoppingDistance: 1.4
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
@@ -200,7 +200,7 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 10
+  m_Radius: 50
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &323249176553284041
 MonoBehaviour:
@@ -232,6 +232,19 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _wanderRadius: 15
   _navMeshSampleDistance: 1
+  _minWanderDistance: 4
+  _wanderSampleAttempts: 8
+  _wanderSpeed: 1.6
+  _chaseStartDistance: 30
+  _chaseKeepDistance: 35
+  _targetStopDistance: 1.4
+  _targetResumeDistance: 1.8
+  _chaseSpeed: 3.5
+  _chaseFailureTimeout: 2.5
+  _lostTargetRetryDelay: 2
+  _lineOfSightBlockers:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!114 &3109488768563264567
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -247,6 +260,8 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _attackRange: 2
   _attackCooldown: 1.5
+  _attackStateTimeout: 1.2
+  _attackTurnSpeed: 0
   _attackHitbox: {fileID: 1292111371259201089}
 --- !u!114 &5716618513219137754
 MonoBehaviour:
@@ -258,7 +273,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e8d0727d5ae3244e3b569694d3912374, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkAnimator
   ShowTopMostFoldoutHeaderGroup: 1
   NetworkAnimatorExpanded: 0
@@ -269,6 +284,10 @@ MonoBehaviour:
     ParameterEntries:
     - name: IsRunning
       NameHash: -887662580
+      Synchronize: 1
+      ParameterType: 4
+    - name: IsWalking
+      NameHash: 1282839668
       Synchronize: 1
       ParameterType: 4
     - name: Attack
@@ -332,7 +351,7 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 0
   serializedVersion: 3
-  m_Radius: 0.1
+  m_Radius: 0.35
   m_Center: {x: 0, y: 0.07, z: 0}
 --- !u!114 &1292111371259201089
 MonoBehaviour:
@@ -344,7 +363,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d35365ff804398f4fa73ca2225c7ef04, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AlienAttackHitbox
 --- !u!1001 &6442056155241012506
 PrefabInstance:

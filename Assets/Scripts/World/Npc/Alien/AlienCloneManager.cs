@@ -18,6 +18,7 @@ public class AlienCloneManager : MonoBehaviour
     [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 2f;
 
     private readonly List<AlienCloneHealth> _aliveClones = new();
+    private bool _spawnFailedThisCycle;
 
     // 디버그 메뉴에서 주기적인 스폰을 끄거나, 범인과 함께 분신도 정지시킬 때 사용한다. 서버에서만 의미가 있다.
     public bool SpawningEnabled { get; private set; } = true;
@@ -63,7 +64,7 @@ public class AlienCloneManager : MonoBehaviour
         _lastRoundRemainingTime = currentRemaining;
 
         // 스폰을 막아둔 동안에는 경과 시간도 쌓지 않는다. 다시 허용한 순간 한꺼번에 몰려 나오는 것을 막기 위함.
-        if (!SpawningEnabled) return;
+        if (!SpawningEnabled || _spawnFailedThisCycle) return;
 
         _elapsedSinceLastSpawn += elapsed;
         if (_elapsedSinceLastSpawn < _spawnInterval) return;
@@ -102,28 +103,44 @@ public class AlienCloneManager : MonoBehaviour
         if (_alienClonePrefab == null) return false;
         if (!TryGetSpawnPosition(out Vector3 spawnPosition)) return false;
 
-        GameObject instance = Instantiate(_alienClonePrefab, spawnPosition, Quaternion.identity);
-
-        if (!instance.TryGetComponent(out NetworkObject networkObject) ||
-            !instance.TryGetComponent(out AlienCloneHealth health))
+        GameObject instance = null;
+        try
         {
-            Debug.LogError("[AlienCloneManager] 외계인 프리팹에 NetworkObject 또는 AlienCloneHealth가 없습니다.", this);
-            Destroy(instance);
+            instance = Instantiate(_alienClonePrefab, spawnPosition, Quaternion.identity);
+
+            if (!instance.TryGetComponent(out NetworkObject networkObject) ||
+                !instance.TryGetComponent(out AlienCloneHealth health))
+            {
+                Debug.LogError("[AlienCloneManager] 외계인 프리팹에 NetworkObject 또는 AlienCloneHealth가 없습니다.", this);
+                Destroy(instance);
+                return false;
+            }
+
+            networkObject.Spawn(destroyWithScene: true);
+
+            _aliveClones.Add(health);
+            // 정지 상태에서 새로 스폰된 분신도 곧바로 멈춘 상태로 시작한다.
+            if (ClonesFrozen && instance.TryGetComponent(out AlienCloneController spawnedController))
+            {
+                spawnedController.SetFrozen(true);
+            }
+
+            // AlienCloneHealth.CompleteDeath가 Animation Event를 받으면 Health 자신을 인자로 전달한다.
+            // 람다 캡처 없이 완료 처리 메서드를 직접 구독하며, 처리 직후 이벤트 소스도 함께 디스폰된다.
+            health.DeathAnimationCompleted += HandleCloneDeathAnimationCompleted;
+            return true;
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogError($"[AlienCloneManager] 외계인 스폰 중 예외가 발생해 자동 스폰을 중단합니다.\n{exception}", this);
+            _spawnFailedThisCycle = true;
+            if (instance != null)
+            {
+                Destroy(instance);
+            }
+
             return false;
         }
-
-        networkObject.Spawn(destroyWithScene: true);
-        _aliveClones.Add(health);
-        // 정지 상태에서 새로 스폰된 분신도 곧바로 멈춘 상태로 시작한다.
-        if (ClonesFrozen && instance.TryGetComponent(out AlienCloneController spawnedController))
-        {
-            spawnedController.SetFrozen(true);
-        }
-
-        // AlienCloneHealth.CompleteDeath가 Animation Event를 받으면 Health 자신을 인자로 전달한다.
-        // 람다 캡처 없이 완료 처리 메서드를 직접 구독하며, 처리 직후 이벤트 소스도 함께 디스폰된다.
-        health.DeathAnimationCompleted += HandleCloneDeathAnimationCompleted;
-        return true;
     }
 
     // 가장 고립된 현장 플레이어 주변, 무작위 방향으로 일정 거리 떨어진 NavMesh 위 지점을 찾는다.
@@ -263,6 +280,7 @@ public class AlienCloneManager : MonoBehaviour
         if (state == RoundState.InRound)
         {
             _elapsedSinceLastSpawn = 0f;
+            _spawnFailedThisCycle = false;
             return;
         }
 
