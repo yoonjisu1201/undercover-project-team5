@@ -31,7 +31,9 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
             {
                 if (interactionCollider == null ||
                     !interactionCollider.enabled ||
-                    !interactionCollider.gameObject.activeInHierarchy)
+                    !interactionCollider.gameObject.activeInHierarchy ||
+                    !interactionCollider.transform.IsChildOf(transform) ||
+                    interactionCollider.isTrigger)
                 {
                     continue;
                 }

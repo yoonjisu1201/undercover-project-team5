@@ -1936,6 +1936,8 @@ GameObject:
   - component: {fileID: 6470420398435723034}
   - component: {fileID: 8770521227444369783}
   - component: {fileID: 1548839574816340961}
+  - component: {fileID: 910407413253200003}
+  - component: {fileID: 910407413253200004}
   m_Layer: 5
   m_Name: BottomNext
   m_TagString: Untagged
@@ -2040,12 +2042,12 @@ MonoBehaviour:
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
   m_Interactable: 1
-  m_TargetGraphic: {fileID: 5992964775185227120}
+  m_TargetGraphic: {fileID: 8770521227444369783}
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 487786558131661783}
-        m_TargetAssemblyTypeName: OperationGuidePageFlipper, Assembly-CSharp
+        m_TargetAssemblyTypeName: GuideBook, Assembly-CSharp
         m_MethodName: GoNext
         m_Mode: 1
         m_Arguments:
@@ -2056,6 +2058,46 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!223 &910407413253200003
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1883016247228169445}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 0
+  m_Camera: {fileID: 0}
+  m_PlaneDistance: 100
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 1
+  m_OverridePixelPerfect: 0
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 25
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 81
+  m_TargetDisplay: 0
+--- !u!114 &910407413253200004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1883016247228169445}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.GraphicRaycaster
+  m_IgnoreReversedGraphics: 1
+  m_BlockingObjects: 0
+  m_BlockingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &1922792044551687041
 GameObject:
   m_ObjectHideFlags: 0
@@ -2691,14 +2733,14 @@ Canvas:
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
-  m_OverrideSorting: 0
+  m_OverrideSorting: 1
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 7
+  m_SortingOrder: 80
   m_TargetDisplay: 0
 --- !u!114 &6113836932229319019
 MonoBehaviour:
@@ -5475,8 +5517,8 @@ RectTransform:
   - {fileID: 1294505392060561417}
   - {fileID: 5853064089388090957}
   - {fileID: 3222371851610398273}
-  - {fileID: 7947565874414740117}
   - {fileID: 4800576980561904071}
+  - {fileID: 7947565874414740117}
   - {fileID: 777254858421360847}
   - {fileID: 889929109007961096}
   - {fileID: 5957129290001135832}
@@ -9373,7 +9415,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &8434080672630394128
 RectTransform:
   m_ObjectHideFlags: 0
@@ -9410,7 +9452,7 @@ Canvas:
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
-  m_OverrideSorting: 0
+  m_OverrideSorting: 1
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
@@ -9470,7 +9512,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1ea2e84be3af7104d8f242fb6ce5ca12, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::OperationGuidePageFlipper
+  m_EditorClassIdentifier: Assembly-CSharp::GuideBook
   _pages:
   - {fileID: 7947565874414740117}
   - {fileID: 4800576980561904071}
@@ -10440,6 +10482,8 @@ GameObject:
   - component: {fileID: 7169753904027276571}
   - component: {fileID: 5992964775185227120}
   - component: {fileID: 7174975133689207930}
+  - component: {fileID: 910407413253200005}
+  - component: {fileID: 910407413253200006}
   m_Layer: 5
   m_Name: TopPrevious
   m_TagString: Untagged
@@ -10549,7 +10593,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 487786558131661783}
-        m_TargetAssemblyTypeName: OperationGuidePageFlipper, Assembly-CSharp
+        m_TargetAssemblyTypeName: GuideBook, Assembly-CSharp
         m_MethodName: GoPrevious
         m_Mode: 1
         m_Arguments:
@@ -10560,6 +10604,46 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!223 &910407413253200005
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9032881247690959856}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 0
+  m_Camera: {fileID: 0}
+  m_PlaneDistance: 100
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 1
+  m_OverridePixelPerfect: 0
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 25
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 81
+  m_TargetDisplay: 0
+--- !u!114 &910407413253200006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9032881247690959856}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.GraphicRaycaster
+  m_IgnoreReversedGraphics: 1
+  m_BlockingObjects: 0
+  m_BlockingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &9039254789350622288
 GameObject:
   m_ObjectHideFlags: 0
