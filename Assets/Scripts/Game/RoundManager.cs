@@ -21,6 +21,7 @@ public class RoundConfig
     public float Duration = 600f;          // 라운드 제한 시간 (초 단위)
     public float ClearWaitDuration = 5f;  // 클리어 후 다음 라운드 자동 시작까지 대기 시간
     public float MontageShareCooldown = 20f; // 몽타주 재전송 쿨타임
+    public int NpcSpawnCount = 20;        // 해당 라운드에 스폰할 NPC 수
 }
 
 public class RoundManager : NetworkBehaviour
@@ -105,6 +106,7 @@ public class RoundManager : NetworkBehaviour
         _rounds[_currentRoundIndex.Value].Duration : 0f;
     public float MontageShareCooldown => CurrentState == RoundState.InRound ?
         _rounds[_currentRoundIndex.Value].MontageShareCooldown : 0f;
+    public int NpcSpawnCount => _rounds[_currentRoundIndex.Value].NpcSpawnCount;
 
     // 투표/검거 시스템이 아직 없어 임시로 노출 — 각 시스템이 만들어지면 이 프로퍼티를 참조해 입력을 막는다.
     public bool CanVote => _currentState.Value == RoundState.InRound;
