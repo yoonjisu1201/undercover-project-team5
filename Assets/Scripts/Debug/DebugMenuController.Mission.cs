@@ -4,7 +4,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
-// [미션 완료] 하위의 미니게임별 완료와 [미션 혼자하기] 하위의 단독 진행 명령을 처리합니다.
+// [미션 완료] 하위의 미션별 완료와 [미션 혼자하기] 하위의 단독 진행 명령을 처리합니다.
 public sealed partial class DebugMenuController
 {
     [Header("Mission")]
@@ -29,23 +29,23 @@ public sealed partial class DebugMenuController
         RefreshBreakerPowerButton();
     }
 
-    // 텔레포트 메뉴의 미니게임 번호와 같은 순서로 완료 처리합니다.
-    public void OnCompleteMiniGame1Click() => CompleteMiniGame(0);
-    public void OnCompleteMiniGame2Click() => CompleteMiniGame(1);
-    public void OnCompleteMiniGame3Click() => CompleteMiniGame(2);
-    public void OnCompleteMiniGame4Click() => CompleteMiniGame(3);
-    public void OnCompleteMiniGame5Click() => CompleteMiniGame(4);
-    public void OnCompleteMiniGame6Click() => CompleteMiniGame(5);
-    public void OnCompleteMiniGame7Click() => CompleteMiniGame(6);
-    public void OnCompleteMiniGame8Click() => CompleteMiniGame(7);
+    // 텔레포트 메뉴의 미션 번호와 같은 순서로 완료 처리합니다.
+    public void OnCompleteMission1Click() => CompleteMission(0);
+    public void OnCompleteMission2Click() => CompleteMission(1);
+    public void OnCompleteMission3Click() => CompleteMission(2);
+    public void OnCompleteMission4Click() => CompleteMission(3);
+    public void OnCompleteMission5Click() => CompleteMission(4);
+    public void OnCompleteMission6Click() => CompleteMission(5);
+    public void OnCompleteMission7Click() => CompleteMission(6);
+    public void OnCompleteMission8Click() => CompleteMission(7);
 
-    // B 역할의 전력 레버를 대신 올리고 내려, 혼자서도 배터리 미니게임 흐름을 확인할 수 있게 합니다.
+    // B 역할의 전력 레버를 대신 올리고 내려, 혼자서도 배터리 미션 흐름을 확인할 수 있게 합니다.
     public void OnToggleBreakerPowerClick()
     {
         BreakerCircuitState circuitState = FindFirstObjectByType<BreakerCircuitState>();
         if (circuitState == null)
         {
-            ShowStatus("브레이커 회로를 찾지 못했습니다. 미니게임 기계가 스폰된 뒤에 사용하세요.");
+            ShowStatus("브레이커 회로를 찾지 못했습니다. 미션 기계가 스폰된 뒤에 사용하세요.");
             return;
         }
 
@@ -66,7 +66,7 @@ public sealed partial class DebugMenuController
         SetOnOffButtonColor(_breakerPowerButton, circuitState != null && circuitState.PowerOn);
     }
 
-    private void CompleteMiniGame(int index)
+    private void CompleteMission(int index)
     {
         if (!IsSpawned)
         {
@@ -74,24 +74,24 @@ public sealed partial class DebugMenuController
             return;
         }
 
-        RequestCompleteMiniGameRpc(index);
+        RequestCompleteMissionRpc(index);
     }
 
-    // 서버에서 해당 미니게임을 완료 처리합니다. 완료 보상 단서 생성까지 기존 흐름을 그대로 씁니다.
+    // 서버에서 해당 미션을 완료 처리합니다. 완료 보상 단서 생성까지 기존 흐름을 그대로 씁니다.
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestCompleteMiniGameRpc(int index)
+    private void RequestCompleteMissionRpc(int index)
     {
-        MiniGameInteractable[] miniGames = GetOrderedMiniGames();
-        if (index < 0 || index >= miniGames.Length)
+        MissionInteractable[] missions = GetOrderedMissions();
+        if (index < 0 || index >= missions.Length)
         {
-            Debug.LogWarning($"[DebugMenu] 미니게임 {index + 1}을 찾지 못했습니다.");
+            Debug.LogWarning($"[DebugMenu] 미션 {index + 1}을 찾지 못했습니다.");
             return;
         }
 
-        MiniGameInteractable target = miniGames[index];
+        MissionInteractable target = missions[index];
         if (target.IsCompleted)
         {
-            Debug.LogWarning($"[DebugMenu] 미니게임 {index + 1}은 이미 완료된 상태입니다.");
+            Debug.LogWarning($"[DebugMenu] 미션 {index + 1}은 이미 완료된 상태입니다.");
             return;
         }
 
@@ -99,11 +99,11 @@ public sealed partial class DebugMenuController
     }
 
     // 텔레포트 메뉴와 완료 메뉴의 번호가 어긋나지 않도록 정렬 기준을 한 곳에서 관리합니다.
-    private static MiniGameInteractable[] GetOrderedMiniGames()
+    private static MissionInteractable[] GetOrderedMissions()
     {
-        return FindObjectsByType<MiniGameInteractable>(FindObjectsSortMode.None)
-            .OrderBy(miniGame => miniGame.name, StringComparer.Ordinal)
-            .ThenBy(miniGame => miniGame.GetInstanceID())
+        return FindObjectsByType<MissionInteractable>(FindObjectsSortMode.None)
+            .OrderBy(mission => mission.name, StringComparer.Ordinal)
+            .ThenBy(mission => mission.GetInstanceID())
             .ToArray();
     }
 }

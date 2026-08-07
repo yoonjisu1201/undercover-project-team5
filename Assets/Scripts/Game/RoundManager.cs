@@ -275,7 +275,7 @@ public class RoundManager : NetworkBehaviour
             _currentRoundIndex.Value++;
             _debugTimeStopped.Value = false;
             _debugStoppedRemainingTime.Value = 0f;
-            ResetMiniGamesForNewRound();
+            ResetMissionsForNewRound();
             ResetNpcTrackersForNewRound();
             ResetPlayerHealthForNewRound();
 
@@ -288,7 +288,7 @@ public class RoundManager : NetworkBehaviour
                 await _npcSpawner.RespawnAsync(cancellationToken);
             }
 
-            FindFirstObjectByType<MiniGameSpawner>()?.RespawnMiniGameMachines();
+            FindFirstObjectByType<MissionSpawner>()?.RespawnMissionMachines();
             FindFirstObjectByType<BatterySpawner>()?.RespawnBatteries();
             _clueSpawner?.SpawnForNextRound();
             _captureGunSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 검거도구 재생성
@@ -313,26 +313,26 @@ public class RoundManager : NetworkBehaviour
         _currentRoundIndex.Value = 0;
         _debugTimeStopped.Value = false;
         _debugStoppedRemainingTime.Value = 0f;
-        ResetMiniGamesForNewRound();
+        ResetMissionsForNewRound();
         ResetNpcTrackersForNewRound();
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[0].Duration;
         _currentState.Value = RoundState.InRound;
         AnnounceRoundStartRpc(0);
     }
 
-    // 서버가 모든 미니게임의 완료 상태와 랜덤 문제를 새 라운드 기준으로 초기화한다.
-    private void ResetMiniGamesForNewRound()
+    // 서버가 모든 미션의 완료 상태와 랜덤 문제를 새 라운드 기준으로 초기화한다.
+    private void ResetMissionsForNewRound()
     {
         if (!IsServer)
         {
             return;
         }
 
-        MiniGameInteractable[] miniGames =
-            FindObjectsByType<MiniGameInteractable>(FindObjectsSortMode.None);
-        foreach (MiniGameInteractable miniGame in miniGames)
+        MissionInteractable[] missions =
+            FindObjectsByType<MissionInteractable>(FindObjectsSortMode.None);
+        foreach (MissionInteractable mission in missions)
         {
-            miniGame.ResetForNewRound();
+            mission.ResetForNewRound();
         }
     }
 

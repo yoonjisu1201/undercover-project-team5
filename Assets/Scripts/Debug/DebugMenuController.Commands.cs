@@ -3,7 +3,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// 미니게임, 방해요소, 라운드와 세션 이동 명령을 처리합니다.
+// 미션, 방해요소, 라운드와 세션 이동 명령을 처리합니다.
 public sealed partial class DebugMenuController
 {
     // 필드 시야를 가리는 안개 방해요소를 요청합니다.
@@ -11,15 +11,15 @@ public sealed partial class DebugMenuController
     // 플레이어 화면에 글리치 방해요소를 요청합니다.
     public void OnGlitchInterferenceClick() => StartInterference(InterferenceEffectType.Glitch);
 
-    // 현재 열린 미니게임을 완료하며 CCTV 수리 화면은 전체 연결만 복구하고 닫습니다.
+    // 현재 열린 미션을 완료하며 CCTV 수리 화면은 전체 연결만 복구하고 닫습니다.
     public void OnCompleteCurrentGameClick()
     {
-        MiniGameUIController controller = FindObjectsByType<MiniGameUIController>(
+        MissionUIController controller = FindObjectsByType<MissionUIController>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None)
             .FirstOrDefault(candidate => candidate.gameObject.activeInHierarchy);
         if (controller == null)
         {
-            ShowStatus("현재 열린 미니게임 UI가 없습니다.");
+            ShowStatus("현재 열린 미션 UI가 없습니다.");
             return;
         }
 
@@ -33,7 +33,7 @@ public sealed partial class DebugMenuController
 
         controller.MarkCompletionReady();
         controller.Close();
-        ShowStatus("현재 미니게임을 완료 처리했습니다.");
+        ShowStatus("현재 미션을 완료 처리했습니다.");
     }
 
     // 진행 중인 라운드를 성공 처리해 다음 라운드 흐름으로 넘깁니다.

@@ -68,7 +68,7 @@ public class NpcTracker : NetworkBehaviour
     }
 
     // 서버가 라운드 전환/게임 재시작 시점에 이전 라운드에 부착됐던 추적기를 해제한다.
-    // MiniGameInteractable.ResetForNewRound()와 같은 목적, 같은 호출 시점(RoundManager)을 따른다.
+    // MissionInteractable.ResetForNewRound()와 같은 목적, 같은 호출 시점(RoundManager)을 따른다.
     public void ResetForNewRound()
     {
         if (!IsServer)

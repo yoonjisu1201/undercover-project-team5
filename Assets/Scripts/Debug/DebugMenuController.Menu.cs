@@ -11,7 +11,7 @@ public sealed partial class DebugMenuController
     [SerializeField] private GameObject _menuRoot;
     [SerializeField] private GameObject _teleportPanel;
     [SerializeField] private GameObject _playerPanel;
-    [SerializeField] private GameObject _miniGamePanel;
+    [SerializeField] private GameObject _missionTeleportPanel;
     [SerializeField] private GameObject _itemPanel;
     [SerializeField] private GameObject _rolePanel;
     [SerializeField] private GameObject _criminalPanel;
@@ -46,12 +46,12 @@ public sealed partial class DebugMenuController
     // 다른 플레이어 목록을 갱신하고 플레이어 하위 메뉴를 토글합니다.
     public void OnPlayerMenuClick()
     {
-        ToggleNestedSubMenu(_playerPanel, _miniGamePanel);
+        ToggleNestedSubMenu(_playerPanel, _missionTeleportPanel);
         RefreshOtherPlayerButtons();
     }
 
-    // 미니게임 텔레포트 하위 메뉴를 토글합니다.
-    public void OnMiniGameMenuClick() => ToggleNestedSubMenu(_miniGamePanel, _playerPanel);
+    // 미션 텔레포트 하위 메뉴를 토글합니다.
+    public void OnMissionTeleportMenuClick() => ToggleNestedSubMenu(_missionTeleportPanel, _playerPanel);
 
     // 각 루트 하위 메뉴를 열거나 닫습니다.
     public void OnItemMenuClick() => ToggleRootSubMenu(_itemPanel);
@@ -121,7 +121,7 @@ public sealed partial class DebugMenuController
     {
         GameObject[] panels =
         {
-            _teleportPanel, _playerPanel, _miniGamePanel, _itemPanel, _rolePanel,
+            _teleportPanel, _playerPanel, _missionTeleportPanel, _itemPanel, _rolePanel,
             _criminalPanel, _interferencePanel, _cctvPanel, _cctvPowerPanel, _regionPanel,
             _roundPanel, _hpPanel, _missionPanel, _missionCompletePanel, _missionSoloPanel,
             _alienPanel

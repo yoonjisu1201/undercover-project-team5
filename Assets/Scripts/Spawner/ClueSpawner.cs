@@ -11,7 +11,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     [Header("단서 데이터")]
     [SerializeField] private ItemData[] _clues;
     [SerializeField] private bool _spawnCluesAtRoundStart;
-    [SerializeField] private ItemData[] _miniGameRewardClues;
+    [SerializeField] private ItemData[] _missionRewardClues;
 
     public int SpawnCount => _spawnCluesAtRoundStart ? CountInitialClues() : 0;
 
@@ -99,8 +99,8 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // 플레이 가능한 미니게임의 보상 단서는 필드에 미리 생성하지 않는다.
-            if (IsMiniGameRewardClue(clueData))
+            // 플레이 가능한 미션의 보상 단서는 필드에 미리 생성하지 않는다.
+            if (IsMissionRewardClue(clueData))
             {
                 continue;
             }
@@ -149,7 +149,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         int count = 0;
         foreach (ItemData clue in _clues)
         {
-            if (!IsMiniGameRewardClue(clue))
+            if (!IsMissionRewardClue(clue))
             {
                 count++;
             }
@@ -158,15 +158,15 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         return count;
     }
 
-    // 해당 단서가 미니게임 성공으로 생성될 보상인지 확인한다.
-    private bool IsMiniGameRewardClue(ItemData clue)
+    // 해당 단서가 미션 성공으로 생성될 보상인지 확인한다.
+    private bool IsMissionRewardClue(ItemData clue)
     {
-        if (_miniGameRewardClues == null)
+        if (_missionRewardClues == null)
         {
             return false;
         }
 
-        foreach (ItemData rewardClue in _miniGameRewardClues)
+        foreach (ItemData rewardClue in _missionRewardClues)
         {
             if (rewardClue == clue)
             {

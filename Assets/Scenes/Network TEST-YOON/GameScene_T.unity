@@ -70323,7 +70323,7 @@ GameObject:
   - component: {fileID: 413286407}
   - component: {fileID: 413286408}
   m_Layer: 0
-  m_Name: MiniGameSpawner
+  m_Name: MissionSpawner
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -70355,8 +70355,8 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: db04dc72ccc9617499fba261fb83a9f2, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MiniGameSpawner
-  _MiniGameMachine:
+  m_EditorClassIdentifier: Assembly-CSharp::MissionSpawner
+  _MissionMachine:
   - {fileID: 11400000, guid: bbd01a100fd2f774d8c173722677d24e, type: 2}
   - {fileID: 11400000, guid: 377e536f487cba8418dbb1a015e07c87, type: 2}
   - {fileID: 11400000, guid: c1f5bdc53c81e56488b9de3dda512424, type: 2}
@@ -70369,11 +70369,11 @@ MonoBehaviour:
   _groundLayer:
     serializedVersion: 2
     m_Bits: 8
-  _maxAttemptsPerMiniGameMachine: 50
+  _maxAttemptsPerMissionMachine: 50
   _raycastHeight: 10
   _raycastDistance: 30
   _surfaceOffset: 0.04
-  _minimumMiniGameMachineDistance: 5
+  _minimumMissionMachineDistance: 5
 --- !u!1001 &414485336
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -251429,14 +251429,14 @@ Canvas:
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
-  m_OverrideSorting: 0
+  m_OverrideSorting: 1
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 5
+  m_SortingOrder: 100
   m_TargetDisplay: 0
 --- !u!1001 &1408518848
 PrefabInstance:
@@ -364844,7 +364844,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a33f66087e23c01428564e2e2dfa4c07, type: 2}
   - {fileID: 11400000, guid: 68345ec1c1e9ecb4691b1665178cbd12, type: 2}
   _spawnCluesAtRoundStart: 1
-  _miniGameRewardClues:
+  _missionRewardClues:
   - {fileID: 11400000, guid: d4c04607b5b327143b49925c8c0b3b6c, type: 2}
   - {fileID: 11400000, guid: 13b21f3065a8aac4b892ca81f7deda9a, type: 2}
   _regionController: {fileID: 361850273}
