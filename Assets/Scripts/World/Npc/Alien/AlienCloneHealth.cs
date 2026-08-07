@@ -1,5 +1,6 @@
 using System;
-using System.Collections;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -27,11 +28,11 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
 
     // 첫 번째 자식 Renderer에 피격 색상을 적용하고 NetworkAnimator로 사망 Trigger를 동기화한다.
     // MaterialPropertyBlock은 공유 Material을 직접 변경하지 않고 해당 Renderer에만 색상을 덮어쓴다.
-    // Coroutine 참조는 연속 피격 시 이전 피격 표시를 중단하기 위해 보관한다.
+    // 피격 표시 취소 객체는 연속 피격 시 이전 비동기 대기를 중단하기 위해 보관한다.
     private Renderer _renderer;
     private NetworkAnimator _networkAnimator;
     private MaterialPropertyBlock _materialPropertyBlock;
-    private Coroutine _damageFlashCoroutine;
+    private CancellationTokenSource _damageFlashCancellation;
 
     // 외부에서 변경 감지 구독
     public event Action<float, float> HpChanged;
@@ -66,6 +67,7 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
     public override void OnNetworkDespawn()
     {
         _currentHp.OnValueChanged -= HandleHpChanged;
+        CancelDamageFlash();
     }
 
     // 외부(외계생체 제압기 등)에서 데미지를 입힐 때 호출하는 공개 진입점. 서버에서만 호출 가능하다.
@@ -93,7 +95,7 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
     }
 
     // NetworkVariable의 HP 감소를 각 인스턴스에서 감지해 피격 색상을 재생한다.
-    // 연속 피격 시 기존 Coroutine을 취소하고 표시 시간을 처음부터 다시 계산한다.
+    // 연속 피격 시 기존 비동기 대기를 취소하고 표시 시간을 처음부터 다시 계산한다.
     private void HandleHpChanged(float previousValue, float newValue)
     {
         HpChanged?.Invoke(previousValue, newValue);
@@ -103,11 +105,7 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
             return;
         }
 
-        if (_damageFlashCoroutine != null)
-        {
-            StopCoroutine(_damageFlashCoroutine);
-            _damageFlashCoroutine = null;
-        }
+        CancelDamageFlash();
 
         if (newValue <= 0f)
         {
@@ -116,7 +114,9 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
             return;
         }
 
-        _damageFlashCoroutine = StartCoroutine(FlashDamage());
+        _damageFlashCancellation = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+
+        FlashDamageAsync(_damageFlashCancellation.Token).Forget();
     }
 
     // Animation Event 진입점: Falling Back Death 클립의 마지막 프레임에서 문자열로 직접 호출된다.
@@ -133,17 +133,35 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
     }
 
     // 각 네트워크 인스턴스에서 Renderer의 _BaseColor를 빨간색으로 덮어쓴다.
-    // Inspector의 _damageFlashDuration만큼 기다린 뒤 피격 표시를 제거한다.
-    private IEnumerator FlashDamage()
+    // Inspector의 _damageFlashDuration만큼 비동기로 기다린 뒤 피격 표시를 제거한다.
+    private async UniTask FlashDamageAsync(CancellationToken damageFlashToken)
     {
         _renderer.GetPropertyBlock(_materialPropertyBlock);
         _materialPropertyBlock.SetColor(BaseColorHash, Color.red);
         _renderer.SetPropertyBlock(_materialPropertyBlock);
 
-        yield return new WaitForSeconds(_damageFlashDuration);
+        bool wasCancelled = await UniTask.Delay(
+                TimeSpan.FromSeconds(_damageFlashDuration),
+                cancellationToken: damageFlashToken)
+            .SuppressCancellationThrow();
+
+        if (wasCancelled)
+        {
+            return;
+        }
 
         ClearDamageFlash();
-        _damageFlashCoroutine = null;
+
+        _damageFlashCancellation?.Dispose();
+        _damageFlashCancellation = null;
+    }
+
+    // 연속 피격이나 네트워크 디스폰 시 진행 중인 피격 표시 대기를 취소하고 정리한다.
+    private void CancelDamageFlash()
+    {
+        _damageFlashCancellation?.Cancel();
+        _damageFlashCancellation?.Dispose();
+        _damageFlashCancellation = null;
     }
 
     // Renderer의 MaterialPropertyBlock을 비워 원래 Material 표현으로 되돌린다.
