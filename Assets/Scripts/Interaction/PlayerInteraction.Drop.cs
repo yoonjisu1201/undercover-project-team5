@@ -21,12 +21,12 @@ public partial class PlayerInteraction
         Vector3 dropPosition = cameraTransform.position + cameraTransform.forward * 1f;
         Vector3 dropVelocity = cameraTransform.forward * 2f + Vector3.up;
 
-        RequestDropRpc(itemId, dropPosition, dropVelocity);
+        RequestDropRpc(itemId, _inventory.SelectedIndex, dropPosition, dropVelocity);
         TryCloseVisibleClue();
     }
 
     [Rpc(SendTo.Server)]
-    private void RequestDropRpc(string itemId, Vector3 dropPosition, Vector3 dropVelocity)
+    private void RequestDropRpc(string itemId, int selectedIndex, Vector3 dropPosition, Vector3 dropVelocity)
     {
         // 클라이언트 요청을 신뢰하지 않고 서버에서도 다시 검증한다.
         if (_inventory == null || _itemCatalog == null)
@@ -39,7 +39,7 @@ public partial class PlayerInteraction
             return;
         }
 
-        if (!_inventory.TryRemoveSelectedItemOnServer(itemId))
+        if (!_inventory.TryRemoveSelectedItemOnServer(itemId, selectedIndex))
         {
             return;
         }

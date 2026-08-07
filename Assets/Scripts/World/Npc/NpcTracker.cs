@@ -62,9 +62,9 @@ public class NpcTracker : NetworkBehaviour
             && itemId == _trackerItemId;
     }
 
-    public void RequestAttach()
+    public void RequestAttach(int selectedIndex)
     {
-        RequestAttachRpc();
+        RequestAttachRpc(selectedIndex);
     }
 
     // 서버가 라운드 전환/게임 재시작 시점에 이전 라운드에 부착됐던 추적기를 해제한다.
@@ -82,7 +82,7 @@ public class NpcTracker : NetworkBehaviour
     // 클라이언트 요청을 신뢰하지 않고, 서버에서 "정말 이 NPC 근처에 있는지 + 정말 추적기를 갖고 있는지"를
     // 다시 확인한 뒤에만 부착을 확정한다.
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestAttachRpc(RpcParams rpcParams = default)
+    private void RequestAttachRpc(int selectedIndex, RpcParams rpcParams = default)
     {
         // 이미 부착된 NPC에 중복 요청이 온 경우(예: 두 클라이언트가 동시에 시도) 여기서 막는다.
         if (!IsSpawned || _isTracked.Value)
@@ -101,7 +101,7 @@ public class NpcTracker : NetworkBehaviour
 
         // 2) 그 플레이어가 실제로 추적기를 갖고 있는지 서버 인벤토리에서 확인하고, 있으면 그 자리에서 소모(제거)한다.
         if (!NpcInteractionValidation.TryGetSenderInventory(NetworkManager, rpcParams.Receive.SenderClientId, out PlayerInventory inventory) ||
-            !inventory.TryRemoveSelectedItemOnServer(_trackerItemId))
+            !inventory.TryRemoveSelectedItemOnServer(_trackerItemId, selectedIndex))
         {
             Debug.LogWarning($"[NpcTracker] clientId {rpcParams.Receive.SenderClientId}의 추적기 소모에 실패해 '{name}' 부착을 거부합니다.");
             return;

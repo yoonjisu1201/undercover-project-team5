@@ -3,9 +3,10 @@ using UnityEngine;
 
 // 플레이어 상호작용의 코어: 참조/라이프사이클과 프레임별 입력 분배를 담당한다.
 // 세부 로직은 partial로 분리되어 있다.
-//   - PlayerInteraction.Targeting.cs : 화면 중심 조준으로 대상 감지·선택
-//   - PlayerInteraction.ItemUI.cs    : 아이템 획득 시 단서·가이드 북 UI 여닫기
-//   - PlayerInteraction.Drop.cs      : 선택한 아이템 드롭
+//   - PlayerInteraction.Targeting.cs            : 화면 중심 조준으로 대상 감지·선택
+//   - PlayerInteraction.ItemUI.cs               : 아이템 획득 시 단서·가이드 북 UI 여닫기
+//   - PlayerInteraction.Drop.cs                 : 선택한 아이템 드롭
+[RequireComponent(typeof(PlayerInventory), typeof(PlayerHealth))]
 public partial class PlayerInteraction : NetworkBehaviour
 {
     // 인스펙터에서 연결하는 참조와 상호작용 범위를 조절하는 값.
@@ -18,12 +19,26 @@ public partial class PlayerInteraction : NetworkBehaviour
     [SerializeField] private InventoryUI _inventoryUI;
     [SerializeField] private string _clueItemIdPrefix = "Clue";
     [SerializeField] private string _guideBookItemId = "GuideBook";
+    [SerializeField, Min(0.1f)] private float _useItemHoldDuration = 1.2f;
+    [SerializeField, Min(0.1f)] private float _reviveHoldDuration = 1.2f;
 
     private InteractableBase _currentTarget;  // 현재 상호작용 가능한 대상
 
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
     private PlayerHealth _health;
+    private IUsableItem _usableItem;
+    private HoldAction _activeHoldAction = HoldAction.None;
+    private float _holdTimer;
+    private float _holdDuration;
+    private InteractableBase _holdTarget;
+
+    private enum HoldAction
+    {
+        None,
+        UseItem,
+        Revive
+    }
 
     public CartBase CarryingCart { get; set; } // 플레이어가 끌고 있는 카트. null이면 카트를 끌고 있지 않다.
 
@@ -32,6 +47,17 @@ public partial class PlayerInteraction : NetworkBehaviour
         _actions = new CustomInputActions();
         _inventory = GetComponent<PlayerInventory>();
         _health = GetComponent<PlayerHealth>();
+        _usableItem = GetComponent<IUsableItem>();
+
+        if (_inventory == null)
+        {
+            Debug.LogError("[PlayerInteraction] PlayerInventory가 없어 상호작용 인벤토리 처리를 할 수 없습니다.", this);
+        }
+
+        if (_health == null)
+        {
+            Debug.LogError("[PlayerInteraction] PlayerHealth가 없어 다운 상태를 확인할 수 없습니다.", this);
+        }
     }
 
     private void OnEnable()
@@ -66,6 +92,11 @@ public partial class PlayerInteraction : NetworkBehaviour
         }
 
         _inventoryUI?.BindInventory(_inventory);
+        if (_usableItem is UsableItem usableItem)
+        {
+            usableItem.BindInventoryUI(_inventoryUI);
+        }
+
         if (_inventory != null)
         {
             _inventory.ItemAdded += HandleItemAdded;
@@ -92,18 +123,21 @@ public partial class PlayerInteraction : NetworkBehaviour
         // 쓰러지면 상호작용 불가능하게 + 혹시라도 카트와 상호작용중이었다면 카트 놓도록
         if (_health.IsDowned)
         {
+            CancelHoldAction();
             SetCurrentTarget(null);
             return;
         }
 
         if (CarryingCart != null)
         {
+            CancelHoldAction();
             UpdateCartInteraction();
             return;
         }
 
         if (GameplayUiMode.IsActive)
         {
+            CancelHoldAction();
             SetCurrentTarget(null);
 
             if (_actions.Player.Interact.WasPressedThisFrame())
@@ -119,6 +153,7 @@ public partial class PlayerInteraction : NetworkBehaviour
         }
 
         UpdateCurrentTarget();
+        UpdateHoldAction();
 
         // 조준 대상을 갱신한 뒤 상호작용과 드롭 입력을 처리한다.
         if (_actions.Player.Interact.WasPressedThisFrame()) // 상호작용 버튼이 눌렸을 때
@@ -127,6 +162,7 @@ public partial class PlayerInteraction : NetworkBehaviour
         }
         if (_actions.Player.Drop.WasPressedThisFrame()) // 드롭 버튼이 눌렸을 때
         {
+            CancelHoldAction();
             TryDropSelectedItem();
         }
     }
@@ -136,12 +172,35 @@ public partial class PlayerInteraction : NetworkBehaviour
         // 조준 중인 대상이 있으면 단서 UI보다 필드 상호작용을 우선한다.
         if (_currentTarget != null)
         {
-            TryInteract();
+            if (_currentTarget is PlayerReviveInteractable)
+            {
+                BeginHoldAction(HoldAction.Revive, _reviveHoldDuration, _currentTarget);
+            }
+            else
+            {
+                TryInteract();
+            }
+
             return;
         }
 
         if (TryCloseVisibleClue())
         {
+            return;
+        }
+
+        // 선택한 사용 아이템이 E 입력을 처리했다면 단서 UI를 열지 않는다.
+        if (_usableItem != null && _usableItem.TryGetSelectedItemUse(out string message, out bool requiresHold))
+        {
+            if (requiresHold)
+            {
+                BeginHoldAction(HoldAction.UseItem, _useItemHoldDuration);
+            }
+            else
+            {
+                _inventoryUI?.ShowTemporaryPrompt(message);
+            }
+
             return;
         }
 
@@ -159,5 +218,87 @@ public partial class PlayerInteraction : NetworkBehaviour
         IInteractable target = _currentTarget;
         SetCurrentTarget(null);
         target.Interact(gameObject);
+    }
+
+    private void BeginHoldAction(HoldAction action, float duration, InteractableBase target = null)
+    {
+        _activeHoldAction = action;
+        _holdTimer = 0f;
+        _holdDuration = duration;
+        _holdTarget = target;
+        _inventoryUI?.SetUseHoldProgress(0f, true);
+    }
+
+    private void UpdateHoldAction()
+    {
+        if (_activeHoldAction == HoldAction.None)
+        {
+            return;
+        }
+
+        if (!_actions.Player.Interact.IsPressed() || !IsHoldActionStillValid())
+        {
+            CancelHoldAction();
+            return;
+        }
+
+        _holdTimer += Time.deltaTime;
+        float progress = Mathf.Clamp01(_holdTimer / _holdDuration);
+        _inventoryUI?.SetUseHoldProgress(progress, true);
+
+        if (progress < 1f)
+        {
+            return;
+        }
+
+        CompleteHoldAction();
+    }
+
+    private bool IsHoldActionStillValid()
+    {
+        return _activeHoldAction switch
+        {
+            HoldAction.UseItem => _currentTarget == null,
+            HoldAction.Revive => _holdTarget != null && ReferenceEquals(_currentTarget, _holdTarget) && _holdTarget.CanInteract(gameObject),
+            _ => false
+        };
+    }
+
+    private void CompleteHoldAction()
+    {
+        HoldAction completedAction = _activeHoldAction;
+        InteractableBase completedTarget = _holdTarget;
+        CancelHoldAction();
+
+        switch (completedAction)
+        {
+            case HoldAction.UseItem:
+                if (_usableItem != null && _usableItem.TryCompleteSelectedItemUse(out string message))
+                {
+                    _inventoryUI?.ShowTemporaryPrompt(message);
+                }
+                break;
+
+            case HoldAction.Revive:
+                if (completedTarget != null && completedTarget.CanInteract(gameObject))
+                {
+                    completedTarget.Interact(gameObject);
+                }
+                break;
+        }
+    }
+
+    private void CancelHoldAction()
+    {
+        if (_activeHoldAction == HoldAction.None)
+        {
+            return;
+        }
+
+        _activeHoldAction = HoldAction.None;
+        _holdTimer = 0f;
+        _holdDuration = 0f;
+        _holdTarget = null;
+        _inventoryUI?.SetUseHoldProgress(0f, false);
     }
 }

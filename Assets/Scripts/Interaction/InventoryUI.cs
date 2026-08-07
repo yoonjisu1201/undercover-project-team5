@@ -11,12 +11,14 @@ public class InventoryUI : MonoBehaviour
     [SerializeField] private RectTransform _selectionOutline;
     [SerializeField] private ItemCatalog _itemCatalog;
     [SerializeField] private TMP_Text _interactionPromptText;
-    [SerializeField, Min(0f)] private float _selectedItemPromptDuration = 3f;
+    [SerializeField, Min(0f)] private float _selectedItemPromptDuration = 1f;
+    [SerializeField] private Image _useHoldProgressImage;
     private GameObject[] _slots;    // 인벤토리 슬롯 UI 오브젝트 배열
 
     private CustomInputActions _actions;
     private Coroutine _selectedItemPromptRoutine;
     private string _interactionText;
+    private Sprite _useHoldProgressSprite;
 
     private void Awake()
     {
@@ -35,6 +37,7 @@ public class InventoryUI : MonoBehaviour
         }
 
         SetInteractionPrompt(null);
+        SetUseHoldProgress(0f, false);
 
         for (int i = 0; i < _slots.Length; i++)
         {
@@ -192,12 +195,102 @@ public class InventoryUI : MonoBehaviour
             return;
         }
 
+        ShowTemporaryPrompt(displayName);
+    }
+
+    public void ShowTemporaryPrompt(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
         if (_selectedItemPromptRoutine != null)
         {
             StopCoroutine(_selectedItemPromptRoutine);
         }
 
-        _selectedItemPromptRoutine = StartCoroutine(ShowSelectedItemPrompt(displayName));
+        _selectedItemPromptRoutine = StartCoroutine(ShowSelectedItemPrompt(message));
+    }
+
+    public void SetUseHoldProgress(float progress, bool visible)
+    {
+        EnsureUseHoldProgressImage();
+
+        if (_useHoldProgressImage == null)
+        {
+            return;
+        }
+
+        _useHoldProgressImage.fillAmount = Mathf.Clamp01(progress);
+        _useHoldProgressImage.gameObject.SetActive(visible);
+    }
+
+    private void EnsureUseHoldProgressImage()
+    {
+        if (_useHoldProgressImage != null)
+        {
+            return;
+        }
+
+        GameObject progressObject = new("UseHoldProgress", typeof(RectTransform), typeof(Image));
+        progressObject.transform.SetParent(transform, false);
+
+        RectTransform rectTransform = (RectTransform)progressObject.transform;
+        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        rectTransform.anchoredPosition = Vector2.zero;
+        rectTransform.sizeDelta = new Vector2(72f, 72f);
+
+        _useHoldProgressImage = progressObject.GetComponent<Image>();
+        _useHoldProgressImage.sprite = GetUseHoldProgressSprite();
+        _useHoldProgressImage.color = new Color(1f, 1f, 1f, 0.45f);
+        _useHoldProgressImage.raycastTarget = false;
+        _useHoldProgressImage.type = Image.Type.Filled;
+        _useHoldProgressImage.fillMethod = Image.FillMethod.Radial360;
+        _useHoldProgressImage.fillOrigin = (int)Image.Origin360.Top;
+        _useHoldProgressImage.fillClockwise = true;
+        _useHoldProgressImage.fillAmount = 0f;
+        _useHoldProgressImage.gameObject.SetActive(false);
+    }
+
+    private Sprite GetUseHoldProgressSprite()
+    {
+        if (_useHoldProgressSprite != null)
+        {
+            return _useHoldProgressSprite;
+        }
+
+        const int textureSize = 64;
+        const float radius = textureSize * 0.5f - 1f;
+        Vector2 center = new(textureSize * 0.5f, textureSize * 0.5f);
+        Texture2D texture = new(textureSize, textureSize, TextureFormat.RGBA32, false)
+        {
+            name = "UseHoldProgressCircle"
+        };
+
+        Color32[] pixels = new Color32[textureSize * textureSize];
+        for (int y = 0; y < textureSize; y++)
+        {
+            for (int x = 0; x < textureSize; x++)
+            {
+                float distance = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), center);
+                pixels[y * textureSize + x] = distance <= radius
+                    ? new Color32(255, 255, 255, 255)
+                    : new Color32(255, 255, 255, 0);
+            }
+        }
+
+        texture.SetPixels32(pixels);
+        texture.Apply();
+
+        _useHoldProgressSprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, textureSize, textureSize),
+            new Vector2(0.5f, 0.5f),
+            textureSize);
+        return _useHoldProgressSprite;
     }
 
     private IEnumerator ShowSelectedItemPrompt(string message)

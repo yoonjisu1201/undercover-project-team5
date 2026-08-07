@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 // 아이템을 주웠을 때(또는 선택했을 때) 해당 아이템의 UI를 여닫는다.
@@ -41,7 +42,7 @@ public partial class PlayerInteraction
     {
         clueIndex = -1;
 
-        if (string.IsNullOrWhiteSpace(itemId) || !itemId.StartsWith(_clueItemIdPrefix))
+        if (string.IsNullOrWhiteSpace(itemId) || !itemId.StartsWith(_clueItemIdPrefix, StringComparison.Ordinal))
         {
             return false;
         }

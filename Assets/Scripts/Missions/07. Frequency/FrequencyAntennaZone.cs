@@ -30,24 +30,23 @@ public sealed class FrequencyAntennaZone : MonoBehaviour
 
         // 콜라이더가 플레이어 루트가 아닌 자식에 붙어 있을 수 있으므로 부모까지 올라가며 찾는다.
         PlayerInventory inventory = other.GetComponentInParent<PlayerInventory>();
-        if (inventory == null || !HasAntenna(inventory))
+        if (inventory == null || !HasSelectedAntenna(inventory))
         {
             return;
         }
 
-        _syncState.TryInstallAntennaOnServer(inventory, transform.position);
+        _syncState.TryInstallAntennaOnServer(inventory, inventory.SelectedIndex, transform.position);
     }
 
-    private bool HasAntenna(PlayerInventory inventory)
+    private bool HasSelectedAntenna(PlayerInventory inventory)
     {
-        foreach (InventorySlot slot in inventory.Slots)
+        int selectedIndex = inventory.SelectedIndex;
+        if (selectedIndex < 0 || selectedIndex >= inventory.Slots.Length)
         {
-            if (slot != null && slot.ItemId == _syncState.AntennaItemId)
-            {
-                return true;
-            }
+            return false;
         }
 
-        return false;
+        InventorySlot selectedSlot = inventory.Slots[selectedIndex];
+        return selectedSlot != null && selectedSlot.ItemId == _syncState.AntennaItemId;
     }
 }

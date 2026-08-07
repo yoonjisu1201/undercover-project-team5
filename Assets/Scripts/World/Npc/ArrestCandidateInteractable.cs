@@ -50,7 +50,8 @@ public class ArrestCandidateInteractable : InteractableBase
         {
             if (tracker.CanAttach(interactor))
             {
-                tracker.RequestAttach();
+                int selectedIndex = interactor.TryGetComponent(out PlayerInventory inventory) ? inventory.SelectedIndex : -1;
+                tracker.RequestAttach(selectedIndex);
             }
             return;
         }

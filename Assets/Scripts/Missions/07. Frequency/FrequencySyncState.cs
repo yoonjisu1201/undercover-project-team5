@@ -502,14 +502,14 @@ public sealed class FrequencySyncState : NetworkBehaviour
 
     // 존에 들어온 소지자의 안테나를 소모하고 그 자리에 설치한다.
     // 설치한 안테나는 다시 집을 수 없으므로, 좌표 하나당 안테나 하나가 필요하다.
-    public void TryInstallAntennaOnServer(PlayerInventory inventory, Vector3 position)
+    public void TryInstallAntennaOnServer(PlayerInventory inventory, int selectedIndex, Vector3 position)
     {
         if (!IsServer || _antennaPlaced.Value || inventory == null)
         {
             return;
         }
 
-        if (!inventory.TryRemoveSelectedItemOnServer(_antennaItemId))
+        if (!inventory.TryRemoveSelectedItemOnServer(_antennaItemId, selectedIndex))
         {
             return;
         }
@@ -530,6 +530,13 @@ public sealed class FrequencySyncState : NetworkBehaviour
 
         _installedMask.Value |= 1 << _stageIndex.Value;
         _antennaPlaced.Value = true;
+        ShowAntennaInstalledMessageOwnerRpc(RpcTarget.Single(inventory.OwnerClientId, RpcTargetUse.Temp));
+    }
+
+    [Rpc(SendTo.SpecifiedInParams)]
+    private void ShowAntennaInstalledMessageOwnerRpc(RpcParams rpcParams = default)
+    {
+        FindFirstObjectByType<InventoryUI>(FindObjectsInactive.Include)?.ShowTemporaryPrompt("안테나 설치 완료");
     }
 
     // 이 기계는 서버 소유지만 RPC를 호출하는 쪽은 각 화면을 조작하는 클라이언트다. Breaker와 같은 이유로 Everyone으로 열어둔다.
