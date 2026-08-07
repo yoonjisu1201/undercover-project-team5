@@ -26,6 +26,7 @@ public class AlienCloneController : NetworkBehaviour
     private readonly List<PlayerHealth> _playersInRange = new();
     // 디버그 메뉴에서 범인과 함께 정지시켰을 때, 추적·배회를 모두 멈춘다.
     private bool _isFrozen;
+    private bool _isDead;
 
     // AlienCloneAttack이 사거리 판정에 쓸 수 있도록 현재 타겟을 읽기 전용으로 노출한다.
     public PlayerHealth CurrentTarget => _currentTarget;
@@ -50,6 +51,8 @@ public class AlienCloneController : NetworkBehaviour
     // 이동을 멈추거나 다시 풀어준다. 서버에서만 호출된다.
     public void SetFrozen(bool frozen)
     {
+        if (_isDead) return;
+
         _isFrozen = frozen;
 
         if (_agent == null || !_agent.isOnNavMesh) return;
@@ -62,11 +65,29 @@ public class AlienCloneController : NetworkBehaviour
         _agent.isStopped = frozen;
     }
 
+    // 사망 상태의 이동 종료 정책은 컨트롤러가 단일하게 소유한다.
+    public void StopForDeath()
+    {
+        _isDead = true;
+        _currentTarget = null;
+        _playersInRange.Clear();
+
+        if (_animator != null)
+        {
+            _animator.SetBool(IsRunningHash, false);
+        }
+
+        if (_agent == null || !_agent.isOnNavMesh) return;
+
+        _agent.ResetPath();
+        _agent.isStopped = true;
+    }
+
     // 서버에서만 매 프레임 실행되는 AI 루프. 타겟이 있으면 추적하고, 없으면 배회한다.
     private void Update()
     {
         // ① 실행 자격 체크: 서버가 아니거나, 아직 스폰 안 됐거나, NavMesh 위에 없으면 아무것도 안 함
-        if (!IsServer || !IsSpawned || !_agent.isOnNavMesh) return;
+        if (!IsServer || !IsSpawned || _isDead || _agent == null || !_agent.isOnNavMesh) return;
 
         // Agent가 정지되지 않았고 유효한 경로를 따라 목적지로 이동 중일 때만 Run 상태로 전환한다.
         // 공격으로 Agent가 정지되거나 목적지에 도착하면 false가 되어 Idle 상태로 복귀한다.
@@ -75,7 +96,10 @@ public class AlienCloneController : NetworkBehaviour
             _agent.hasPath &&
             _agent.remainingDistance > _agent.stoppingDistance;
 
-        _animator.SetBool(IsRunningHash, isRunning);
+        if (_animator != null)
+        {
+            _animator.SetBool(IsRunningHash, isRunning);
+        }
 
         // ①-1 정지 상태면 목적지를 새로 잡지 않는다 (디버그 메뉴의 범인 정지와 함께 걸린 상태)
         if (_isFrozen) return;
@@ -115,7 +139,7 @@ public class AlienCloneController : NetworkBehaviour
     // 감지 범위 안으로 들어온 플레이어를 추적 후보 목록에 추가한다.
     private void OnTriggerEnter(Collider other)
     {
-        if (!IsServer) return;
+        if (!IsServer || _isDead) return;
 
         if (other.TryGetComponent(out PlayerHealth playerHealth) && !_playersInRange.Contains(playerHealth))
         {
@@ -126,7 +150,7 @@ public class AlienCloneController : NetworkBehaviour
     // 감지 범위를 벗어난 플레이어를 목록에서 빼고, 현재 타겟이었다면 타겟도 해제한다.
     private void OnTriggerExit(Collider other)
     {
-        if (!IsServer) return;
+        if (!IsServer || _isDead) return;
 
         if (!other.TryGetComponent(out PlayerHealth playerHealth)) return;
 

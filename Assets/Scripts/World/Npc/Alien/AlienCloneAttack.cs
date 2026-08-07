@@ -7,6 +7,9 @@ using UnityEngine.AI;
 // 현재 타겟이 사거리 안에 들어오면 이동을 멈추고 공격 애니메이션을 실행한다.
 // 실제 데미지는 공격 클립의 Animation Event가 활성화한 오른손 HitBox 충돌로 적용된다.
 [RequireComponent(typeof(AlienCloneController))]
+[RequireComponent(typeof(AlienCloneHealth))]
+[RequireComponent(typeof(NavMeshAgent))]
+[RequireComponent(typeof(NetworkAnimator))]
 public class AlienCloneAttack : NetworkBehaviour
 {
     // Animator 파라미터: AlienAnimator의 Attack Trigger와 이름이 일치해야 한다.
@@ -25,7 +28,8 @@ public class AlienCloneAttack : NetworkBehaviour
     private NavMeshAgent _agent;
     private NetworkAnimator _networkAnimator;
     private bool _isAttacking;
-    private float _cooldownTimer;
+    private float _cooldownTimer;   // 공격 쿨다운 타이머
+    private bool _isDiedSubscribed; // 서버에서만 죽었는지 확인하는 변수
 
     // Alien_main 프리팹의 동일한 루트 GameObject에 있는 컴포넌트를 가져온다.
     // 오른손 자식 오브젝트의 _attackHitbox만 Inspector에서 직접 연결한다.
@@ -35,25 +39,42 @@ public class AlienCloneAttack : NetworkBehaviour
         _health = GetComponent<AlienCloneHealth>();
         _agent = GetComponent<NavMeshAgent>();
         _networkAnimator = GetComponent<NetworkAnimator>();
+
+        if (_attackHitbox == null)
+        {
+            _attackHitbox = GetComponentInChildren<AlienAttackHitbox>(true);
+        }
     }
 
-    // 네트워크 스폰 후 체력의 Died 이벤트를 구독한다.
+    // 서버에서만 체력의 Died 이벤트를 구독한다.
     // HP가 0이 되면 공격 애니메이션 진행 여부와 관계없이 HandleDied가 먼저 실행된다.
     public override void OnNetworkSpawn()
     {
+        if (!IsServer || _health == null)
+        {
+            return;
+        }
+
         _health.Died += HandleDied;
+        _isDiedSubscribed = true;
     }
 
     // 네트워크 디스폰 시 Died 이벤트 구독을 해제해 제거된 개체에 콜백이 남지 않게 한다.
     public override void OnNetworkDespawn()
     {
+        if (!_isDiedSubscribed || _health == null)
+        {
+            return;
+        }
+
         _health.Died -= HandleDied;
+        _isDiedSubscribed = false;
     }
 
     // 서버에서 살아있는 외계인만 현재 타겟, 공격 상태, 쿨다운, 사거리를 순서대로 검사한다.
     private void Update()
     {
-        if (!IsServer || !IsSpawned || _health.IsDowned)
+        if (!IsServer || !IsSpawned || _health == null || _health.IsDowned || _controller == null)
         {
             return;
         }
@@ -71,15 +92,24 @@ public class AlienCloneAttack : NetworkBehaviour
             return;
         }
 
-        float distance = Vector3.Distance(transform.position, target.transform.position);
-        if (distance > _attackRange)
+        if (!IsTargetInAttackRange(target.transform.position))
         {
+            return;
+        }
+
+        if (_networkAnimator == null)
+        {
+            Debug.LogWarning("[AlienCloneAttack] NetworkAnimator가 없어 공격 애니메이션을 실행할 수 없습니다.", this);
             return;
         }
 
         // 사거리 안에 들어오면 이동을 멈춘 뒤 NetworkAnimator로 Attack Trigger를 동기화한다.
         _isAttacking = true;
-        _agent.isStopped = true;
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.isStopped = true;
+        }
+
         _networkAnimator.SetTrigger(AttackHash);
         _cooldownTimer = _attackCooldown;
 
@@ -96,6 +126,12 @@ public class AlienCloneAttack : NetworkBehaviour
             return;
         }
 
+        if (_attackHitbox == null)
+        {
+            Debug.LogWarning("[AlienCloneAttack] 공격 Hitbox가 연결되지 않아 타격 판정을 시작할 수 없습니다.", this);
+            return;
+        }
+
         _attackHitbox.BeginSwing();
     }
 
@@ -108,29 +144,45 @@ public class AlienCloneAttack : NetworkBehaviour
             return;
         }
 
-        _attackHitbox.EndSwing();
+        _attackHitbox?.EndSwing();
     }
 
     // Animation Event 진입점: Right Hook 클립의 마지막 구간에서 문자열로 직접 호출된다.
     // 공격 상태를 해제하고, 살아있는 경우에만 NavMeshAgent 이동을 다시 허용한다.
     public void CompleteAttack()
     {
-        if (!IsServer || _health.IsDowned)
+        if (!IsServer || _health == null || _health.IsDowned)
         {
             return;
         }
 
         _isAttacking = false;
-        _agent.isStopped = false;
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.isStopped = false;
+        }
     }
 
     // AlienCloneHealth.Died 이벤트 처리.
     // 사망 애니메이션이 시작되기 전에 진행 중인 공격 판정과 이동·추적을 모두 중단한다.
     private void HandleDied()
     {
+        if (!IsServer)
+        {
+            return;
+        }
+
         _isAttacking = false;
-        _attackHitbox.EndSwing();
-        _agent.isStopped = true;
-        _controller.enabled = false;
+        _attackHitbox?.EndSwing();
+        _controller?.StopForDeath();
+    }
+
+    // NavMeshAgent가 추적하는 평면과 동일하게 높이 차이를 제외한 XZ 거리로 사거리를 판단한다.
+    private bool IsTargetInAttackRange(Vector3 targetPosition)
+    {
+        Vector3 offset = targetPosition - transform.position;
+        offset.y = 0f;
+
+        return offset.sqrMagnitude <= _attackRange * _attackRange;
     }
 }
