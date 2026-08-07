@@ -1,13 +1,16 @@
 using Unity.Netcode;
+using UnityEngine;
 
 // 로컬 플레이어의 디버그 인벤토리 명령을 처리합니다.
 public sealed partial class DebugMenuController
 {
+    private const int DebugShopCreditAmount = 10000;
     private const string BeaconTrackerItemId = "BeaconTracker";
     private const string AlienCaptureToolItemId = "AlienCaptureGun";
     private const string AlienShotgunItemId = "AlienShotgun";
 
     public void OnClearInventoryClick() => RequestInventoryCommand(null, "인벤토리를 비웠습니다.");
+    public void OnAddShopCreditsClick() => RequestShopCreditsCommand();
     public void OnAddBeaconTrackerClick() =>
         RequestInventoryCommand(BeaconTrackerItemId, "위치추적기 1개 추가를 요청했습니다.");
     public void OnAddAlienCaptureToolClick() =>
@@ -48,5 +51,30 @@ public sealed partial class DebugMenuController
         }
 
         player.PlayerInventory.TryAddItemOnServer(itemId);
+    }
+
+    private void RequestShopCreditsCommand()
+    {
+        if (!IsSpawned)
+        {
+            ShowStatus("네트워크 연결 후 사용할 수 있습니다.");
+            return;
+        }
+
+        RequestShopCreditsCommandRpc();
+        ShowStatus($"상점 돈 {DebugShopCreditAmount:N0} 추가를 요청했습니다.");
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestShopCreditsCommandRpc()
+    {
+        ShopManager shopManager = FindFirstObjectByType<ShopManager>(FindObjectsInactive.Include);
+        if (shopManager == null)
+        {
+            Debug.LogWarning("[DebugMenu] ShopManager를 찾지 못했습니다.");
+            return;
+        }
+
+        shopManager.AddCreditsOnServer(DebugShopCreditAmount);
     }
 }
