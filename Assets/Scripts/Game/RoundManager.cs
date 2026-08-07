@@ -15,6 +15,13 @@ public enum RoundState
     Success      // 게임 성공 (마지막 라운드 검거 성공)
 }
 
+public enum RoundFailReason
+{
+    TimeOver,          // 라운드 제한 시간 초과
+    AllPlayersDowned,  // 플레이어 전원 체력 소진
+    VoteExhausted      // 검거 투표 횟수 소진
+}
+
 [System.Serializable]
 public class RoundConfig
 {
@@ -122,6 +129,9 @@ public class RoundManager : NetworkBehaviour
     // 결과 패널에서 "Round 클리어 시점의 Round 남은 시간"을 표시하기 위한 값
     public float RoundRemainingTimeAtClear => _roundRemainingTimeAtClear.Value;
     public bool IsDebugTimeStopped => _debugTimeStopped.Value;
+
+    // 결과 패널이 사유별 문구를 고를 때 읽는다. 상태 전환 직전에 RPC로 갱신된다.
+    public RoundFailReason LastFailReason { get; private set; }
 
     public event Action<RoundState> OnRoundStateChanged; // 라운드 상태가 바뀔 때마다 전달 (늦참 클라이언트는 스폰 시 현재 상태로 1회 발동)
     public event Action<RoundState> OnRoundResult; // 결과 패널을 띄워야 하는 상태(RoundClear/Fail/Success) 진입 시 발동
@@ -256,7 +266,7 @@ public class RoundManager : NetworkBehaviour
         switch (_currentState.Value)
         {
             case RoundState.InRound:
-                _currentState.Value = RoundState.Fail; // 시간 초과로 실패 처리
+                SetFail(RoundFailReason.TimeOver); // 시간 초과로 실패 처리
                 break;
             case RoundState.RoundClear:
                 if (!_isStartingNextRound)
@@ -415,13 +425,44 @@ public class RoundManager : NetworkBehaviour
         OnRoundStarted?.Invoke(roundIndex);
     }
 
+    // 실패 사유를 모든 클라이언트에 먼저 알린 뒤 실패 상태로 전환한다.
+    private void SetFail(RoundFailReason reason)
+    {
+        AnnounceFailRpc(reason);
+        _currentState.Value = RoundState.Fail;
+    }
+
+    [Rpc(SendTo.ClientsAndHost)]
+    private void AnnounceFailRpc(RoundFailReason reason)
+    {
+        LastFailReason = reason;
+    }
+
     // 검거 투표 횟수를 모두 소진했는데 마지막 결과도 성공(가결+범인)이 아니면 결과 대기 없이 즉시 실패 처리한다.
     public void ForceFail()
     {
         if (!IsServer) return;
         if (_currentState.Value != RoundState.InRound) return;
 
-        _currentState.Value = RoundState.Fail;
+        SetFail(RoundFailReason.VoteExhausted);
+    }
+
+    // 살아있는 플레이어가 한 명도 없으면(전원 다운) 게임을 실패 처리한다.
+    // 플레이어가 다운될 때마다 서버에서 호출된다.
+    public void ReportPlayerDowned()
+    {
+        if (!IsServer) return;
+        if (_currentState.Value != RoundState.InRound) return;
+
+        PlayerHealth[] playerHealths = FindObjectsByType<PlayerHealth>(FindObjectsSortMode.None);
+        if (playerHealths.Length == 0) return;
+
+        foreach (PlayerHealth playerHealth in playerHealths)
+        {
+            if (!playerHealth.IsDowned) return;
+        }
+
+        SetFail(RoundFailReason.AllPlayersDowned);
     }
 
     // 라운드 전환/게임 재시작 시 전체 플레이어 인벤토리를 아이템 종류 무관하게 초기화한다.

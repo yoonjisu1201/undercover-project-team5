@@ -91,7 +91,12 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
                 ShowPanel();
                 break;
             case RoundState.Fail:
-                _resultText.text = "검거 실패";
+                _resultText.text = RoundManager.Instance.LastFailReason switch
+                {
+                    RoundFailReason.AllPlayersDowned => "검거 실패 - 전원 체력 소진",
+                    RoundFailReason.VoteExhausted => "검거 실패 - 검거 투표 횟수 소진",
+                    _ => "검거 실패 - 시간 초과",
+                };
                 _confirmButton.gameObject.SetActive(true);
                 _nextRoundText.SetActive(false);
                 ShowRoundResultStats(state);
