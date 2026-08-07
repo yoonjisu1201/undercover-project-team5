@@ -43,8 +43,35 @@ public class UsableItem : NetworkBehaviour, IUsableItem
         _inventoryUI = inventoryUI;
     }
 
-    // 선택한 아이템의 사용 입력을 처리한다.
-    public bool TryHandleSelectedItemUse(out string message)
+    // 선택한 아이템이 사용 입력을 처리할 수 있는지 확인한다.
+    public bool TryGetSelectedItemUse(out string message, out bool requiresHold)
+    {
+        message = null;
+        requiresHold = false;
+
+        if (!_inventory.TryGetSelectedItem(out string itemId))
+        {
+            return false;
+        }
+
+        switch (itemId)
+        {
+            case EnergyBarItemId:
+                if (_health.CurrentHp >= _health.MaxHp)
+                {
+                    message = "HP가 가득 차 있습니다.";
+                    return true;
+                }
+
+                requiresHold = true;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    public bool TryCompleteSelectedItemUse(out string message)
     {
         message = null;
 

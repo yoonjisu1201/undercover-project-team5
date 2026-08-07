@@ -1,4 +1,5 @@
 public interface IUsableItem
 {
-    bool TryHandleSelectedItemUse(out string message);
+    bool TryGetSelectedItemUse(out string message, out bool requiresHold);
+    bool TryCompleteSelectedItemUse(out string message);
 }
