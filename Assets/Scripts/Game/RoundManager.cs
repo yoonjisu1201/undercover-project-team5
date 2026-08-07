@@ -48,8 +48,8 @@ public class RoundManager : NetworkBehaviour
     [Header("본부 검거도구 스폰 담당 (로딩 게이트 대상 아님)")]
     [SerializeField] private HqItemSpawner _captureGunSpawner;
 
-    [Header("본부 위치추적기 스폰 담당 (로딩 게이트 대상 아님)")]
-    [SerializeField] private HqItemSpawner _trackerSpawner;
+    [Header("본부 에일리언 샷건 스폰 담당 (로딩 게이트 대상 아님)")]
+    [SerializeField] private HqItemSpawner _shotgunSpawner;
 
     [Header("게임 시작하면서 몽타주 데이터 로딩하기 위함")]
     [Header("게임 시작하면서 몽타주 의류 데이터 로딩하기 위함")]
@@ -292,7 +292,7 @@ public class RoundManager : NetworkBehaviour
             FindFirstObjectByType<BatterySpawner>()?.RespawnBatteries();
             _clueSpawner?.SpawnForNextRound();
             _captureGunSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 검거도구 재생성
-            _trackerSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 위치추적기 재생성
+            _shotgunSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 에일리언 샷건 재생성
             _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[_currentRoundIndex.Value].Duration;
             _currentState.Value = RoundState.InRound;
             AnnounceRoundStartRpc(_currentRoundIndex.Value);
