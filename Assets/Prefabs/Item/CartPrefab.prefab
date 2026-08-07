@@ -299,8 +299,7 @@ GameObject:
   - component: {fileID: 5827675772246220730}
   - component: {fileID: 7011115248506193253}
   - component: {fileID: 7892911641513623456}
-  - component: {fileID: 8251208573329680784}
-  - component: {fileID: 7057900858514209966}
+  - component: {fileID: 2207894735463301721}
   m_Layer: 0
   m_Name: CartPrefab
   m_TagString: Untagged
@@ -445,6 +444,9 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _outlineFadeDuration: 0.15
   _holdDistance: 1.15
+  _wallCheckPadding: 0.05
+  _maxStepHeight: 0.3
+  _groundClearance: 0.1
   LeftHandle: {fileID: 7948865405504495091}
   RightHandle: {fileID: 743495312648251562}
   _holdingScaleMultiplier: 0.7
@@ -472,7 +474,7 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.6664648, y: 1.4220016, z: 1.32098}
   m_Center: {x: -0.0021019578, y: 0.0038264096, z: 0.009352028}
---- !u!114 &8251208573329680784
+--- !u!114 &2207894735463301721
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -505,9 +507,9 @@ MonoBehaviour:
   SyncRotAngleX: 1
   SyncRotAngleY: 1
   SyncRotAngleZ: 1
-  SyncScaleX: 0
-  SyncScaleY: 0
-  SyncScaleZ: 0
+  SyncScaleX: 1
+  SyncScaleY: 1
+  SyncScaleZ: 1
   PositionThreshold: 0.001
   RotAngleThreshold: 0.01
   ScaleThreshold: 0.01
@@ -518,23 +520,6 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!114 &7057900858514209966
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1693577533377353510}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f6c0be61502bb534f922ebb746851216, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkRigidbody
-  ShowTopMostFoldoutHeaderGroup: 1
-  NetworkRigidbodyBaseExpanded: 0
-  UseRigidBodyForMotion: 1
-  AutoUpdateKinematicState: 1
-  AutoSetKinematicOnDespawn: 1
 --- !u!1 &3114103404606099503
 GameObject:
   m_ObjectHideFlags: 0
