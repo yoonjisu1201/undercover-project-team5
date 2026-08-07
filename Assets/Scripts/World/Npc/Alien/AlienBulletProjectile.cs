@@ -11,6 +11,7 @@ public class AlienBulletProjectile : NetworkBehaviour
     private Vector3 _direction;
     private float _remainingRange;
     private float _damage;
+    private bool _isDespawning;
 
     // 서버가 스폰 직후 호출해 이동 방향/사거리/데미지를 설정한다.
     public void Initialize(Vector3 direction, float range, float damage)
@@ -39,7 +40,7 @@ public class AlienBulletProjectile : NetworkBehaviour
 
         if (_remainingRange <= 0f)
         {
-            NetworkObject.Despawn(destroy: true);
+            SafeDespawn();
         }
     }
 
@@ -51,6 +52,24 @@ public class AlienBulletProjectile : NetworkBehaviour
             alienHealth.TakeDamage(_damage);
         }
 
-        NetworkObject.Despawn(destroy: true);
+        SafeDespawn();
+    }
+
+    private void SafeDespawn()
+    {
+        if (_isDespawning)
+        {
+            return;
+        }
+
+        _isDespawning = true;
+
+        if (TryGetComponent(out NetworkObject networkObject) && networkObject.IsSpawned)
+        {
+            networkObject.Despawn(destroy: true);
+            return;
+        }
+
+        Destroy(gameObject);
     }
 }
