@@ -293,7 +293,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcSpawner
   _npcPrefab: {fileID: 5832881131759200260, guid: 50be4f7ee5cdb0a4f8f9358d4adb3be8, type: 3}
-  _spawnCount: 150
   _spawnBatchSize: 10
   _regionController: {fileID: 361850273}
   _spawnCoordinator: {fileID: 361850274}
@@ -216255,12 +216254,15 @@ MonoBehaviour:
   - Duration: 900
     ClearWaitDuration: 5
     MontageShareCooldown: 20
+    NpcSpawnCount: 20
   - Duration: 750
     ClearWaitDuration: 5
     MontageShareCooldown: 20
+    NpcSpawnCount: 30
   - Duration: 600
     ClearWaitDuration: 5
     MontageShareCooldown: 20
+    NpcSpawnCount: 40
   _waitingRoomSceneName: WaitingRoom
   _npcSpawner: {fileID: 1946818}
   _clueSpawner: {fileID: 2064882557}

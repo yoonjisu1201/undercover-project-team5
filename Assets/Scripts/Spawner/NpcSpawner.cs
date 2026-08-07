@@ -10,7 +10,6 @@ public sealed class NpcSpawner : MonoBehaviour, IRoundSpawner
 {
     [Header("Spawn Settings")]
     [SerializeField] private NpcStateMachine _npcPrefab;
-    [SerializeField, Min(1)] private int _spawnCount = 150;
     // 몇 마리 스폰할 때마다 한 프레임씩 양보할지 (로딩 패널이 화면에 그려질 틈을 주기 위함).
     [SerializeField, Min(1)] private int _spawnBatchSize = 10;
 
@@ -27,8 +26,8 @@ public sealed class NpcSpawner : MonoBehaviour, IRoundSpawner
         ReservePosition = false
     };
 
-    // 스폰 목표 수. 다른 스크립트가 읽을 수 있게 노출한다 (RoundManager의 스폰 완료 확인용).
-    public int SpawnCount => _spawnCount;
+    // 스폰 목표 수. 현재 라운드 설정을 따른다 (RoundManager의 스폰 완료 확인용으로도 쓰인다).
+    public int SpawnCount => RoundManager.Instance.NpcSpawnCount;
     public SpawnRule Rule => _spawnRule;
 
     private readonly List<NetworkObject> _spawnedNpcs = new();
@@ -80,7 +79,7 @@ public sealed class NpcSpawner : MonoBehaviour, IRoundSpawner
             return;
         }
 
-        for (int index = 0; index < _spawnCount; index++)
+        for (int index = 0; index < SpawnCount; index++)
         {
             if (!coordinator.TryGetSpawnPose(_regionController, Rule, this, out MapRegion spawnRegion, out Vector3 spawnPosition, out Quaternion spawnRotation))
             {
