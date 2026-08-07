@@ -125,24 +125,28 @@ public class PlayerInventory : NetworkBehaviour
 
     public bool TryRemoveSelectedItemOnServer(string expectedItemId)
     {
+        return TryRemoveSelectedItemOnServer(expectedItemId, _selectedIndex.Value);
+    }
+
+    public bool TryRemoveSelectedItemOnServer(string expectedItemId, int selectedIndex)
+    {
         if (!IsServer)
         {
             return false;
         }
 
-        int itemIndex = FindItemSlot(expectedItemId);
-
-        if (itemIndex < 0)
+        if (!IsItemAt(selectedIndex, expectedItemId))
         {
             return false;
         }
 
-        RemoveItemAt(itemIndex);
+        RemoveItemAt(selectedIndex);
 
         if (!IsOwner)
         {
             RemoveSelectedItemOwnerRpc(
                 expectedItemId,
+                selectedIndex,
                 RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
         }
 
@@ -239,14 +243,23 @@ public class PlayerInventory : NetworkBehaviour
     }
 
     [Rpc(SendTo.SpecifiedInParams)]
-    private void RemoveSelectedItemOwnerRpc(string expectedItemId, RpcParams rpcParams = default)
+    private void RemoveSelectedItemOwnerRpc(string expectedItemId, int selectedIndex, RpcParams rpcParams = default)
     {
-        int itemIndex = FindItemSlot(expectedItemId);
-
-        if (itemIndex >= 0)
+        if (IsItemAt(selectedIndex, expectedItemId))
         {
-            RemoveItemAt(itemIndex);
+            RemoveItemAt(selectedIndex);
         }
+    }
+
+    private bool IsItemAt(int index, string expectedItemId)
+    {
+        if (index < 0 || index >= InventorySize)
+        {
+            return false;
+        }
+
+        InventorySlot selectedSlot = _slots[index];
+        return selectedSlot != null && !selectedSlot.IsEmpty && selectedSlot.ItemId == expectedItemId;
     }
 
     private void RemoveItemAt(int index)

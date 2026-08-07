@@ -6,6 +6,7 @@ using UnityEngine;
 //   - PlayerInteraction.Targeting.cs            : 화면 중심 조준으로 대상 감지·선택
 //   - PlayerInteraction.ItemUI.cs               : 아이템 획득 시 단서·가이드 북 UI 여닫기
 //   - PlayerInteraction.Drop.cs                 : 선택한 아이템 드롭
+[RequireComponent(typeof(PlayerInventory), typeof(PlayerHealth))]
 public partial class PlayerInteraction : NetworkBehaviour
 {
     // 인스펙터에서 연결하는 참조와 상호작용 범위를 조절하는 값.
@@ -33,7 +34,17 @@ public partial class PlayerInteraction : NetworkBehaviour
         _actions = new CustomInputActions();
         _inventory = GetComponent<PlayerInventory>();
         _health = GetComponent<PlayerHealth>();
-        _usableItem = GetComponent<UsableItem>();
+        _usableItem = GetComponent<IUsableItem>();
+
+        if (_inventory == null)
+        {
+            Debug.LogError("[PlayerInteraction] PlayerInventory가 없어 상호작용 인벤토리 처리를 할 수 없습니다.", this);
+        }
+
+        if (_health == null)
+        {
+            Debug.LogError("[PlayerInteraction] PlayerHealth가 없어 다운 상태를 확인할 수 없습니다.", this);
+        }
     }
 
     private void OnEnable()
@@ -68,6 +79,11 @@ public partial class PlayerInteraction : NetworkBehaviour
         }
 
         _inventoryUI?.BindInventory(_inventory);
+        if (_usableItem is UsableItem usableItem)
+        {
+            usableItem.BindInventoryUI(_inventoryUI);
+        }
+
         if (_inventory != null)
         {
             _inventory.ItemAdded += HandleItemAdded;
@@ -148,8 +164,9 @@ public partial class PlayerInteraction : NetworkBehaviour
         }
 
         // 선택한 사용 아이템이 E 입력을 처리했다면 단서 UI를 열지 않는다.
-        if (_usableItem.TryUseSelectedItem())
+        if (_usableItem != null && _usableItem.TryHandleSelectedItemUse(out string message))
         {
+            _inventoryUI?.ShowTemporaryPrompt(message);
             return;
         }
 

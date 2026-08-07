@@ -11,7 +11,7 @@ public class InventoryUI : MonoBehaviour
     [SerializeField] private RectTransform _selectionOutline;
     [SerializeField] private ItemCatalog _itemCatalog;
     [SerializeField] private TMP_Text _interactionPromptText;
-    [SerializeField, Min(0f)] private float _selectedItemPromptDuration = 3f;
+    [SerializeField, Min(0f)] private float _selectedItemPromptDuration = 1f;
     private GameObject[] _slots;    // 인벤토리 슬롯 UI 오브젝트 배열
 
     private CustomInputActions _actions;
@@ -192,12 +192,22 @@ public class InventoryUI : MonoBehaviour
             return;
         }
 
+        ShowTemporaryPrompt(displayName);
+    }
+
+    public void ShowTemporaryPrompt(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
         if (_selectedItemPromptRoutine != null)
         {
             StopCoroutine(_selectedItemPromptRoutine);
         }
 
-        _selectedItemPromptRoutine = StartCoroutine(ShowSelectedItemPrompt(displayName));
+        _selectedItemPromptRoutine = StartCoroutine(ShowSelectedItemPrompt(message));
     }
 
     private IEnumerator ShowSelectedItemPrompt(string message)

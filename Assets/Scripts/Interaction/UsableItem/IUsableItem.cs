@@ -1,4 +1,4 @@
 public interface IUsableItem
 {
-    bool TryUseSelectedItem();
+    bool TryHandleSelectedItemUse(out string message);
 }
