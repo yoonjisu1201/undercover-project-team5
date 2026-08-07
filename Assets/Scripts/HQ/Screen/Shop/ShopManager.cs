@@ -10,6 +10,9 @@ public sealed class ShopManager : NetworkBehaviour {
 	[Header("=== 공용 코인 ===")]
 	[SerializeField] private int _initialCredits = 1000;
 
+	[Header("=== 구매 아이템 생성 위치 ===")]
+	[SerializeField] private Transform _itemDropPoint;
+
 	private readonly NetworkVariable<int> _credits =
 		new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -18,6 +21,8 @@ public sealed class ShopManager : NetworkBehaviour {
 
 	public event Action<int> CreditsChanged;
 	public event Action InventoryFull;
+	public event Action<string, int> PurchaseCompleted;
+	public event Action<string> PurchaseFailed;
 
 	public override void OnNetworkSpawn() 
 	{
@@ -46,9 +51,10 @@ public sealed class ShopManager : NetworkBehaviour {
 	}
 
 	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-	public void RequestPurchaseRpc(string itemId, RpcParams rpcParams = default) 
+	public void RequestPurchaseRpc(string itemId, RpcParams rpcParams = default)
 	{
 		ShopItemData shopItem = FindShopItem(itemId);
+		ulong senderClientId = rpcParams.Receive.SenderClientId;
 
         if (shopItem == null)
         {
@@ -59,46 +65,75 @@ public sealed class ShopManager : NetworkBehaviour {
         if (_credits.Value < shopItem.Price)
         {
             Debug.LogWarning($"[ShopManager] 구매 실패: 크레딧이 부족합니다. Credits: {_credits.Value}, Price: {shopItem.Price}");
+			NotifyPurchaseFailedRpc("돈이 부족합니다.", RpcTarget.Single(senderClientId, RpcTargetUse.Temp));
             return;
         }
 
-        ItemData itemData = shopItem.ItemData;
+		ItemData itemData = shopItem.ItemData;
 
-		if (itemData == null ||
-			itemData.WorldPrefab == null ||
+		if (itemData == null)
+		{
+			return;
+		}
+
+		if (shopItem.Category == ShopCategory.Consumables)
+		{
+			if (!NetworkManager.ConnectedClients.TryGetValue(senderClientId, out NetworkClient senderClient) ||
+				senderClient.PlayerObject == null ||
+				!senderClient.PlayerObject.TryGetComponent(out PlayerInventory inventory))
+			{
+				return;
+			}
+
+			if (!inventory.TryAddItemOnServer(itemData.ItemId))
+			{
+				NotifyPurchaseFailedRpc("인벤토리가 가득 찼습니다.", RpcTarget.Single(senderClientId, RpcTargetUse.Temp));
+				return;
+			}
+
+			_credits.Value -= shopItem.Price;
+			NotifyPurchaseCompletedRpc(itemData.ItemId, _credits.Value, RpcTarget.Single(senderClientId, RpcTargetUse.Temp));
+			return;
+		}
+
+		if (itemData.WorldPrefab == null ||
 			!itemData.WorldPrefab.TryGetComponent(out PickupItem _) ||
 			!itemData.WorldPrefab.TryGetComponent(out NetworkObject _)) 
 		{
 			return;
 		}
 
-		ulong buyerClientId = rpcParams.Receive.SenderClientId;
+		GameObject itemObject = Instantiate(
+			itemData.WorldPrefab,
+			_itemDropPoint.position,
+			itemData.WorldPrefab.transform.rotation);
 
-		if (!NetworkManager.ConnectedClients.
-			TryGetValue(buyerClientId, out NetworkClient buyerClient) || 
-			buyerClient.PlayerObject == null) 
-		{
-			return;
-		}
+		PickupItem pickupItem = itemObject.GetComponent<PickupItem>();
+		NetworkObject networkObject = itemObject.GetComponent<NetworkObject>();
 
-		if (!buyerClient.PlayerObject.TryGetComponent(out PlayerInventory inventory))
-		{
-			return;
-		}
-
-		if (!inventory.TryAddItemOnServer(itemData.ItemId))
-		{
-			NotifyInventoryFullRpc(RpcTarget.Single(buyerClientId, RpcTargetUse.Temp));
-			return;
-		}
+		pickupItem.Configure(itemData);
+		networkObject.Spawn(destroyWithScene: true);
 
 		_credits.Value -= shopItem.Price;
+		NotifyPurchaseCompletedRpc(itemData.ItemId, _credits.Value, RpcTarget.Single(senderClientId, RpcTargetUse.Temp));
 	}
 
 	[Rpc(SendTo.SpecifiedInParams)]
 	private void NotifyInventoryFullRpc(RpcParams rpcParams = default)
 	{
 		InventoryFull?.Invoke();
+	}
+
+	[Rpc(SendTo.SpecifiedInParams)]
+	private void NotifyPurchaseCompletedRpc(string itemId, int remainingCredits, RpcParams rpcParams = default)
+	{
+		PurchaseCompleted?.Invoke(itemId, remainingCredits);
+	}
+
+	[Rpc(SendTo.SpecifiedInParams)]
+	private void NotifyPurchaseFailedRpc(string reason, RpcParams rpcParams = default)
+	{
+		PurchaseFailed?.Invoke(reason);
 	}
 
 	private ShopItemData FindShopItem(string itemId) 
