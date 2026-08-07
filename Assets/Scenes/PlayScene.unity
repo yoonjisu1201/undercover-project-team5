@@ -293,7 +293,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcSpawner
   _npcPrefab: {fileID: 5832881131759200260, guid: 50be4f7ee5cdb0a4f8f9358d4adb3be8, type: 3}
-  _spawnCount: 150
   _spawnBatchSize: 10
   _regionController: {fileID: 361850273}
   _spawnCoordinator: {fileID: 361850274}
@@ -216255,12 +216254,15 @@ MonoBehaviour:
   - Duration: 900
     ClearWaitDuration: 5
     MontageShareCooldown: 20
+    NpcSpawnCount: 20
   - Duration: 750
     ClearWaitDuration: 5
     MontageShareCooldown: 20
+    NpcSpawnCount: 30
   - Duration: 600
     ClearWaitDuration: 5
     MontageShareCooldown: 20
+    NpcSpawnCount: 40
   _waitingRoomSceneName: WaitingRoom
   _npcSpawner: {fileID: 1946818}
   _clueSpawner: {fileID: 2064882557}
@@ -236097,10 +236099,6 @@ PrefabInstance:
       propertyPath: GlobalObjectIdHash
       value: 2116006621
       objectReference: {fileID: 0}
-    - target: {fileID: 779074141257512709, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
-      propertyPath: GlobalObjectIdHash
-      value: 571014878
-      objectReference: {fileID: 0}
     - target: {fileID: 589872745790258281, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 3043836958
@@ -236108,6 +236106,10 @@ PrefabInstance:
     - target: {fileID: 589872745790258281, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
       propertyPath: SceneMigrationSynchronization
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 779074141257512709, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
+      propertyPath: GlobalObjectIdHash
+      value: 571014878
       objectReference: {fileID: 0}
     - target: {fileID: 1194568794220837252, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
       propertyPath: GlobalObjectIdHash
@@ -280150,7 +280152,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1ea2e84be3af7104d8f242fb6ce5ca12, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GuideBook
+  m_EditorClassIdentifier: Assembly-CSharp::OperationGuidePageFlipper
 --- !u!1001 &1617066161
 PrefabInstance:
   m_ObjectHideFlags: 0
