@@ -15,6 +15,9 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
     // 셰이더 프로퍼티: 외계인 Material이 사용하는 URP/Lit의 _BaseColor를 변경한다.
     private static readonly int BaseColorHash = Shader.PropertyToID("_BaseColor");
 
+    // 사망 시에 콜라이더 꺼주기 위해 저장
+    private CapsuleCollider _capsuleCollider; 
+
     [Header("HP 설정 (임시 기본값, 추후 밸런싱 이슈로 조정)")]
     [SerializeField] private float _maxHp = 50f;
     // Inspector 설정: 생존 상태에서 피격 색상을 유지할 시간이다.
@@ -52,6 +55,7 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
         _renderer = GetComponentInChildren<Renderer>();
         _networkAnimator = GetComponent<NetworkAnimator>();
         _materialPropertyBlock = new MaterialPropertyBlock();
+        _capsuleCollider = GetComponent<CapsuleCollider>();
     }
 
     public override void OnNetworkSpawn()
@@ -91,6 +95,7 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
             // 이 순서로 공격 HitBox가 남은 상태에서 사망 애니메이션이 시작되는 것을 방지한다.
             Died?.Invoke();
             _networkAnimator.SetTrigger(DeathHash);
+            _capsuleCollider.enabled = false;
         }
     }
 

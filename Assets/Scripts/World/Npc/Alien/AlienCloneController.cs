@@ -70,7 +70,10 @@ public class AlienCloneController : NetworkBehaviour
 
         // Agent가 정지되지 않았고 유효한 경로를 따라 목적지로 이동 중일 때만 Run 상태로 전환한다.
         // 공격으로 Agent가 정지되거나 목적지에 도착하면 false가 되어 Idle 상태로 복귀한다.
-        bool isRunning = !_agent.isStopped && _agent.hasPath && _agent.remainingDistance > _agent.stoppingDistance;
+        bool isRunning =
+            !_agent.isStopped &&
+            _agent.hasPath &&
+            _agent.remainingDistance > _agent.stoppingDistance;
 
         _animator.SetBool(IsRunningHash, isRunning);
 
