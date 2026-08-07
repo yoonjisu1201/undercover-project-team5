@@ -3,9 +3,11 @@ using UnityEngine;
 
 // 플레이어 상호작용의 코어: 참조/라이프사이클과 프레임별 입력 분배를 담당한다.
 // 세부 로직은 partial로 분리되어 있다.
-//   - PlayerInteraction.Targeting.cs : 화면 중심 조준으로 대상 감지·선택
-//   - PlayerInteraction.ItemUI.cs    : 아이템 획득 시 단서·가이드 북 UI 여닫기
-//   - PlayerInteraction.Drop.cs      : 선택한 아이템 드롭
+//   - PlayerInteraction.Targeting.cs            : 화면 중심 조준으로 대상 감지·선택
+//   - PlayerInteraction.ItemUI.cs               : 아이템 획득 시 단서·가이드 북 UI 여닫기
+//   - PlayerInteraction.Drop.cs                 : 선택한 아이템 드롭
+//   - PlayerInteraction.Consumable.cs           : 선택한 소모품 사용과 서버 분배
+//   - PlayerInteraction.Consumable.EnergyBar.cs : 에너지 바 사용 효과
 public partial class PlayerInteraction : NetworkBehaviour
 {
     // 인스펙터에서 연결하는 참조와 상호작용 범위를 조절하는 값.
@@ -141,6 +143,12 @@ public partial class PlayerInteraction : NetworkBehaviour
         }
 
         if (TryCloseVisibleClue())
+        {
+            return;
+        }
+
+        // 선택한 소모품이 E 입력을 처리했다면 단서 UI를 열지 않는다.
+        if (TryUseSelectedConsumable())
         {
             return;
         }
