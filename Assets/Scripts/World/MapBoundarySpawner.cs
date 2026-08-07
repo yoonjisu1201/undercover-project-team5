@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+    using System.Collections.Generic;
 using UnityEngine;
 
 // 선택된 맵의 경계만 프리팹으로 생성해 씬 파일과 렌더링 비용을 줄입니다.
@@ -9,7 +9,7 @@ public sealed class MapBoundarySpawner : MonoBehaviour
     [SerializeField] private GameObject _barrierPrefab;
     [SerializeField] private GameObject _fogPrefab;
 
-    private readonly Dictionary<string, MapBoundaryLayout> _layoutByRegion = new();
+    private readonly Dictionary<RegionId, MapBoundaryLayout> _layoutByRegion = new();
     private readonly List<GameObject> _spawnedObjects = new();
     private MapRegion _activeRegion;
 
@@ -20,7 +20,7 @@ public sealed class MapBoundarySpawner : MonoBehaviour
         {
             foreach (MapBoundaryLayout layout in _layouts)
             {
-                if (layout != null && !string.IsNullOrWhiteSpace(layout.RegionId))
+                if (layout != null)
                 {
                     _layoutByRegion[layout.RegionId] = layout;
                 }
