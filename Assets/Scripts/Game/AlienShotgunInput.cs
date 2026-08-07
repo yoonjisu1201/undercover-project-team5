@@ -24,6 +24,7 @@ public class AlienShotgunInput : NetworkBehaviour
 
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
+    private PlayerHealth _health;
     private Animator _animator;
 
     // 입력 액션 인스턴스를 만들고 같은 오브젝트의 인벤토리를 캐싱한다.
@@ -31,6 +32,7 @@ public class AlienShotgunInput : NetworkBehaviour
     {
         _actions = new CustomInputActions();
         _inventory = GetComponent<PlayerInventory>();
+        _health = GetComponent<PlayerHealth>();
         _animator = GetComponent<Animator>();
     }
 
@@ -66,6 +68,13 @@ public class AlienShotgunInput : NetworkBehaviour
     private void Update()
     {
         if (!IsOwner) return;
+
+        // HP가 0이 되어 쓰러진 동안에는 총을 내리고 발사도 막는다.
+        if (_health != null && _health.IsDowned)
+        {
+            _isToolSelected.Value = false;
+            return;
+        }
 
         _isToolSelected.Value = IsToolSelected();
 

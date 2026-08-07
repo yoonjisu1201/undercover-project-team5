@@ -90,6 +90,7 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
         if (_currentHp.Value <= 0f)
         {
             _isDowned.Value = true;
+            RoundManager.Instance?.ReportPlayerDowned();
         }
     }
     
