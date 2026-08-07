@@ -9,7 +9,7 @@ using UnityEngine.Localization;
 using UnityEngine.Localization.Components;
 using UnityEngine.UI;
 
-public sealed class ShopScreenUI : ScreenBase
+public sealed class ShopScreenUI : ScreenBase, IClosableUi
 {
 	[Header("=== 상점 관리 ===")]
 	[SerializeField] private ShopManager _shopManager;
@@ -54,7 +54,16 @@ public sealed class ShopScreenUI : ScreenBase
 	[SerializeField] private TMP_Text _inventoryFullMessageText;
 	[SerializeField] private LocalizedString _inventoryFullMessage;
 
+	[Header("=== 구매 결과 팝업 ===")]
+	[SerializeField] private GameObject _purchaseResultDimmer;
+	[SerializeField] private GameObject _purchaseResultPopup;
+	[SerializeField] private TMP_Text _purchaseResultMessageText;
+	[SerializeField] private Button _purchaseResultConfirmButton;
+
 	private const float InventoryFullWarningSeconds = 2f;
+	private const string PurchaseCompleteMessageFormat = "{0} 구매 완료\n잔액: {1}";
+	private const string PurchaseUnavailableMessageFormat = "구매 불가\n{0}";
+	private const string InventoryFullReason = "인벤토리가 가득 찼습니다.";
 	private CancellationTokenSource _inventoryFullWarningCts;
 
 	private readonly List<ShopItemSlotUI> _spawnedSlots = new List<ShopItemSlotUI>();
@@ -67,12 +76,16 @@ public sealed class ShopScreenUI : ScreenBase
 		_consumablesTabButton.onClick.AddListener(ShowConsumables);
 		_equipmentTabButton.onClick.AddListener(ShowEquipment);
 		_purchaseButton.onClick.AddListener(HandlePurchaseClicked);
+		_purchaseResultConfirmButton?.onClick.AddListener(HidePurchaseResultPopup);
 
 		_shopManager.CreditsChanged += HandleCreditsChanged;
 		_shopManager.InventoryFull += HandleInventoryFull;
+		_shopManager.PurchaseCompleted += HandlePurchaseCompleted;
+		_shopManager.PurchaseFailed += HandlePurchaseFailed;
 
 		SetCategory(ShopCategory.Medical);
 		HandleCreditsChanged(_shopManager.Credits);
+		HidePurchaseResultPopup();
 	}
 
 	private void OnDisable()
@@ -81,16 +94,26 @@ public sealed class ShopScreenUI : ScreenBase
 		_consumablesTabButton.onClick.RemoveListener(ShowConsumables);
 		_equipmentTabButton.onClick.RemoveListener(ShowEquipment);
 		_purchaseButton.onClick.RemoveListener(HandlePurchaseClicked);
+		_purchaseResultConfirmButton?.onClick.RemoveListener(HidePurchaseResultPopup);
 
 		_shopManager.CreditsChanged -= HandleCreditsChanged;
 		_shopManager.InventoryFull -= HandleInventoryFull;
+		_shopManager.PurchaseCompleted -= HandlePurchaseCompleted;
+		_shopManager.PurchaseFailed -= HandlePurchaseFailed;
 
 		HideInventoryFullWarning();
+		HidePurchaseResultPopup();
 	}
 
 	private void Update()
 	{
-
+		if (_purchaseResultPopup != null &&
+			_purchaseResultPopup.activeSelf &&
+			Keyboard.current != null &&
+			Keyboard.current.escapeKey.wasPressedThisFrame)
+		{
+			HidePurchaseResultPopup();
+		}
 	}
 
 	private void ShowMedical()
@@ -207,8 +230,7 @@ public sealed class ShopScreenUI : ScreenBase
 	{
 		_purchaseButton.interactable =
 			_selectedItem != null &&
-			_shopManager.IsSpawned &&
-			_shopManager.Credits >= _selectedItem.Price;
+			_shopManager.IsSpawned;
 	}
 
 	private void HandlePurchaseClicked()
@@ -230,13 +252,27 @@ public sealed class ShopScreenUI : ScreenBase
 
 	private void HandleInventoryFull()
 	{
-		_inventoryFullWarningCts?.Cancel();
-		_inventoryFullWarningCts?.Dispose();
-		_inventoryFullWarningCts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+		HandlePurchaseFailed(InventoryFullReason);
+	}
 
-		_inventoryFullMessageText.text = _inventoryFullMessage.GetLocalizedString();
-		_inventoryFullWarning.SetActive(true);
-		HideInventoryFullWarningAfterDelayAsync(_inventoryFullWarningCts.Token).Forget();
+	private void HandlePurchaseCompleted(string itemId, int remainingCredits)
+	{
+		HideInventoryFullWarning();
+
+		string itemName = itemId;
+		ShopItemData purchasedItem = FindShopItem(itemId);
+		if (purchasedItem != null)
+		{
+			itemName = purchasedItem.DisplayName.GetLocalizedString();
+		}
+
+		ShowPurchaseResultPopup(string.Format(PurchaseCompleteMessageFormat, itemName, remainingCredits.ToString("N0")));
+	}
+
+	private void HandlePurchaseFailed(string reason)
+	{
+		HideInventoryFullWarning();
+		ShowPurchaseResultPopup(string.Format(PurchaseUnavailableMessageFormat, reason));
 	}
 
 	private async UniTaskVoid HideInventoryFullWarningAfterDelayAsync(CancellationToken cancellationToken)
@@ -260,9 +296,168 @@ public sealed class ShopScreenUI : ScreenBase
 		_inventoryFullWarning.SetActive(false);
 	}
 
+	public void Close()
+	{
+		HidePurchaseResultPopup();
+	}
+
+	private void ShowPurchaseResultPopup(string message)
+	{
+		EnsurePurchaseResultPopup();
+
+		if (_purchaseResultMessageText != null)
+		{
+			_purchaseResultMessageText.text = message;
+		}
+
+		_purchaseResultDimmer.SetActive(true);
+		_purchaseResultPopup.SetActive(true);
+		GameplayUiMode.Instance?.RegisterUi(this);
+	}
+
+	private void HidePurchaseResultPopup()
+	{
+		if (_purchaseResultPopup != null)
+		{
+			_purchaseResultPopup.SetActive(false);
+		}
+
+		if (_purchaseResultDimmer != null)
+		{
+			_purchaseResultDimmer.SetActive(false);
+		}
+
+		GameplayUiMode.Instance?.UnregisterUi(this);
+	}
+
+	private ShopItemData FindShopItem(string itemId)
+	{
+		foreach (ShopItemData item in _shopManager.ShopItems)
+		{
+			if (item != null && item.ItemData != null && item.ItemData.ItemId == itemId)
+			{
+				return item;
+			}
+		}
+
+		return null;
+	}
+
+	private void EnsurePurchaseResultPopup()
+	{
+		if (_purchaseResultPopup != null && _purchaseResultDimmer != null)
+		{
+			return;
+		}
+
+		GameObject dimmer = new GameObject("PurchaseResultDimmer", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+		dimmer.transform.SetParent(transform, false);
+
+		RectTransform dimmerRect = dimmer.GetComponent<RectTransform>();
+		dimmerRect.anchorMin = Vector2.zero;
+		dimmerRect.anchorMax = Vector2.one;
+		dimmerRect.offsetMin = Vector2.zero;
+		dimmerRect.offsetMax = Vector2.zero;
+
+		Image dimmerImage = dimmer.GetComponent<Image>();
+		dimmerImage.color = new Color(0f, 0f, 0f, 0.58f);
+		_purchaseResultDimmer = dimmer;
+
+		GameObject popup = _purchaseResultPopup;
+		if (popup == null)
+		{
+			popup = new GameObject("PurchaseResultPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+			popup.transform.SetParent(dimmer.transform, false);
+		}
+		else
+		{
+			popup.transform.SetParent(dimmer.transform, false);
+		}
+
+		RectTransform popupRect = popup.GetComponent<RectTransform>();
+		popupRect.anchorMin = new Vector2(0.5f, 0.5f);
+		popupRect.anchorMax = new Vector2(0.5f, 0.5f);
+		popupRect.pivot = new Vector2(0.5f, 0.5f);
+		popupRect.sizeDelta = new Vector2(620f, 340f);
+		popupRect.anchoredPosition = Vector2.zero;
+
+		Image background = popup.GetComponent<Image>();
+		if (background != null)
+		{
+			background.color = new Color(0.02f, 0.09f, 0.1f, 0.98f);
+		}
+
+		if (_purchaseResultMessageText == null)
+		{
+			_purchaseResultMessageText = CreatePopupText(popup.transform);
+		}
+
+		if (_purchaseResultConfirmButton == null)
+		{
+			_purchaseResultConfirmButton = CreatePopupButton(popup.transform);
+			_purchaseResultConfirmButton.onClick.AddListener(HidePurchaseResultPopup);
+		}
+
+		_purchaseResultPopup = popup;
+	}
+
+	private TMP_Text CreatePopupText(Transform parent)
+	{
+		GameObject textObject = new GameObject("MessageText", typeof(RectTransform), typeof(TextMeshProUGUI));
+		textObject.transform.SetParent(parent, false);
+
+		RectTransform textRect = textObject.GetComponent<RectTransform>();
+		textRect.anchorMin = new Vector2(0.08f, 0.42f);
+		textRect.anchorMax = new Vector2(0.92f, 0.82f);
+		textRect.offsetMin = Vector2.zero;
+		textRect.offsetMax = Vector2.zero;
+
+		TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
+		text.alignment = TextAlignmentOptions.Center;
+		text.fontSize = 40f;
+		text.color = Color.white;
+		text.enableAutoSizing = true;
+		text.fontSizeMin = 24f;
+		text.fontSizeMax = 40f;
+		return text;
+	}
+
+	private Button CreatePopupButton(Transform parent)
+	{
+		GameObject buttonObject = new GameObject("ConfirmButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+		buttonObject.transform.SetParent(parent, false);
+
+		RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+		buttonRect.anchorMin = new Vector2(0.32f, 0.12f);
+		buttonRect.anchorMax = new Vector2(0.68f, 0.32f);
+		buttonRect.offsetMin = Vector2.zero;
+		buttonRect.offsetMax = Vector2.zero;
+
+		Image buttonImage = buttonObject.GetComponent<Image>();
+		buttonImage.color = new Color(0.12f, 0.38f, 0.34f, 1f);
+
+		GameObject labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+		labelObject.transform.SetParent(buttonObject.transform, false);
+
+		RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+		labelRect.anchorMin = Vector2.zero;
+		labelRect.anchorMax = Vector2.one;
+		labelRect.offsetMin = Vector2.zero;
+		labelRect.offsetMax = Vector2.zero;
+
+		TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
+		label.text = "확인";
+		label.alignment = TextAlignmentOptions.Center;
+		label.fontSize = 30f;
+		label.color = Color.white;
+
+		return buttonObject.GetComponent<Button>();
+	}
+
 	public override void ActivateScreen()
 	{
 		base.ActivateScreen();
 		HideInventoryFullWarning();
+		HidePurchaseResultPopup();
 	}
 }
