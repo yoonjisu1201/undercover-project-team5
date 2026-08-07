@@ -140,15 +140,9 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
         _materialPropertyBlock.SetColor(BaseColorHash, Color.red);
         _renderer.SetPropertyBlock(_materialPropertyBlock);
 
-        bool wasCancelled = await UniTask.Delay(
+        await UniTask.Delay(
                 TimeSpan.FromSeconds(_damageFlashDuration),
-                cancellationToken: damageFlashToken)
-            .SuppressCancellationThrow();
-
-        if (wasCancelled)
-        {
-            return;
-        }
+                cancellationToken: damageFlashToken);
 
         ClearDamageFlash();
 
