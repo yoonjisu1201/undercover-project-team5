@@ -9,6 +9,9 @@ public sealed class MissionInteractable : InteractableBase
     [Header("미션 UI")]
     [SerializeField] private GameObject _uiPrefab;
     [SerializeField] private string _interactionText = "미션 시작";
+    // 이 역할만 UI를 열 수 있다. None이면 누구나 쓸 수 있다.
+    // HQ 관제 콘솔은 Headquarter, 현장 기계는 Field로 두는 식으로 나눈다.
+    [SerializeField] private Role _requiredRole = Role.None;
     [SerializeField] private ItemData _completionReward;
     [SerializeField] private Vector3 _rewardSpawnOffset = new(0f, 0.5f, 1.2f);
 
@@ -33,7 +36,34 @@ public sealed class MissionInteractable : InteractableBase
     // 라운드가 새로 시작될 때 서버에서 알린다. 미션이 자체적으로 들고 있는 정답·진행 상태를 초기화할 시점이다.
     public event System.Action ServerRoundReset;
     public override string InteractionText => IsCompleted ? "완료된 게임" : _interactionText;
+
+    // 역할 제한은 여기서 보지 않는다. 조준은 되어야 GetInteractionText로 제한 안내를 띄울 수 있다. (HqScreen과 같은 방식)
     public override bool CanInteract(GameObject interactor) => _uiPrefab != null && _activeInteractable == null;
+
+    // 역할이 맞지 않으면 평소 문구 대신 제한 안내를 보여준다.
+    public override string GetInteractionText(GameObject interactor)
+    {
+        return HasRequiredRole(interactor) ? InteractionText : $"{RoleName(_requiredRole)}만 사용할 수 있습니다";
+    }
+
+    // 역할이 맞지 않으면 눌러도 열리지 않으므로 " : E" 키 힌트를 숨긴다.
+    public override bool ShowInteractionKeyHint(GameObject interactor) => HasRequiredRole(interactor);
+
+    private bool HasRequiredRole(GameObject interactor)
+    {
+        return _requiredRole == Role.None
+            || (interactor.TryGetComponent(out Player player) && player.PlayerRole == _requiredRole);
+    }
+
+    private static string RoleName(Role role)
+    {
+        return role switch
+        {
+            Role.Headquarter => "본부요원",
+            Role.Field => "현장요원",
+            _ => "누구"
+        };
+    }
 
     // 완료 상태 변경을 구독해 다른 플레이어가 완료한 결과도 즉시 반영한다.
     public override void OnNetworkSpawn()
@@ -64,7 +94,7 @@ public sealed class MissionInteractable : InteractableBase
     // 미션 UI를 열고 완료된 게임이면 완료 안내만 표시한다.
     public override void Interact(GameObject interactor)
     {
-        if (!CanInteract(interactor))
+        if (!CanInteract(interactor) || !HasRequiredRole(interactor))
         {
             return;
         }

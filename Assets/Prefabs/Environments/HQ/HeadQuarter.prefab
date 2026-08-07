@@ -10498,7 +10498,27 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4348387623153527708, guid: f736c66fc1ed5e24087a827825e4c6ec, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6561551695466860521}
+    - targetCorrespondingSourceObject: {fileID: 4348387623153527708, guid: f736c66fc1ed5e24087a827825e4c6ec, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 589872745790258281}
+    - targetCorrespondingSourceObject: {fileID: 4348387623153527708, guid: f736c66fc1ed5e24087a827825e4c6ec, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 604875168354024345}
+    - targetCorrespondingSourceObject: {fileID: 4348387623153527708, guid: f736c66fc1ed5e24087a827825e4c6ec, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3628075984599876020}
+    - targetCorrespondingSourceObject: {fileID: 4348387623153527708, guid: f736c66fc1ed5e24087a827825e4c6ec, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1688434873038444821}
+    - targetCorrespondingSourceObject: {fileID: 4348387623153527708, guid: f736c66fc1ed5e24087a827825e4c6ec, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4606694639833209910}
   m_SourcePrefab: {fileID: 100100000, guid: f736c66fc1ed5e24087a827825e4c6ec, type: 3}
+--- !u!23 &2996504897073826376 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 2835139046599739977, guid: f736c66fc1ed5e24087a827825e4c6ec, type: 3}
+  m_PrefabInstance: {fileID: 1066744682134306817}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &3644895493598899101 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4348387623153527708, guid: f736c66fc1ed5e24087a827825e4c6ec, type: 3}
@@ -10525,6 +10545,161 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.9308047, y: 0.50269663, z: 0.2483783}
   m_Center: {x: -0.00000002980233, y: 0.25134838, z: -0.00061430054}
+--- !u!114 &589872745790258281
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3644895493598899101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 0
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  <InScenePlaced>k__BackingField: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &604875168354024345
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3644895493598899101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkTransform
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkTransformExpanded: 0
+  AutoOwnerAuthorityTickOffset: 1
+  PositionInterpolationType: 0
+  RotationInterpolationType: 0
+  ScaleInterpolationType: 0
+  PositionLerpSmoothing: 1
+  PositionMaxInterpolationTime: 0.1
+  RotationLerpSmoothing: 1
+  RotationMaxInterpolationTime: 0.1
+  ScaleLerpSmoothing: 1
+  ScaleMaxInterpolationTime: 0.1
+  AuthorityMode: 0
+  TickSyncChildren: 0
+  UseUnreliableDeltas: 0
+  SyncPositionX: 1
+  SyncPositionY: 1
+  SyncPositionZ: 1
+  SyncRotAngleX: 1
+  SyncRotAngleY: 1
+  SyncRotAngleZ: 1
+  SyncScaleX: 1
+  SyncScaleY: 1
+  SyncScaleZ: 1
+  PositionThreshold: 0.001
+  RotAngleThreshold: 0.01
+  ScaleThreshold: 0.01
+  UseQuaternionSynchronization: 0
+  UseQuaternionCompression: 0
+  UseHalfFloatPrecision: 0
+  InLocalSpace: 0
+  SwitchTransformSpaceWhenParented: 0
+  Interpolate: 1
+  SlerpPosition: 0
+--- !u!114 &3628075984599876020
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3644895493598899101}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3fe91dc294731a9428c0941ea7579110, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.Outlinable
+  complexMaskingMode: 0
+  drawingMode: 1
+  outlineLayer: 0
+  outlineTargets:
+  - CutoutMask: 8
+    renderer: {fileID: 2996504897073826376}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  renderStyle: 1
+  outlineParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+  backParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+  frontParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+--- !u!114 &1688434873038444821
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3644895493598899101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
+--- !u!114 &4606694639833209910
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3644895493598899101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 912313e93712d7a4db032f573b7fd673, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MissionInteractable
+  ShowTopMostFoldoutHeaderGroup: 1
+  _outlineFadeDuration: 0.15
+  _uiPrefab: {fileID: 8311888995164231196, guid: bcda80ff3389c8c4ea5fbea68ce13809, type: 3}
+  _interactionText: "\uC2E0\uD638 \uD30C\uD615 \uD655\uC778"
+  _requiredRole: 1
+  _completionReward: {fileID: 0}
+  _rewardSpawnOffset: {x: 0, y: 0.5, z: 1.2}
 --- !u!4 &4169934747643031847 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3968589560374702374, guid: f736c66fc1ed5e24087a827825e4c6ec, type: 3}
@@ -12093,6 +12268,9 @@ PrefabInstance:
       addedObject: {fileID: 7044702600853546359}
     - targetCorrespondingSourceObject: {fileID: 8517445790406742783, guid: b9dd581be99d7b84ab71e4e9b6acda89, type: 3}
       insertIndex: -1
+      addedObject: {fileID: 7223747877419708822}
+    - targetCorrespondingSourceObject: {fileID: 8517445790406742783, guid: b9dd581be99d7b84ab71e4e9b6acda89, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 8261872121555142998}
     - targetCorrespondingSourceObject: {fileID: 8517445790406742783, guid: b9dd581be99d7b84ab71e4e9b6acda89, type: 3}
       insertIndex: -1
@@ -12129,6 +12307,7 @@ MonoBehaviour:
   _outlineFadeDuration: 0.15
   _uiPrefab: {fileID: 2787485361755961293, guid: 4924fcaf8c35937498abac436f0f33a8, type: 3}
   _interactionText: "\uBB34\uC120 \uCF58\uC194 \uD655\uC778"
+  _requiredRole: 1
   _completionReward: {fileID: 0}
   _rewardSpawnOffset: {x: 0, y: 0.5, z: 1.2}
 --- !u!65 &5646641661271017147
@@ -12276,6 +12455,18 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &7223747877419708822
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1915939880339459504}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!114 &8261872121555142998
 MonoBehaviour:
   m_ObjectHideFlags: 0

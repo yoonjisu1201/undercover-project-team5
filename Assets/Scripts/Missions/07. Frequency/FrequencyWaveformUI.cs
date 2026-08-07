@@ -1,18 +1,22 @@
+using DG.Tweening;
+using UnityEngine.Serialization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// P1 역할의 신호 파형 화면. 안테나 방향을 좌우로 돌려 신호가 가장 센 방향을 찾아내고, 그 각도를 P2에게 알려주는 역할이다.
-// 주파수는 이 화면에서 만질 수 없다. 방향을 찾아 P2를 보내는 것까지가 P1의 일이다.
-// FM 사운드도 신호를 듣는 이 화면에서 낸다. 미동기 상태에서는 FM_Idle, P3가 다이얼을 돌리는 동안 FM_Tunning, 맞으면 FM_Correct.
+// P1 역할의 신호 파형 화면. 세 좌표 중 어디를 진행할지 고르고, 레이더로 요원을 그 좌표까지 유도한다.
+// 주파수는 이 화면에서 만질 수 없다. 요원을 목표 좌표로 보내는 것까지가 P1의 일이다.
+// FM 사운드도 신호를 듣는 이 화면에서 낸다. 목표와 멀면 FM_Idle, 가까워지면 FM_Tunning, 완료되면 FM_Correct.
 public sealed class FrequencyWaveformUI : MonoBehaviour
 {
-    // 좌우 버튼을 한 번 누를 때 안테나가 돌아가는 각도다.
-    private const int BearingStepDegrees = 2;
-    // 파형 갱신 간격이다. 매 프레임 갱신하면 눈이 아파서 일정 간격으로만 흔든다.
-    private const float WaveRefreshSeconds = 0.05f;
-    // 주파수가 마지막으로 바뀐 뒤 이 시간이 지나면 튜닝 사운드를 끝낸다.
-    private const float TuningSoundHoldSeconds = 0.35f;
+    // 소지자 표식이 새 각도로 돌아가는 시간이다.
+    private const float MarkTweenSeconds = 0.25f;
+    // 이 각도 안에 들어오면 정면으로 본다. 걸어가면서 0을 정확히 맞추긴 어렵다.
+    private const int AlignedDegrees = 8;
+    // 좌표 통과 안내를 띄워 두는 시간이다.
+    private const float ClearedNoticeSeconds = 3f;
+    // 파형 높이가 새 값으로 따라붙는 속도다. 값이 클수록 즉각 반응한다.
+    private const float WaveFollowSpeed = 12f;
 
     [Header("파형")]
     // 왼쪽부터 순서대로 배치된 세로 바들이다. 각 바의 높이로 파형을 표현한다.
@@ -22,16 +26,21 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
     [SerializeField] private TMP_Text _syncStateText;
     [SerializeField] private TMP_Text _syncHintText;
 
-    [Header("안테나 방향")]
-    [SerializeField] private TMP_Text _bearingText;
-    [SerializeField] private Button _rotateLeftButton;
-    [SerializeField] private Button _rotateRightButton;
+    [Header("좌표 선택")]
+    // 요원 시야와 목표 좌표 사이의 각도 차이를 보여준다.
+    [FormerlySerializedAs("_bearingText")]
+    [SerializeField] private TMP_Text _bearingDifferenceText;
+    [FormerlySerializedAs("_rotateLeftButton")]
+    [SerializeField] private Button _prevZoneButton;
+    [FormerlySerializedAs("_rotateRightButton")]
+    [SerializeField] private Button _nextZoneButton;
 
     [Header("레이더")]
-    // 안테나를 들고 있는 요원의 표식이다. 목표 방향 기준 상대 각도만큼 돌아간다.
+    // 안테나를 들고 있는 요원의 표식이다. 목표를 기준으로 어느 쪽을 보고 있는지에 따라 돌아간다.
     [SerializeField] private RectTransform _playerMark;
-    // 목표 지점 표식. 항상 북쪽(위)을 가리키므로 회전시키지 않는다. 소지자가 없을 때 숨기려고 참조만 들고 있다.
+    // 목표 좌표 표식이다. 항상 위(북)에 고정되며 회전시키지 않는다.
     [SerializeField] private RectTransform _targetMark;
+    [SerializeField] private TMP_Text _progressText;
     // 존까지 남은 거리를 알려준다. P1이 이 값을 보고 요원을 유도한다.
     [SerializeField] private TMP_Text _distanceText;
 
@@ -42,23 +51,27 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
     [SerializeField] private AudioClip _correctClip;
 
     private FrequencySyncState _syncState;
-    private float _nextWaveRefreshTime;
-    // P3가 다이얼을 돌리는 중인지 판단하려고, 공유 주파수가 마지막으로 바뀐 시점을 기억한다.
-    private float _lastFrequencyChangeTime = -1f;
-    private float _lastKnownFrequency;
-    private bool _correctPlayed;
+    // 이 화면을 여는 HQ 콘솔은 현장 기계와 별개의 완료 상태를 갖는다.
+    // 그래서 공유 상태가 완료되는 순간을 직접 보고 결과 창을 띄운다.
+    private bool _completionShown;
+    // 바마다 진행 중인 높이 트윈. 새 값이 오면 기존 것을 끊고 다시 시작한다.
+    private Tween _markTween;
+    // 바마다 현재 높이를 들고 있다가 목표 높이로 부드럽게 따라가게 한다.
+    private float[] _waveHeights;
+    // 좌표 통과 안내를 언제까지 띄울지와 그 문구다.
+    private float _clearedNoticeUntil = -1f;
+    private string _clearedNotice;
 
     private void Awake()
     {
         _syncState = FindFirstObjectByType<FrequencySyncState>();
+        _progressText ??= FindText("ProgressText");
+
         if (_syncState != null)
         {
             _syncState.OnStateChanged += Redraw;
-            _lastKnownFrequency = _syncState.CurrentFrequency;
+            _syncState.OnZoneCleared += HandleZoneCleared;
         }
-
-        _rotateLeftButton?.onClick.AddListener(() => Rotate(-BearingStepDegrees));
-        _rotateRightButton?.onClick.AddListener(() => Rotate(BearingStepDegrees));
 
         Redraw();
     }
@@ -68,28 +81,67 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         if (_syncState != null)
         {
             _syncState.OnStateChanged -= Redraw;
+            _syncState.OnZoneCleared -= HandleZoneCleared;
         }
+
+        // 남아 있는 트윈이 이미 사라진 RectTransform을 건드리지 않도록 끊는다.
+        _markTween?.Kill();
     }
 
-    private void Rotate(int degrees)
+    // 버튼 OnClick에서 직접 연결한다. 세 좌표 중 몇 번째를 진행할지 고른다.
+    public void OnPrevZoneButtonClick() => SelectZone(-1);
+
+    public void OnNextZoneButtonClick() => SelectZone(1);
+
+    // 이미 통과한 좌표는 건너뛰고 남은 좌표만 돌아가며 고른다.
+    private void SelectZone(int step)
     {
-        if (_syncState != null && !_syncState.AntennaPlaced)
+        if (_syncState == null || _syncState.IsCompleted)
         {
-            _syncState.SubmitAntennaBearing(_syncState.AntennaBearing + degrees);
+            return;
+        }
+
+        for (int offset = 1; offset <= _syncState.ZoneCount; offset++)
+        {
+            int index = _syncState.StageIndex + step * offset;
+            index = ((index % _syncState.ZoneCount) + _syncState.ZoneCount)
+                % _syncState.ZoneCount;
+
+            if (!_syncState.IsZoneCompleted(index))
+            {
+                _syncState.SubmitSelectedZone(index);
+                return;
+            }
         }
     }
 
     private void Update()
     {
         UpdateSound();
+        RefreshWaveBars();
 
-        if (Time.time < _nextWaveRefreshTime)
+        // 안내 문구가 끝나는 시점에 원래 상태 문구로 되돌린다.
+        if (_clearedNotice != null && Time.time > _clearedNoticeUntil)
         {
-            return;
+            _clearedNotice = null;
+            Redraw();
+        }
+    }
+
+    // 좌표를 하나 통과했을 때 안내를 띄우고 성공 사운드를 낸다.
+    // 미션 전체 완료가 아니라 안테나 하나를 맞출 때마다 울린다.
+    private void HandleZoneCleared(int zoneNumber)
+    {
+        _clearedNotice = $"{zoneNumber}번 좌표 동기화 완료";
+        _clearedNoticeUntil = Time.time + ClearedNoticeSeconds;
+
+        // 루프 중인 잡음/튜닝 소리를 끊지 않고 위에 겹쳐 낸다.
+        if (_audioSource != null && _correctClip != null)
+        {
+            _audioSource.PlayOneShot(_correctClip);
         }
 
-        _nextWaveRefreshTime = Time.time + WaveRefreshSeconds;
-        RefreshWaveBars();
+        Redraw();
     }
 
     // 상태에 맞는 루프 사운드를 유지하고, 완료 순간에만 성공 사운드를 한 번 낸다.
@@ -100,28 +152,24 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
             return;
         }
 
-        // 다이얼은 P3가 돌리므로, 이 화면에서는 공유 주파수가 움직이는 것으로 튜닝 중임을 판단한다.
-        if (!Mathf.Approximately(_syncState.CurrentFrequency, _lastKnownFrequency))
-        {
-            _lastKnownFrequency = _syncState.CurrentFrequency;
-            _lastFrequencyChangeTime = Time.time;
-        }
-
+        // 미션이 끝나면 루프를 멈춘다. 성공 사운드는 좌표를 통과할 때마다 이미 울렸다.
         if (_syncState.IsCompleted)
         {
-            if (!_correctPlayed)
+            if (_audioSource.isPlaying && _audioSource.loop)
             {
-                _correctPlayed = true;
-                _audioSource.loop = false;
-                _audioSource.clip = _correctClip;
-                _audioSource.Play();
+                _audioSource.Stop();
             }
 
             return;
         }
 
-        bool tuning = Time.time - _lastFrequencyChangeTime <= TuningSoundHoldSeconds;
-        AudioClip desired = tuning ? _tuningClip : _idleClip;
+        // 목표에 가까워졌는지로 소리를 가른다. 멀면 계속 잡음(Idle), 근처에 오면 튜닝 소리로 바뀐다.
+        // 안테나를 설치하기 전에는 맞출 주파수 자체가 의미 없으므로 잡음만 낸다.
+        bool near = _syncState.AntennaPlaced
+            && _syncState.TargetFrequency != 0f
+            && Mathf.Abs(_syncState.CurrentFrequency - _syncState.TargetFrequency) <= FrequencySyncState.NearTolerance;
+
+        AudioClip desired = near ? _tuningClip : _idleClip;
         if (desired == null || _audioSource.clip == desired)
         {
             return;
@@ -132,7 +180,7 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         _audioSource.Play();
     }
 
-    // 신호가 셀수록 규칙적인 사인파에 가까워지고, 약할수록 잡음으로 뭉개진다.
+    // 목표에서 멀면 잠잠하고, 가까워지거나 주파수가 맞아갈수록 크고 빠르게 움직인다.
     private void RefreshWaveBars()
     {
         if (_waveBars == null || _waveBars.Length == 0)
@@ -140,7 +188,23 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
             return;
         }
 
-        float signal = _syncState != null ? _syncState.SignalStrength01 : 0f;
+        if (_waveHeights == null || _waveHeights.Length != _waveBars.Length)
+        {
+            _waveHeights = new float[_waveBars.Length];
+        }
+
+        // 안테나를 설치하기 전에는 요원이 좌표에 얼마나 가까운지가, 설치한 뒤에는 주파수 근접도가 기준이 된다.
+        float closeness = _syncState != null ? _syncState.TuneCloseness01 : 0f;
+        bool placed = _syncState != null && _syncState.AntennaPlaced;
+        float envelope = placed
+            ? Mathf.Lerp(0.25f, 1f, closeness)
+            : (_syncState != null ? _syncState.SignalStrength01 : 0f);
+
+        float amplitude = Mathf.Lerp(0.06f, 1f, envelope);
+        float speed = Mathf.Lerp(1.2f, 7f, envelope);
+        // 주파수가 맞아갈수록 잡음이 걷히고 규칙적인 사인파만 남는다.
+        float purity = closeness;
+        float follow = 1f - Mathf.Exp(-WaveFollowSpeed * Time.deltaTime);
 
         for (int index = 0; index < _waveBars.Length; index++)
         {
@@ -150,11 +214,14 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
                 continue;
             }
 
-            float phase = Time.time * 6f + index * 0.6f;
+            float phase = Time.time * speed + index * 0.6f;
             float wave = (Mathf.Sin(phase) + 1f) * 0.5f;
             float noise = UnityEngine.Random.value;
-            // 신호가 셀 때는 사인파 비중을, 약할 때는 잡음 비중을 높인다.
-            float height = Mathf.Lerp(noise, wave, signal);
+            float target = Mathf.Lerp(noise, wave, purity) * amplitude;
+
+            // 목표 높이로 지수 감쇠로 따라가게 해서 계단처럼 튀지 않게 한다.
+            _waveHeights[index] = Mathf.Lerp(_waveHeights[index], target, follow);
+            float height = _waveHeights[index];
 
             bar.anchorMin = new Vector2(bar.anchorMin.x, 0.5f - height * 0.5f);
             bar.anchorMax = new Vector2(bar.anchorMax.x, 0.5f + height * 0.5f);
@@ -167,17 +234,19 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
     {
         float signal = _syncState != null ? _syncState.SignalStrength01 : 0f;
 
-        if (_bearingText != null && _syncState != null)
+        if (_bearingDifferenceText != null && _syncState != null)
         {
-            _bearingText.text = $"안테나 방향: {_syncState.AntennaBearing}°";
+            _bearingDifferenceText.text = BuildBearingLabel();
         }
 
         ApplyRadarMarks();
+        ShowCompletionOnce();
 
-        // 안테나가 자리 잡으면 방향 탐색이 끝나 더 돌릴 수 없다.
+        // 미션이 끝나기 전까지는 언제든 다른 좌표로 바꿀 수 있다.
         bool placed = _syncState != null && _syncState.AntennaPlaced;
-        SetButtonUsable(_rotateLeftButton, !placed);
-        SetButtonUsable(_rotateRightButton, !placed);
+        bool done = _syncState == null || _syncState.IsCompleted;
+        SetButtonUsable(_prevZoneButton, !done);
+        SetButtonUsable(_nextZoneButton, !done);
 
         if (_syncStateText == null || _syncHintText == null)
         {
@@ -191,25 +260,33 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
             return;
         }
 
+        // 좌표를 막 통과했으면 몇 초간 그 안내를 먼저 보여준다.
+        if (_clearedNotice != null && !_syncState.IsCompleted)
+        {
+            _syncStateText.text = _clearedNotice;
+            _syncHintText.text = $"남은 좌표 {_syncState.ZoneCount - _syncState.CompletedZoneCount}개";
+            return;
+        }
+
         if (_syncState.IsCompleted)
         {
             _syncStateText.text = "동기화 완료";
             _syncHintText.text = "통신이 연결되었습니다";
+        }
+        else if (placed && _syncState.IsOnTarget)
+        {
+            _syncStateText.text = "주파수 일치";
+            _syncHintText.text = "이대로 유지하세요";
         }
         else if (placed)
         {
             _syncStateText.text = "안테나 설치 완료";
             _syncHintText.text = "주파수 조정을 기다립니다";
         }
-        else if (_syncState.BearingNearMatched)
-        {
-            _syncStateText.text = "거의 일치함";
-            _syncHintText.text = "약간의 조정이 필요합니다";
-        }
         else if (signal > 0f)
         {
             _syncStateText.text = "신호 감지";
-            _syncHintText.text = "방향을 더 좁히세요";
+            _syncHintText.text = "목표 좌표로 더 가까이";
         }
         else
         {
@@ -218,45 +295,128 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         }
     }
 
-    // 목표는 항상 북쪽(위)에 고정하고, 안테나를 든 요원 표식만 상대 각도만큼 돌린다.
-    // 두 표식이 겹치면 요원이 목표 방향 선상에 있다는 뜻이라 그대로 앞으로 걸으면 된다.
+    // 세 좌표를 모두 맞춘 순간 이 화면에도 결과 창을 띄운다.
+    // 현장 기계가 완료를 확정하므로, 이 화면을 연 HQ 콘솔의 완료 상태만 봐서는 알 수 없다.
+    private void ShowCompletionOnce()
+    {
+        if (_completionShown || _syncState == null || !_syncState.IsCompleted)
+        {
+            return;
+        }
+
+        _completionShown = true;
+        GetComponent<MissionUIController>()?.ShowCompletedState();
+    }
+
+    // 요원이 보는 방향과 목표 좌표 사이의 각도 차이를 보여준다.
+    // 0에 가까울수록 지금 보는 방향이 목표를 향한다는 뜻이라, P1이 "오른쪽으로 조금" 하고 유도할 수 있다.
+    private string BuildBearingLabel()
+    {
+        if (!_syncState.HasHolder)
+        {
+            return "안테나 미소지";
+        }
+
+        if (_syncState.AntennaPlaced)
+        {
+            return "설치 완료";
+        }
+
+        float difference = _syncState.HolderRelativeBearing;
+        int degrees = Mathf.RoundToInt(Mathf.Abs(difference));
+
+        if (degrees <= AlignedDegrees)
+        {
+            return "정면 0° · 직진";
+        }
+
+        // 양수면 목표가 요원의 오른쪽에 있다.
+        return difference > 0f ? $"오른쪽 {degrees}°" : $"왼쪽 {degrees}°";
+    }
+
     private void ApplyRadarMarks()
     {
         bool hasHolder = _syncState != null && _syncState.HasHolder;
+
+        // 레이더는 목표 좌표를 위쪽에 고정해 두고 읽는다. 움직이는 건 요원 표식이다.
+        if (_targetMark != null)
+        {
+            // 목표는 항상 위(북)를 가리킨다. 돌리지 않는다.
+            _targetMark.gameObject.SetActive(hasHolder);
+            _targetMark.localRotation = Quaternion.identity;
+        }
 
         if (_playerMark != null)
         {
             _playerMark.gameObject.SetActive(hasHolder);
             if (hasHolder)
             {
-                // 레이더는 시계 방향이 +방위각이므로 부호를 뒤집어 Z 회전에 넣는다.
-                _playerMark.localRotation = Quaternion.Euler(0f, 0f, -_syncState.HolderRelativeBearing);
+                // 요원이 목표를 기준으로 어느 쪽을 보고 있는지. 몸을 돌리면 이 표식이 돈다.
+                // 두 표식이 겹치면 목표를 정면으로 보고 있다는 뜻이라 그대로 걸어가면 된다.
+                _markTween?.Kill();
+                _markTween = _playerMark
+                    .DOLocalRotate(new Vector3(0f, 0f, _syncState.HolderRelativeBearing), MarkTweenSeconds)
+                    .SetEase(Ease.OutQuad);
             }
-        }
-
-        if (_targetMark != null)
-        {
-            // 목표는 회전시키지 않는다. 프리팹에서 위를 향하도록 둔 상태를 그대로 유지한다.
-            _targetMark.localRotation = Quaternion.identity;
         }
 
         if (_distanceText == null)
         {
+            ApplyProgressText();
             return;
         }
 
-        if (!hasHolder)
+        ApplyProgressText();
+        if (_syncState != null && _syncState.IsCompleted)
+        {
+            _distanceText.text = _progressText != null ? "연결 완료" : BuildProgressLabel("연결 완료");
+        }
+        else if (!hasHolder)
         {
             _distanceText.text = "안테나 미소지";
         }
         else if (_syncState.AntennaPlaced)
         {
-            _distanceText.text = "목표 지점 도착";
+            float remain = Mathf.Max(0f, FrequencySyncState.RequiredHoldSeconds - _syncState.HoldSeconds);
+            _distanceText.text =
+                _progressText != null
+                    ? $"설치 완료 · 주파수 유지 {remain:0.0}초"
+                    : $"{BuildProgressLabel("설치 완료")} · 주파수 유지 {remain:0.0}초";
         }
         else
         {
-            _distanceText.text = $"남은 거리 {_syncState.HolderDistance:0.0}m";
+            _distanceText.text =
+                _progressText != null
+                    ? $"남은 거리 {_syncState.HolderDistance:0.0}m"
+                    : $"{BuildProgressLabel()} · 남은 거리 {_syncState.HolderDistance:0.0}m";
         }
+    }
+
+    private void ApplyProgressText()
+    {
+        if (_progressText != null && _syncState != null)
+        {
+            _progressText.text = BuildProgressLabel(_syncState.IsCompleted ? "연결 완료" : null);
+        }
+    }
+
+    private string BuildProgressLabel(string suffix = null)
+    {
+        string progress = $"{_syncState.CompletedZoneCount} / {_syncState.ZoneCount}";
+        return string.IsNullOrEmpty(suffix) ? progress : $"{progress} {suffix}";
+    }
+
+    private TMP_Text FindText(string childName)
+    {
+        foreach (TMP_Text text in GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (text.name == childName)
+            {
+                return text;
+            }
+        }
+
+        return null;
     }
 
     private static void SetButtonUsable(Button button, bool usable)

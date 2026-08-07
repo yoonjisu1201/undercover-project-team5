@@ -5,6 +5,10 @@ using UnityEngine;
 // 모든 미션 UI의 종료와 완료 확인을 공통 처리한다.
 public sealed class MissionUIController : MonoBehaviour, IClosableUi
 {
+    [Header("결과 문구 (비워 두면 프리팹에 적힌 문구를 그대로 쓴다)")]
+    [SerializeField] private string _resultTitle;
+    [SerializeField] private string _resultMessage;
+
     private MissionInteractable _owner;
     private TMP_Text _timerText;
     private bool _completionReady;
@@ -73,7 +77,25 @@ public sealed class MissionUIController : MonoBehaviour, IClosableUi
             return;
         }
 
+        ApplyResultText("ResultTitle", _resultTitle);
+        ApplyResultText("ResultMessage", _resultMessage);
+
         overlay.gameObject.SetActive(true);
+    }
+
+    // 미션마다 결과 문구가 다르므로, 값이 채워져 있을 때만 프리팹 문구를 덮어쓴다.
+    private void ApplyResultText(string childName, string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        Transform target = FindChild(childName);
+        if (target != null && target.TryGetComponent(out TMP_Text label))
+        {
+            label.text = text;
+        }
     }
 
     // 결과 확인 또는 뒤로 가기 버튼에서 UI를 닫는다.

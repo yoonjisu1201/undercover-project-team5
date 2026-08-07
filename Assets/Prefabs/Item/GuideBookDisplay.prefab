@@ -291,7 +291,6 @@ GameObject:
   - component: {fileID: 4730401417422848526}
   - component: {fileID: 8720612052230892642}
   - component: {fileID: 1742774679663387247}
-  - component: {fileID: 8923137782097642329}
   m_Layer: 5
   m_Name: GuideBookDisplay
   m_TagString: Untagged
@@ -410,19 +409,6 @@ MonoBehaviour:
   _flipAngle: 110
   _liftEase: 5
   _dropEase: 6
---- !u!114 &8923137782097642329
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 789959419450123628}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 87ef59a3a1f094c4e8e2d6b67d1acb4a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GuideBookDisplay
-  _closeButton: {fileID: 4095640752730819891}
 --- !u!1 &870207031026809035
 GameObject:
   m_ObjectHideFlags: 0
@@ -3394,7 +3380,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 2210335407509227030}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1742774679663387247}
+        m_TargetAssemblyTypeName: GuideBook, Assembly-CSharp
+        m_MethodName: Close
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &5527948777010998371
 GameObject:
   m_ObjectHideFlags: 0

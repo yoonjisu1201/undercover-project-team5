@@ -6,8 +6,9 @@ using UnityEngine.EventSystems;
 // 노브 중심을 기준으로 포인터가 회전한 각도를 그대로 넘기므로, 손목을 돌리듯 돌릴 수 있다.
 public sealed class FrequencyDialKnob : MonoBehaviour, IBeginDragHandler, IDragHandler
 {
-    // 포인터가 이만큼 회전할 때마다 주파수 한 칸이 움직인다. 값이 크면 미세 조정이 쉬워진다.
-    public const float DegreesPerStep = 6f;
+    // 포인터가 이만큼 회전할 때마다 주파수 한 칸이 움직인다.
+    // 작을수록 한 바퀴에 더 많이 돌아간다. 2도면 한 바퀴(360도)에 180칸 = 9MHz다.
+    public const float DegreesPerStep = 2f;
 
     private RectTransform _rect;
     private float _previousAngle;

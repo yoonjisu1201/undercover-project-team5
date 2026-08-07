@@ -1024,13 +1024,14 @@ GameObject:
   - component: {fileID: 3728980106457214100}
   - component: {fileID: 1103170950760662962}
   - component: {fileID: 1621694368223010834}
+  - component: {fileID: 4089691547745565115}
   m_Layer: 6
   m_Name: MS_07_FrequencyTuner
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &8816818677120879759
 Transform:
   m_ObjectHideFlags: 0
@@ -1057,6 +1058,7 @@ Transform:
   - {fileID: 6429277518198794207}
   - {fileID: 3123336745563084784}
   - {fileID: 8679644349587131324}
+  - {fileID: 8321964561452721688}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &-5232373237370023176
@@ -1357,7 +1359,8 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _outlineFadeDuration: 0.15
   _uiPrefab: {fileID: 8311888995164231196, guid: 65ae48461f79f7a4d985a9b2317f2789, type: 3}
-  _interactionText: "\uC804\uAD11\uD310 \uC8FC\uD30C\uC218 \uC870\uC815"
+  _interactionText: "\uC8FC\uD30C\uC218 \uB2E4\uC774\uC5BC \uC870\uC791"
+  _requiredRole: 0
   _completionReward: {fileID: 0}
   _rewardSpawnOffset: {x: 0, y: 0.5, z: 1.2}
 --- !u!114 &1103170950760662962
@@ -1389,6 +1392,26 @@ MonoBehaviour:
   _launchSpeed: 2
   _upwardSpeed: 0.8
   _spawnLift: 0.15
+--- !u!114 &4089691547745565115
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5820640734604840138}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d6aca062a66c59469ee70be1de81430, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FrequencySyncState
+  ShowTopMostFoldoutHeaderGroup: 1
+  _minZoneDistance: 10
+  _maxZoneDistance: 28
+  _zoneBoundsInset: 4
+  _minZoneSeparation: 8
+  _antennaZone: {fileID: 514640234066354122}
+  _antennaItemId: Antenna
+  _installedAntennaPrefab: {fileID: 5135049958813049564, guid: 0ac4e5a35efdd6b4dbe9a30b1eef6c6d, type: 3}
 --- !u!1 &6175582215949332661
 GameObject:
   m_ObjectHideFlags: 0
@@ -1764,6 +1787,73 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
+--- !u!1 &7345391684438362463
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8321964561452721688}
+  - component: {fileID: 3117779067671393229}
+  - component: {fileID: 514640234066354122}
+  m_Layer: 0
+  m_Name: AntennaZone
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8321964561452721688
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345391684438362463}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8816818677120879759}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!135 &3117779067671393229
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345391684438362463}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 2.5
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &514640234066354122
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345391684438362463}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b2f8ce778f078545acb304c38a21f88, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FrequencyAntennaZone
+  _syncState: {fileID: 4089691547745565115}
 --- !u!1 &7488096404950810860
 GameObject:
   m_ObjectHideFlags: 0

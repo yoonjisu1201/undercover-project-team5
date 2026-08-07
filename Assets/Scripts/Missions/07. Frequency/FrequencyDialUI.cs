@@ -1,4 +1,5 @@
 using TMPro;
+using UnityEngine.Serialization;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,10 +7,10 @@ using UnityEngine.UI;
 // FM 사운드는 신호를 듣는 쪽인 P1(FrequencyWaveformUI)에서 재생한다.
 public sealed class FrequencyDialUI : MonoBehaviour
 {
-    // 노브가 실제로 돌 수 있는 각도 범위다. 최소 주파수에서 -135도, 최대에서 +135도를 보게 한다.
-    private const float KnobSweepDegrees = 270f;
-    // 롤러를 이만큼 끌 때마다 주파수 한 칸이 움직인다.
-    private const float RollerPixelsPerStep = 10f;
+    // 노브가 도는 각도 범위다. 한 바퀴 넘게 돌려야 끝에서 끝까지 가므로 빙글빙글 돌리는 느낌이 난다.
+    private const float KnobSweepDegrees = 1080f;
+    // 롤러를 이만큼 끌 때마다 주파수 한 칸이 움직인다. 작을수록 조금만 끌어도 많이 움직인다.
+    private const float RollerPixelsPerStep = 4f;
     // 롤러 이랑무늬 한 칸의 폭이다. 이 값으로 나눈 나머지만 움직여 무늬가 끝없이 이어져 보이게 한다.
     private const float RollerTileWidth = 32f;
 
@@ -35,6 +36,7 @@ public sealed class FrequencyDialUI : MonoBehaviour
     [SerializeField] private RectTransform _rollerRibs;
 
     [Header("표시")]
+    [SerializeField] private TMP_Text _progressText;
     [SerializeField] private TMP_Text _currentFrequencyText;
     [SerializeField] private TMP_Text _targetFrequencyText;
     [SerializeField] private TMP_Text _hintText;
@@ -42,25 +44,36 @@ public sealed class FrequencyDialUI : MonoBehaviour
     [SerializeField] private RectTransform _sliderHandle;
     [SerializeField] private RectTransform _sliderTrack;
 
-    [Header("잠금")]
-    // 안테나가 아직 존에 없을 때 다이얼을 덮는다.
-    [SerializeField] private GameObject _lockOverlay;
-    [SerializeField] private TMP_Text _lockText;
+    [Header("안내 창")]
+    // 좌표 통과·안테나 미설치를 알리는 작은 창이다. 평소에는 닫혀 있고 필요할 때만 띄운다.
+    [FormerlySerializedAs("_lockOverlay")]
+    [SerializeField] private GameObject _noticePanel;
+    [FormerlySerializedAs("_lockText")]
+    [SerializeField] private TMP_Text _noticeText;
+
+    // 마지막 조작 후 이 시간 동안은 서버가 보내온 값을 무시한다.
+    // 돌리는 중에 한 박자 늦은 서버 값이 덮어쓰면 노브가 앞뒤로 튕겨 끊기는 것처럼 보인다.
+    private const float LocalControlHoldSeconds = 0.5f;
 
     private FrequencySyncState _syncState;
     // 서버 응답을 기다리지 않고 손맛을 유지하기 위해 이 화면이 들고 있는 값이다.
     private float _localFrequency;
+    private float _lastLocalTuneTime = -99f;
     private int _controlIndex;
+    // 좌표가 바뀌면 그 번호에 맞는 조작으로 옮기기 위해 직전 좌표를 기억한다.
+    private int _lastStageIndex = -1;
 
     private void Awake()
     {
         // 이 미션은 라운드당 하나만 존재하므로 다른 오브젝트에 있는 공유 상태를 찾아 구독한다.
         _syncState = FindFirstObjectByType<FrequencySyncState>();
         _localFrequency = _syncState != null ? _syncState.CurrentFrequency : FrequencySyncState.MinFrequency;
+        _progressText ??= FindText("ProgressText");
 
         if (_syncState != null)
         {
             _syncState.OnStateChanged += HandleStateChanged;
+            _syncState.OnZoneCleared += HandleZoneCleared;
         }
 
         if (_knob != null)
@@ -68,18 +81,10 @@ public sealed class FrequencyDialUI : MonoBehaviour
             _knob.OnRotated += HandleKnobRotated;
         }
 
-        if (_frequencySlider != null)
-        {
-            _frequencySlider.onValueChanged.AddListener(HandleSliderValue);
-        }
-
         if (_rollerDrag != null)
         {
             _rollerDrag.OnDelta += HandleRollerDelta;
         }
-
-        _prevControlButton?.onClick.AddListener(() => SwitchControl(-1));
-        _nextControlButton?.onClick.AddListener(() => SwitchControl(1));
 
         Redraw();
     }
@@ -89,16 +94,12 @@ public sealed class FrequencyDialUI : MonoBehaviour
         if (_syncState != null)
         {
             _syncState.OnStateChanged -= HandleStateChanged;
+            _syncState.OnZoneCleared -= HandleZoneCleared;
         }
 
         if (_knob != null)
         {
             _knob.OnRotated -= HandleKnobRotated;
-        }
-
-        if (_frequencySlider != null)
-        {
-            _frequencySlider.onValueChanged.RemoveListener(HandleSliderValue);
         }
 
         if (_rollerDrag != null)
@@ -110,11 +111,11 @@ public sealed class FrequencyDialUI : MonoBehaviour
     // 노브를 DegreesPerStep만큼 돌릴 때마다 주파수가 한 칸(0.05MHz) 움직인다.
     private void HandleKnobRotated(float degrees)
     {
-        Tune(degrees / FrequencyDialKnob.DegreesPerStep * FrequencySyncState.FrequencyTolerance);
+        Tune(degrees / FrequencyDialKnob.DegreesPerStep * FrequencySyncState.FrequencyStep);
     }
 
-    // 내장 Slider의 값은 곧 주파수(MHz)다. 지금 값과의 차이만큼 움직인다.
-    private void HandleSliderValue(float value)
+    // 슬라이더 OnValueChanged에서 직접 연결한다. 값이 곧 주파수(MHz)다.
+    public void OnFrequencySliderChanged(float value)
     {
         Tune(value - _localFrequency);
     }
@@ -122,8 +123,39 @@ public sealed class FrequencyDialUI : MonoBehaviour
     // 롤러는 끌어당긴 거리만큼 주파수가 흘러간다. 오른쪽으로 끌면 올라간다.
     private void HandleRollerDelta(float pixels)
     {
-        Tune(pixels / RollerPixelsPerStep * FrequencySyncState.FrequencyTolerance);
+        Tune(pixels / RollerPixelsPerStep * FrequencySyncState.FrequencyStep);
     }
+
+    // 좌표를 하나 통과하면 안내 창을 띄운다. 확인을 눌러야 닫힌다.
+    private void HandleZoneCleared(int zoneNumber)
+    {
+        int remaining = _syncState != null ? _syncState.ZoneCount - _syncState.CompletedZoneCount : 0;
+        ShowNotice(remaining > 0
+            ? $"{zoneNumber}번 좌표 동기화 완료\n남은 좌표 {remaining}개"
+            : $"{zoneNumber}번 좌표 동기화 완료");
+    }
+
+    // 안내 창을 띄운다. 화면 전체를 덮지 않고 창만 올린다.
+    private void ShowNotice(string message)
+    {
+        if (_noticeText != null)
+        {
+            _noticeText.text = message;
+        }
+
+        _noticePanel?.SetActive(true);
+    }
+
+    // 안내 창의 확인 버튼에서 직접 연결한다.
+    public void OnNoticeConfirmButtonClick()
+    {
+        _noticePanel?.SetActive(false);
+    }
+
+    // 버튼 OnClick에서 직접 연결한다.
+    public void OnPrevControlButtonClick() => SwitchControl(-1);
+
+    public void OnNextControlButtonClick() => SwitchControl(1);
 
     // ◀▶ 버튼으로 노브·슬라이더·롤러를 돌려가며 고른다.
     private void SwitchControl(int step)
@@ -139,24 +171,31 @@ public sealed class FrequencyDialUI : MonoBehaviour
 
     private void Tune(float amount)
     {
-        if (_syncState == null || !_syncState.DialUnlocked)
+        if (_syncState == null)
         {
             return;
         }
 
-        float tuned = Mathf.Clamp(
-            _localFrequency + amount,
-            FrequencySyncState.MinFrequency,
-            FrequencySyncState.MaxFrequency);
+        // 안테나가 설치되지 않았는데 만지려 하면 이유를 알려준다.
+        if (!_syncState.DialUnlocked)
+        {
+            if (!_syncState.IsCompleted)
+            {
+                ShowNotice("안테나를 설치해야 합니다\n요원이 목표 좌표에 안테나를 세워야 조작할 수 있습니다");
+            }
+
+            return;
+        }
 
         // 눈금 밖의 값이 생기지 않도록 항상 0.05MHz 배수로 맞춘다. 목표도 같은 배수라 반드시 도달할 수 있다.
-        tuned = Mathf.Round(tuned / FrequencySyncState.FrequencyTolerance) * FrequencySyncState.FrequencyTolerance;
+        float tuned = FrequencySyncState.SnapFrequency(_localFrequency + amount);
         if (Mathf.Approximately(tuned, _localFrequency))
         {
             return;
         }
 
         _localFrequency = tuned;
+        _lastLocalTuneTime = Time.time;
         _syncState.SubmitFrequency(_localFrequency);
         Redraw();
     }
@@ -164,7 +203,9 @@ public sealed class FrequencyDialUI : MonoBehaviour
     // 서버 값이 바뀌면 내 예측값을 서버 값으로 맞춘다. 다른 사람이 이어서 돌린 경우도 이 경로로 반영된다.
     private void HandleStateChanged()
     {
-        if (_syncState != null)
+        // 내가 방금 돌린 직후라면 서버 값으로 되돌리지 않는다. 되돌리면 노브가 튕겨 끊긴다.
+        bool controllingNow = Time.time - _lastLocalTuneTime <= LocalControlHoldSeconds;
+        if (_syncState != null && !controllingNow)
         {
             _localFrequency = _syncState.CurrentFrequency;
         }
@@ -176,32 +217,34 @@ public sealed class FrequencyDialUI : MonoBehaviour
     {
         bool unlocked = _syncState != null && _syncState.DialUnlocked;
 
+        // 첫 좌표는 노브, 두 번째는 슬라이더, 세 번째는 롤러를 쓰게 한다.
+        // 좌표가 바뀌는 순간에만 옮기므로, 그 뒤에 버튼으로 다른 조작을 골라도 유지된다.
+        if (_syncState != null && _controlRoots != null && _controlRoots.Length > 0
+            && _syncState.StageIndex != _lastStageIndex)
+        {
+            _lastStageIndex = _syncState.StageIndex;
+            _controlIndex = Mathf.Clamp(_syncState.StageIndex, 0, _controlRoots.Length - 1);
+        }
+
+        // 조작을 막아 버리면 입력이 들어오지 않아 안내를 띄울 수 없다.
+        // 그래서 입력은 항상 받고, 실제 반영 여부는 Tune에서 판단한다.
+        bool operable = _syncState == null || !_syncState.IsCompleted;
         if (_knob != null)
         {
-            _knob.Interactable = unlocked;
+            _knob.Interactable = operable;
         }
 
         if (_frequencySlider != null)
         {
-            _frequencySlider.interactable = unlocked;
+            _frequencySlider.interactable = operable;
         }
 
         if (_rollerDrag != null)
         {
-            _rollerDrag.Interactable = unlocked;
+            _rollerDrag.Interactable = operable;
         }
 
         ApplyControlSelection();
-
-        if (_lockOverlay != null)
-        {
-            _lockOverlay.SetActive(_syncState != null && !_syncState.AntennaPlaced);
-        }
-
-        if (_lockText != null)
-        {
-            _lockText.text = "안테나 설치 대기 중\n요원이 목표 지점에 도착해야 합니다";
-        }
 
         if (_currentFrequencyText != null)
         {
@@ -217,6 +260,7 @@ public sealed class FrequencyDialUI : MonoBehaviour
         ApplySliderHandle();
         ApplySliderControl();
         ApplyRoller();
+        ApplyProgressText();
         ApplyHintText(unlocked);
     }
 
@@ -264,17 +308,9 @@ public sealed class FrequencyDialUI : MonoBehaviour
             return;
         }
 
-        float steps = (_localFrequency - FrequencySyncState.MinFrequency) / FrequencySyncState.FrequencyTolerance;
+        float steps = (_localFrequency - FrequencySyncState.MinFrequency) / FrequencySyncState.FrequencyStep;
         float offset = -steps * RollerPixelsPerStep % RollerTileWidth;
         _rollerRibs.anchoredPosition = new Vector2(offset, 0f);
-    }
-
-    private static void SetButtonUsable(Button button, bool usable)
-    {
-        if (button != null)
-        {
-            button.interactable = usable;
-        }
     }
 
     // 주파수 범위를 노브의 회전 범위로 환산한다. 시계 방향으로 돌 때 주파수가 올라가도록 음수 Z를 쓴다.
@@ -314,17 +350,45 @@ public sealed class FrequencyDialUI : MonoBehaviour
 
         if (_syncState == null || !unlocked)
         {
-            _hintText.text = _syncState != null && _syncState.IsCompleted ? "동기화 완료" : "다이얼 잠김";
+            _hintText.text = _syncState != null && _syncState.IsCompleted
+                ? "동기화 완료"
+                : "다이얼 잠김\n요원이 목표 좌표에 도착해야 합니다";
             return;
         }
 
         float error = Mathf.Abs(_localFrequency - _syncState.TargetFrequency);
-        _hintText.text = error switch
+
+        // 맞춘 뒤에는 3초를 버텨야 넘어가므로 남은 시간을 보여준다.
+        if (error <= FrequencySyncState.MatchTolerance)
         {
-            <= FrequencySyncState.FrequencyTolerance => "주파수 일치\n통신이 연결되었습니다",
-            <= 0.5f => "목표 주파수 근처\n미세 조정이 필요합니다",
-            <= 2f => "목표 주파수에 접근 중",
-            _ => "신호가 잡히지 않습니다"
-        };
+            float remain = Mathf.Max(0f, FrequencySyncState.RequiredHoldSeconds - _syncState.HoldSeconds);
+            _hintText.text = $"주파수 일치 · 유지 {remain:0.0}초";
+            return;
+        }
+
+        _hintText.text = error <= FrequencySyncState.NearTolerance
+            ? "목표 주파수 근처 · 미세 조정 필요"
+            : "신호가 잡히지 않습니다";
+    }
+
+    private void ApplyProgressText()
+    {
+        if (_progressText != null && _syncState != null)
+        {
+            _progressText.text = $"{_syncState.CompletedZoneCount} / {_syncState.ZoneCount}";
+        }
+    }
+
+    private TMP_Text FindText(string childName)
+    {
+        foreach (TMP_Text text in GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (text.name == childName)
+            {
+                return text;
+            }
+        }
+
+        return null;
     }
 }

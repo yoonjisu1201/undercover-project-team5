@@ -11,6 +11,7 @@ public sealed partial class BreakerBatteryMission
     private static readonly Color UnderTargetColor = new(1f, 0.78f, 0.12f);
     private static readonly Color TargetMatchedColor = new(0.15f, 0.85f, 0.45f);
     private static readonly Color OverTargetColor = new(0.95f, 0.2f, 0.25f);
+    private TMP_Text _progressText;
 
     private void CacheReferences()
     {
@@ -20,6 +21,7 @@ public sealed partial class BreakerBatteryMission
 
         Transform powerBoard = FindChild(transform, "PowerBoard");
         _currentValueText = FindChild(powerBoard, "CurrentValue").GetComponent<TMP_Text>();
+        _progressText = FindChild(transform, "ProgressText")?.GetComponent<TMP_Text>();
 
         // 목표 대비 눈금은 HQ 계기판(C) 역할로 옮겨졌으므로 A 화면 프리팹에는 게이지가 없을 수 있다.
         Transform wattFill = FindChild(powerBoard, "Fill");
@@ -191,19 +193,30 @@ public sealed partial class BreakerBatteryMission
 
         if (_circuitState == null)
         {
+            UpdateProgressText(false);
             _statusText.text = "회로 연결 대기 중";
             return;
         }
 
         if (_circuitState.IsCompleted)
         {
+            UpdateProgressText(true);
             _statusText.text = "전력 연결 완료";
             return;
         }
 
+        UpdateProgressText(false);
         _statusText.text = _circuitState.PowerOn
             ? "측정 중 — 목표 전력과 맞지 않습니다"
             : "전원 차단 중 — 건전지를 배치하세요";
+    }
+
+    private void UpdateProgressText(bool completed)
+    {
+        if (_progressText != null)
+        {
+            _progressText.text = completed ? "진행도  1 / 1" : "진행도  0 / 1";
+        }
     }
 
     // 게이지 업데이트

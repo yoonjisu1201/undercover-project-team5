@@ -20,6 +20,7 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
     private const string MatchedStatus = "전력 충족";
 
     [SerializeField] private RectTransform _needle;
+    [SerializeField] private TMP_Text _progressText;
     [SerializeField] private TMP_Text _statusText;
     // 바늘과 함께 올라가는 측정 전력 숫자다.
     [SerializeField] private TMP_Text _wattText;
@@ -39,6 +40,8 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
     {
         // 브레이커 미션은 라운드당 하나만 존재하므로, 다른 오브젝트에 있는 공유 회로 상태를 찾아서 구독한다.
         _circuitState = FindFirstObjectByType<BreakerCircuitState>();
+        _progressText ??= FindText("ProgressText") ?? FindText("ResultProgressText");
+
         if (_circuitState != null)
         {
             _circuitState.OnCircuitChanged += HandleCircuitChanged;
@@ -66,8 +69,11 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
     {
         if (_circuitState == null || _isMeasuring)
         {
+            ApplyProgressText();
             return;
         }
+
+        ApplyProgressText();
 
         // 완료를 확정하는 시점은 레버가 올라간 순간이지만, 화면은 확인을 눌러 측정 연출을 끝낸 뒤에만 결과를 유지한다.
         // 그래서 측정 전에는 완료 여부와 무관하게 0을 유지한다.
@@ -170,6 +176,7 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
         }
 
         _completionShown = true;
+        ApplyProgressText();
         _resultTween = DOVirtual.DelayedCall(
             ResultDelaySeconds,
             () => GetComponent<MissionUIController>()?.ShowCompletedState());
@@ -227,5 +234,27 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
         {
             _statusText.text = $"[시스템] : {MatchedStatus}";
         }
+    }
+
+    private void ApplyProgressText()
+    {
+        if (_progressText != null)
+        {
+            bool completed = _circuitState != null && _circuitState.IsCompleted;
+            _progressText.text = completed ? "진행도  1 / 1" : "진행도  0 / 1";
+        }
+    }
+
+    private TMP_Text FindText(string childName)
+    {
+        foreach (TMP_Text text in GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (text.name == childName)
+            {
+                return text;
+            }
+        }
+
+        return null;
     }
 }
