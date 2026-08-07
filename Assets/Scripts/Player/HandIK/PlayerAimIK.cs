@@ -4,7 +4,7 @@ using UnityEngine;
 [RequireComponent(typeof(Animator))]
 // 믹사모에서 다운받은 총 쏘는 애니메이션만으로는 캐릭터 체형에 따라 팔, 손의 위치와 총구가 많이 어긋나기 때문에
 // 양 팔이 중앙에 위치하게 하기위해 IK로 위치와 방향을 보정한다.
-public sealed class PlayerAimIK : MonoBehaviour
+public sealed class PlayerAimIK : HandIKBase
 {
     [Header("References")]
     [SerializeField] private Transform gun;
@@ -24,28 +24,28 @@ public sealed class PlayerAimIK : MonoBehaviour
     [SerializeField] private float handRaise = 0.12f;
     [SerializeField] private float handForward = 0.15f;
     [SerializeField] private string activeParameter = "IsUsingArrestTool";
-
-    private Animator animator;
+    
     private int activeParameterHash;
     private bool hasActiveParameter;
     private float currentAimPitch;
 
     public Vector3 AimDirection => CalculateAimDirection(out _);
 
-    // PlayerHandIK가 이 값을 보고 지금 이 IK를 적용할지 판단한다.
-    public bool IsActive =>
+    // PlayerItemIK가 이 값을 보고 지금 이 IK를 적용할지 판단한다.
+    public override bool IsActive =>
         gun != null
         && gunAimAxis.sqrMagnitude >= Mathf.Epsilon
         && gunUpAxis.sqrMagnitude >= Mathf.Epsilon
-        && (!hasActiveParameter || animator.GetBool(activeParameterHash));
+        && (!hasActiveParameter || _animator.GetBool(activeParameterHash));
 
-    private void Awake()
+    protected override void Awake()
     {
-        animator = GetComponent<Animator>();
+        base.Awake();
+        
         playerMovement ??= GetComponent<PlayerMoveSample>();
         activeParameterHash = Animator.StringToHash(activeParameter);
 
-        foreach (AnimatorControllerParameter parameter in animator.parameters)
+        foreach (AnimatorControllerParameter parameter in _animator.parameters)
         {
             if (parameter.nameHash == activeParameterHash
                 && parameter.type == AnimatorControllerParameterType.Bool)
@@ -62,8 +62,8 @@ public sealed class PlayerAimIK : MonoBehaviour
         }
     }
 
-    // PlayerHandIK가 IsActive를 확인한 뒤 호출한다.
-    public void ApplyIK(int layerIndex)
+    // PlayerItemIK가 IsActive를 확인한 뒤 호출한다.
+    public override void ApplyIK(int layerIndex)
     {
         // 총 프리팹의 로컬 축을 카메라 상하 조준 방향에 맞춘다.
         Vector3 localAim = gunAimAxis.normalized;
@@ -84,8 +84,8 @@ public sealed class PlayerAimIK : MonoBehaviour
         MoveHandTowardCenter(AvatarIKGoal.LeftHand);
         MoveHandTowardCenter(AvatarIKGoal.RightHand);
 
-        animator.SetIKRotationWeight(AvatarIKGoal.RightHand, rotationWeight);
-        animator.SetIKRotation(AvatarIKGoal.RightHand, targetHandRotation);
+        _animator.SetIKRotationWeight(AvatarIKGoal.RightHand, rotationWeight);
+        _animator.SetIKRotation(AvatarIKGoal.RightHand, targetHandRotation);
     }
 
     private Vector3 CalculateAimDirection(out float pitch)
@@ -100,7 +100,7 @@ public sealed class PlayerAimIK : MonoBehaviour
         HumanBodyBones handBone = hand == AvatarIKGoal.LeftHand
             ? HumanBodyBones.LeftHand
             : HumanBodyBones.RightHand;
-        Transform handTransform = animator.GetBoneTransform(handBone);
+        Transform handTransform = _animator.GetBoneTransform(handBone);
         if (handTransform == null)
         {
             return;
@@ -112,8 +112,8 @@ public sealed class PlayerAimIK : MonoBehaviour
         localPosition.y += handRaise - currentAimPitch * handPitchOffsetPerDegree;
         localPosition.z += handForward;
 
-        animator.SetIKPositionWeight(hand, positionWeight);
-        animator.SetIKPosition(hand, transform.TransformPoint(localPosition));
+        _animator.SetIKPositionWeight(hand, positionWeight);
+        _animator.SetIKPosition(hand, transform.TransformPoint(localPosition));
     }
 
     private static Transform FindChildByName(Transform parent, string childName)

@@ -6,17 +6,20 @@ using UnityEngine;
 [RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(PlayerAimIK))]
 [RequireComponent(typeof(PlayerCartIK))]
+[RequireComponent(typeof(PlayerItemIK))]
 public class PlayerHandIK : MonoBehaviour
 {
     private Animator _animator;
     private PlayerAimIK _aimIK;
     private PlayerCartIK _cartIK;
+    private PlayerItemIK _itemIK;
 
     private void Awake()
     {
         _animator = GetComponent<Animator>();
         _aimIK = GetComponent<PlayerAimIK>();
         _cartIK = GetComponent<PlayerCartIK>();
+        _itemIK = GetComponent<PlayerItemIK>();
     }
 
     private void OnAnimatorIK(int layerIndex)
@@ -24,12 +27,21 @@ public class PlayerHandIK : MonoBehaviour
         if (_cartIK.IsActive)
         {
             _cartIK.ApplyIK(layerIndex);
+            // 카트 사용중 손 아이템 비활성화
+            _itemIK.DisableItems();
             return;
         }
 
         if (_aimIK.IsActive)
         {
             _aimIK.ApplyIK(layerIndex);
+            // 총 사용중 손 아이템 비활성화
+            _itemIK.DisableItems();
+            return;
+        }
+        
+        if (_itemIK.IsActive) {
+            _itemIK.ApplyIK(layerIndex);
             return;
         }
         
