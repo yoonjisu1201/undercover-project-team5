@@ -10,6 +10,9 @@ public sealed class ShopManager : NetworkBehaviour {
 	[Header("=== 공용 코인 ===")]
 	[SerializeField] private int _initialCredits = 1000;
 
+	[Header("=== 구매 아이템 생성 위치 ===")]
+	[SerializeField] private Transform _itemDropPoint;
+
 	private readonly NetworkVariable<int> _credits =
 		new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -46,7 +49,7 @@ public sealed class ShopManager : NetworkBehaviour {
 	}
 
 	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-	public void RequestPurchaseRpc(string itemId, RpcParams rpcParams = default) 
+	public void RequestPurchaseRpc(string itemId)
 	{
 		ShopItemData shopItem = FindShopItem(itemId);
 
@@ -72,25 +75,16 @@ public sealed class ShopManager : NetworkBehaviour {
 			return;
 		}
 
-		ulong buyerClientId = rpcParams.Receive.SenderClientId;
+		GameObject itemObject = Instantiate(
+			itemData.WorldPrefab,
+			_itemDropPoint.position,
+			itemData.WorldPrefab.transform.rotation);
 
-		if (!NetworkManager.ConnectedClients.
-			TryGetValue(buyerClientId, out NetworkClient buyerClient) || 
-			buyerClient.PlayerObject == null) 
-		{
-			return;
-		}
+		PickupItem pickupItem = itemObject.GetComponent<PickupItem>();
+		NetworkObject networkObject = itemObject.GetComponent<NetworkObject>();
 
-		if (!buyerClient.PlayerObject.TryGetComponent(out PlayerInventory inventory))
-		{
-			return;
-		}
-
-		if (!inventory.TryAddItemOnServer(itemData.ItemId))
-		{
-			NotifyInventoryFullRpc(RpcTarget.Single(buyerClientId, RpcTargetUse.Temp));
-			return;
-		}
+		pickupItem.Configure(itemData);
+		networkObject.Spawn(destroyWithScene: true);
 
 		_credits.Value -= shopItem.Price;
 	}
