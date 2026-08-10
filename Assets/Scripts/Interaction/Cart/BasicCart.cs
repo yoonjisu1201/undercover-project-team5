@@ -1,20 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 public class BasicCart : CartBase {
 
 	[Header("=== 잡았을 때의 스케일 비율 ===")]
 	[SerializeField] private float _holdingScaleMultiplier = 0.7f;
-	
 	[Header("=== 카트 Transform 등록(잡았을 때 사이즈 줄이기 위해) ===")]
 	[SerializeField] private MeshRenderer _cartRenderer;
-
 	[Header("=== 힐 영역 Collider 등록 ===")]
 	[SerializeField] private AreaCollider _areaCollider;
-
-	[Header("=== 힐 영역 내부 플레이어들 체력 얼마나 찰지 ===")] 
-	[SerializeField] private float _healingAmount = 15f;
+	[Header("=== 매 초 체력 얼마나 찰지 ===")] 
+	[SerializeField] private float _healPerSecond = 10f;
+	[Header("=== 카트가 가진 총 회복량 ===")] 
+	[SerializeField] private float _maxHealAmount = 200f;
+	[Header("=== 체력량 캔버스 ===")] 
+	[SerializeField] private HealthBarCanvas healthBarCanvas;
+	
+	// 남은 체력량은 서버가 관리
+	private NetworkVariable<float> _remainingHealAmount = new NetworkVariable<float>();
 	
 	private List<Player> _playersInHealingArea = new(); 
 	
@@ -32,12 +36,38 @@ public class BasicCart : CartBase {
 	public override void OnNetworkSpawn() {
 		base.OnNetworkSpawn();
 		
-		// 체력 회복 영역에 플레이어 들어오고 나가는 경우 사용될 이벤트 구독
+		// 카트 남은 체력량 바뀌면 렌더링 다시 하게 이벤트. 전체 구독한다. 알아서 관리할 것이라
+		_remainingHealAmount.OnValueChanged += HandleHealingRemainAmountChanged;
+		
+		// 체력 회복 관련된 이벤트 구독
 		// 서버만 구독하면 된다. 체력은 서버 권한으로 관리될 것이기 때문
 		if (!IsServer) { return; }
+		
+		// 회복량은 꽉 채우고 시작
+		_remainingHealAmount.Value = _maxHealAmount;
+		
+		// 플레이어가 특정 영역에 들어오고 나갔을 떄
 		_areaCollider.OnPlayerEnter += HandlePlayerEnter;
 		_areaCollider.OnPlayerExit += HandlePlayerExit;
 		_areaCollider.Initialize();
+	}
+
+	public override void OnNetworkDespawn() {
+		base.OnNetworkDespawn();
+
+		_remainingHealAmount.OnValueChanged -= HandleHealingRemainAmountChanged;
+
+		_areaCollider.OnPlayerEnter -= HandlePlayerEnter;
+		_areaCollider.OnPlayerExit -= HandlePlayerExit;
+	}
+	
+	private void HandleHealingRemainAmountChanged(float oldVal, float newVal) {
+		// 남은 회복량이 있으면 파티클 이펙트 켜기
+		if (newVal > 0f) { _areaCollider.PlayAreaParticleEffect(); }
+		// 그 외(0 이하)에는 파티클 이펙트 끄기
+		else { _areaCollider.StopAreaParticleEffect(); }
+		// UI도 남은 체력량에 맞춰 갱신
+		healthBarCanvas.SetBarFillAmount(_remainingHealAmount.Value / _maxHealAmount);
 	}
 
 
@@ -70,8 +100,24 @@ public class BasicCart : CartBase {
 
 	private void Update() {
 		if (!IsServer) { return; }
-		foreach (var player in _playersInHealingArea) {
-			player.PlayerHealth.RestoreHealth(_healingAmount * Time.deltaTime);
+		
+		// 카트 체력 없으면 회복하지 않음
+		if (_remainingHealAmount.Value <= 0) {
+			return;
 		}
+		
+		foreach (var player in _playersInHealingArea) {
+			HealPlayer(player, _healPerSecond * Time.deltaTime);
+		}
+	}
+	
+	// 가능한 회복량만큼 플레이어를 회복시킨다.
+	private void HealPlayer(Player player, float amount) {
+		// 회복 가능량 계산. amount만큼만 회복시키는데, 남은 회복량이 더 작으면 남은 회복량만큼만
+		float healAmount = Mathf.Min(amount, _remainingHealAmount.Value);
+		// 플레이어 회복 시도
+		float realAmount = player.PlayerHealth.RestoreHealth(healAmount);
+		// 실제 회복에 사용된 양 만큼만 차감
+		_remainingHealAmount.Value -= realAmount;
 	}
 }

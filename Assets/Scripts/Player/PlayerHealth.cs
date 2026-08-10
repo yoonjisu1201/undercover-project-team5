@@ -95,17 +95,22 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     }
     
     // 외부(공격 시스템 등)에서 체력을 회복시킬 때 호출하는 공개 진입점. 서버에서만 호출 가능하다.
-    public void RestoreHealth(float amount) {
+    // 실제로 얼마나 회복되었는지 반환한다.
+    public float RestoreHealth(float amount) {
         if (!IsServer)
         {
             Debug.LogError("[PlayerHealth] RestoreHealth는 서버에서만 호출할 수 있습니다.");
-            return;
+            return 0f;
         }
 
-        if (_isDowned.Value || amount <= 0f) return;
-        if (IsDebugInvincible) return;
-
-        _currentHp.Value = Mathf.Min(_maxHp, _currentHp.Value + amount);
+        if (_isDowned.Value || amount <= 0f) return 0f;
+        if (IsDebugInvincible) return 0f;
+        
+        // 실제 회복량 계산. 매개변수로 들어온 회복량과 최대체력 - 현재체력의 차 중 더 작은 값 사용
+        float healAmount = Mathf.Min(amount, _maxHp - _currentHp.Value);
+        _currentHp.Value += healAmount;
+        
+        return healAmount;
     }
 
     // 외계인(복제체) 공격 시스템이 호출할 진입점. 실제 공격 판정/AI 로직은 이번 범위 밖이라 아직 없음.

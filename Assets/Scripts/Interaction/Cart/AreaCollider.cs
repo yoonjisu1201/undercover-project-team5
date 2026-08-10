@@ -11,16 +11,7 @@ public class AreaCollider : NetworkBehaviour {
 
 	[Header("=== 파티클 추가 ===")]
 	[SerializeField] private ParticleSystem _particle;
-
-	private void Awake() {
-		// 이펙트 켜기(있다면)
-		if (_particle != null) {
-			var shape = _particle.shape;
-			shape.radius = GetComponent<SphereCollider>().radius;
-			_particle.Play();
-		}
-	}
-
+	
 	// Initialize시점에 이미 스폰지점 내에 존재하는 플레이어들 찾아서 OnPlayerEnter 호출해주기
 	public void Initialize() {
 		SphereCollider collider = GetComponent<SphereCollider>();
@@ -29,6 +20,12 @@ public class AreaCollider : NetworkBehaviour {
 		foreach (var hit in hits) {
 			if (hit.TryGetComponent<Player>(out var player))
 				OnPlayerEnter?.Invoke(player);
+		}
+		
+		// 파티클이 있다면, Collider 사이즈와 파티클 사이즈 동기화
+		if (_particle != null) {
+			var shape = _particle.shape;
+			shape.radius = GetComponent<SphereCollider>().radius;
 		}
 	}
 
@@ -46,5 +43,14 @@ public class AreaCollider : NetworkBehaviour {
 		
 		// 플레이어가 영역 안에 들어왔으면 이벤트 발행
 		OnPlayerExit?.Invoke(player);
+	}
+	
+	// 이펙트 켜기
+	public void PlayAreaParticleEffect() {
+		_particle.Play();
+	}
+	
+	public void StopAreaParticleEffect() {
+		_particle.Stop();
 	}
 }
