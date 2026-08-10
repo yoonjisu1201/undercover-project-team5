@@ -24,6 +24,7 @@ public class PlayerNameTag : MonoBehaviour {
 		// x회전은 적용 안시킴. 적용시키면 하늘 봤을 때 이름표도 같이 하늘 봄..
 		Quaternion newRotation = mainCamera.transform.rotation;
 		newRotation.x = 0f;
+		newRotation.z = 0f;
 		transform.rotation = newRotation;
 	}
 }
