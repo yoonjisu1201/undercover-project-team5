@@ -7,6 +7,9 @@ using UnityEngine.SceneManagement;
 
 public class CriminalNpcManager : NetworkBehaviour
 {
+    [Header("외계인 종류")]
+    [SerializeField, Min(1)] private int _alienTypeCount = 5;
+
     private readonly NetworkVariable<NetworkObjectReference> _criminalNpcReference = new(
         default,
         NetworkVariableReadPermission.Everyone,
@@ -17,8 +20,16 @@ public class CriminalNpcManager : NetworkBehaviour
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server);
 
+    // 이번 라운드에 등장할 외계인 종류. 범인 본모습과 분신이 같은 종류로 나오도록 양쪽이 이 값을 참조한다.
+    // -1은 아직 추첨 전이라는 뜻이며, 클라이언트는 스폰 시 서버 값을 그대로 받는다.
+    private readonly NetworkVariable<int> _roundAlienTypeIndex = new(
+        -1,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+
     public NetworkObject CriminalNpc { get; private set; }
     public NpcFeature CriminalFeature => _criminalFeature.Value;
+    public int RoundAlienTypeIndex => _roundAlienTypeIndex.Value;
 
     public override void OnNetworkSpawn()
     {
@@ -98,6 +109,8 @@ public class CriminalNpcManager : NetworkBehaviour
     // 범인 NPC를 랜덤으로 지정한다. exclude가 지정되면 해당 NPC는 후보에서 제외한다(Round2 재지정 시 이전 범인 제외용).
     private void AssignRandomCriminal(NetworkObject exclude)
     {
+        SelectRoundAlienType();
+
         NpcStateMachine[] npcs = FindObjectsByType<NpcStateMachine>(FindObjectsSortMode.None);  // 씬에 존재하는 모든 NpcStateMachine을 찾습니다.
 
         if (npcs.Length == 0)
@@ -143,8 +156,32 @@ public class CriminalNpcManager : NetworkBehaviour
             $"[CriminalNpcManager] 범인 지정 완료 | " +
             $"Name: {CriminalNpc.name}, " +
             $"NetworkObjectId: {CriminalNpc.NetworkObjectId}, " +
-            $"Position: {CriminalNpc.transform.position}",
+            $"Position: {CriminalNpc.transform.position}, " +
+            $"외계인 종류: {_roundAlienTypeIndex.Value}",
             CriminalNpc);
+    }
+
+    // 이번 라운드의 외계인 종류를 뽑는다. 직전 라운드와 같은 종류가 연달아 나오지 않도록 이전 값은 후보에서 뺀다.
+    private void SelectRoundAlienType()
+    {
+        int previousIndex = _roundAlienTypeIndex.Value;
+
+        // 첫 추첨이거나 종류가 하나뿐이면 제외할 대상이 없다.
+        if (previousIndex < 0 || _alienTypeCount <= 1)
+        {
+            _roundAlienTypeIndex.Value = Random.Range(0, _alienTypeCount);
+            return;
+        }
+
+        // 이전 인덱스 하나를 뺀 범위에서 뽑은 뒤, 이전 인덱스 이상이면 한 칸 밀어 원래 범위로 되돌린다.
+        // 재추첨 루프 없이 한 번에 균등하게 뽑기 위함.
+        int selectedIndex = Random.Range(0, _alienTypeCount - 1);
+        if (selectedIndex >= previousIndex)
+        {
+            selectedIndex++;
+        }
+
+        _roundAlienTypeIndex.Value = selectedIndex;
     }
 
     public bool IsCriminal(NetworkObject npc)   // 범인 NPC인지 확인하는 메서드

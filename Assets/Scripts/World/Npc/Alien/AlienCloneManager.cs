@@ -10,7 +10,8 @@ using UnityEngine.AI;
 public class AlienCloneManager : MonoBehaviour
 {
     [Header("스폰 설정 (임시 기본값, 추후 밸런싱 이슈로 조정)")]
-    [SerializeField] private GameObject _alienClonePrefab;
+    [SerializeField] private GameObject[] _alienClonePrefabs;  //외계인 5종
+    [SerializeField] private CriminalNpcManager _criminalNpcManager;
     [SerializeField] private MapRegionController _mapRegionController;
     [SerializeField, Min(1)] private int _spawnCountPerCycle = 3;
     [SerializeField, Min(0.1f)] private float _spawnInterval = 60f; // 라운드 타이머가 이만큼(초) 줄어들 때마다 스폰
@@ -78,6 +79,15 @@ public class AlienCloneManager : MonoBehaviour
             return;
         }
 
+        // 프리팹은 재시도 루프 밖에서 한 번만 찾는다. 설정이 잘못된 채로 루프에 들어가면
+        // 매 프레임 같은 에러가 수십 줄씩 쌓이므로, 실패하면 이번 라운드 자동 스폰을 멈춘다.
+        GameObject clonePrefab = GetRoundClonePrefab();
+        if (clonePrefab == null)
+        {
+            _spawnFailedThisCycle = true;
+            return;
+        }
+
         // 부족한 만큼 전부 스폰될 때까지 재시도한다(무한 루프 방지용 시도 횟수 상한 포함).
         // 전부 채웠을 때만 타이머를 리셋하고, 못 채웠으면 다음 프레임에 이어서 재시도한다.
         int spawnedCount = 0;
@@ -85,7 +95,7 @@ public class AlienCloneManager : MonoBehaviour
 
         for (int attempt = 0; spawnedCount < missingCount && attempt < attemptLimit; attempt++)
         {
-            if (SpawnClone())
+            if (SpawnClone(clonePrefab))
             {
                 spawnedCount++;
             }
@@ -97,16 +107,44 @@ public class AlienCloneManager : MonoBehaviour
         }
     }
 
-    // 스폰 위치를 찾아 외계인 복제체를 네트워크 오브젝트로 스폰한다. 성공 여부를 반환한다.
-    private bool SpawnClone()
+    // 이번 라운드에 뽑힌 종류의 분신 프리팹을 찾는다. 설정이 어긋나면 원인을 로그로 남기고 null을 반환한다.
+    private GameObject GetRoundClonePrefab()
     {
-        if (_alienClonePrefab == null) return false;
+        if (_criminalNpcManager == null)
+        {
+            Debug.LogError("[AlienCloneManager] CriminalNpcManager 참조가 없어 이번 라운드의 외계인 종류를 알 수 없습니다.", this);
+            return null;
+        }
+
+        // -1은 아직 추첨 전, 범위 밖이면 CriminalNpcManager의 종류 개수와 이 배열 길이가 어긋난 상태다.
+        int typeIndex = _criminalNpcManager.RoundAlienTypeIndex;
+        if (typeIndex < 0 || typeIndex >= _alienClonePrefabs.Length)
+        {
+            Debug.LogError(
+                $"[AlienCloneManager] 이번 라운드 외계인 종류({typeIndex})에 해당하는 분신 프리팹이 없습니다. " +
+                $"등록된 프리팹 수: {_alienClonePrefabs.Length}",
+                this);
+            return null;
+        }
+
+        GameObject prefab = _alienClonePrefabs[typeIndex];
+        if (prefab == null)
+        {
+            Debug.LogError($"[AlienCloneManager] {typeIndex}번 외계인 분신 프리팹 슬롯이 비어 있습니다.", this);
+        }
+
+        return prefab;
+    }
+
+    // 스폰 위치를 찾아 외계인 복제체를 네트워크 오브젝트로 스폰한다. 성공 여부를 반환한다.
+    private bool SpawnClone(GameObject clonePrefab)
+    {
         if (!TryGetSpawnPosition(out Vector3 spawnPosition)) return false;
 
         GameObject instance = null;
         try
         {
-            instance = Instantiate(_alienClonePrefab, spawnPosition, Quaternion.identity);
+            instance = Instantiate(clonePrefab, spawnPosition, Quaternion.identity);
 
             if (!instance.TryGetComponent(out NetworkObject networkObject) ||
                 !instance.TryGetComponent(out AlienCloneHealth health))
@@ -281,6 +319,9 @@ public class AlienCloneManager : MonoBehaviour
         {
             _elapsedSinceLastSpawn = 0f;
             _spawnFailedThisCycle = false;
+            // 기준값도 새 라운드의 남은 시간으로 맞춘다. 라운드마다 지속시간이 달라서(900→750→600)
+            // 이전 라운드 잔여시간을 그대로 두면 그 차이가 "흐른 시간"으로 잡혀 시작 즉시 스폰된다.
+            _lastRoundRemainingTime = RoundManager.Instance.GetRemainingTime();
             return;
         }
 
