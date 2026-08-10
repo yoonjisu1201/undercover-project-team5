@@ -52,9 +52,10 @@ public class HealthBarCanvas : NetworkBehaviour {
 	}
 	
 	private void LateUpdate() {
-		// 체력바는 항상 메인 카메라와 같은 방향을 보도록. 근데 x회전은 0을 유지하고자 함
+		// 체력바는 항상 메인 카메라와 같은 방향을 보도록. 근데 x, z회전은 0으로 놔둬야 함
 		Quaternion targetRotation = _mainCamera.transform.rotation;
 		targetRotation.x = 0f;
+		targetRotation.z = 0f;
 		transform.rotation = targetRotation; 
 	}
 }
