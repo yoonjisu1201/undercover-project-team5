@@ -16,6 +16,9 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
     [SerializeField] private TMP_Text _confirmedCountText; // "확인한 인원/총 인원" 표시용
     [SerializeField] private TMP_Text _remainingTimeText; // 라운드 종료 시점 남은 시간 표시용
     [SerializeField] private TMP_Text _wrongArrestCountText; // 해당 라운드의 오검거 횟수 표시용
+    [SerializeField] private TMP_Text _clearRewardText; // 이번 라운드 획득 보상 표시용
+    [SerializeField] private TMP_Text _totalCreditsText; // 보상 지급 후 누적 크레딧 표시용
+    [SerializeField] private GameObject _creditSection; // 보상/누적 크레딧 표기 묶음 (라운드 클리어에서만 노출)
     [SerializeField] private ArrestCandidatePortrait _criminalPortrait; // 검거 투표 때 쓰는 것을 그대로 재사용
     [SerializeField] private CriminalNpcManager _criminalNpcManager; // static Instance가 없어 인스펙터에서 직접 연결
     [SerializeField] private ClueModulePreview _clueModulePreview; // 촬영된 단서 이미지 참조용, static Instance가 없어 인스펙터에서 직접 연결
@@ -46,10 +49,12 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
 
     // RPC로 전달받은 라운드 클리어 시점 값을 로컬에 저장한다. 서버 NetworkVariable을 직접 읽지 않아
     // 다른 NetworkVariable과의 갱신 순서 문제에서 자유롭다.
-    private void HandleRoundClearAnnounced(float remainingTimeAtClear, float countdownDuration)
+    private void HandleRoundClearAnnounced(float remainingTimeAtClear, float countdownDuration, int clearReward, int totalCredits)
     {
         _roundRemainingTimeAtClearLocal = remainingTimeAtClear;
         _roundClearCountdownEndTimeLocal = Time.time + countdownDuration;
+        _clearRewardText.text = $"+ {clearReward:N0}";
+        _totalCreditsText.text = totalCredits.ToString("N0");
     }
 
     private void Update()
@@ -81,12 +86,14 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
                 _resultText.text = $"{RoundManager.Instance.CurrentRoundIndex + 1}라운드 클리어";
                 _confirmButton.gameObject.SetActive(false); // 자동으로 다음 라운드 전환
                 _nextRoundText.SetActive(true);
+                _creditSection.SetActive(true);
                 ShowPanel();
                 break;
             case RoundState.Success:
                 _resultText.text = "검거 성공";
                 _confirmButton.gameObject.SetActive(true);
                 _nextRoundText.SetActive(false);
+                _creditSection.SetActive(false);
                 ShowRoundResultStats(state);
                 ShowPanel();
                 break;
@@ -99,6 +106,7 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
                 };
                 _confirmButton.gameObject.SetActive(true);
                 _nextRoundText.SetActive(false);
+                _creditSection.SetActive(false);
                 ShowRoundResultStats(state);
                 ShowPanel();
                 break;
