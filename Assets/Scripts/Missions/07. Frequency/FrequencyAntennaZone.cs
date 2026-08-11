@@ -41,12 +41,12 @@ public sealed class FrequencyAntennaZone : MonoBehaviour
     private bool HasSelectedAntenna(PlayerInventory inventory)
     {
         int selectedIndex = inventory.SelectedIndex;
-        if (selectedIndex < 0 || selectedIndex >= inventory.Slots.Length)
+        if (selectedIndex < 0 || selectedIndex >= inventory.Slots.Count)
         {
             return false;
         }
 
         InventorySlot selectedSlot = inventory.Slots[selectedIndex];
-        return selectedSlot != null && selectedSlot.ItemId == _syncState.AntennaItemId;
+        return selectedSlot.ItemId == _syncState.AntennaItemId;
     }
 }

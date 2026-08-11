@@ -5,7 +5,6 @@ using UnityEngine;
 // 세부 로직은 partial로 분리되어 있다.
 //   - PlayerInteraction.Targeting.cs            : 화면 중심 조준으로 대상 감지·선택
 //   - PlayerInteraction.ItemUI.cs               : 아이템 획득 시 단서·가이드 북 UI 여닫기
-//   - PlayerInteraction.Drop.cs                 : 선택한 아이템 드롭
 [RequireComponent(typeof(PlayerInventory), typeof(PlayerHealth))]
 public partial class PlayerInteraction : NetworkBehaviour
 {
@@ -14,11 +13,7 @@ public partial class PlayerInteraction : NetworkBehaviour
     [SerializeField] private Camera _playerCamera;
     [Range(0.01f, 0.5f)]
     [SerializeField] private float _screenCenterRadius = 0.2f; // 화면 중심에서 상호작용 가능한 영역의 반지름
-    [SerializeField, Min(0f)] private float _dropInteractionDelay = 1.5f;   // 드롭 후 상호작용 차단 시간
-    [SerializeField] private ItemCatalog _itemCatalog;
-    [SerializeField] private InventoryUI _inventoryUI;
-    [SerializeField] private string _clueItemIdPrefix = "Clue";
-    [SerializeField] private string _guideBookItemId = "GuideBook";
+    [SerializeField] private InteractionPromptUI _promptUI;
     [SerializeField, Min(0.1f)] private float _useItemHoldDuration = 1.2f;
     [SerializeField, Min(0.1f)] private float _reviveHoldDuration = 1.2f;
 
@@ -27,7 +22,7 @@ public partial class PlayerInteraction : NetworkBehaviour
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
     private PlayerHealth _health;
-    private IUsableItem _usableItem;
+    private PlayerItemUse _itemUse;
     private HoldAction _activeHoldAction = HoldAction.None;
     private float _holdTimer;
     private float _holdDuration;
@@ -49,7 +44,7 @@ public partial class PlayerInteraction : NetworkBehaviour
         _actions = new CustomInputActions();
         _inventory = GetComponent<PlayerInventory>();
         _health = GetComponent<PlayerHealth>();
-        _usableItem = GetComponent<IUsableItem>();
+        _itemUse = GetComponent<PlayerItemUse>();
 
         if (_inventory == null)
         {
@@ -77,41 +72,37 @@ public partial class PlayerInteraction : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         // 입력과 UI는 이 플레이어를 조작하는 클라이언트에서만 초기화한다.
-        if (_itemCatalog == null)
-        {
-            _itemCatalog = FindFirstObjectByType<ItemCatalog>();
-        }
-
-        if (!IsOwner)
-        {
+        if (!IsOwner) {
             _actions.Disable();
             return;
         }
 
-        if (_inventoryUI == null)
-        {
-            _inventoryUI = FindFirstObjectByType<InventoryUI>(FindObjectsInactive.Include);
-        }
-
-        _inventoryUI?.BindInventory(_inventory);
-        if (_usableItem is UsableItem usableItem)
-        {
-            usableItem.BindInventoryUI(_inventoryUI);
-        }
+        InitializeOnGameScene();
 
         if (_inventory != null)
         {
-            _inventory.ItemAdded += HandleItemAdded;
-            _inventory.InventoryChanged += HandleInventoryChanged;
+            _inventory.OnInventoryChanged += HandleInventoryChanged;
         }
+    }
+
+    // 대기방에서 스폰된 채로 게임씬까지 파괴되지 않고 유지되는 플레이어 오브젝트는
+    // OnNetworkSpawn이 대기방에서 한 번만 실행되어 게임씬 전용 UI를 못 찾는다.
+    // 게임씬 로드가 끝난 뒤 GameSessionManager가 이 함수만 다시 호출해 UI 참조를 갱신한다
+    // (이벤트 재구독까지 같이 도는 OnNetworkSpawn() 전체 재호출은 이중 구독을 유발하므로 피한다).
+    public void InitializeOnGameScene()
+    {
+        if (_promptUI == null) {
+            _promptUI = FindFirstObjectByType<InteractionPromptUI>(FindObjectsInactive.Include);
+        }
+
+        _itemUse?.BindInteractionPromptUI(_promptUI);
     }
 
     public override void OnNetworkDespawn()
     {
         if (_inventory != null)
         {
-            _inventory.ItemAdded -= HandleItemAdded;
-            _inventory.InventoryChanged -= HandleInventoryChanged;
+            _inventory.OnInventoryChanged -= HandleInventoryChanged;
         }
     }
 
@@ -171,7 +162,7 @@ public partial class PlayerInteraction : NetworkBehaviour
         if (_actions.Player.Drop.WasPressedThisFrame()) // 드롭 버튼이 눌렸을 때
         {
             CancelHoldAction();
-            TryDropSelectedItem();
+            DropSelectedItem();
         }
     }
 
@@ -204,19 +195,29 @@ public partial class PlayerInteraction : NetworkBehaviour
             return;
         }
 
-        // 선택한 사용 아이템이 E 입력을 처리했다면 단서 UI를 열지 않는다.
-        if (_usableItem != null && _usableItem.TryGetSelectedItemUse(out string message, out bool requiresHold))
+        // 선택한 아이템이 사용 가능하면 그 처리를 우선하고, 아니면 단서 UI를 연다.
+        if (_inventory != null && _inventory.TryGetSelectedItemBase(out ItemBase item) && item is IUsable usable)
         {
-            if (requiresHold)
+            if (usable.CanUse(gameObject, out string message))
             {
-                BeginHoldAction(HoldAction.UseItem, _useItemHoldDuration);
-            }
-            else
-            {
-                _inventoryUI?.ShowTemporaryPrompt(message);
+                if (usable.RequiresHold)
+                {
+                    BeginHoldAction(HoldAction.UseItem, _useItemHoldDuration);
+                    return;
+                }
+
+                if (_itemUse != null && _itemUse.TryCompleteSelectedItemUse(out string doneMessage))
+                {
+                    _promptUI?.ShowTemporaryPrompt(doneMessage);
+                }
+                return;
             }
 
-            return;
+            if (message != null)
+            {
+                _promptUI?.ShowTemporaryPrompt(message);
+                return;
+            }
         }
 
         TryShowSelectedItemUi();
@@ -235,13 +236,29 @@ public partial class PlayerInteraction : NetworkBehaviour
         target.Interact(gameObject);
     }
 
+    // 선택한 아이템을 월드에 드롭한다. 실제 반영(검증/제거/재배치)은 PlayerInventory.RequestDropRpc가 담당한다.
+    private void DropSelectedItem()
+    {
+        if (_inventory == null || _playerCamera == null) { return; }
+
+        // 선택 슬롯이 비어있는지는 서버(TryTakeSelectedItemOnServer)가 재검증하므로 여기서 따로 안 막는다.
+        _inventory.TryGetSelectedItemId(out ItemType itemId);
+
+        Transform cameraTransform = _playerCamera.transform;
+        Vector3 dropPosition = cameraTransform.position + cameraTransform.forward * 1f;
+        Vector3 dropVelocity = cameraTransform.forward * 2f + Vector3.up;
+
+        _inventory.RequestDropRpc(itemId, _inventory.SelectedIndex, dropPosition, dropVelocity);
+        TryCloseVisibleClue();
+    }
+
     private void BeginHoldAction(HoldAction action, float duration, InteractableBase target = null)
     {
         _activeHoldAction = action;
         _holdTimer = 0f;
         _holdDuration = duration;
         _holdTarget = target;
-        _inventoryUI?.SetUseHoldProgress(0f, true);
+        _promptUI?.SetUseHoldProgress(0f, true);
     }
 
     private void UpdateHoldAction()
@@ -259,7 +276,7 @@ public partial class PlayerInteraction : NetworkBehaviour
 
         _holdTimer += Time.deltaTime;
         float progress = Mathf.Clamp01(_holdTimer / _holdDuration);
-        _inventoryUI?.SetUseHoldProgress(progress, true);
+        _promptUI?.SetUseHoldProgress(progress, true);
 
         if (progress < 1f)
         {
@@ -290,9 +307,9 @@ public partial class PlayerInteraction : NetworkBehaviour
         switch (completedAction)
         {
             case HoldAction.UseItem:
-                if (_usableItem != null && _usableItem.TryCompleteSelectedItemUse(out string message))
+                if (_itemUse != null && _itemUse.TryCompleteSelectedItemUse(out string message))
                 {
-                    _inventoryUI?.ShowTemporaryPrompt(message);
+                    _promptUI?.ShowTemporaryPrompt(message);
                 }
                 break;
 
@@ -325,6 +342,6 @@ public partial class PlayerInteraction : NetworkBehaviour
         _holdTimer = 0f;
         _holdDuration = 0f;
         _holdTarget = null;
-        _inventoryUI?.SetUseHoldProgress(0f, false);
+        _promptUI?.SetUseHoldProgress(0f, false);
     }
 }

@@ -115,10 +115,10 @@ public sealed class BatterySpawner : MonoBehaviour, IRoundSpawner
             spawnRotation = Quaternion.Euler(90f, 0f, 90f);
             GameObject batteryObject = Instantiate(batteryData.WorldPrefab, spawnPosition, spawnRotation);
 
-            if (!batteryObject.TryGetComponent(out PickupItem pickupItem) ||
+            if (!batteryObject.TryGetComponent(out ItemBase pickupItem) ||
                 !batteryObject.TryGetComponent(out NetworkObject networkObject))
             {
-                Debug.LogError($"[BatterySpawner] '{batteryData.WorldPrefab.name}'에 PickupItem 또는 NetworkObject가 없습니다.", this);
+                Debug.LogError($"[BatterySpawner] '{batteryData.WorldPrefab.name}'에 ItemBase 또는 NetworkObject가 없습니다.", this);
                 Destroy(batteryObject);
                 continue;
             }

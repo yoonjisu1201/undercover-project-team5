@@ -7,11 +7,11 @@ public sealed class BatteryDragItem : UIDraggableItem
 {
     // Watt는 정답 합산에, ItemId는 공용 드래그 시스템의 항목 식별에 사용한다.
     public int Watt { get; private set; }
-    public string ItemId { get; private set; }
+    public ItemType ItemId { get; private set; }
     // 슬롯에서 빠졌을 때 돌아갈 원래 인벤토리 셀이다.
     public RectTransform SourceCell { get; private set; }
 
-    public void Initialize(BreakerBatteryMission owner, int watt, string itemId, RectTransform sourceCell)
+    public void Initialize(BreakerBatteryMission owner, int watt, ItemType itemId, RectTransform sourceCell)
     {
         // 배터리 고유 정보와 반환 위치를 저장한 뒤 공용 드래그 동작을 초기화한다.
         Watt = watt;

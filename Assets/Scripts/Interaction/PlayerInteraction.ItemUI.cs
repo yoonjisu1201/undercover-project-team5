@@ -1,76 +1,19 @@
-using System;
 using UnityEngine;
 
-// 아이템을 주웠을 때(또는 선택했을 때) 해당 아이템의 UI를 여닫는다.
-// 아이템 종류별로 아래 섹션으로 강하게 구분한다.
+// 단서/가이드북 UI를 닫는 처리와, 카트 상호작용을 담당한다.
+// 단서/가이드북 각각을 "여는" 반응은 ClueItem/GuideBookItem이 자기 자신의 일로 갖고 있다
+// (ItemBase.OnAdded/OnSelected 참고).
 public partial class PlayerInteraction
 {
-    // 주운 아이템 종류에 맞는 UI를 연다. (아이템 추가 시 호출)
-    private void HandleItemAdded(string itemId, int _)
-    {
-        if (TryGetClueIndex(itemId, out int clueIndex))
-        {
-            ShowClue(clueIndex);
-            return;
-        }
-
-        // 가이드 북을 주우면 바로 가이드 북 UI를 켠다.
-        if (itemId == _guideBookItemId)
-        {
-            ShowGuideBook();
-        }
-    }
-
-    // 현재 선택 슬롯의 아이템에 전용 화면이 있으면 연다.
-    // 닫기(E)는 이미 있는데 열기가 주웠을 때뿐이면, 한 번 닫은 뒤 다시 볼 방법이 없어진다.
-    private void TryShowSelectedItemUi()
-    {
-        if (_inventory == null || !_inventory.TryGetSelectedItem(out string itemId))
-        {
-            return;
-        }
-
-        if (TryGetClueIndex(itemId, out int clueIndex))
-        {
-            ShowClue(clueIndex);
-            return;
-        }
-
-        if (itemId == _guideBookItemId)
-        {
-            ShowGuideBook();
-        }
-    }
-
     //---------------------------------- Clue ----------------------------------//
 
-    // 아이템 ID가 단서(예: "Clue3")면 0-based 인덱스를 out으로 반환한다.
-    private bool TryGetClueIndex(string itemId, out int clueIndex)
+    // 현재 선택 슬롯의 아이템이 스스로 반응하게 한다 (단서면 자기 UI를 연다).
+    private void TryShowSelectedClue()
     {
-        clueIndex = -1;
-
-        if (string.IsNullOrWhiteSpace(itemId) || !itemId.StartsWith(_clueItemIdPrefix, StringComparison.Ordinal))
+        if (_inventory != null && _inventory.TryGetSelectedItemBase(out ItemBase item))
         {
-            return false;
+            item.OnSelected();
         }
-
-        string numberText = itemId[_clueItemIdPrefix.Length..].Trim();
-        return int.TryParse(numberText, out int clueNumber) &&
-               (clueIndex = clueNumber - 1) >= 0;
-    }
-
-    private void ShowClue(int clueIndex)
-    {
-        ClueUI[] clueDisplays = FindObjectsByType<ClueUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        System.Array.Sort(clueDisplays, (left, right) => string.CompareOrdinal(left.name, right.name));
-
-        if (clueIndex >= clueDisplays.Length)
-        {
-            Debug.LogWarning($"표시할 ClueDisplay가 부족합니다. 단서 번호: {clueIndex + 1}");
-            return;
-        }
-
-        clueDisplays[clueIndex].gameObject.SetActive(true);
     }
 
     // 활성화된 단서 UI가 있으면 닫고 true를 반환한다.
@@ -92,18 +35,6 @@ public partial class PlayerInteraction
     }
 
     //-------------------------------- GuideBook -------------------------------//
-
-    private void ShowGuideBook()
-    {
-        GuideBook display = FindFirstObjectByType<GuideBook>(FindObjectsInactive.Include);
-        if (display == null)
-        {
-            Debug.LogWarning("[PlayerInteraction] GuideBook 찾지 못했습니다.");
-            return;
-        }
-
-        display.Show();
-    }
 
     // 활성화된 가이드 북 UI가 있으면 닫고 true를 반환한다.
     private static bool TryCloseGuideBook()
@@ -130,13 +61,13 @@ public partial class PlayerInteraction
     private void UpdateCartInteraction()
     {
         SetCurrentTarget(null);
-        _inventoryUI.SetInteractionPrompt($"{CarryingCart.CartName}카트 놓기");
+        _promptUI.SetInteractionPrompt($"{CarryingCart.CartName}카트 놓기");
 
         // 카트 끄는 도중 상호작용키 다시 누르면 카트를 놓는다.
         if (_actions.Player.Interact.WasPressedThisFrame())
         {
             CarryingCart.ReleaseCart();
-            _inventoryUI.SetInteractionPrompt("");
+            _promptUI.SetInteractionPrompt("");
         }
     }
 }

@@ -7,29 +7,19 @@ using UnityEngine;
 // 플레이어 인벤토리와 미션 보관함 사이의 건전지 이동 및 목표 전력 계산을 담당한다.
 public sealed partial class BreakerBatteryMission
 {
-    private static readonly int[] SupportedWatts = { 20, 30, 40, 50 };
     private const int MinimumTargetWatt = 100;
     private const int MaximumTargetWatt = 200;
 
-    private static bool TryGetBatteryWatt(string itemId, out int watt)
+    private static bool TryGetBatteryWatt(ItemType itemId, out int watt)
     {
-        watt = 0;
-        if (string.IsNullOrWhiteSpace(itemId)
-            || itemId.IndexOf("battery", StringComparison.OrdinalIgnoreCase) < 0)
+        switch (itemId)
         {
-            return false;
+            case ItemType.Battery_20: watt = 20; return true;
+            case ItemType.Battery_30: watt = 30; return true;
+            case ItemType.Battery_40: watt = 40; return true;
+            case ItemType.Battery_50: watt = 50; return true;
+            default: watt = 0; return false;
         }
-
-        foreach (int supportedWatt in SupportedWatts)
-        {
-            if (itemId.Contains(supportedWatt.ToString(), StringComparison.Ordinal))
-            {
-                watt = supportedWatt;
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static PlayerInventory FindLocalInventory()
@@ -52,7 +42,7 @@ public sealed partial class BreakerBatteryMission
         }
 
         // 실제 인벤토리에서 꺼낸 배터리들을 모두 미션 보관함으로 이동시킨다.
-        _stagedBatteryItemIds.AddRange(_playerInventory.MissionItems.Where(itemId => TryGetBatteryWatt(itemId, out _)));
+        _stagedBatteryItemIds.AddRange(_playerInventory.MissionItems.Select(item => item.ItemId).Where(itemId => TryGetBatteryWatt(itemId, out _)));
 
         MoveCarriedBatteriesToMission();
     }
@@ -79,10 +69,17 @@ public sealed partial class BreakerBatteryMission
     // 플레이어가 들고 있는 건전지를 미션 보관함으로 옮기고, 옮긴 것만 보관 목록에 기록한다.
     private void MoveCarriedBatteriesToMission()
     {
-        string[] carriedBatteries = _playerInventory.Slots.Where(slot => slot != null && !slot.IsEmpty).Select(slot => slot.ItemId)
-        .Where(itemId => TryGetBatteryWatt(itemId, out _)).ToArray();
+        // NetworkList<T>는 foreach는 되지만 IEnumerable<T>를 구현하지 않아 LINQ가 안 먹힌다. 직접 순회.
+        List<ItemType> carriedBatteries = new();
+        foreach (InventorySlot slot in _playerInventory.Slots)
+        {
+            if (!slot.IsEmpty && TryGetBatteryWatt(slot.ItemId, out _))
+            {
+                carriedBatteries.Add(slot.ItemId);
+            }
+        }
 
-        foreach (string itemId in carriedBatteries)
+        foreach (ItemType itemId in carriedBatteries)
         {
             if (_playerInventory.MoveItemToMission(itemId))
             {
@@ -116,7 +113,7 @@ public sealed partial class BreakerBatteryMission
         HashSet<int>[] sumsByCount = Enumerable.Range(0, _slots.Length + 1).Select(_ => new HashSet<int>()).ToArray();
         sumsByCount[0].Add(0);
 
-        foreach (string itemId in _stagedBatteryItemIds)    // 인벤토리에서 꺼낸 배터리들을 모두 사용하지 않아도 된다.
+        foreach (ItemType itemId in _stagedBatteryItemIds)    // 인벤토리에서 꺼낸 배터리들을 모두 사용하지 않아도 된다.
         {
             if (!TryGetBatteryWatt(itemId, out int watt))
             {

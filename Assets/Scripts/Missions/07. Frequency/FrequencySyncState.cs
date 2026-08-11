@@ -34,7 +34,7 @@ public sealed class FrequencySyncState : NetworkBehaviour
     // 현재 단계의 좌표로 옮겨 다니는 안테나 존이다. 하나를 세 좌표에 재사용한다.
     [SerializeField] private FrequencyAntennaZone _antennaZone;
     // 이 아이템을 들고 있는 플레이어가 P2다. 존 판정과 레이더 추적이 같은 기준을 쓰도록 여기서 한 번만 정한다.
-    [SerializeField] private string _antennaItemId = "Antenna";
+    [SerializeField] private ItemType _antennaItemId = ItemType.Antenna;
     // 소지자 방향을 다시 재는 간격이다. 시야 회전을 따라가야 하므로 짧게 둔다.
     private const float TrackRefreshSeconds = 0.08f;
     // 목표 주파수에 이 시간만큼 머물러야 한 단계가 통과된다. 스치듯 지나가는 것으로는 안 된다.
@@ -98,7 +98,7 @@ public sealed class FrequencySyncState : NetworkBehaviour
     public float TargetFrequency => _targetFrequency.Value;
     public float CurrentFrequency => _currentFrequency.Value;
     public bool IsCompleted => _interactable != null && _interactable.IsCompleted;
-    public string AntennaItemId => _antennaItemId;
+    public ItemType AntennaItemId => _antennaItemId;
 
     // 소지자가 보는 방향을 위쪽으로 놓았을 때 목표 좌표가 있는 각도다. 소지자가 몸을 돌리면 이 값이 바뀐다.
     public float HolderRelativeBearing => _holderRelativeBearing.Value;
@@ -472,7 +472,7 @@ public sealed class FrequencySyncState : NetworkBehaviour
 
             foreach (InventorySlot slot in inventory.Slots)
             {
-                if (slot != null && slot.ItemId == _antennaItemId)
+                if (!slot.IsEmpty && slot.ItemId == _antennaItemId)
                 {
                     return player.transform;
                 }
@@ -536,7 +536,7 @@ public sealed class FrequencySyncState : NetworkBehaviour
     [Rpc(SendTo.SpecifiedInParams)]
     private void ShowAntennaInstalledMessageOwnerRpc(RpcParams rpcParams = default)
     {
-        FindFirstObjectByType<InventoryUI>(FindObjectsInactive.Include)?.ShowTemporaryPrompt("안테나 설치 완료");
+        FindFirstObjectByType<InteractionPromptUI>(FindObjectsInactive.Include)?.ShowTemporaryPrompt("안테나 설치 완료");
     }
 
     // 이 기계는 서버 소유지만 RPC를 호출하는 쪽은 각 화면을 조작하는 클라이언트다. Breaker와 같은 이유로 Everyone으로 열어둔다.

@@ -88,7 +88,7 @@ public partial class PlayerInteraction
         && !string.IsNullOrWhiteSpace(interactionText)) { interactionText = $"{interactionText} (길게 누르기)"; }
 
         bool showKeyHint = _currentTarget?.ShowInteractionKeyHint(gameObject) ?? true;
-        _inventoryUI?.SetInteractionPrompt(interactionText, showKeyHint);
+        _promptUI?.SetInteractionPrompt(interactionText, showKeyHint);
     }
 
     private void UpdateCurrentTarget()

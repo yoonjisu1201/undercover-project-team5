@@ -1,7 +1,4 @@
-using System.Collections;
-using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class InventoryUI : MonoBehaviour
@@ -10,34 +7,23 @@ public class InventoryUI : MonoBehaviour
     [SerializeField] private Image[] _itemIcons;
     [SerializeField] private RectTransform _selectionOutline;
     [SerializeField] private ItemCatalog _itemCatalog;
-    [SerializeField] private TMP_Text _interactionPromptText;
-    [SerializeField, Min(0f)] private float _selectedItemPromptDuration = 1f;
-    [SerializeField] private Image _useHoldProgressImage;
+    [SerializeField] private InteractionPromptUI _promptUI;
     private GameObject[] _slots;    // 인벤토리 슬롯 UI 오브젝트 배열
-
-    private CustomInputActions _actions;
-    private Coroutine _selectedItemPromptRoutine;
-    private string _interactionText;
-    private Sprite _useHoldProgressSprite;
 
     private void Awake()
     {
-        _actions = new CustomInputActions();
         _slots = new GameObject[4];
         _itemIcons = new Image[4];
-
-        if (_interactionPromptText == null)
-        {
-            _interactionPromptText = transform.Find("InteractionPrompt")?.GetComponent<TMP_Text>();
-        }
 
         if (_itemCatalog == null)
         {
             _itemCatalog = FindFirstObjectByType<ItemCatalog>();
         }
 
-        SetInteractionPrompt(null);
-        SetUseHoldProgress(0f, false);
+        if (_promptUI == null)
+        {
+            _promptUI = FindFirstObjectByType<InteractionPromptUI>(FindObjectsInactive.Include);
+        }
 
         for (int i = 0; i < _slots.Length; i++)
         {
@@ -55,12 +41,10 @@ public class InventoryUI : MonoBehaviour
 
     private void OnEnable()
     {
-        _actions ??= new CustomInputActions();
-        _actions.Enable();
-
         if (_inventory != null)
         {
-            _inventory.InventoryChanged += Refresh;
+            _inventory.OnInventoryChanged += Refresh;
+            _inventory.OnSlotSelected += HandleSlotSelected;
         }
 
         Refresh();
@@ -68,53 +52,11 @@ public class InventoryUI : MonoBehaviour
 
     private void OnDisable()
     {
-        _actions?.Disable();
-
-        if (_selectedItemPromptRoutine != null)
-        {
-            StopCoroutine(_selectedItemPromptRoutine);
-            _selectedItemPromptRoutine = null;
-        }
-
         if (_inventory != null)
         {
-            _inventory.InventoryChanged -= Refresh;
+            _inventory.OnInventoryChanged -= Refresh;
+            _inventory.OnSlotSelected -= HandleSlotSelected;
         }
-    }
-
-    private void Update()
-    {
-        if (_inventory == null)
-        {
-            return;
-        }
-
-        if (_actions.Player.Slot1.WasPressedThisFrame())
-            SelectSlotAndShowItem(0);
-
-        if (_actions.Player.Slot2.WasPressedThisFrame())
-            SelectSlotAndShowItem(1);
-
-        if (_actions.Player.Slot3.WasPressedThisFrame())
-            SelectSlotAndShowItem(2);
-
-        if (_actions.Player.Slot4.WasPressedThisFrame())
-            SelectSlotAndShowItem(3);
-
-        float scrollY = _actions.Player.InventoryScroll.ReadValue<Vector2>().y;
-        if (scrollY != 0f)
-            SelectSlotByScroll(scrollY);
-    }
-
-    private void SelectSlotByScroll(float scrollY)
-    {
-        int direction = scrollY > 0f ? -1 : 1;
-        int currentIndex = _inventory.SelectedIndex;
-        int nextIndex = currentIndex < 0
-            ? (direction > 0 ? 0 : _slots.Length - 1)
-            : (currentIndex + direction + _slots.Length) % _slots.Length;
-
-        SelectSlotAndShowItem(nextIndex);
     }
 
     public void BindInventory(PlayerInventory inventory)    // 인벤토리 UI에 플레이어 인벤토리 연결
@@ -126,201 +68,49 @@ public class InventoryUI : MonoBehaviour
 
         if (_inventory != null)
         {
-            _inventory.InventoryChanged -= Refresh;
+            _inventory.OnInventoryChanged -= Refresh;
+            _inventory.OnSlotSelected -= HandleSlotSelected;
         }
 
         _inventory = inventory;
 
         if (_inventory != null && isActiveAndEnabled)
         {
-            _inventory.InventoryChanged += Refresh;
+            _inventory.OnInventoryChanged += Refresh;
+            _inventory.OnSlotSelected += HandleSlotSelected;
         }
 
         Refresh();
     }
 
-    // 상호작용 프롬프트 텍스트 설정. showKeyHint가 false면 " : [E]" 힌트 없이 문구만 보여준다
-    // (예: 눌러도 아무 동작이 없는 안내성 문구).
-    public void SetInteractionPrompt(string interactionText, bool showKeyHint = true)
+    // 슬롯 선택 시(1~4번 입력 또는 스크롤, PlayerInventory가 처리) 현재 손에 든 아이템 이름을
+    // 상호작용 안내 위치에 잠시 표시한다.
+    private void HandleSlotSelected(int index)
     {
-        _interactionText = interactionText;
-
-        // 월드 아이템이나 플레이어 등 실제 상호작용 안내가 선택 아이템 이름보다 우선한다.
-        if (!string.IsNullOrWhiteSpace(interactionText))
-        {
-            if (_selectedItemPromptRoutine != null)
-            {
-                StopCoroutine(_selectedItemPromptRoutine);
-                _selectedItemPromptRoutine = null;
-            }
-
-            ApplyInteractionPrompt(interactionText, showKeyHint);
-            return;
-        }
-
-        // 상호작용 대상이 사라져도 진행 중인 선택 아이템 안내는 남은 시간 동안 유지한다.
-        if (_selectedItemPromptRoutine != null)
-        {
-            return;
-        }
-
-        ApplyInteractionPrompt(interactionText);
-    }
-
-    // 슬롯 선택 시 현재 손에 든 아이템 이름을 상호작용 안내 위치에 잠시 표시한다.
-    private void SelectSlotAndShowItem(int index)
-    {
-        _inventory.SelectSlot(index);
-
-        if (index < 0 || index >= _inventory.Slots.Length)
+        if (index < 0 || index >= _inventory.Slots.Count)
         {
             return;
         }
 
         InventorySlot slot = _inventory.Slots[index];
-        if (slot == null || slot.IsEmpty)
+        if (slot.IsEmpty)
         {
             return;
         }
 
-        string displayName = slot.ItemId;
+        string displayName = slot.ItemId.ToString();
         if (_itemCatalog != null && _itemCatalog.TryGet(slot.ItemId, out ItemData itemData))
         {
             displayName = itemData.DisplayName;
         }
 
         // 상호작용 가능한 대상을 보고 있을 때는 낮은 우선순위의 선택 아이템 안내를 표시하지 않는다.
-        if (!string.IsNullOrWhiteSpace(_interactionText))
+        if (_promptUI != null && _promptUI.HasActiveInteractionPrompt)
         {
             return;
         }
 
-        ShowTemporaryPrompt(displayName);
-    }
-
-    public void ShowTemporaryPrompt(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return;
-        }
-
-        if (_selectedItemPromptRoutine != null)
-        {
-            StopCoroutine(_selectedItemPromptRoutine);
-        }
-
-        _selectedItemPromptRoutine = StartCoroutine(ShowSelectedItemPrompt(message));
-    }
-
-    public void SetUseHoldProgress(float progress, bool visible)
-    {
-        EnsureUseHoldProgressImage();
-
-        if (_useHoldProgressImage == null)
-        {
-            return;
-        }
-
-        _useHoldProgressImage.fillAmount = Mathf.Clamp01(progress);
-        _useHoldProgressImage.gameObject.SetActive(visible);
-    }
-
-    private void EnsureUseHoldProgressImage()
-    {
-        if (_useHoldProgressImage != null)
-        {
-            return;
-        }
-
-        GameObject progressObject = new("UseHoldProgress", typeof(RectTransform), typeof(Image));
-        progressObject.transform.SetParent(transform, false);
-
-        RectTransform rectTransform = (RectTransform)progressObject.transform;
-        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-        rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        rectTransform.anchoredPosition = Vector2.zero;
-        rectTransform.sizeDelta = new Vector2(72f, 72f);
-
-        _useHoldProgressImage = progressObject.GetComponent<Image>();
-        _useHoldProgressImage.sprite = GetUseHoldProgressSprite();
-        _useHoldProgressImage.color = new Color(1f, 1f, 1f, 0.45f);
-        _useHoldProgressImage.raycastTarget = false;
-        _useHoldProgressImage.type = Image.Type.Filled;
-        _useHoldProgressImage.fillMethod = Image.FillMethod.Radial360;
-        _useHoldProgressImage.fillOrigin = (int)Image.Origin360.Top;
-        _useHoldProgressImage.fillClockwise = true;
-        _useHoldProgressImage.fillAmount = 0f;
-        _useHoldProgressImage.gameObject.SetActive(false);
-    }
-
-    private Sprite GetUseHoldProgressSprite()
-    {
-        if (_useHoldProgressSprite != null)
-        {
-            return _useHoldProgressSprite;
-        }
-
-        const int textureSize = 64;
-        const float radius = textureSize * 0.5f - 1f;
-        Vector2 center = new(textureSize * 0.5f, textureSize * 0.5f);
-        Texture2D texture = new(textureSize, textureSize, TextureFormat.RGBA32, false)
-        {
-            name = "UseHoldProgressCircle"
-        };
-
-        Color32[] pixels = new Color32[textureSize * textureSize];
-        for (int y = 0; y < textureSize; y++)
-        {
-            for (int x = 0; x < textureSize; x++)
-            {
-                float distance = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), center);
-                pixels[y * textureSize + x] = distance <= radius
-                    ? new Color32(255, 255, 255, 255)
-                    : new Color32(255, 255, 255, 0);
-            }
-        }
-
-        texture.SetPixels32(pixels);
-        texture.Apply();
-
-        _useHoldProgressSprite = Sprite.Create(
-            texture,
-            new Rect(0f, 0f, textureSize, textureSize),
-            new Vector2(0.5f, 0.5f),
-            textureSize);
-        return _useHoldProgressSprite;
-    }
-
-    private IEnumerator ShowSelectedItemPrompt(string message)
-    {
-        if (_interactionPromptText != null)
-        {
-            _interactionPromptText.text = message;
-            _interactionPromptText.gameObject.SetActive(true);
-        }
-
-        yield return new WaitForSecondsRealtime(_selectedItemPromptDuration);
-
-        _selectedItemPromptRoutine = null;
-        ApplyInteractionPrompt(_interactionText);
-    }
-
-    private void ApplyInteractionPrompt(string interactionText, bool showKeyHint = true)
-    {
-        if (_interactionPromptText == null)
-        {
-            return;
-        }
-
-        bool isVisible = !string.IsNullOrWhiteSpace(interactionText);
-        if (isVisible)
-        {
-            _interactionPromptText.text = showKeyHint ? $"{interactionText} : [E]" : interactionText;
-        }
-
-        _interactionPromptText.gameObject.SetActive(isVisible);
+        _promptUI?.ShowTemporaryPrompt(displayName);
     }
 
     private void Refresh()
@@ -333,7 +123,7 @@ public class InventoryUI : MonoBehaviour
             _slots[i]?.SetActive(true);
 
             InventorySlot inventorySlot = _inventory.Slots[i];
-            bool hasItem = inventorySlot != null && !inventorySlot.IsEmpty;
+            bool hasItem = !inventorySlot.IsEmpty;
 
             if (_itemIcons[i] == null)
                 continue;
@@ -349,7 +139,7 @@ public class InventoryUI : MonoBehaviour
             }
         }
 
-        // 아이템이 인벤토리에 없으면 선택 테두리를 숨기기 (없으면 SelectedIndex 는 -1)
+        // 아이템이 인벤토리에 하나도 없으면 선택 테두리를 숨기기 (SelectedIndex는 항상 0 이상)
         bool showSelection = _inventory.HasAnyItem && _inventory.SelectedIndex >= 0 && _inventory.SelectedIndex < _slots.Length;
 
         if (_selectionOutline == null)
@@ -363,10 +153,5 @@ public class InventoryUI : MonoBehaviour
 
             _selectionOutline.anchoredPosition = selectedSlot.anchoredPosition;
         }
-    }
-
-    public void Interact(GameObject interactor)
-    {
-        throw new System.NotImplementedException();
     }
 }
