@@ -1,9 +1,9 @@
 using Unity.Netcode;
 using UnityEngine;
 
-// 선택한 아이템을 E키로 사용하는 실행 흐름(서버 검증/적용, 완료 알림)을 처리한다.
-// "쓸 수 있는지" 판정(IUsable.CanUse/RequiresHold)은 PlayerInteraction이 직접 하고, 여기서는 실행만 담당한다.
-// 아이템별 효과는 IUsable을 구현한 ItemBase 서브클래스(예: EnergyBar)가 갖고 있고, 여기서는 그걸 호출만 한다.
+// 선택한 아이템을 E로 사용하는 실행 흐름(서버 검증·적용, 완료 알림)을 처리한다.
+// "지금 사용할 수 있는지" 판정(IUsable.CanUse, hold 여부는 ItemHoldThreshold)은 PlayerInteraction이 직접 하고,
+// 여기서는 실행만 담당한다.
 [RequireComponent(typeof(PlayerInventory))]
 public class PlayerItemUse : NetworkBehaviour
 {
@@ -49,8 +49,6 @@ public class PlayerItemUse : NetworkBehaviour
             return message != null;
         }
 
-        // 서버 왕복 없이 지금 이 클라이언트에서 바로 재생한다 - item.ItemData는 로컬에서 이미 들고 있는 참조라
-        // 디스폰 이후를 신경 쓸 필요가 없다. 서버가 나중에 CanUse 재검증에서 막더라도 소리는 이미 난 뒤다.
         if (_audioSource != null && item.ItemData != null && item.ItemData.AudioClip != null)
         {
             _audioSource.PlayOneShot(item.ItemData.AudioClip);
@@ -60,7 +58,6 @@ public class PlayerItemUse : NetworkBehaviour
         return true;
     }
 
-    // 선택 상태를 서버에서 다시 확인한 뒤 아이템 효과를 실행한다.
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     private void RequestUseItemRpc(NetworkBehaviourReference itemRef, int selectedIndex)
     {
@@ -74,16 +71,28 @@ public class PlayerItemUse : NetworkBehaviour
             return;
         }
 
-        string completedMessage = usable.UseCompletedMessage;
+        // Use()가 아이템을 소모(파괴)할 수 있으므로, 참조는 그 전에 미리 만들어둔다.
+        NetworkBehaviourReference itemReference = new(item);
 
         usable.Use(gameObject, _inventory, selectedIndex);
 
-        HandleItemUsedOwnerRpc(completedMessage, RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
+        HandleItemUsedOwnerRpc(
+            itemReference,
+            usable.UseCompletedMessage,
+            RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
     }
 
     [Rpc(SendTo.SpecifiedInParams)]
-    private void HandleItemUsedOwnerRpc(string message, RpcParams rpcParams = default)
+    private void HandleItemUsedOwnerRpc(NetworkBehaviourReference itemRef, string message, RpcParams rpcParams = default)
     {
-        _promptUI?.ShowTemporaryPrompt(message);
+        if (itemRef.TryGet(out ItemBase item))
+        {
+            item.NotifyUseCompleted();
+        }
+
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            _promptUI?.ShowTemporaryPrompt(message);
+        }
     }
 }
