@@ -20,6 +20,9 @@ public class AlienCloneManager : MonoBehaviour
     private readonly List<AlienCloneHealth> _aliveClones = new();
     private bool _spawnFailedThisCycle;
 
+    // 살아있는(사망 애니메이션 중인 개체 포함) 분신 목록. 분신끼리 서로의 위치를 참고할 때 쓴다.
+    public IReadOnlyList<AlienCloneHealth> AliveClones => _aliveClones;
+
     // 디버그 메뉴에서 주기적인 스폰을 끄거나, 범인과 함께 분신도 정지시킬 때 사용한다. 서버에서만 의미가 있다.
     public bool SpawningEnabled { get; private set; } = true;
     public bool ClonesFrozen { get; private set; }

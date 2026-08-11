@@ -26,6 +26,9 @@ public class AlienCloneController : NetworkBehaviour
     [SerializeField, Min(0f)] private float _chaseKeepDistance = 35f;
     [SerializeField, Min(0f)] private float _targetStopDistance = 1.4f;
     [SerializeField, Min(0f)] private float _targetResumeDistance = 1.8f;
+    // 한 플레이어에게 동시에 붙을 수 있는 최대 마릿수. 순번이 밀린 나머지는
+    // 이 플레이어를 포기하고 배회로 돌아간다.
+    [SerializeField, Min(1)] private int _maxClonesNearTarget = 2;
     [SerializeField, Min(0f)] private float _chaseSpeed = 3.5f;
     [SerializeField, Min(0f)] private float _chaseFailureTimeout = 2.5f;
     [SerializeField, Min(0f)] private float _lostTargetRetryDelay = 2f;
@@ -37,6 +40,11 @@ public class AlienCloneController : NetworkBehaviour
     private Animator _animator;
     private Vector3 _spawnPosition;
     private MapRegion _currentRegion;
+    private AlienCloneManager _cloneManager;
+    // 순번에서 밀려 양보한 뒤 배회할 시간. 이 사이에는 타겟을 다시 잡지 않는다.
+    // 무시할 대상을 하나만 담는 _ignoredTarget으로는 플레이어가 둘 이상일 때
+    // 서로를 번갈아 무시하며 매 프레임 타겟을 잡았다 놓아 제자리에 멈춰버린다.
+    private float _yieldTimer;
     private PlayerHealth _currentTarget;
     private PlayerHealth _ignoredTarget;
     private readonly List<PlayerHealth> _playersInRange = new();
@@ -63,6 +71,7 @@ public class AlienCloneController : NetworkBehaviour
 
         if (IsServer && _agent != null)
         {
+            _cloneManager = FindFirstObjectByType<AlienCloneManager>();
             _agent.avoidancePriority = Random.Range(35, 66);
             _agent.stoppingDistance = _targetStopDistance;
         }
@@ -127,6 +136,11 @@ public class AlienCloneController : NetworkBehaviour
         UpdateMovementAnimation();
         UpdateIgnoredTargetTimer();
 
+        if (_yieldTimer > 0f)
+        {
+            _yieldTimer -= Time.deltaTime;
+        }
+
         // ①-1 정지 상태면 목적지를 새로 잡지 않는다 (디버그 메뉴의 범인 정지와 함께 걸린 상태)
         if (_isFrozen) return;
 
@@ -147,7 +161,7 @@ public class AlienCloneController : NetworkBehaviour
         }
 
         // ③ 새 타겟 채우기: 타겟이 없으면 범위 안 목록에서 대체 타겟을 찾음
-        if (_currentTarget == null)
+        if (_currentTarget == null && _yieldTimer <= 0f)
         {
             _currentTarget = FindValidTargetInRange();
         }
@@ -155,6 +169,18 @@ public class AlienCloneController : NetworkBehaviour
         // ④ 타겟 있으면 추적하고 끝: 배회 로직으로 안 내려감
         if (_currentTarget != null)
         {
+            // 붙을 순번이 아니면 이 플레이어는 잠시 포기하고 배회로 돌아간다.
+            // 추격 시작 거리가 30m라 재추격 대기시간이 지나면 알아서 다시 판정을 받는다.
+            //
+            // 이미 근접 거리까지 들어온 개체는 순번 판정에서 면제한다. 회피에 밀려 순번이
+            // 잠깐 뒤집히는 순간에 때리다 말고 떠나버리지 않게 하는 안전장치다.
+            if (!IsPlayerWithinDistance(_currentTarget, _targetResumeDistance) && !HasRoomNearTarget())
+            {
+                _yieldTimer = _lostTargetRetryDelay;
+                ClearCurrentTarget(true);
+                return;
+            }
+
             if (ShouldHoldNearTarget())
             {
                 HoldNearTarget();
@@ -388,6 +414,53 @@ public class AlienCloneController : NetworkBehaviour
         offset.y = 0f;
 
         return offset.sqrMagnitude <= stopDistance * stopDistance;
+    }
+
+    // 나보다 타겟에 더 가까운 개체를 세어, 내가 붙을 순번인지 본다.
+    // 반경 안의 마릿수를 그냥 세면 여러 마리가 동시에 다가올 때 서로를 보고 전원이 물러나
+    // 다가왔다 돌아가는 왕복이 생긴다. 순번으로 보면 모두가 같은 순위표를 읽으므로
+    // 가장 가까운 개체들이 항상 이기고 그런 눈치싸움이 없다.
+    //
+    // 사망 애니메이션 중인 개체도 Collider가 남아 길을 막으므로 순번에 포함한다.
+    // 매니저를 못 찾으면 제한 없이 붙는다.
+    private bool HasRoomNearTarget()
+    {
+        if (_cloneManager == null)
+        {
+            return true;
+        }
+
+        Vector3 targetPosition = _currentTarget.transform.position;
+
+        Vector3 myOffset = targetPosition - transform.position;
+        myOffset.y = 0f;
+        float myDistanceSqr = myOffset.sqrMagnitude;
+
+        int closerCount = 0;
+
+        foreach (AlienCloneHealth clone in _cloneManager.AliveClones)
+        {
+            if (clone == null || clone.transform == transform)
+            {
+                continue;
+            }
+
+            Vector3 offset = targetPosition - clone.transform.position;
+            offset.y = 0f;
+
+            if (offset.sqrMagnitude >= myDistanceSqr)
+            {
+                continue;
+            }
+
+            closerCount++;
+            if (closerCount >= _maxClonesNearTarget)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void HoldNearTarget()
