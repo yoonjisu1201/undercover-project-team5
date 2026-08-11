@@ -44,7 +44,7 @@ public class InventoryUI : MonoBehaviour
         if (_inventory != null)
         {
             _inventory.OnInventoryChanged += Refresh;
-            _inventory.OnSlotSelected += HandleSlotSelected;
+            // _inventory.OnSlotSelected += HandleSlotSelected;   // 보류: IUsable.UseText 상시 표시와 겹침 (아래 HandleSlotSelected 참고)
         }
 
         Refresh();
@@ -55,7 +55,7 @@ public class InventoryUI : MonoBehaviour
         if (_inventory != null)
         {
             _inventory.OnInventoryChanged -= Refresh;
-            _inventory.OnSlotSelected -= HandleSlotSelected;
+            // _inventory.OnSlotSelected -= HandleSlotSelected;
         }
     }
 
@@ -69,7 +69,7 @@ public class InventoryUI : MonoBehaviour
         if (_inventory != null)
         {
             _inventory.OnInventoryChanged -= Refresh;
-            _inventory.OnSlotSelected -= HandleSlotSelected;
+            // _inventory.OnSlotSelected -= HandleSlotSelected;
         }
 
         _inventory = inventory;
@@ -77,12 +77,14 @@ public class InventoryUI : MonoBehaviour
         if (_inventory != null && isActiveAndEnabled)
         {
             _inventory.OnInventoryChanged += Refresh;
-            _inventory.OnSlotSelected += HandleSlotSelected;
+            // _inventory.OnSlotSelected += HandleSlotSelected;
         }
 
         Refresh();
     }
 
+    // 보류: IUsable.UseText가 이제 대상 없을 때 항상 안내 문구를 채워서, IsActiveInteractionPrompt로
+    // 우선순위를 가리던 이 로직과 겹친다. OnSlotSelected 구독을 위에서 잠시 꺼둠 - 정리 방식 결정되면 다시 켠다.
     // 슬롯 선택 시(1~4번 입력 또는 스크롤, PlayerInventory가 처리) 현재 손에 든 아이템 이름을
     // 상호작용 안내 위치에 잠시 표시한다.
     private void HandleSlotSelected(int index)

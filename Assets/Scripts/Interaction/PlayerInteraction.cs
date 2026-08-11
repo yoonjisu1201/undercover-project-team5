@@ -14,7 +14,6 @@ public partial class PlayerInteraction : NetworkBehaviour
     [Range(0.01f, 0.5f)]
     [SerializeField] private float _screenCenterRadius = 0.2f; // 화면 중심에서 상호작용 가능한 영역의 반지름
     [SerializeField] private InteractionPromptUI _promptUI;
-    [SerializeField, Min(0.1f)] private float _useItemHoldDuration = 1.2f;
     [SerializeField, Min(0.1f)] private float _reviveHoldDuration = 1.2f;
 
     private InteractableBase _currentTarget;  // 현재 상호작용 가능한 대상
@@ -34,7 +33,8 @@ public partial class PlayerInteraction : NetworkBehaviour
         None,
         UseItem,
         Revive,
-        Interactable
+        Interactable,
+        ApplyItem
     }
 
     public CartBase CarryingCart { get; set; } // 플레이어가 끌고 있는 카트. null이면 카트를 끌고 있지 않다.
@@ -168,6 +168,13 @@ public partial class PlayerInteraction : NetworkBehaviour
 
     private void HandleInteractInput()
     {
+        // 대상을 조준 중이고 그 대상에 적용 가능한 IInteractionApplier 아이템을 들고 있으면 최우선으로 적용을 시도한다.
+        if (_currentTarget != null && TryGetApplierForTarget(_currentTarget, out ItemBase applierItem, out _))
+        {
+            BeginHoldAction(HoldAction.ApplyItem, applierItem.HoldDuration, _currentTarget);
+            return;
+        }
+
         // 조준 중인 대상이 있으면 단서 UI보다 필드 상호작용을 우선한다.
         if (_currentTarget != null)
         {
@@ -202,7 +209,7 @@ public partial class PlayerInteraction : NetworkBehaviour
             {
                 if (usable.RequiresHold)
                 {
-                    BeginHoldAction(HoldAction.UseItem, _useItemHoldDuration);
+                    BeginHoldAction(HoldAction.UseItem, item.HoldDuration);
                     return;
                 }
 
@@ -221,6 +228,26 @@ public partial class PlayerInteraction : NetworkBehaviour
         }
 
         TryShowSelectedItemUi();
+    }
+
+    // 현재 선택한 아이템이 target에 적용 가능한 IInteractionApplier인지 확인한다.
+    private bool TryGetApplierForTarget(InteractableBase target, out ItemBase item, out IInteractionApplier applier)
+    {
+        item = null;
+        applier = null;
+
+        if (target == null
+            || _inventory == null
+            || !_inventory.TryGetSelectedItemBase(out ItemBase selected)
+            || selected is not IInteractionApplier itemApplier
+            || !itemApplier.CanApplyTo(gameObject, target, out _))
+        {
+            return false;
+        }
+
+        item = selected;
+        applier = itemApplier;
+        return true;
     }
 
     private void TryInteract()
@@ -294,6 +321,7 @@ public partial class PlayerInteraction : NetworkBehaviour
             HoldAction.UseItem => _currentTarget == null,
             HoldAction.Revive => _holdTarget != null && ReferenceEquals(_currentTarget, _holdTarget) && _holdTarget.CanInteract(gameObject),
             HoldAction.Interactable => _holdTarget != null && ReferenceEquals(_currentTarget, _holdTarget) && _holdTarget.CanInteract(gameObject),
+            HoldAction.ApplyItem => _holdTarget != null && ReferenceEquals(_currentTarget, _holdTarget) && TryGetApplierForTarget(_holdTarget, out _, out _),
             _ => false
         };
     }
@@ -328,7 +356,27 @@ public partial class PlayerInteraction : NetworkBehaviour
                     RefreshInteractionPrompt();
                 }
                 break;
+
+            case HoldAction.ApplyItem:
+                if (completedTarget != null && TryGetApplierForTarget(completedTarget, out ItemBase completedItem, out _))
+                {
+                    RequestApplyItemRpc(new NetworkBehaviourReference(completedItem), new NetworkBehaviourReference(completedTarget), _inventory.SelectedIndex);
+                    _promptRefreshUntil = Time.time + 0.75f;
+                    RefreshInteractionPrompt();
+                }
+                break;
         }
+    }
+
+    // 조준 대상에 들고 있는 IInteractionApplier 아이템을 적용한다 (예: 오염 샘플을 미션 기계에 투입).
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+    private void RequestApplyItemRpc(NetworkBehaviourReference itemRef, NetworkBehaviourReference targetRef, int selectedIndex)
+    {
+        if (!itemRef.TryGet(out ItemBase item) || item is not IInteractionApplier applier) { return; }
+        if (!targetRef.TryGet(out InteractableBase target) || !target.CanInteract(gameObject)) { return; }
+        if (!applier.CanApplyTo(gameObject, target, out _)) { return; }
+
+        applier.ApplyToOnServer(gameObject, target, _inventory, selectedIndex);
     }
 
     private void CancelHoldAction()

@@ -69,26 +69,55 @@ public partial class PlayerInteraction
         return other.TryGetComponent(out NpcRandomWander wander) && wander.WanderAreaCollider == other;
     }
 
-    // 같은 대상을 계속 조준 중이어도, 선택 슬롯이 바뀌면(예: 스크롤로 추적기 선택/해제) 안내 문구를 바로 갱신한다.
+    // 선택 슬롯이 바뀌면(예: 스크롤로 아이템 선택/해제) 안내 문구를 바로 갱신한다.
+    // 대상을 조준 중이 아니어도 들고 있는 IUsable 아이템 문구가 바뀔 수 있어 대상 유무와 상관없이 갱신한다.
     private void HandleInventoryChanged()
     {
-        if (_currentTarget != null)
-        {
-            RefreshInteractionPrompt();
-        }
+        RefreshInteractionPrompt();
     }
 
-    // 현재 조준 대상 기준으로 상호작용 안내 문구를 갱신한다. (대상이 없으면 문구를 비운다)
+    // 현재 조준 대상과 들고 있는 아이템 기준으로 상호작용 안내 문구를 갱신한다.
+    // 우선순위: 2) 대상에 투입 가능한 IInteractionApplier 아이템 > 1) 대상 자체 문구 > 3) 대상 없을 때 IUsable 아이템 문구.
+    // 다운/카트/GameplayUiMode 중엔 상호작용 자체가 막혀 있으므로, 이 4가지 호출부(SetCurrentTarget,
+    // HandleInventoryChanged, Update의 재확인 창, CompleteHoldAction)가 전부 여길 거치는 김에 여기서 한 번만 막는다.
     private void RefreshInteractionPrompt()
     {
-        string interactionText = _currentTarget?.GetInteractionText(gameObject);
+        if (_health.IsDowned || CarryingCart != null || GameplayUiMode.IsActive)
+        {
+            _promptUI?.SetInteractionPrompt(null, false);
+            return;
+        }
 
-        // 길게 누를때는 안내 문구 표시
-        if (_currentTarget != null && _currentTarget.RequiresHoldInteraction(gameObject)
-        && !string.IsNullOrWhiteSpace(interactionText)) { interactionText = $"{interactionText} (길게 누르기)"; }
+        // 2. 대상을 조준 중이고, 그 대상에 적용 가능한 IInteractionApplier 아이템을 들고 있으면 아이템 쪽 문구가 최우선.
+        if (_currentTarget != null && TryGetApplierForTarget(_currentTarget, out _, out IInteractionApplier applier))
+        {
+            _promptUI?.SetInteractionPrompt($"{applier.InteractionApplyText} (길게 누르기)", true);
+            return;
+        }
 
-        bool showKeyHint = _currentTarget?.ShowInteractionKeyHint(gameObject) ?? true;
-        _promptUI?.SetInteractionPrompt(interactionText, showKeyHint);
+        // 1. 대상만 조준 중이면 대상 자체 문구.
+        if (_currentTarget != null)
+        {
+            string interactionText = _currentTarget.GetInteractionText(gameObject);
+
+            if (_currentTarget.RequiresHoldInteraction(gameObject) && !string.IsNullOrWhiteSpace(interactionText))
+            {
+                interactionText = $"{interactionText} (길게 누르기)";
+            }
+
+            _promptUI?.SetInteractionPrompt(interactionText, _currentTarget.ShowInteractionKeyHint(gameObject));
+            return;
+        }
+
+        // 3. 조준 대상이 없고 IUsable 아이템을 들고 있으면 아이템 문구.
+        if (_inventory != null && _inventory.TryGetSelectedItemBase(out ItemBase usableItem) && usableItem is IUsable usable)
+        {
+            string interactionText = usable.RequiresHold ? $"{usable.UseText} (길게 누르기)" : usable.UseText;
+            _promptUI?.SetInteractionPrompt(interactionText, true);
+            return;
+        }
+
+        _promptUI?.SetInteractionPrompt(null, false);
     }
 
     private void UpdateCurrentTarget()

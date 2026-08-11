@@ -89,7 +89,7 @@ public sealed class ContaminatedSampleSource : InteractableBase
 
         // 인벤토리가 꽉 찼으면 지급에 실패하므로, 채취 표시도 남기지 않고 다시 시도할 수 있게 둔다.
         if (!client.PlayerObject.TryGetComponent(out PlayerInventory inventory)
-            || !inventory.TryAddItemOnServer(_sampleItem.ItemId))
+            || !ItemBase.TrySpawnAndAddToInventory(_sampleItem, inventory))
         {
             return;
         }

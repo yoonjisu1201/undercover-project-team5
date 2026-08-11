@@ -5,6 +5,9 @@ using UnityEngine;
 public class ItemBase : InteractableBase {
     [SerializeField] private ItemData _itemData;
 
+    // 사용(IUsable)/투입(IInteractionApplier) 등 길게 눌러야 하는 상호작용에 공통으로 쓰는 시간.
+    [SerializeField, Min(0.1f)] private float _holdDuration = 1.2f;
+
     // 프리팹 하나를 여러 ItemData가 공유하는 경우(예: Clue)가 있어서, 런타임에 주입된 종류를
     // 모든 클라이언트가 알 수 있도록 별도로 동기화한다.
     private readonly NetworkVariable<ItemType> _networkItemId =
@@ -23,6 +26,7 @@ public class ItemBase : InteractableBase {
     public ItemData ItemData => _itemData;
     public ItemType ItemId => _itemData != null ? _itemData.ItemId : ItemType.None;
     public bool IsStored => _isStored.Value;
+    public float HoldDuration => _holdDuration;
 
     public override string InteractionText => _itemData != null ? $"{_itemData.DisplayName} 줍기" : "줍기";
 
@@ -164,23 +168,28 @@ public class ItemBase : InteractableBase {
     }
 
     // 서버 전용: 이 아이템을 carrier(플레이어) 밑으로 넣고 재운다. 실패하면 아무것도 바꾸지 않는다.
+    // RPC는 void만 반환할 수 있어서, 성공 여부는 호출부가 IsStored로 확인한다.
     [Rpc(SendTo.Server)]
-    public bool TryStoreItemRpc(NetworkObject carrier) {
+    public void TryStoreItemRpc(NetworkObjectReference carrierRef) {
         // 이미 스폰된 아이템이어야 함 || 바닥에 드롭된 상태여야 함
         if (!IsSpawned || IsStored) {
             Debug.LogError($"[ItemBase] 스폰되지 않았거나 이미 타인의 인벤토리에 존재하는 아이템입니다.");
-            return false;
+            return;
+        }
+
+        if (!carrierRef.TryGet(out NetworkObject carrier)) {
+            Debug.LogError($"[ItemBase] 존재하지 않는 대상에게 아이템을 넣으려 했습니다.");
+            return;
         }
 
         // 아이템 주운 사람 아래로 넣기
         if (!NetworkObject.TrySetParent(carrier, worldPositionStays: false)) {
             Debug.LogError($"[ItemBase] Item -> Player SetParent에 실패했습니다.");
-            return false;
+            return;
         }
 
         _rigidBodySetter?.Freeze();
         _isStored.Value = true;
-        return true;
     }
 
     // 서버 전용: 인벤토리에서 꺼내 월드에 다시 놓는다.
@@ -263,7 +272,7 @@ public class ItemBase : InteractableBase {
         PlayerInventory inventory = player.GetComponent<PlayerInventory>();
 
         // 서버에서 인벤토리 공간을 확인하고, 되면 저장까지 한 번에 처리한다 (PickUpItemRpc 내부에서 TryStoreItemRpc 호출).
-        inventory.PickUpItemRpc(this);
+        inventory.PickUpItemRpc(new NetworkBehaviourReference(this));
     }
 
     // 월드에 새 인스턴스를 만들어 곧바로 인벤토리에 넣는다 (상점 소모품 구매, 디버그 지급처럼
@@ -287,7 +296,7 @@ public class ItemBase : InteractableBase {
         itemBase.Configure(itemData);
         networkObject.Spawn(destroyWithScene: true);
 
-        inventory.PickUpItemRpc(itemBase);
+        inventory.PickUpItemRpc(new NetworkBehaviourReference(itemBase));
 
         // PickUpItemRpc는 실패해도 반환값 없이 조용히 아무것도 안 하므로, 실제로 인벤토리에
         // 들어갔는지는 부작용(IsStored)으로 확인한다 - 실패 시 새로 만든 인스턴스를 정리한다.

@@ -67,16 +67,11 @@ public class PlayerItemUse : NetworkBehaviour
             return;
         }
 
-        // 소모(디스폰) 전에 필요한 값을 먼저 뽑아둔다 - 이후 item 인스턴스는 사라질 수 있다.
+        // 소모(디스폰) 전에 필요한 값을 먼저 뽑아둔다 - Use()가 스스로 소모시키면 이후 item 인스턴스는 사라질 수 있다.
         ItemType usedItemId = item.ItemId;
         string completedMessage = usable.UseCompletedMessage;
 
-        usable.ApplyUseOnServer(gameObject);
-
-        if (!_inventory.TryRemoveSelectedItemOnServer(usedItemId, selectedIndex))
-        {
-            return;
-        }
+        usable.Use(gameObject, _inventory, selectedIndex);
 
         HandleItemUsedOwnerRpc(usedItemId, completedMessage, RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
     }

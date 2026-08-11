@@ -17,7 +17,6 @@ public sealed class MissionInteractable : InteractableBase
     // 미션을 하기 위한 조건을 설정합니다. 조건의 충족 여부따라서 상호작용 안내 문구가 달라집니다.
     [Header("미션 시작 아이템")]
     [SerializeField] private ItemData _requiredItem;
-    [SerializeField] private string _requiredItemInsertText = "투입";
     [SerializeField] private string _requiredItemMissingText = "필요";
     [SerializeField] private string _requiredItemInsertedText = "분석 가능";
 
@@ -30,8 +29,6 @@ public sealed class MissionInteractable : InteractableBase
     private GameObject _uiInstance; // 열려있는 미션 ui 인스턴스
     private Transform _interactingPlayer;
     private static MissionInteractable _activeInteractable;
-
-    private IInteractionApplier _cachedApplier;
 
     public bool IsCompleted => _isCompleted.Value;
     public bool IsRequiredItemInserted => _requiredItem == null || _requiredItemInserted.Value;
@@ -49,6 +46,8 @@ public sealed class MissionInteractable : InteractableBase
     public override bool CanInteract(GameObject interactor) => true;
 
     // 시작 아이템이 필요한 기계는 지금 그 아이템을 들고 있는지에 따라 문구가 달라진다.
+    // 아이템을 들고 조준 중일 때 보여줄 문구(투입하기 등)는 PlayerInteraction이 IInteractionApplier
+    // 쪽에서 직접 가져가므로, 여기서는 "아직 안 들고 있음" 상태만 신경 쓰면 된다.
     public override string GetInteractionText(GameObject interactor)
     {
         if (IsCompleted || _requiredItem == null)
@@ -56,44 +55,15 @@ public sealed class MissionInteractable : InteractableBase
             return InteractionText;
         }
 
-        if (IsRequiredItemInserted)
-        {
-            return $"{_requiredItem.DisplayName} {_requiredItemInsertedText}";
-        }
-
-        return TryGetApplier(interactor, out _)
-            ? $"{_requiredItem.DisplayName} {_requiredItemInsertText}"
+        return IsRequiredItemInserted
+            ? $"{_requiredItem.DisplayName} {_requiredItemInsertedText}"
             : $"{_requiredItem.DisplayName} {_requiredItemMissingText}";
     }
 
     // 아이템이 없으면 눌러도 아무 일이 없으므로 [E] 힌트를 감춰 안내 문구만 남긴다.
     public override bool ShowInteractionKeyHint(GameObject interactor)
     {
-        return IsCompleted || IsRequiredItemInserted || TryGetApplier(interactor, out _);
-    }
-
-
-    //---   미션 시작 아이템을 기계에 넣을 때는 실수 방지를 위해 E를 길게 눌러 투입   ---///
-    public override bool RequiresHoldInteraction(GameObject interactor) => !IsRequiredItemInserted && TryGetApplier(interactor, out _cachedApplier);
-    public override float HoldInteractionDuration => _cachedApplier != null ? _cachedApplier.ApplyHoldDuration : base.HoldInteractionDuration;
-
-
-    // 플레이어가 현재 선택한 아이템이 이 기계에 투입 가능한 IInteractionApplier인지 확인한다.
-    private bool TryGetApplier(GameObject interactor, out IInteractionApplier applier)
-    {
-        applier = null;
-
-        if (_requiredItem == null
-            || !interactor.TryGetComponent(out PlayerInventory inventory)
-            || !inventory.TryGetSelectedItemBase(out ItemBase item)
-            || item is not IInteractionApplier itemApplier
-            || !itemApplier.CanApplyTo(interactor, this, out _))
-        {
-            return false;
-        }
-
-        applier = itemApplier;
-        return true;
+        return IsCompleted || IsRequiredItemInserted;
     }
 
 
@@ -124,17 +94,12 @@ public sealed class MissionInteractable : InteractableBase
     }
 
     // 미션 UI를 열고 완료된 게임이면 완료 안내만 표시한다.
+    // 필요한 아이템 투입은 PlayerInteraction이 IInteractionApplier 쪽에서 직접 처리하므로,
+    // 여기서는 아직 투입 전이면(=E를 눌러도 열 게 없으면) 그냥 아무것도 하지 않는다.
     public override void Interact(GameObject interactor)
     {
-        if (!CanInteract(interactor))
+        if (!CanInteract(interactor) || !IsRequiredItemInserted)
         {
-            return;
-        }
-
-        // 필요한 아이템이 아직 투입되지 않았다면 UI를 열지 않고 서버에 아이템 투입을 요청한다.
-        if (!IsRequiredItemInserted)
-        {
-            if (TryGetApplier(interactor, out _) && interactor.TryGetComponent(out PlayerInventory inventory)) { InsertRequiredItemRpc(inventory.SelectedIndex); }
             return;
         }
 
@@ -189,29 +154,8 @@ public sealed class MissionInteractable : InteractableBase
         }
     }
 
-    // 요청한 플레이어의 선택 슬롯을 서버에서 검증하고 아이템 효과를 적용한다.
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void InsertRequiredItemRpc(int selectedIndex, RpcParams rpcParams = default)
-    {
-        if (_requiredItemInserted.Value) { return; }
-        if (!NetworkManager.ConnectedClients.TryGetValue(rpcParams.Receive.SenderClientId, out NetworkClient client) || client.PlayerObject == null) { return; }
-        if ((client.PlayerObject.transform.position - transform.position).sqrMagnitude > 25f) { return; }
-
-        GameObject interactor = client.PlayerObject.gameObject;
-        if (!interactor.TryGetComponent(out PlayerInventory inventory)
-            || !inventory.TryGetSelectedItemBase(out ItemBase item)
-            || item is not IInteractionApplier applier
-            || !applier.CanApplyTo(interactor, this, out _))
-        {
-            return;
-        }
-
-        if (applier.ConsumedOnApply && !inventory.TryRemoveSelectedItemOnServer(item.ItemId, selectedIndex)) { return; }
-
-        applier.ApplyToOnServer(interactor, this);
-    }
-
-    // 서버 전용: 위 RPC를 거쳐 검증된 적용 아이템이 투입 완료 상태를 기록할 때 호출한다.
+    // 서버 전용: PlayerInteraction의 공용 IInteractionApplier 적용 RPC를 거쳐 검증된 아이템이
+    // 투입 완료 상태를 기록할 때 호출한다.
     public void MarkRequiredItemInsertedOnServer()
     {
         if (!IsServer) { return; }

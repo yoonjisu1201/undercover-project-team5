@@ -5,6 +5,7 @@ public class EnergyBar : ItemBase, IUsable
 {
     [SerializeField, Min(0f)] private float _healAmount = 30f;
 
+    public string UseText => "에너지바 마시기";
     public bool RequiresHold => true;
     public string UseCompletedMessage => "에너지바 사용";
 
@@ -31,11 +32,13 @@ public class EnergyBar : ItemBase, IUsable
         return true;
     }
 
-    public void ApplyUseOnServer(GameObject user)
+    public void Use(GameObject user, PlayerInventory inventory, int selectedIndex)
     {
         if (user.TryGetComponent(out PlayerHealth health))
         {
             health.RestoreHealth(_healAmount);
         }
+
+        inventory.TryRemoveSelectedItemOnServer(ItemId, selectedIndex);
     }
 }

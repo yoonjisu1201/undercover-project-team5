@@ -8,7 +8,7 @@ public partial class PlayerInteraction
     //---------------------------------- Clue ----------------------------------//
 
     // 현재 선택 슬롯의 아이템이 스스로 반응하게 한다 (단서면 자기 UI를 연다).
-    private void TryShowSelectedClue()
+    private void TryShowSelectedItemUi()
     {
         if (_inventory != null && _inventory.TryGetSelectedItemBase(out ItemBase item))
         {

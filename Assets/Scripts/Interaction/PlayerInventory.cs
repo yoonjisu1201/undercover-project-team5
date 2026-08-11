@@ -112,9 +112,9 @@ public class PlayerInventory : NetworkBehaviour
 
     // item은 이미 스폰된 상태여야 한다 (월드에 있던 것을 줍거나, 방금 스폰해서 바로 넣는 경우 모두).
     [Rpc(SendTo.Server)]
-    public void PickUpItemRpc(ItemBase item)
+    public void PickUpItemRpc(NetworkBehaviourReference itemRef)
     {
-        if (item == null) {
+        if (!itemRef.TryGet(out ItemBase item) || item == null) {
             Debug.LogError($"[PlayerInventory] 존재하지 않는 아이템을 주우려 했습니다.");
             return;
         }
@@ -126,8 +126,9 @@ public class PlayerInventory : NetworkBehaviour
             return;
         }
 
-        // 아이템 자체가 주울 수 있는 상태인지 체크
-        if (!item.TryStoreItemRpc(NetworkObject)) { return; }
+        // 아이템 자체가 주울 수 있는 상태인지 체크. RPC는 void라 결과는 IsStored로 확인한다.
+        item.TryStoreItemRpc(new NetworkObjectReference(NetworkObject));
+        if (!item.IsStored) { return; }
 
         _slots[emptySlotIndex] = new InventorySlot { ItemRef = new NetworkBehaviourReference(item) };
 
