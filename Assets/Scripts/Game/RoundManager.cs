@@ -29,6 +29,7 @@ public class RoundConfig
     public float ClearWaitDuration = 5f;  // 클리어 후 다음 라운드 자동 시작까지 대기 시간
     public float MontageShareCooldown = 20f; // 몽타주 재전송 쿨타임
     public int NpcSpawnCount = 20;        // 해당 라운드에 스폰할 NPC 수
+    public int ClearReward = 1000;        // 라운드 클리어 시 지급할 공용 크레딧
 }
 
 public class RoundManager : NetworkBehaviour
@@ -58,6 +59,9 @@ public class RoundManager : NetworkBehaviour
 
     [Header("본부 에일리언 샷건 스폰 담당 (로딩 게이트 대상 아님)")]
     [SerializeField] private HqItemSpawner _shotgunSpawner;
+
+    [Header("라운드 클리어 보상 지급 담당")]
+    [SerializeField] private ShopManager _shopManager;
 
     [Header("게임 시작하면서 몽타주 데이터 로딩하기 위함")]
     [Header("게임 시작하면서 몽타주 의류 데이터 로딩하기 위함")]
@@ -136,10 +140,11 @@ public class RoundManager : NetworkBehaviour
     public event Action<RoundState> OnRoundStateChanged; // 라운드 상태가 바뀔 때마다 전달 (늦참 클라이언트는 스폰 시 현재 상태로 1회 발동)
     public event Action<RoundState> OnRoundResult; // 결과 패널을 띄워야 하는 상태(RoundClear/Fail/Success) 진입 시 발동
 
-    // 라운드 클리어 시점의 잔여시간, 라운드 자동시작까지 카운트다운 시간을 RPC 파라미터로 원자적으로 전달한다.
+    // 라운드 클리어 시점의 잔여시간, 라운드 자동시작까지 카운트다운 시간, 획득 보상, 지급 후 누적 크레딧을
+    // RPC 파라미터로 원자적으로 전달한다.
     // (NetworkVariable 여러 개를 같은 틱에 동시 갱신하면 클라이언트의 변경 알림 발동 순서 문제로
     //  아직 갱신 전 값을 읽는 문제가 있어, 대신 RPC로 직접 넘긴다)
-    public event Action<float, float> OnRoundClearAnnounced;
+    public event Action<float, float, int, int> OnRoundClearAnnounced;
 
     // 라운드가 시작될 때(InRound 진입) 라운드 인덱스를 RPC로 원자적으로 전달한다.
     // (CurrentRoundIndex를 OnRoundStateChanged 콜백 안에서 직접 읽으면, 클라이언트에서
@@ -167,6 +172,11 @@ public class RoundManager : NetworkBehaviour
         if (IsServer && ArrestVoteManager.Instance != null)
         {
             ArrestVoteManager.Instance.OnVoteStateChanged += HandleArrestVoteStateChanged;
+        }
+
+        if (IsServer && _shopManager == null)
+        {
+            Debug.LogError("[RoundManager] ShopManager 참조가 비어 있어 라운드 클리어 보상을 지급할 수 없습니다.", this);
         }
     }
 
@@ -405,17 +415,27 @@ public class RoundManager : NetworkBehaviour
         _debugStoppedRemainingTime.Value = 0f;
         _roundRemainingTimeAtClear.Value = remainingAtClear;
 
-        float clearWaitDuration = _rounds[_currentRoundIndex.Value].ClearWaitDuration;
+        RoundConfig currentRound = _rounds[_currentRoundIndex.Value];
+        float clearWaitDuration = currentRound.ClearWaitDuration;
         _roundEndTime.Value = NetworkManager.ServerTime.Time + clearWaitDuration;
-        AnnounceRoundClearRpc(remainingAtClear, clearWaitDuration);
+
+        // 보상을 먼저 지급해야, 지급 후의 누적 크레딧을 같은 RPC에 실어 보낼 수 있다.
+        int totalCredits = 0;
+        if (_shopManager != null)
+        {
+            _shopManager.AddCreditsOnServer(currentRound.ClearReward);
+            totalCredits = _shopManager.Credits;
+        }
+
+        AnnounceRoundClearRpc(remainingAtClear, clearWaitDuration, currentRound.ClearReward, totalCredits);
         _currentState.Value = RoundState.RoundClear;
     }
 
     // 라운드 클리어 시점 값을 RPC로 전달 -> 결과패널에 남은 타이머 노출을 위한것
     [Rpc(SendTo.ClientsAndHost)]
-    private void AnnounceRoundClearRpc(float remainingTimeAtClear, float countdownDuration)
+    private void AnnounceRoundClearRpc(float remainingTimeAtClear, float countdownDuration, int clearReward, int totalCredits)
     {
-        OnRoundClearAnnounced?.Invoke(remainingTimeAtClear, countdownDuration);
+        OnRoundClearAnnounced?.Invoke(remainingTimeAtClear, countdownDuration, clearReward, totalCredits);
     }
 
     // 라운드 시작 시점의 라운드 인덱스를 RPC로 전달 -> 라운드 번호 표시 등에서 사용
