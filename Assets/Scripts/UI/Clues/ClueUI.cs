@@ -27,6 +27,27 @@ public class ClueUI : MonoBehaviour, IClosableUi
     private void Awake()
     {
         EnsureInitialized();    // 씬 커서 설정 초기화
+        MoveBackgroundBehindClueImage();
+    }
+
+    // ClueDisplay 프리팹에서는 배경이 RawImage의 자식이다. Canvas가 아이템별 인스턴스가 되어도
+    // 이미지 위를 덮지 않도록 Awake에서 한 번만 같은 부모의 뒤쪽으로 옮긴다.
+    private void MoveBackgroundBehindClueImage()
+    {
+        if (_clueImage == null)
+        {
+            return;
+        }
+
+        Transform background = _clueImage.transform.Find("BackGround");
+        if (background == null)
+        {
+            return;
+        }
+
+        background.SetParent(_clueImage.transform.parent, false);
+        background.SetAsFirstSibling();
+        background.gameObject.SetActive(true);
     }
 
     private void OnEnable()
