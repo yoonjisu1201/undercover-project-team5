@@ -10,6 +10,10 @@ public class PlayerReviveInteractable : InteractableBase
     // 서버 재검증 시 RPC 왕복 지연으로 인한 위치 오차를 흡수하기 위한 여유 거리.
     [SerializeField, Min(0f)] private float _rangeTolerance = 2f;
 
+    [SerializeField, Min(0f)] private float _reviveHoldDuration = 1.2f;
+
+    public override float InteractHoldThreshold => _reviveHoldDuration;
+
     public override bool CanInteract(GameObject interactor)
     {
         return IsSpawned

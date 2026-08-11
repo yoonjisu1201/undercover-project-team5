@@ -6,9 +6,6 @@ public interface IUsable
     // 조준/선택 중일 때 보여줄 문구.
     string UseText { get; }
 
-    // 즉시 사용인지 홀드가 필요한지. 판정 결과와 무관하게 항상 같은 값을 낸다.
-    bool RequiresHold { get; }
-
     // 사용 완료 시 보여줄 문구.
     string UseCompletedMessage { get; }
 

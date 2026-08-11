@@ -6,7 +6,6 @@ public class EnergyBar : ItemBase, IUsable
     [SerializeField, Min(0f)] private float _healAmount = 30f;
 
     public string UseText => "에너지바 마시기";
-    public bool RequiresHold => true;
     public string UseCompletedMessage => "에너지바 사용";
 
     public bool CanUse(GameObject user, out string message)

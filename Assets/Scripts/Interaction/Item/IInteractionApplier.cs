@@ -1,7 +1,6 @@
 using UnityEngine;
 
 // 다른 상호작용 대상에 개입하는 소지 효과형 아이템이 구현한다 (예: RefillPack -> 카트).
-// 첫 구현체(RefillPack)는 이 리팩터링 스코프 밖 - #389에서 별도로 만든다.
 public interface IInteractionApplier
 {
     // 조준 중일 때 보여줄 문구.

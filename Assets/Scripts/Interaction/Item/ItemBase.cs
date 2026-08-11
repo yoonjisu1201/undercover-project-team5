@@ -5,8 +5,10 @@ using UnityEngine;
 public class ItemBase : InteractableBase {
     [SerializeField] private ItemData _itemData;
 
-    // 사용(IUsable)/투입(IInteractionApplier) 등 길게 눌러야 하는 상호작용에 공통으로 쓰는 시간.
-    [SerializeField, Min(0.1f)] private float _holdDuration = 1.2f;
+    // 사용(IUsable)/투입(IInteractionApplier) 등 이 아이템을 핫바에서 쓸 때 눌러야 하는 시간(초). 0이면 누르는 즉시 처리된다.
+    [Tooltip("핫바에서 이 아이템을 사용/투입할 때 눌러야 하는 시간(초). 0이면 즉시.\n" +
+             "바닥에 놓인 이 아이템을 줍는 시간과는 별개다 (그건 InteractHoldThreshold, 코드에서만 오버라이드).")]
+    [SerializeField, Min(0f)] private float _itemHoldThreshold;
 
     // 프리팹 하나를 여러 ItemData가 공유하는 경우(예: Clue)가 있어서, 런타임에 주입된 종류를
     // 모든 클라이언트가 알 수 있도록 별도로 동기화한다.
@@ -23,7 +25,7 @@ public class ItemBase : InteractableBase {
     public ItemData ItemData => _itemData;
     public ItemType ItemId => _itemData != null ? _itemData.ItemId : ItemType.None;
     public bool IsStored => _isStored.Value;
-    public float HoldDuration => _holdDuration;
+    public float ItemHoldThreshold => _itemHoldThreshold;
 
     public override string InteractionText => _itemData != null ? $"{_itemData.DisplayName} 줍기" : "줍기";
 
@@ -89,6 +91,15 @@ public class ItemBase : InteractableBase {
 
     // 이 아이템이 핫바에서 선택됐을 때 호출된다. 하위 클래스가 오버라이드해서 UI 반응을 정의한다.
     public virtual void OnSelected() { }
+
+    // 사용 완료 결과를 받은 소유자 클라이언트에서 호출된다. 단서처럼 서버 상태를 바꾸지 않고
+    // 로컬 UI만 여는 아이템이 사용 완료 후 반응할 때 오버라이드한다.
+    public void NotifyUseCompleted()
+    {
+        OnUseCompleted();
+    }
+
+    protected virtual void OnUseCompleted() { }
 
     // Renderer/Collider를 개별로 끄고 켠다. NGO가 비활성 NetworkBehaviour를 지원하지 않아서
     // GameObject 자체를 SetActive로 끄지 않는다.
