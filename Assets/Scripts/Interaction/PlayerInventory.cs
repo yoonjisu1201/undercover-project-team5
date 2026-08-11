@@ -167,6 +167,17 @@ public class PlayerInventory : NetworkBehaviour
     private void ChangeSelectedNumberRpc(int index, RpcParams rpcParams = default)
     {
         _selectedIndex.Value = index;
+        OnInventoryChanged?.Invoke();
+        OnSlotSelected?.Invoke(index);
+        NotifySelectedItem();
+    }
+
+    private void NotifySelectedItem()
+    {
+        if (TryGetSelectedItemBase(out ItemBase item))
+        {
+            item.OnSelected();
+        }
     }
 
     // 선택한 아이템을 월드에 드롭한다. 새 오브젝트를 만드는 게 아니라, 인벤토리에 들어가 있던
@@ -211,6 +222,7 @@ public class PlayerInventory : NetworkBehaviour
         _selectedIndex.Value = index;
         OnInventoryChanged?.Invoke();
         OnSlotSelected?.Invoke(index);
+        NotifySelectedItem();
     }
 
     public bool TryGetSelectedItemId(out ItemType itemId)
