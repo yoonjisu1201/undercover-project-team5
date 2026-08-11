@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// IUsable의 첫 구현체. 행동이 UsableItem의 switch가 아니라 여기 있다.
+// IUsable의 첫 구현체. 행동이 PlayerItemUse의 switch가 아니라 여기 있다.
 public class EnergyBar : ItemBase, IUsable
 {
     [SerializeField, Min(0f)] private float _healAmount = 30f;
