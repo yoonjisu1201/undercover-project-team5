@@ -155,7 +155,7 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.5
+  m_Radius: 0.3
   m_Height: 1.8535615
   m_Direction: 1
   m_Center: {x: 0, y: 0.9214044, z: 0}
@@ -168,7 +168,7 @@ NavMeshAgent:
   m_GameObject: {fileID: 1669351557380495861}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 0.5
+  m_Radius: 0.45
   m_Speed: 3.5
   m_Acceleration: 8
   avoidancePriority: 50
@@ -462,6 +462,17 @@ PrefabInstance:
       propertyPath: m_Controller
       value: 
       objectReference: {fileID: 9100000, guid: 8106e20dc31c4984586bdd2056e60a72, type: 2}
+    - target: {fileID: 5866666021909216657, guid: bca8a4a76cdc9d34bb04b6bdbdef45a5, type: 3}
+      propertyPath: m_WarningMessage
+      value: "\nBinding warning: Some generic clip(s) animate transforms that are
+        already bound by a Humanoid avatar. These transforms can only be changed
+        by Humanoid clips.\n\tTransform 'Char_01:RightHandIndex1'\n\tTransform 'Char_01:LeftHandThumb3'\n\tTransform
+        'Char_01:LeftHandIndex2'\n\tTransform 'Char_01:RightArm'\n\tTransform 'Char_01:LeftForeArm'\n\tTransform
+        'Char_01:Neck'\n\tTransform 'Char_01:Hips'\n\tTransform 'Char_01:RightHandThumb3'\n\tTransform
+        'Char_01:RightHandThumb1'\n\tTransform 'Char_01:RightToeBase'\n\tand more
+        ...\n\tFrom animation clip 'Armature|Char_01_Idel'\n\tFrom animation clip
+        'Armature|Char_01_Walking'"
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:

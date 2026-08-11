@@ -1,11 +1,12 @@
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.AI;
 
 // 라운드 타이머가 일정 시간(검거 투표 등으로 멈춰있는
-// 동안은 제외) 줄어들 때마다 여러 마리를 한 번에 스폰한다. 스폰 위치는 접속한 플레이어들 중 본부에 없는 플레이어끼리 비교해
-// 가장 고립된 플레이어 주변으로 정하고, 그런 플레이어가 없으면(전원 본부에 있음) 맵 임의 위치로 스폰한다.
+// 동안은 제외) 줄어들 때마다 여러 마리를 한 번에 스폰한다. 라운드가 시작되면 최대 마릿수를 즉시 채우고,
+// 스폰 위치는 플레이어와 무관한 맵 임의 위치로 정한다. 외계인은 배회하다 플레이어를 감지하면 추격한다.
 // 스폰한 개체의 사망 애니메이션 완료 이벤트를 구독해 애니메이션이 끝나면 실제로 디스폰시킨다.
 public class AlienCloneManager : MonoBehaviour
 {
@@ -15,8 +16,6 @@ public class AlienCloneManager : MonoBehaviour
     [SerializeField] private MapRegionController _mapRegionController;
     [SerializeField, Min(1)] private int _spawnCountPerCycle = 3;
     [SerializeField, Min(0.1f)] private float _spawnInterval = 60f; // 라운드 타이머가 이만큼(초) 줄어들 때마다 스폰
-    [SerializeField, Min(0f)] private float _spawnDistanceFromPlayer = 10f;
-    [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 2f;
 
     private readonly List<AlienCloneHealth> _aliveClones = new();
     private bool _spawnFailedThisCycle;
@@ -181,23 +180,10 @@ public class AlienCloneManager : MonoBehaviour
         }
     }
 
-    // 가장 고립된 현장 플레이어 주변, 무작위 방향으로 일정 거리 떨어진 NavMesh 위 지점을 찾는다.
-    // 현장에 있는 플레이어가 없으면(전원 본부에 있음) 맵 임의 위치로 대신한다.
+    // 맵 안의 임의 NavMesh 지점을 찾는다. 플레이어 근처에 생성하지 않고 맵에 흩어 놓아,
+    // 배회하다 플레이어를 감지했을 때 마주치는 흐름을 만든다.
     private bool TryGetSpawnPosition(out Vector3 spawnPosition)
     {
-        if (TryFindMostIsolatedFieldPlayerPosition(out Vector3 targetPosition))
-        {
-            float randomAngle = Random.Range(0f, 360f);
-            Vector3 offset = Quaternion.Euler(0f, randomAngle, 0f) * Vector3.forward * _spawnDistanceFromPlayer;
-            Vector3 candidate = targetPosition + offset;
-
-            if (NavMesh.SamplePosition(candidate, out NavMeshHit hit, _navMeshSampleDistance, NavMesh.AllAreas))
-            {
-                spawnPosition = hit.position;
-                return true;
-            }
-        }
-
         if (_mapRegionController != null && _mapRegionController.TryGetRandomSpawnPoint(out _, out spawnPosition))
         {
             return true;
@@ -205,55 +191,6 @@ public class AlienCloneManager : MonoBehaviour
 
         spawnPosition = default;
         return false;
-    }
-
-    // 접속한 플레이어 중 본부에 없는 플레이어들끼리 비교해, 가장 가까운 동료와의 거리가 가장 먼
-    // (가장 고립된) 플레이어의 위치를 찾는다.
-    private bool TryFindMostIsolatedFieldPlayerPosition(out Vector3 position)
-    {
-        position = default;
-
-        List<Vector3> playerPositions = new();
-        foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClients.Values)
-        {
-            NetworkObject playerObject = client.PlayerObject;
-            if (playerObject == null) continue;
-            if (playerObject.TryGetComponent(out PlayerHealth health) && health.IsInHeadquarters) continue;
-
-            playerPositions.Add(playerObject.transform.position);
-        }
-
-        if (playerPositions.Count == 0) return false;
-
-        // 플레이어마다 "가장 가까운 다른 플레이어와의 거리"를 구한 뒤, 그 값이 제일 큰(=제일 외딴) 플레이어를 고른다.
-        int mostIsolatedIndex = 0;
-        float maxNearestDistance = -1f;
-
-        for (int i = 0; i < playerPositions.Count; i++)
-        {
-            float nearestDistance = float.MaxValue;
-
-            for (int j = 0; j < playerPositions.Count; j++)
-            {
-                if (i == j) continue;
-
-                float distance = Vector3.Distance(playerPositions[i], playerPositions[j]);
-                if (distance < nearestDistance)
-                {
-                    nearestDistance = distance;
-                }
-            }
-
-            // 여기까지 구한 nearestDistance가 "i번 플레이어의 가장 가까운 동료와의 거리".
-            if (nearestDistance > maxNearestDistance)
-            {
-                maxNearestDistance = nearestDistance;
-                mostIsolatedIndex = i;
-            }
-        }
-
-        position = playerPositions[mostIsolatedIndex];
-        return true;
     }
 
     // AlienCloneHealth.CompleteDeath에서 발생한 완료 이벤트를 처리한다.
@@ -322,10 +259,23 @@ public class AlienCloneManager : MonoBehaviour
             // 기준값도 새 라운드의 남은 시간으로 맞춘다. 라운드마다 지속시간이 달라서(900→750→600)
             // 이전 라운드 잔여시간을 그대로 두면 그 차이가 "흐른 시간"으로 잡혀 시작 즉시 스폰된다.
             _lastRoundRemainingTime = RoundManager.Instance.GetRemainingTime();
+            FillToMaxNextFrameAsync(this.GetCancellationTokenOnDestroy()).Forget();
             return;
         }
 
         DespawnAllClones();
         ClonesFrozen = false;
+    }
+
+    // 라운드 시작 시 최대 마릿수를 즉시 채운다. 직접 스폰하지 않고 스폰 주기를 다 찬 상태로 만들어
+    // Update의 기존 경로(프리팹 확인 / 마릿수 상한 / 실패 처리)를 그대로 태운다.
+    //
+    // 한 프레임 기다리는 이유: 라운드 시작 이벤트는 CriminalNpcManager도 구독하고, 이번 라운드
+    // 외계인 종류는 거기서 정해진다. 구독 순서가 보장되지 않아 같은 프레임에 스폰하면
+    // 지난 라운드 종류로 스폰될 수 있다.
+    private async UniTaskVoid FillToMaxNextFrameAsync(CancellationToken cancellationToken)
+    {
+        await UniTask.NextFrame(cancellationToken);
+        _elapsedSinceLastSpawn = _spawnInterval;
     }
 }

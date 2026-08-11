@@ -235245,7 +235245,6 @@ MonoBehaviour:
   _outlineFadeDuration: 0.15
   _uiPrefab: {fileID: 8311888995164231196, guid: e602cdbaebca0c7459a19db3296cf49f, type: 3}
   _interactionText: "\uC0D8\uD50C \uBD84\uC11D \uD655\uC778"
-  _requiredRole: 2
   _completionReward: {fileID: 0}
   _rewardSpawnOffset: {x: 0, y: 0.5, z: 1.2}
   _requiredItem: {fileID: 11400000, guid: dd3dd4d373394aa7aa758c8a8b58e1f7, type: 2}
@@ -235275,6 +235274,11 @@ MonoBehaviour:
   _concentrationStep: 2
   _temperatureDriftPerSecond: 0.5
   _concentrationDriftPerSecond: -0.4
+--- !u!4 &1339301598 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 215654296419793465, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
+  m_PrefabInstance: {fileID: 1339301587}
+  m_PrefabAsset: {fileID: 0}
 --- !u!114 &1339301599 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7771774794876232404, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
@@ -235286,11 +235290,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9094f60c1c3f14f49b2802d539f36da0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShopManager
---- !u!4 &1339301598 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 215654296419793465, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
-  m_PrefabInstance: {fileID: 1339301587}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1339602449
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -326111,9 +326110,7 @@ MonoBehaviour:
   _criminalNpcManager: {fileID: 771327263}
   _mapRegionController: {fileID: 361850273}
   _spawnCountPerCycle: 3
-  _spawnInterval: 60
-  _spawnDistanceFromPlayer: 10
-  _navMeshSampleDistance: 2
+  _spawnInterval: 180
 --- !u!4 &1888115738
 Transform:
   m_ObjectHideFlags: 0
