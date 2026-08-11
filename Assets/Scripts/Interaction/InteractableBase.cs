@@ -17,6 +17,12 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
     // 안내 문구 옆에 키 힌트(" : [E]")를 보여줄지 결정한다. 눌러도 아무 동작이 없는 안내성 문구일 때 false로 오버라이드한다.
     public virtual bool ShowInteractionKeyHint(GameObject interactor) => true;
 
+    // 채취·투입처럼 버튼을 길게 눌러야 완료되는 상호작용이면 true로 바꾼다.
+    public virtual bool RequiresHoldInteraction(GameObject interactor) => false;
+
+    // 길게 누르는 상호작용에 필요한 시간. PlayerInteraction의 기존 hold UI를 그대로 사용한다.
+    public virtual float HoldInteractionDuration => 1.2f;
+
     // 화면 중심 조준 판정 반경에 곱해지는 배율. 기본은 1(PlayerInteraction의 공통 반경 그대로 사용).
     public virtual float AimRadiusMultiplier => 1f;
 
@@ -85,6 +91,29 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
         _outlineVisibility = 0f;    // 초기 외곽선 가시성은 0으로 설정
         ApplyOutlineVisibility(_outlineVisibility);
         _outlinable.enabled = false;
+    }
+
+    // 서버에서 상호작용 요청을 검증할 때 쓴다. 플레이어의 상호작용 콜라이더와 이 오브젝트의 콜라이더가 실제로 겹치는지 확인한다.
+    protected bool IsOverlappingInteractionCollider(SphereCollider interactionCollider)
+    {
+        Collider[] itemColliders = GetComponentsInChildren<Collider>();
+
+        foreach (Collider itemCollider in itemColliders)
+        {
+            if (!itemCollider.enabled || itemCollider == interactionCollider)
+            {
+                continue;
+            }
+
+            // Physics.ComputePenetration을 사용하여 상호작용 콜라이더와 대상 콜라이더가 겹치는지 확인
+            if (Physics.ComputePenetration(interactionCollider, interactionCollider.transform.position, interactionCollider.transform.rotation,
+                    itemCollider, itemCollider.transform.position, itemCollider.transform.rotation, out _, out _))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void SetOutline(bool isVisible)

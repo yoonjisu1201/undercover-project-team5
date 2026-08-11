@@ -11,6 +11,10 @@ public sealed class MissionSpawner : MonoBehaviour
     [Header("미션 머신 데이터")]
     [SerializeField] private ItemData[] _MissionMachine;
 
+    [Header("오염 샘플")]
+    [SerializeField] private ItemData _contaminatedSample;
+    [SerializeField] private GameObject _contaminatedSampleSourcePrefab;
+
     [Header("스폰 영역")]
     [SerializeField] private MapRegionController _regionController;
     [SerializeField] private LayerMask _groundLayer;
@@ -24,7 +28,16 @@ public sealed class MissionSpawner : MonoBehaviour
 
     private readonly List<Vector3> _spawnedPositions = new();
     private readonly List<NetworkObject> _spawnedMachines = new();
+    private NetworkObject _spawnedSample;
+    private NetworkObject _spawnParent;
     private bool _hasSpawned;
+
+    // 런타임에 생성되는 샘플이 MissionSpawner 하위에 동기화되도록 네트워크 부모를 보관합니다.
+    private void Awake()
+    {
+        _spawnParent = GetComponent<NetworkObject>();
+        if (_spawnParent == null) { Debug.LogError("[MissionSpawner] 샘플을 하위에 생성하려면 NetworkObject가 필요합니다.", this); }
+    }
 
     private void Start()
     {
@@ -122,7 +135,26 @@ public sealed class MissionSpawner : MonoBehaviour
             Debug.Log($"[MissionSpawner] '{missionMachineData.WorldPrefab.name}' 스폰 완료: {spawnPosition}", this);
         }
 
-        Debug.Log($"[MissionSpawner] 미션 머신 {_spawnedPositions.Count}/{RequiredMissionMachineCount}개 스폰 완료.", this);
+        SpawnContaminatedSample();
+
+        Debug.Log($"[MissionSpawner] 미션 머신 {_spawnedMachines.Count}/{RequiredMissionMachineCount}개 스폰 완료.", this);
+    }
+
+    // 해금된 지역의 바닥 한 곳에 오염 샘플을 서버 권한으로 생성합니다.
+    private void SpawnContaminatedSample()
+    {
+        if (_contaminatedSample == null || _contaminatedSampleSourcePrefab == null) { Debug.LogError("[MissionSpawner] 오염 샘플 데이터 또는 현장 프리팹이 없습니다.", this); return; }
+        if (!TryFindSpawnPose(out Vector3 spawnPosition, out Quaternion spawnRotation)) { Debug.LogWarning("[MissionSpawner] 오염 샘플의 스폰 위치를 찾지 못했습니다.", this); return; }
+
+        GameObject sampleObject = Instantiate(_contaminatedSampleSourcePrefab, spawnPosition, spawnRotation);
+        if (!sampleObject.TryGetComponent(out NetworkObject networkObject)) { Debug.LogError("[MissionSpawner] 오염 샘플 프리팹에 NetworkObject가 없습니다.", this); Destroy(sampleObject); return; }
+        if (sampleObject.TryGetComponent(out ContaminatedSampleSource sampleSource)) { sampleSource.Configure(_contaminatedSample); }
+
+        networkObject.Spawn(destroyWithScene: true);
+        if (_spawnParent != null && _spawnParent.IsSpawned && !networkObject.TrySetParent(_spawnParent, worldPositionStays: true)) { Debug.LogWarning("[MissionSpawner] 오염 샘플을 MissionSpawner 하위로 설정하지 못했습니다.", this); }
+        _spawnedSample = networkObject;
+        _spawnedPositions.Add(spawnPosition);
+        Debug.Log($"[MissionSpawner] 오염 샘플 스폰 완료: {spawnPosition}", this);
     }
 
     // 기존 장치를 정리하고 현재 해방된 지역을 기준으로 8개 장치를 다시 생성합니다.
@@ -143,6 +175,8 @@ public sealed class MissionSpawner : MonoBehaviour
         }
 
         _spawnedMachines.Clear();
+        if (_spawnedSample != null && _spawnedSample.IsSpawned) { _spawnedSample.Despawn(destroy: true); }
+        _spawnedSample = null;
         _spawnedPositions.Clear();
         _hasSpawned = false;
         SpawnMissionMachines();
@@ -163,6 +197,12 @@ public sealed class MissionSpawner : MonoBehaviour
                 Debug.LogError("[MissionSpawner] 비어 있거나 WorldPrefab이 없는 미션 머신 데이터가 있습니다.", this);
                 return false;
             }
+        }
+
+        if (_contaminatedSample == null || _contaminatedSample.WorldPrefab == null || _contaminatedSampleSourcePrefab == null)
+        {
+            Debug.LogError("[MissionSpawner] 오염 샘플 데이터, 드롭 프리팹, 현장 프리팹을 설정해야 합니다.", this);
+            return false;
         }
 
         if (_regionController == null || _groundLayer.value == 0)

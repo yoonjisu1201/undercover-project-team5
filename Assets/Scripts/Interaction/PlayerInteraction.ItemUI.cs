@@ -21,10 +21,9 @@ public partial class PlayerInteraction
         }
     }
 
-    //---------------------------------- Clue ----------------------------------//
-
-    // 현재 선택 슬롯의 아이템이 단서면 해당 단서 UI를 연다.
-    private void TryShowSelectedClue()
+    // 현재 선택 슬롯의 아이템에 전용 화면이 있으면 연다.
+    // 닫기(E)는 이미 있는데 열기가 주웠을 때뿐이면, 한 번 닫은 뒤 다시 볼 방법이 없어진다.
+    private void TryShowSelectedItemUi()
     {
         if (_inventory == null || !_inventory.TryGetSelectedItem(out string itemId))
         {
@@ -34,8 +33,16 @@ public partial class PlayerInteraction
         if (TryGetClueIndex(itemId, out int clueIndex))
         {
             ShowClue(clueIndex);
+            return;
+        }
+
+        if (itemId == _guideBookItemId)
+        {
+            ShowGuideBook();
         }
     }
+
+    //---------------------------------- Clue ----------------------------------//
 
     // 아이템 ID가 단서(예: "Clue3")면 0-based 인덱스를 out으로 반환한다.
     private bool TryGetClueIndex(string itemId, out int clueIndex)
