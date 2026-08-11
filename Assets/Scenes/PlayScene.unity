@@ -140610,6 +140610,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CriminalNpcManager
   ShowTopMostFoldoutHeaderGroup: 1
+  _alienTypeCount: 5
 --- !u!4 &771327264
 Transform:
   m_ObjectHideFlags: 0
@@ -328632,7 +328633,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f731bb1885badb478de838655452772, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AlienCloneManager
-  _alienClonePrefab: {fileID: 1669351557380495861, guid: 613ec59ec1c17854789e187201e5a23d, type: 3}
+  _alienClonePrefabs:
+  - {fileID: 1669351557380495861, guid: 613ec59ec1c17854789e187201e5a23d, type: 3}
+  - {fileID: 1669351557380495861, guid: 157de7464ade55548b90342c17fdf27b, type: 3}
+  - {fileID: 1669351557380495861, guid: 4bbccfbae73672a479080a4b07e56124, type: 3}
+  - {fileID: 1669351557380495861, guid: c7845b652d7eb3543aa73759bbb1fe9e, type: 3}
+  - {fileID: 1669351557380495861, guid: ad874b67a6e216448aa2c7a3924f3dbc, type: 3}
+  _criminalNpcManager: {fileID: 771327263}
   _mapRegionController: {fileID: 361850273}
   _spawnCountPerCycle: 3
   _spawnInterval: 60
