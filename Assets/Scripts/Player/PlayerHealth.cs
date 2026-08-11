@@ -113,10 +113,48 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
         return healAmount;
     }
 
-    // 외계인(복제체) 공격 시스템이 호출할 진입점. 실제 공격 판정/AI 로직은 이번 범위 밖이라 아직 없음.
-    public void TakeAlienAttackDamage()
+    // 가해자 위치를 아는 피해 진입점. 실제로 깎인 만큼만 피격 화면 연출을 맞은 본인에게 띄운다.
+    // 서버에서만 호출 가능하다.
+    // #469: 자연 감소는 이 경로를 타지 않으므로, 가만히 있어도 화면이 붉어지는 일이 없다.
+    public void TakeDamage(float amount, Vector3 sourcePosition)
     {
-        TakeDamage(_alienAttackDamage);
+        if (!IsServer)
+        {
+            Debug.LogError("[PlayerHealth] TakeDamage는 서버에서만 호출할 수 있습니다.");
+            return;
+        }
+
+        // 무적·다운 등으로 피해가 실제로 적용되지 않았으면 연출도 띄우지 않는다.
+        // 적용 여부는 TakeDamage가 판단하므로 체력 변화로 확인한다.
+        float hpBeforeDamage = _currentHp.Value;
+        TakeDamage(amount);
+
+        if (_currentHp.Value >= hpBeforeDamage || !IsSpawned)
+        {
+            return;
+        }
+
+        PlayHitEffectRpc(sourcePosition);
+    }
+
+    // 외계인(복제체) 공격 시스템이 호출할 진입점.
+    // sourcePosition: 공격 판정이 일어난 위치. 피격 방향 표시에 쓴다.
+    public void TakeAlienAttackDamage(Vector3 sourcePosition)
+    {
+        TakeDamage(_alienAttackDamage, sourcePosition);
+    }
+
+    // #469: 피격 화면 연출은 맞은 본인 화면에만 필요하므로 오너에게만 보낸다.
+    [Rpc(SendTo.Owner)]
+    private void PlayHitEffectRpc(Vector3 sourcePosition)
+    {
+        // PlayScene 밖(연출 UI가 없는 씬)에서도 피해가 들어올 수 있으므로 없으면 조용히 넘긴다.
+        if (HitScreenEffect.Instance == null)
+        {
+            return;
+        }
+
+        HitScreenEffect.Instance.PlayHit(sourcePosition);
     }
 
     // 디버그 메뉴 전용: 무적 상태를 설정한다. 서버에서만 호출 가능하다.

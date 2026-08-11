@@ -13,10 +13,18 @@ public class AlienAttackHitbox : MonoBehaviour
     private readonly HashSet<PlayerHealth> _hitPlayers = new();
     private bool _isSwingActive;
 
+    // #469: 피격 방향 표시에 넘길 '가해자 몸통' 위치. 이 컴포넌트는 오른손 뼈에 붙어 있어서
+    // 자기 위치를 넘기면 스윙하는 손의 궤적이 방향으로 잡힌다 — 정면에서 맞아도 손이 왼쪽을
+    // 지나가면 왼쪽에서 맞은 것으로 표시된다. 그래서 손이 아니라 외계인 본체를 기준으로 쓴다.
+    private Transform _attackerBody;
+
     // 같은 GameObject의 Collider를 가져와 런타임 초기 상태를 비활성화한다.
     // 프리팹에서도 비활성화되어 있지만 코드에서도 공격 전 비활성 상태를 보장한다.
     private void Awake()
     {
+        AlienCloneController controller = GetComponentInParent<AlienCloneController>();
+        _attackerBody = controller != null ? controller.transform : transform.root;
+
         _hitbox = GetComponent<Collider>();
         if (_hitbox == null)
         {
@@ -72,6 +80,7 @@ public class AlienAttackHitbox : MonoBehaviour
             return;
         }
 
-        playerHealth.TakeAlienAttackDamage();
+        // #469: 피격 화면 연출이 방향을 표시할 수 있도록 가해자 본체 위치를 함께 넘긴다.
+        playerHealth.TakeAlienAttackDamage(_attackerBody.position);
     }
 }
