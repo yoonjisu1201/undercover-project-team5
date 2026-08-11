@@ -7,63 +7,58 @@ using UnityEngine.InputSystem.UI;
 public sealed class MissionInteractable : InteractableBase
 {
     [Header("미션 UI")]
-    [SerializeField] private GameObject _uiPrefab;
+    [SerializeField] private GameObject _uiPrefab;  // 미션 ui
     [SerializeField] private string _interactionText = "미션 시작";
-    // 이 역할만 UI를 열 수 있다. None이면 누구나 쓸 수 있다.
-    // HQ 관제 콘솔은 Headquarter, 현장 기계는 Field로 두는 식으로 나눈다.
-    [SerializeField] private Role _requiredRole = Role.None;
-    [SerializeField] private ItemData _completionReward;
-    [SerializeField] private Vector3 _rewardSpawnOffset = new(0f, 0.5f, 1.2f);
 
-    private readonly NetworkVariable<bool> _isCompleted = new(
-        false,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server);
-    private readonly NetworkVariable<int> _puzzleSeed = new(
-        0,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server);
+    [SerializeField] private ItemData _completionReward;    // 미션이 끝나면 나오는 아이템
+    [SerializeField] private Vector3 _rewardSpawnOffset = new(0f, 0.5f, 1.2f);  // 리워드가 앞쪽으로 스폰되는 위치
 
-    private GameObject _uiInstance;
+
+    // 미션을 하기 위한 조건을 설정합니다. 조건의 충족 여부따라서 상호작용 안내 문구가 달라집니다.
+    [Header("미션 시작 아이템")]
+    [SerializeField] private ItemData _requiredItem;
+    [SerializeField] private string _requiredItemInsertText = "투입";
+    [SerializeField] private string _requiredItemMissingText = "필요";
+    [SerializeField] private string _requiredItemInsertedText = "분석 가능";
+    [SerializeField, Min(0.1f)] private float _requiredItemInsertHoldDuration = 1.2f;
+
+
+    // 완료 여부와 퍼즐 시드는 서버가 기록하고 모든 클라이언트가 읽는다. (서버에서만 쓰기 가능)
+    private readonly NetworkVariable<bool> _isCompleted = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<int> _puzzleSeed = new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<bool> _requiredItemInserted = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    private GameObject _uiInstance; // 열려있는 미션 ui 인스턴스
     private Transform _interactingPlayer;
     private static MissionInteractable _activeInteractable;
 
     public bool IsCompleted => _isCompleted.Value;
+    public bool IsRequiredItemInserted => _requiredItem == null || _requiredItemInserted.Value;
 
     // 완료 여부가 바뀔 때마다 알린다. 배터리 회로처럼 다른 컴포넌트가 완료 시점에 반응해야 할 때 사용한다.
     public event System.Action<bool> IsCompletedChanged;
+
 
     // 라운드가 새로 시작될 때 서버에서 알린다. 미션이 자체적으로 들고 있는 정답·진행 상태를 초기화할 시점이다.
     public event System.Action ServerRoundReset;
     public override string InteractionText => IsCompleted ? "완료된 게임" : _interactionText;
 
     // 역할 제한은 여기서 보지 않는다. 조준은 되어야 GetInteractionText로 제한 안내를 띄울 수 있다. (HqScreen과 같은 방식)
-    public override bool CanInteract(GameObject interactor) => _uiPrefab != null && _activeInteractable == null;
+    public override bool CanInteract(GameObject interactor) => true;
 
-    // 역할이 맞지 않으면 평소 문구 대신 제한 안내를 보여준다.
-    public override string GetInteractionText(GameObject interactor)
+
+    //---   미션 시작 아이템을 기계에 넣을 때는 실수 방지를 위해 E를 길게 눌러 투입   ---///
+    public override bool RequiresHoldInteraction(GameObject interactor) => !IsRequiredItemInserted && HasSelectedRequiredItem(interactor);
+    public override float HoldInteractionDuration => _requiredItemInsertHoldDuration;   // 길게 눌러서 상호작용(투입 시간)
+
+
+    // 플레이어가 현재 선택한 슬롯에 미션 시작 아이템을 들고 있는지 확인한다.
+    private bool HasSelectedRequiredItem(GameObject interactor)
     {
-        return HasRequiredRole(interactor) ? InteractionText : $"{RoleName(_requiredRole)}만 사용할 수 있습니다";
+        if (_requiredItem == null || !interactor.TryGetComponent(out PlayerInventory inventory)) { return false; }
+        return inventory.TryGetSelectedItem(out string itemId) && itemId == _requiredItem.ItemId;
     }
 
-    // 역할이 맞지 않으면 눌러도 열리지 않으므로 " : E" 키 힌트를 숨긴다.
-    public override bool ShowInteractionKeyHint(GameObject interactor) => HasRequiredRole(interactor);
-
-    private bool HasRequiredRole(GameObject interactor)
-    {
-        return _requiredRole == Role.None
-            || (interactor.TryGetComponent(out Player player) && player.PlayerRole == _requiredRole);
-    }
-
-    private static string RoleName(Role role)
-    {
-        return role switch
-        {
-            Role.Headquarter => "본부요원",
-            Role.Field => "현장요원",
-            _ => "누구"
-        };
-    }
 
     // 완료 상태 변경을 구독해 다른 플레이어가 완료한 결과도 즉시 반영한다.
     public override void OnNetworkSpawn()
@@ -94,8 +89,15 @@ public sealed class MissionInteractable : InteractableBase
     // 미션 UI를 열고 완료된 게임이면 완료 안내만 표시한다.
     public override void Interact(GameObject interactor)
     {
-        if (!CanInteract(interactor) || !HasRequiredRole(interactor))
+        if (!CanInteract(interactor))
         {
+            return;
+        }
+
+        // 필요한 아이템이 아직 투입되지 않았다면 UI를 열지 않고 서버에 아이템 투입을 요청한다.
+        if (!IsRequiredItemInserted)
+        {
+            if (HasSelectedRequiredItem(interactor) && interactor.TryGetComponent(out PlayerInventory inventory)) { InsertRequiredItemRpc(inventory.SelectedIndex); }
             return;
         }
 
@@ -150,6 +152,17 @@ public sealed class MissionInteractable : InteractableBase
         }
     }
 
+    // 요청한 플레이어의 선택 슬롯을 서버에서 검증하고 아이템을 소비한다.
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void InsertRequiredItemRpc(int selectedIndex, RpcParams rpcParams = default)
+    {
+        if (_requiredItem == null || _requiredItemInserted.Value) { return; }
+        if (!NetworkManager.ConnectedClients.TryGetValue(rpcParams.Receive.SenderClientId, out NetworkClient client) || client.PlayerObject == null) { return; }
+        if ((client.PlayerObject.transform.position - transform.position).sqrMagnitude > 25f) { return; }
+        if (!client.PlayerObject.TryGetComponent(out PlayerInventory inventory) || !inventory.TryRemoveSelectedItemOnServer(_requiredItem.ItemId, selectedIndex)) { return; }
+        _requiredItemInserted.Value = true;
+    }
+
     // 결과 확인을 누른 클라이언트가 서버에 완료 확정을 요청한다.
     public void RequestCompletion()
     {
@@ -172,6 +185,7 @@ public sealed class MissionInteractable : InteractableBase
 
         _isCompleted.Value = false;
         _puzzleSeed.Value = CreatePuzzleSeed();
+        _requiredItemInserted.Value = false;
 
         // 시드만 바꿔서는 자체 상태(정답 주파수, 진행 단계 등)를 들고 있는 미션이 초기화되지 않는다.
         ServerRoundReset?.Invoke();
@@ -257,24 +271,16 @@ public sealed class MissionInteractable : InteractableBase
         Vector3 playerDirection = requestingPlayerPosition - transform.position;
         playerDirection.y = 0f;
         float playerDistance = playerDirection.magnitude;
-        playerDirection = playerDirection.sqrMagnitude > 0.001f
-            ? playerDirection.normalized
-            : transform.forward;
+        playerDirection = playerDirection.sqrMagnitude > 0.001f ? playerDirection.normalized : transform.forward;
 
         // 가까운 플레이어를 지나쳐 발밑에 생성되지 않도록 최대 거리와 플레이어 거리의 45% 중 작은 값을 사용한다.
         float maximumSpawnDistance = Mathf.Abs(_rewardSpawnOffset.z);
         float spawnDistance = Mathf.Min(maximumSpawnDistance, playerDistance * 0.45f);
-        Vector3 spawnPosition =
-            transform.position +
-            playerDirection * spawnDistance +
-            Vector3.up * _rewardSpawnOffset.y;
-        GameObject rewardObject = Instantiate(
-            _completionReward.WorldPrefab,
-            spawnPosition,
-            Quaternion.identity);
+        Vector3 spawnPosition = transform.position + playerDirection * spawnDistance + Vector3.up * _rewardSpawnOffset.y;
 
-        if (!rewardObject.TryGetComponent(out PickupItem pickupItem)
-            || !rewardObject.TryGetComponent(out NetworkObject networkObject))
+        GameObject rewardObject = Instantiate(_completionReward.WorldPrefab, spawnPosition, Quaternion.identity);
+
+        if (!rewardObject.TryGetComponent(out PickupItem pickupItem) || !rewardObject.TryGetComponent(out NetworkObject networkObject))
         {
             Debug.LogError($"[Mission] '{_completionReward.WorldPrefab.name}'에 PickupItem 또는 NetworkObject가 없습니다.", this);
             Destroy(rewardObject);
@@ -284,8 +290,7 @@ public sealed class MissionInteractable : InteractableBase
         pickupItem.Configure(_completionReward);
         networkObject.Spawn(destroyWithScene: true);
 
-        GetComponent<MissionRewardLauncher>()?
-            .Launch(rewardObject, spawnPosition, requestingPlayerPosition);
+        GetComponent<MissionRewardLauncher>()?.Launch(rewardObject, spawnPosition, requestingPlayerPosition);
     }
 
     // 열려 있는 미션 UI를 닫는다.

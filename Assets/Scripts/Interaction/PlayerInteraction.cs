@@ -31,13 +31,15 @@ public partial class PlayerInteraction : NetworkBehaviour
     private HoldAction _activeHoldAction = HoldAction.None;
     private float _holdTimer;
     private float _holdDuration;
+    private float _promptRefreshUntil; // 서버 상호작용 결과가 늦게 도착해도 안내 문구가 바로 바뀌도록 잠깐만 재확인한다.
     private InteractableBase _holdTarget;
 
     private enum HoldAction
     {
         None,
         UseItem,
-        Revive
+        Revive,
+        Interactable
     }
 
     public CartBase CarryingCart { get; set; } // 플레이어가 끌고 있는 카트. null이면 카트를 끌고 있지 않다.
@@ -153,6 +155,12 @@ public partial class PlayerInteraction : NetworkBehaviour
         }
 
         UpdateCurrentTarget();
+
+        // 상호작용 안내 문구를 갱신한다. (조준 대상이 없으면 안내 문구를 비운다)   
+        if (_currentTarget != null && Time.time <= _promptRefreshUntil)
+        {
+            RefreshInteractionPrompt();
+        }
         UpdateHoldAction();
 
         // 조준 대상을 갱신한 뒤 상호작용과 드롭 입력을 처리한다.
@@ -176,6 +184,13 @@ public partial class PlayerInteraction : NetworkBehaviour
             {
                 BeginHoldAction(HoldAction.Revive, _reviveHoldDuration, _currentTarget);
             }
+
+            //  상호작용 대상이 길게 누르기 상호작용을 요구하면 HoldAction을 시작하고, 아니면 즉시 상호작용을 시도한다.
+            else if (_currentTarget.RequiresHoldInteraction(gameObject))
+            {
+                BeginHoldAction(HoldAction.Interactable, _currentTarget.HoldInteractionDuration, _currentTarget);
+            }
+
             else
             {
                 TryInteract();
@@ -256,10 +271,12 @@ public partial class PlayerInteraction : NetworkBehaviour
 
     private bool IsHoldActionStillValid()
     {
+        // holdAction은 아이템을 사용하거나, 소생시키거나, holdTarget과의 상호작용시에만 적용됩니다.
         return _activeHoldAction switch
         {
             HoldAction.UseItem => _currentTarget == null,
             HoldAction.Revive => _holdTarget != null && ReferenceEquals(_currentTarget, _holdTarget) && _holdTarget.CanInteract(gameObject),
+            HoldAction.Interactable => _holdTarget != null && ReferenceEquals(_currentTarget, _holdTarget) && _holdTarget.CanInteract(gameObject),
             _ => false
         };
     }
@@ -283,6 +300,15 @@ public partial class PlayerInteraction : NetworkBehaviour
                 if (completedTarget != null && completedTarget.CanInteract(gameObject))
                 {
                     completedTarget.Interact(gameObject);
+                }
+                break;
+
+            case HoldAction.Interactable:
+                if (completedTarget != null && completedTarget.CanInteract(gameObject))
+                {
+                    completedTarget.Interact(gameObject);
+                    _promptRefreshUntil = Time.time + 0.75f;
+                    RefreshInteractionPrompt();
                 }
                 break;
         }

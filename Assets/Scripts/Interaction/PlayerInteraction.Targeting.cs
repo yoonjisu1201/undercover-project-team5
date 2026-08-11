@@ -82,6 +82,11 @@ public partial class PlayerInteraction
     private void RefreshInteractionPrompt()
     {
         string interactionText = _currentTarget?.GetInteractionText(gameObject);
+
+        // 길게 누를때는 안내 문구 표시
+        if (_currentTarget != null && _currentTarget.RequiresHoldInteraction(gameObject)
+        && !string.IsNullOrWhiteSpace(interactionText)) { interactionText = $"{interactionText} (길게 누르기)"; }
+
         bool showKeyHint = _currentTarget?.ShowInteractionKeyHint(gameObject) ?? true;
         _inventoryUI?.SetInteractionPrompt(interactionText, showKeyHint);
     }

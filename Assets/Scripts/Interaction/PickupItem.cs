@@ -149,27 +149,4 @@ public class PickupItem : InteractableBase
         // 모든 클라이언트에서 아이템 제거
         NetworkObject.Despawn();
     }
-
-    // 상호작용 콜라이더와 아이템 콜라이더가 겹치는지 확인하는 메서드
-    private bool IsOverlappingInteractionCollider(SphereCollider interactionCollider)
-    {
-        Collider[] itemColliders = GetComponentsInChildren<Collider>();
-
-        foreach (Collider itemCollider in itemColliders)
-        {
-            if (!itemCollider.enabled || itemCollider == interactionCollider)
-            {
-                continue;
-            }
-
-            // Physics.ComputePenetration을 사용하여 상호작용 콜라이더와 아이템 콜라이더가 겹치는지 확인
-            if (Physics.ComputePenetration(interactionCollider, interactionCollider.transform.position, interactionCollider.transform.rotation,
-                    itemCollider, itemCollider.transform.position, itemCollider.transform.rotation, out _, out _))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }
