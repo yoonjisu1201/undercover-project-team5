@@ -46,6 +46,30 @@ public sealed class MissionInteractable : InteractableBase
     // 역할 제한은 여기서 보지 않는다. 조준은 되어야 GetInteractionText로 제한 안내를 띄울 수 있다. (HqScreen과 같은 방식)
     public override bool CanInteract(GameObject interactor) => true;
 
+    // 시작 아이템이 필요한 기계는 지금 그 아이템을 들고 있는지에 따라 문구가 달라진다.
+    public override string GetInteractionText(GameObject interactor)
+    {
+        if (IsCompleted || _requiredItem == null)
+        {
+            return InteractionText;
+        }
+
+        if (IsRequiredItemInserted)
+        {
+            return $"{_requiredItem.DisplayName} {_requiredItemInsertedText}";
+        }
+
+        return HasSelectedRequiredItem(interactor)
+            ? $"{_requiredItem.DisplayName} {_requiredItemInsertText}"
+            : $"{_requiredItem.DisplayName} {_requiredItemMissingText}";
+    }
+
+    // 아이템이 없으면 눌러도 아무 일이 없으므로 [E] 힌트를 감춰 안내 문구만 남긴다.
+    public override bool ShowInteractionKeyHint(GameObject interactor)
+    {
+        return IsCompleted || IsRequiredItemInserted || HasSelectedRequiredItem(interactor);
+    }
+
 
     //---   미션 시작 아이템을 기계에 넣을 때는 실수 방지를 위해 E를 길게 눌러 투입   ---///
     public override bool RequiresHoldInteraction(GameObject interactor) => !IsRequiredItemInserted && HasSelectedRequiredItem(interactor);

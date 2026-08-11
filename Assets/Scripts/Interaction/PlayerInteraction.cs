@@ -219,7 +219,7 @@ public partial class PlayerInteraction : NetworkBehaviour
             return;
         }
 
-        TryShowSelectedClue();
+        TryShowSelectedItemUi();
     }
 
     private void TryInteract()

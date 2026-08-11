@@ -100,12 +100,7 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
         // 여기서 같이 처리하면 이 화면에서 푼 것으로 기록돼, 닫을 때 남의 완료를 내 이름으로 요청하게 된다.
         _completionShown = _state != null && _state.IsCompleted;
 
-        // 처음에는 자리를 고르는 화면이라 역할 변경 바를 숨긴다.
-        if (_roleChangeBar != null)
-        {
-            _roleChangeBar.SetActive(false);
-        }
-
+        // 역할 변경 바를 포함한 화면 상태는 Redraw가 _hasRole을 보고 정한다.
         Redraw();
     }
 
@@ -198,11 +193,6 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
     // 고른 자리의 패널만 켠다. 자리 선택 화면은 페이드 없이 바로 닫는다.
     private void ShowRolePanel(SampleAnalysisRole role)
     {
-        if (_roleChangeBar != null)
-        {
-            _roleChangeBar.SetActive(true);
-        }
-
         SetPanelVisible(_roleSelectPanel, false, false);
         SetPanelVisible(_observerPanel, role == SampleAnalysisRole.Observer, true);
         SetPanelVisible(_temperaturePanel, role == SampleAnalysisRole.Temperature, true);
@@ -211,6 +201,13 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
 
     private void Redraw()
     {
+        // 역할 변경 바는 자리를 맡았을 때만 띄운다. 자리 선택 화면에서는 고를 자리가 이미 화면에 있어 필요 없다.
+        // Awake에서 한 번만 끄면 화면을 닫았다 다시 열었을 때(인스턴스 재사용) 상태가 어긋난다.
+        if (_roleChangeBar != null)
+        {
+            _roleChangeBar.SetActive(_hasRole);
+        }
+
         ApplyRoleButtons();
         ShowCompletionOnce();
 
@@ -509,15 +506,15 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
         }
     }
 
-    // 나빠질수록 크게 흔들린다.
+    // 나빠질수록 크게 흔들린다. 다만 파형 영역을 넘어가면 위아래 문구를 가리므로 폭을 좁게 잡는다.
     private static float GetWaveformShake(SampleReactionLevel level)
     {
         switch (level)
         {
-            case SampleReactionLevel.Stable: return 4f;
-            case SampleReactionLevel.Detected: return 10f;
-            case SampleReactionLevel.Unstable: return 22f;
-            default: return 42f;
+            case SampleReactionLevel.Stable: return 1f;
+            case SampleReactionLevel.Detected: return 4f;
+            case SampleReactionLevel.Unstable: return 9f;
+            default: return 16f;
         }
     }
 
@@ -525,10 +522,10 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
     {
         switch (level)
         {
-            case SampleReactionLevel.Stable: return 4f;
-            case SampleReactionLevel.Detected: return 9f;
-            case SampleReactionLevel.Unstable: return 18f;
-            default: return 32f;
+            case SampleReactionLevel.Stable: return 1.5f;
+            case SampleReactionLevel.Detected: return 5f;
+            case SampleReactionLevel.Unstable: return 11f;
+            default: return 20f;
         }
     }
 
@@ -767,7 +764,7 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
                 .SetUpdate(true)
                 .SetTarget(root);
 
-            rect.DOScale(startScale * (level == SampleReactionLevel.Collapse ? 1.35f : 1.08f), duration)
+            rect.DOScale(startScale * (level == SampleReactionLevel.Collapse ? 1.18f : 1.05f), duration)
                 .SetLoops(-1, LoopType.Yoyo)
                 .SetEase(Ease.InOutSine)
                 .SetUpdate(true)
