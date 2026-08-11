@@ -77,25 +77,23 @@ public partial class PlayerInteraction
     }
 
     // 현재 조준 대상과 들고 있는 아이템 기준으로 상호작용 안내 문구를 갱신한다.
-    // 우선순위: 2) 대상에 투입 가능한 IInteractionApplier 아이템 > 1) 대상 자체 문구 > 3) 대상 없을 때 IUsable 아이템 문구.
-    // 다운/카트/GameplayUiMode 중엔 상호작용 자체가 막혀 있으므로, 이 4가지 호출부(SetCurrentTarget,
-    // HandleInventoryChanged, Update의 재확인 창, CompleteHoldAction)가 전부 여길 거치는 김에 여기서 한 번만 막는다.
     private void RefreshInteractionPrompt()
     {
+        // 누워있거나, 카트 끌고 있거나, UI화성화중에는 SetInteractionPrompt 안띄우기
         if (_health.IsDowned || CarryingCart != null || GameplayUiMode.IsActive)
         {
             _promptUI?.SetInteractionPrompt(null, false);
             return;
         }
-
-        // 2. 대상을 조준 중이고, 그 대상에 적용 가능한 IInteractionApplier 아이템을 들고 있으면 아이템 쪽 문구가 최우선.
+        
+        // 1. 대상을 조준 중이고, 그 대상에 적용 가능한 IInteractionApplier 아이템을 들고 있으면 아이템 쪽 문구가 최우선.
         if (_currentTarget != null && TryGetApplierForTarget(_currentTarget, out _, out IInteractionApplier applier))
         {
             _promptUI?.SetInteractionPrompt($"{applier.InteractionApplyText} (길게 누르기)", true);
             return;
         }
 
-        // 1. 대상만 조준 중이면 대상 자체 문구.
+        // 2. 대상만 조준 중이면 대상 자체 문구.
         if (_currentTarget != null)
         {
             string interactionText = _currentTarget.GetInteractionText(gameObject);
@@ -144,6 +142,10 @@ public partial class PlayerInteraction
                 continue;
             }
 
+            if (!IsWithinInteractionRange(target))
+            {
+                continue;
+            }
             if (!target.CanInteract(gameObject))  // 상호작용이 차단된 대상은 무시
             {
                 continue;
@@ -180,10 +182,38 @@ public partial class PlayerInteraction
         SetCurrentTarget(closestTarget);
     }
 
+    public void RemoveNearbyInteractable(InteractableBase target)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        _nearbyInteractables.Remove(target);
+        _overlapCounts.Remove(target);
+
+        if (ReferenceEquals(_currentTarget, target))
+        {
+            SetCurrentTarget(null);
+        }
+    }
+
+    private bool IsWithinInteractionRange(InteractableBase target)
+    {
+        if (_interactionTrigger == null)
+        {
+            return true;
+        }
+
+        Vector3 center = transform.TransformPoint(_interactionTrigger.center);
+        float scale = Mathf.Max(transform.lossyScale.x, transform.lossyScale.y, transform.lossyScale.z);
+        float radius = _interactionTrigger.radius * scale;
+        return (target.InteractionPosition - center).sqrMagnitude <= radius * radius;
+    }
+
     private void SetCurrentTarget(InteractableBase nextTarget)
     {
-        if (ReferenceEquals(_currentTarget, nextTarget))
-        {
+        if (ReferenceEquals(_currentTarget, nextTarget)) {
             return;
         }
 

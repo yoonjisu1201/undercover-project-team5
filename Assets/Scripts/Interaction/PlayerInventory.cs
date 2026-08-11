@@ -32,7 +32,16 @@ public class PlayerInventory : NetworkBehaviour
     public event Action<int> OnSlotSelected;
 
     private CustomInputActions _actions;
+    private Camera _playerCamera;
+    private PlayerHealth _health;
+    private PlayerInteraction _interaction;
 
+    private void Awake()
+    {
+        _playerCamera = GetComponentInChildren<Camera>(true);
+        _health = GetComponent<PlayerHealth>();
+        _interaction = GetComponent<PlayerInteraction>();
+    }
     private void OnEnable()
     {
         _actions ??= new CustomInputActions();
@@ -67,6 +76,10 @@ public class PlayerInventory : NetworkBehaviour
         float scrollY = _actions.Player.InventoryScroll.ReadValue<Vector2>().y;
         if (scrollY != 0f)
             SelectSlotByScroll(scrollY);
+        if (_actions.Player.Drop.WasPressedThisFrame())
+        {
+            TryDropSelectedItem();
+        }
     }
 
     // 휠 굴리면 휠로 아이템 선택
@@ -108,6 +121,17 @@ public class PlayerInventory : NetworkBehaviour
     private void HandleSlotsChanged(NetworkListEvent<InventorySlot> changeEvent)
     {
         OnInventoryChanged?.Invoke();
+
+        if (!IsOwner || changeEvent.Index < 0 || changeEvent.Index >= _slots.Count)
+        {
+            return;
+        }
+
+        if (_slots[changeEvent.Index].TryGetItem(out ItemBase item))
+        {
+            _interaction?.RemoveNearbyInteractable(item);
+            item.NotifyAddedToLocalInventory();
+        }
     }
 
     // item은 이미 스폰된 상태여야 한다 (월드에 있던 것을 줍거나, 방금 스폰해서 바로 넣는 경우 모두).
@@ -127,7 +151,7 @@ public class PlayerInventory : NetworkBehaviour
         }
 
         // 아이템 자체가 주울 수 있는 상태인지 체크. RPC는 void라 결과는 IsStored로 확인한다.
-        item.TryStoreItemRpc(new NetworkObjectReference(NetworkObject));
+        item.TryStoreItemRpc();
         if (!item.IsStored) { return; }
 
         _slots[emptySlotIndex] = new InventorySlot { ItemRef = new NetworkBehaviourReference(item) };
@@ -162,6 +186,23 @@ public class PlayerInventory : NetworkBehaviour
         item.DropItemToWorldRpc(dropPosition, dropRotation, dropVelocity, _dropInteractionDelay);
     }
 
+    private void TryDropSelectedItem()
+    {
+        // UI 켜져있거나, 체력이 0이거나, 카트 끌고 있거나, 카메라 없거나, 선택된 아이템이 없다면 제외
+        if (GameplayUiMode.IsActive
+            || (_health != null && _health.IsDowned)
+            || (_interaction.CarryingCart != null)
+            || _playerCamera == null
+            || !TryGetSelectedItemId(out ItemType itemId))
+        {
+            return;
+        }
+
+        Transform cameraTransform = _playerCamera.transform;
+        Vector3 dropPosition = cameraTransform.position + cameraTransform.forward * 1f;
+        Vector3 dropVelocity = cameraTransform.forward * 2f + Vector3.up;
+        RequestDropRpc(itemId, SelectedIndex, dropPosition, dropVelocity);
+    }
     private void SelectSlot(int index)
     {
         if (index < 0 || index >= InventorySize)

@@ -21,6 +21,7 @@ public partial class PlayerInteraction : NetworkBehaviour
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
     private PlayerHealth _health;
+    private SphereCollider _interactionTrigger;
     private PlayerItemUse _itemUse;
     private HoldAction _activeHoldAction = HoldAction.None;
     private float _holdTimer;
@@ -44,6 +45,7 @@ public partial class PlayerInteraction : NetworkBehaviour
         _actions = new CustomInputActions();
         _inventory = GetComponent<PlayerInventory>();
         _health = GetComponent<PlayerHealth>();
+        _interactionTrigger = GetComponent<SphereCollider>();
         _itemUse = GetComponent<PlayerItemUse>();
 
         if (_inventory == null)
@@ -159,11 +161,7 @@ public partial class PlayerInteraction : NetworkBehaviour
         {
             HandleInteractInput();
         }
-        if (_actions.Player.Drop.WasPressedThisFrame()) // 드롭 버튼이 눌렸을 때
-        {
-            CancelHoldAction();
-            DropSelectedItem();
-        }
+
     }
 
     private void HandleInteractInput()
@@ -261,22 +259,6 @@ public partial class PlayerInteraction : NetworkBehaviour
         IInteractable target = _currentTarget;
         SetCurrentTarget(null);
         target.Interact(gameObject);
-    }
-
-    // 선택한 아이템을 월드에 드롭한다. 실제 반영(검증/제거/재배치)은 PlayerInventory.RequestDropRpc가 담당한다.
-    private void DropSelectedItem()
-    {
-        if (_inventory == null || _playerCamera == null) { return; }
-
-        // 선택 슬롯이 비어있는지는 서버(TryTakeSelectedItemOnServer)가 재검증하므로 여기서 따로 안 막는다.
-        _inventory.TryGetSelectedItemId(out ItemType itemId);
-
-        Transform cameraTransform = _playerCamera.transform;
-        Vector3 dropPosition = cameraTransform.position + cameraTransform.forward * 1f;
-        Vector3 dropVelocity = cameraTransform.forward * 2f + Vector3.up;
-
-        _inventory.RequestDropRpc(itemId, _inventory.SelectedIndex, dropPosition, dropVelocity);
-        TryCloseVisibleClue();
     }
 
     private void BeginHoldAction(HoldAction action, float duration, InteractableBase target = null)

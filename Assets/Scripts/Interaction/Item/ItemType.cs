@@ -18,4 +18,5 @@ public enum ItemType
     UnusedTraceAnalyzer = 11,
     EnergyBar = 12,
     RefillPack = 13,
+    ContaminatedSample = 14,
 }

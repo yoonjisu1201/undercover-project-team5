@@ -78,7 +78,7 @@ public sealed class ItemRigidbodySetter : NetworkBehaviour
 
     // 인벤토리에서 다시 꺼내는 등, 이미 스폰된 오브젝트를 재사용할 때 물리를 스폰 직후 상태로 되돌린다.
     // OnNetworkSpawn은 스폰 시 한 번만 불리므로, 재사용 시점엔 이걸 직접 호출해줘야 한다.
-    public void Rearm(Vector3 initialVelocity = default)
+    public void Rearm(Vector3 position, Quaternion rotation, Vector3 initialVelocity)
     {
         if (!IsServer || _rigidbody == null)
         {
@@ -87,6 +87,8 @@ public sealed class ItemRigidbodySetter : NetworkBehaviour
 
         _spawnElapsed = 0f;
         _hasGroundContact = false;
+        _rigidbody.position = position;
+        _rigidbody.rotation = rotation;
         _rigidbody.isKinematic = false;
         _rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
@@ -97,7 +99,6 @@ public sealed class ItemRigidbodySetter : NetworkBehaviour
         _rigidbody.linearVelocity = initialVelocity;
         _rigidbody.angularVelocity = Vector3.zero;
     }
-
     // 인벤토리에 넣는 등, 물리 시뮬레이션을 완전히 멈춰야 할 때 사용한다.
     public void Freeze()
     {

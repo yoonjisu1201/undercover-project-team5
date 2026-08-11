@@ -49,6 +49,13 @@ public class PlayerItemUse : NetworkBehaviour
             return message != null;
         }
 
+        // 서버 왕복 없이 지금 이 클라이언트에서 바로 재생한다 - item.ItemData는 로컬에서 이미 들고 있는 참조라
+        // 디스폰 이후를 신경 쓸 필요가 없다. 서버가 나중에 CanUse 재검증에서 막더라도 소리는 이미 난 뒤다.
+        if (_audioSource != null && item.ItemData != null && item.ItemData.AudioClip != null)
+        {
+            _audioSource.PlayOneShot(item.ItemData.AudioClip);
+        }
+
         RequestUseItemRpc(new NetworkBehaviourReference(item), _inventory.SelectedIndex);
         return true;
     }
@@ -67,26 +74,16 @@ public class PlayerItemUse : NetworkBehaviour
             return;
         }
 
-        // 소모(디스폰) 전에 필요한 값을 먼저 뽑아둔다 - Use()가 스스로 소모시키면 이후 item 인스턴스는 사라질 수 있다.
-        ItemType usedItemId = item.ItemId;
         string completedMessage = usable.UseCompletedMessage;
 
         usable.Use(gameObject, _inventory, selectedIndex);
 
-        HandleItemUsedOwnerRpc(usedItemId, completedMessage, RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
+        HandleItemUsedOwnerRpc(completedMessage, RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
     }
 
-    // 아이템별 전용 RPC 대신 itemId 하나로 통일. 소리는 ItemData.AudioClip에서 가져온다
-    // (item 인스턴스는 이미 디스폰됐을 수 있어서, 네트워크로 안 넘어가는 로컬 에셋 참조로 해결한다).
     [Rpc(SendTo.SpecifiedInParams)]
-    private void HandleItemUsedOwnerRpc(ItemType itemId, string message, RpcParams rpcParams = default)
+    private void HandleItemUsedOwnerRpc(string message, RpcParams rpcParams = default)
     {
         _promptUI?.ShowTemporaryPrompt(message);
-
-        if (_audioSource != null && ItemCatalog.Instance != null
-            && ItemCatalog.Instance.TryGet(itemId, out ItemData itemData) && itemData.AudioClip != null)
-        {
-            _audioSource.PlayOneShot(itemData.AudioClip);
-        }
     }
 }

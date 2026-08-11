@@ -10,9 +10,6 @@ public class ItemBase : InteractableBase {
 
     // 프리팹 하나를 여러 ItemData가 공유하는 경우(예: Clue)가 있어서, 런타임에 주입된 종류를
     // 모든 클라이언트가 알 수 있도록 별도로 동기화한다.
-    private readonly NetworkVariable<ItemType> _networkItemId =
-        new(ItemType.None, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
-
     // 인벤토리 안에 들어가 있는 동안 true. 월드에 놓여 있으면 false.
     private readonly NetworkVariable<bool> _isStored =
         new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -58,26 +55,14 @@ public class ItemBase : InteractableBase {
     //--- 런타임에 생성된 픽업 아이템의 고유 데이터 설정 ---//
     public void Configure(ItemData itemData) {
         _itemData = itemData;
-
-        // NetworkVariable은 NetworkObject가 스폰된 뒤 서버에서만 변경한다.
-        if (IsSpawned && IsServer)
-        {
-            _networkItemId.Value = itemData.ItemId;
-        }
     }
 
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
-        _networkItemId.OnValueChanged += HandleNetworkItemIdChanged;
         _isStored.OnValueChanged += HandleStoredChanged;
 
         // 스폰 전에 Configure로 저장한 데이터를 네트워크 등록 완료 후 동기화한다.
-        if (IsServer && _itemData != null) {
-            _networkItemId.Value = _itemData.ItemId;
-        }
-
-        ResolveItemData(_networkItemId.Value);
         
         // 늦게 들어온 클라이언트도 현재 저장된 상태를 그대로 반영해야 한다.
         ApplyStoredPresentation(_isStored.Value);
@@ -85,49 +70,19 @@ public class ItemBase : InteractableBase {
 
     public override void OnNetworkDespawn()
     {
-        _networkItemId.OnValueChanged -= HandleNetworkItemIdChanged;
         _isStored.OnValueChanged -= HandleStoredChanged;
         base.OnNetworkDespawn();
-    }
-
-    private void HandleNetworkItemIdChanged(ItemType previousId, ItemType currentId)
-    {
-        ResolveItemData(currentId);
-    }
-
-    private void ResolveItemData(ItemType itemId)
-    {
-        if (itemId == ItemType.None)
-        {
-            return;
-        }
-
-        if (ItemCatalog.Instance != null && ItemCatalog.Instance.TryGet(itemId, out ItemData itemData))
-        {
-            _itemData = itemData;
-        }
     }
 
     private void HandleStoredChanged(bool previousValue, bool currentValue)
     {
         ApplyStoredPresentation(currentValue);
-
-        // 방금 인벤토리에 들어간 경우(주움)만, 그리고 그걸 주운 당사자 화면에서만 반응한다.
-        if (currentValue && IsCarriedByLocalOwner())
-        {
-            OnAdded();
-        }
     }
 
-    // 부모(carrier, 인벤토리 소유 플레이어)가 지금 이 코드를 실행 중인 로컬 피어 소유인지 확인한다.
-    // 다른 플레이어가 주운 아이템의 UI 반응(단서/가이드북 열기 등)이 내 화면에 뜨지 않게 하기 위함이다.
-    private bool IsCarriedByLocalOwner()
+    public void NotifyAddedToLocalInventory()
     {
-        return transform.parent != null
-            && transform.parent.TryGetComponent(out NetworkObject carrier)
-            && carrier.IsOwner;
+        OnAdded();
     }
-
     // 이 아이템이 인벤토리에 새로 추가됐을 때(주웠을 때) 호출된다. 하위 클래스가 오버라이드해서
     // 자기만의 UI 반응(단서/가이드북 열기 등)을 정의한다.
     protected virtual void OnAdded() { }
@@ -170,28 +125,17 @@ public class ItemBase : InteractableBase {
     // 서버 전용: 이 아이템을 carrier(플레이어) 밑으로 넣고 재운다. 실패하면 아무것도 바꾸지 않는다.
     // RPC는 void만 반환할 수 있어서, 성공 여부는 호출부가 IsStored로 확인한다.
     [Rpc(SendTo.Server)]
-    public void TryStoreItemRpc(NetworkObjectReference carrierRef) {
-        // 이미 스폰된 아이템이어야 함 || 바닥에 드롭된 상태여야 함
-        if (!IsSpawned || IsStored) {
-            Debug.LogError($"[ItemBase] 스폰되지 않았거나 이미 타인의 인벤토리에 존재하는 아이템입니다.");
-            return;
-        }
-
-        if (!carrierRef.TryGet(out NetworkObject carrier)) {
-            Debug.LogError($"[ItemBase] 존재하지 않는 대상에게 아이템을 넣으려 했습니다.");
-            return;
-        }
-
-        // 아이템 주운 사람 아래로 넣기
-        if (!NetworkObject.TrySetParent(carrier, worldPositionStays: false)) {
-            Debug.LogError($"[ItemBase] Item -> Player SetParent에 실패했습니다.");
+    public void TryStoreItemRpc()
+    {
+        if (!IsSpawned || IsStored)
+        {
+            Debug.LogError($"[ItemBase] 스폰되지 않았거나 이미 소지 중인 아이템입니다.");
             return;
         }
 
         _rigidBodySetter?.Freeze();
         _isStored.Value = true;
     }
-
     // 서버 전용: 인벤토리에서 꺼내 월드에 다시 놓는다.
     [Rpc(SendTo.Server)]
     public void DropItemToWorldRpc(Vector3 position, Quaternion rotation, Vector3 initialVelocity, float blockDuration)
@@ -201,17 +145,18 @@ public class ItemBase : InteractableBase {
             return;
         }
 
-        NetworkObject.TryRemoveParent();
         transform.SetPositionAndRotation(position, rotation);
-        _isStored.Value = false;
 
         // 부모에서 떨어지며 로컬→월드 좌표로 전환되는 순간 발생하는 이동을 순간이동으로 처리해
         // 클라이언트 화면에서 스르륵 미끄러지는 것처럼 보이지 않게 한다.
         if (_networkTransform != null) {
             _networkTransform.Teleport(position, rotation, transform.localScale);
         }
+        _isStored.Value = false;
 
-        _rigidBodySetter?.Rearm(initialVelocity);
+        Debug.Log($"[ItemBase] 아이템 드롭됨. 드롭되는 순간의 위치는 {position}, 속도는 {initialVelocity}");
+
+        _rigidBodySetter?.Rearm(position, rotation, initialVelocity);
         BlockInteraction(blockDuration);
     }
 
@@ -224,7 +169,6 @@ public class ItemBase : InteractableBase {
             return;
         }
 
-        NetworkObject.TryRemoveParent();
         NetworkObject.Despawn(true);
     }
 
