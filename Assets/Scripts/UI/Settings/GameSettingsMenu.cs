@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using TMPro;
 using Unity.Netcode;
@@ -279,8 +280,14 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     private async UniTaskVoid InitializeVivoxSettingsAsync()
     {
-        await UniTask.WaitUntil(() => VivoxManager.Instance != null);
-        await UniTask.WaitUntil(() => VivoxManager.IsLoggedIn);
+        // Vivox 로그인을 기다리는 동안 씬이 바뀌어 이 오브젝트가 파괴될 수 있다.
+        // 파괴 토큰을 물려두지 않으면 대기가 계속 돌다가 완료 시점에 이어서 실행되고,
+        // 파괴된 컴포넌트의 isActiveAndEnabled에 접근하는 순간 MissingReferenceException이 난다.
+        // (Unity 오브젝트는 == null 비교로만 파괴를 확인할 수 있고, 멤버 접근은 예외를 던진다.)
+        CancellationToken cancellationToken = this.GetCancellationTokenOnDestroy();
+
+        await UniTask.WaitUntil(() => VivoxManager.Instance != null, cancellationToken: cancellationToken);
+        await UniTask.WaitUntil(() => VivoxManager.IsLoggedIn, cancellationToken: cancellationToken);
 
         if (!isActiveAndEnabled || _vivoxEventsSubscribed)
         {

@@ -257,6 +257,16 @@ public class GameSessionManager : MonoBehaviour
 			if (playerObject == null)
 			{
 				SpawnPlayerForClient(clientId);
+
+				// SpawnAsPlayerObject가 방금 스폰한 오브젝트를 ConnectedClients에 등록하므로 다시 읽는다.
+				// 이걸 빼먹으면 playerObject가 계속 null이라 아래 TryGetComponent에서 터진다.
+				playerObject = NetworkManager.Singleton.ConnectedClients[clientId].PlayerObject;
+
+				if (playerObject == null)
+				{
+					Debug.LogError($"[GameSessionManager] 클라이언트 {clientId}의 플레이어 오브젝트를 스폰하지 못했습니다.");
+					continue;
+				}
 			}
 
             // PlayerMoveSample이 있으면 항상 Teleport, PlayerHealth가 있으면 Reset만 추가로 수행합니다.
