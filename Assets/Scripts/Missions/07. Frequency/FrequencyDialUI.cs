@@ -278,9 +278,12 @@ public sealed class FrequencyDialUI : MonoBehaviour
             _currentFrequencyText.text = $"{_localFrequency:0.00}";
         }
 
-        if (_targetFrequencyText != null && _syncState != null)
+        if (_targetFrequencyText != null)
         {
-            _targetFrequencyText.text = $"{_syncState.TargetFrequency:0.00} MHz";
+            // 목표 주파수는 본부 화면에만 나온다. 여기서 보여주면 본부에 물어볼 이유가 없어진다.
+            _targetFrequencyText.text = _syncState != null && _syncState.IsCompleted
+                ? $"{_syncState.TargetFrequency:0.00} MHz"
+                : "??? MHz";
         }
 
         ApplyKnobRotation();
@@ -367,7 +370,8 @@ public sealed class FrequencyDialUI : MonoBehaviour
         _sliderHandle.anchoredPosition = Vector2.zero;
     }
 
-    // 목표까지의 거리만 알려준다. 어느 쪽으로 돌려야 하는지는 알려주지 않아 다이얼을 직접 훑어야 한다.
+    // 목표에 얼마나 가까운지는 알려주지 않는다. 그걸 여기서 보여주면 본부에 물어볼 이유가 없어져
+    // 혼자 다이얼만 돌려도 미션이 끝난다. 근접도와 방향은 본부 화면(FrequencyWaveformUI)에만 나온다.
     private void ApplyHintText(bool unlocked)
     {
         if (_hintText == null)
@@ -383,19 +387,7 @@ public sealed class FrequencyDialUI : MonoBehaviour
             return;
         }
 
-        float error = Mathf.Abs(_localFrequency - _syncState.TargetFrequency);
-
-        // 맞춘 뒤에는 3초를 버텨야 넘어가므로 남은 시간을 보여준다.
-        if (error <= FrequencySyncState.MatchTolerance)
-        {
-            float remain = Mathf.Max(0f, FrequencySyncState.RequiredHoldSeconds - _syncState.HoldSeconds);
-            _hintText.text = $"주파수 일치 · 유지 {remain:0.0}초";
-            return;
-        }
-
-        _hintText.text = error <= FrequencySyncState.NearTolerance
-            ? "목표 주파수 근처 · 미세 조정 필요"
-            : "신호가 잡히지 않습니다";
+        _hintText.text = "본부의 지시에 따라 주파수를 맞추세요";
     }
 
     private void ApplyProgressText()

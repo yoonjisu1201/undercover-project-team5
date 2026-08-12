@@ -1,8 +1,7 @@
-using DG.Tweening;
+﻿using DG.Tweening;
 using UnityEngine.Serialization;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 // P1 역할의 신호 파형 화면. 세 좌표 중 어디를 진행할지 고르고, 레이더로 요원을 그 좌표까지 유도한다.
 // 주파수는 이 화면에서 만질 수 없다. 요원을 목표 좌표로 보내는 것까지가 P1의 일이다.
@@ -17,6 +16,8 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
     private const float ClearedNoticeSeconds = 3f;
     // 파형 높이가 새 값으로 따라붙는 속도다. 값이 클수록 즉각 반응한다.
     private const float WaveFollowSpeed = 12f;
+    // 주파수가 전혀 맞지 않을 때의 기본 진폭. 화면이 죽은 것처럼 보이지 않을 정도로만 움직인다.
+    private const float IdleEnvelope = 0.25f;
     // 공유 상태를 아직 못 찾았을 때 다시 찾아보는 간격이다.
     private const float SyncStateSearchSeconds = 0.5f;
 
@@ -32,10 +33,6 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
     // 요원 시야와 목표 좌표 사이의 각도 차이를 보여준다.
     [FormerlySerializedAs("_bearingText")]
     [SerializeField] private TMP_Text _bearingDifferenceText;
-    [FormerlySerializedAs("_rotateLeftButton")]
-    [SerializeField] private Button _prevZoneButton;
-    [FormerlySerializedAs("_rotateRightButton")]
-    [SerializeField] private Button _nextZoneButton;
 
     [Header("레이더")]
     // 안테나를 들고 있는 요원의 표식이다. 목표를 기준으로 어느 쪽을 보고 있는지에 따라 돌아간다.
@@ -108,33 +105,6 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         _markTween?.Kill();
     }
 
-    // 버튼 OnClick에서 직접 연결한다. 세 좌표 중 몇 번째를 진행할지 고른다.
-    public void OnPrevZoneButtonClick() => SelectZone(-1);
-
-    public void OnNextZoneButtonClick() => SelectZone(1);
-
-    // 이미 통과한 좌표는 건너뛰고 남은 좌표만 돌아가며 고른다.
-    private void SelectZone(int step)
-    {
-        if (_syncState == null || _syncState.IsCompleted)
-        {
-            return;
-        }
-
-        for (int offset = 1; offset <= _syncState.ZoneCount; offset++)
-        {
-            int index = _syncState.StageIndex + step * offset;
-            index = ((index % _syncState.ZoneCount) + _syncState.ZoneCount)
-                % _syncState.ZoneCount;
-
-            if (!_syncState.IsZoneCompleted(index))
-            {
-                _syncState.SubmitSelectedZone(index);
-                return;
-            }
-        }
-    }
-
     private void Update()
     {
         EnsureSyncState();
@@ -201,7 +171,7 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         _audioSource.Play();
     }
 
-    // 목표에서 멀면 잠잠하고, 가까워지거나 주파수가 맞아갈수록 크고 빠르게 움직인다.
+    // 파형은 주파수를 맞춰갈수록 크고 규칙적으로 변한다. 요원이 좌표에 가까워지는 것과는 무관하다.
     private void RefreshWaveBars()
     {
         if (_waveBars == null || _waveBars.Length == 0)
@@ -214,12 +184,11 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
             _waveHeights = new float[_waveBars.Length];
         }
 
-        // 안테나를 설치하기 전에는 요원이 좌표에 얼마나 가까운지가, 설치한 뒤에는 주파수 근접도가 기준이 된다.
+        // 진폭은 주파수 근접도만 따른다. 설치 전에는 맞출 주파수 자체가 의미가 없어 잡음만 낸다.
+        // (요원과 좌표 사이의 거리를 진폭에 섞으면, 다이얼을 돌리지 않아도 파형이 커져서 오해를 준다.)
         float closeness = _syncState != null ? _syncState.TuneCloseness01 : 0f;
         bool placed = _syncState != null && _syncState.AntennaPlaced;
-        float envelope = placed
-            ? Mathf.Lerp(0.25f, 1f, closeness)
-            : (_syncState != null ? _syncState.SignalStrength01 : 0f);
+        float envelope = placed ? Mathf.Lerp(IdleEnvelope, 1f, closeness) : IdleEnvelope;
 
         float amplitude = Mathf.Lerp(0.06f, 1f, envelope);
         float speed = Mathf.Lerp(1.2f, 7f, envelope);
@@ -263,11 +232,7 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         ApplyRadarMarks();
         ShowCompletionOnce();
 
-        // 미션이 끝나기 전까지는 언제든 다른 좌표로 바꿀 수 있다.
         bool placed = _syncState != null && _syncState.AntennaPlaced;
-        bool done = _syncState == null || _syncState.IsCompleted;
-        SetButtonUsable(_prevZoneButton, !done);
-        SetButtonUsable(_nextZoneButton, !done);
 
         if (_syncStateText == null || _syncHintText == null)
         {
@@ -294,15 +259,12 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
             _syncStateText.text = "동기화 완료";
             _syncHintText.text = "통신이 연결되었습니다";
         }
-        else if (placed && _syncState.IsOnTarget)
-        {
-            _syncStateText.text = "주파수 일치";
-            _syncHintText.text = "이대로 유지하세요";
-        }
         else if (placed)
         {
-            _syncStateText.text = "안테나 설치 완료";
-            _syncHintText.text = "주파수 조정을 기다립니다";
+            // 안테나 설치 여부는 레이더 쪽에 이미 나오므로 여기서는 반복하지 않는다.
+            // 목표 주파수는 이 화면만 볼 수 있다. 현장은 현재 값만 보이므로, 여기서 방향을 읽어 전달해야 맞출 수 있다.
+            _syncStateText.text = $"목표 {_syncState.TargetFrequency:0.00} MHz";
+            _syncHintText.text = BuildTuneGuidanceLabel();
         }
         else if (signal > 0f)
         {
@@ -329,18 +291,43 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         GetComponent<MissionUIController>()?.ShowCompletedState();
     }
 
+    // 현재 주파수를 목표까지 어느 쪽으로 얼마나 움직여야 하는지 알려준다.
+    // 목표값은 이 화면만 알고 있어서, 본부가 이걸 읽어 현장에 전달해야 한다.
+    private string BuildTuneGuidanceLabel()
+    {
+        float difference = _syncState.TargetFrequency - _syncState.CurrentFrequency;
+        float absolute = Mathf.Abs(difference);
+
+        // 맞춘 뒤에는 3초를 버텨야 통과되므로 남은 시간을 알려준다.
+        if (absolute <= FrequencySyncState.MatchTolerance)
+        {
+            float remain = Mathf.Max(0f, FrequencySyncState.RequiredHoldSeconds - _syncState.HoldSeconds);
+            return $"주파수 일치 · 유지 {remain:0.0}초";
+        }
+
+        if (absolute <= FrequencySyncState.NearTolerance)
+        {
+            return "목표 주파수 근처 · 미세 조정 필요";
+        }
+
+        return difference > 0f
+            ? "목표 주파수 높음 · 크게 조정 필요"
+            : "목표 주파수 낮음 · 크게 조정 필요";
+    }
+
     // 요원이 보는 방향과 목표 좌표 사이의 각도 차이를 보여준다.
     // 0에 가까울수록 지금 보는 방향이 목표를 향한다는 뜻이라, P1이 "오른쪽으로 조금" 하고 유도할 수 있다.
     private string BuildBearingLabel()
     {
-        if (!_syncState.HasHolder)
-        {
-            return "안테나 미소지";
-        }
-
+        // 설치를 마치면 안테나가 소모되어 소지자가 없어진다. 설치 완료를 미소지보다 먼저 판단해야 한다.
         if (_syncState.AntennaPlaced)
         {
             return "설치 완료";
+        }
+
+        if (!_syncState.HasHolder)
+        {
+            return "안테나 미소지";
         }
 
         float difference = _syncState.HolderRelativeBearing;
@@ -358,19 +345,32 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
     private void ApplyRadarMarks()
     {
         bool hasHolder = _syncState != null && _syncState.HasHolder;
+        bool placed = _syncState != null && _syncState.AntennaPlaced;
+
+        // 설치를 마친 뒤에는 안내할 방향이 없다. 다음 좌표용 안테나를 새로 주우면 소지자가 다시 생기는데,
+        // 그 사람이 몸을 돌리는 대로 표식이 계속 돌면 이미 끝난 좌표를 가리키는 잘못된 안내가 된다.
+        bool showMarks = placed || hasHolder;
 
         // 레이더는 목표 좌표를 위쪽에 고정해 두고 읽는다. 움직이는 건 요원 표식이다.
         if (_targetMark != null)
         {
             // 목표는 항상 위(북)를 가리킨다. 돌리지 않는다.
-            _targetMark.gameObject.SetActive(hasHolder);
+            _targetMark.gameObject.SetActive(showMarks);
             _targetMark.localRotation = Quaternion.identity;
         }
 
         if (_playerMark != null)
         {
-            _playerMark.gameObject.SetActive(hasHolder);
-            if (hasHolder)
+            _playerMark.gameObject.SetActive(showMarks);
+
+            if (placed)
+            {
+                // 목표 표식과 겹쳐 놓고 고정한다. 도착해서 세웠다는 뜻이다.
+                _markTween?.Kill();
+                _markTween = null;
+                _playerMark.localRotation = Quaternion.identity;
+            }
+            else if (hasHolder)
             {
                 // 요원이 목표를 기준으로 어느 쪽을 보고 있는지. 몸을 돌리면 이 표식이 돈다.
                 // 두 표식이 겹치면 목표를 정면으로 보고 있다는 뜻이라 그대로 걸어가면 된다.
@@ -397,17 +397,18 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
             // 아직 공유 상태를 못 찾은 것이라 소지 여부를 알 수 없다. 미소지로 단정하지 않는다.
             _distanceText.text = "신호 없음";
         }
-        else if (!hasHolder)
-        {
-            _distanceText.text = "안테나 미소지";
-        }
         else if (_syncState.AntennaPlaced)
         {
+            // 설치를 마치면 안테나가 소모되어 소지자가 없어진다. 미소지보다 먼저 판단해야 한다.
             float remain = Mathf.Max(0f, FrequencySyncState.RequiredHoldSeconds - _syncState.HoldSeconds);
             _distanceText.text =
                 _progressText != null
                     ? $"설치 완료 · 주파수 유지 {remain:0.0}초"
                     : $"{BuildProgressLabel("설치 완료")} · 주파수 유지 {remain:0.0}초";
+        }
+        else if (!hasHolder)
+        {
+            _distanceText.text = "안테나 미소지";
         }
         else
         {
@@ -443,13 +444,5 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         }
 
         return null;
-    }
-
-    private static void SetButtonUsable(Button button, bool usable)
-    {
-        if (button != null)
-        {
-            button.interactable = usable;
-        }
     }
 }

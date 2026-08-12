@@ -269,9 +269,12 @@ public sealed class GameSettingsMenu : MonoBehaviour
         {
             VivoxManager.Instance.AudioDevicesChanged -= RefreshDeviceNames;
             VivoxManager.Instance.MicTestStateChanged -= RefreshMicTestButtonText;
-            VivoxManager.Instance.StopMicTest();
             _vivoxEventsSubscribed = false;
         }
+
+        // 창을 닫으면 무조건 테스트를 끝내고 게임 채널로 돌아간다.
+        // 마이크 테스트 버튼은 이벤트 구독과 무관하게 눌릴 수 있어서, 구독 여부를 따지면 안 된다.
+        VivoxManager.Instance?.StopMicTest();
     }
 
     private async UniTaskVoid InitializeVivoxSettingsAsync()
@@ -323,6 +326,11 @@ public sealed class GameSettingsMenu : MonoBehaviour
         else
         {
             GameplayUiMode.Instance?.DeactivateCursor();    // 커서 비활성화
+
+            // 창을 닫으면 마이크 테스트를 끝내고 게임 채널로 돌아간다.
+            // 이 스크립트가 붙은 오브젝트는 계속 켜져 있고 자식 패널만 숨기므로 OnDisable이 불리지 않는다.
+            // ESC·뒤로가기 등 닫는 경로가 모두 여기를 지나가니 여기서 처리해야 한다.
+            VivoxManager.Instance?.StopMicTest();
         }
     }
 
