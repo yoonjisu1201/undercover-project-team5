@@ -6,7 +6,7 @@ using UnityEngine;
 // 도중에 맞은 대상에게 도착 시점에 데미지를 준다(히트스캔 아님, 투사체 이동 시간 있음).
 public class AlienShotgunInput : NetworkBehaviour
 {
-    public const string ItemId = "AlienShotgun";
+    public const ItemType ItemId = ItemType.AlienShotgun;
 
     [SerializeField] private Camera _playerCamera;
     [SerializeField] private Transform _muzzlePoint;
@@ -90,7 +90,7 @@ public class AlienShotgunInput : NetworkBehaviour
     private bool IsToolSelected()
     {
         return _inventory != null
-            && _inventory.TryGetSelectedItem(out string itemId)
+            && _inventory.TryGetSelectedItemId(out ItemType itemId)
             && itemId == ItemId;
     }
 

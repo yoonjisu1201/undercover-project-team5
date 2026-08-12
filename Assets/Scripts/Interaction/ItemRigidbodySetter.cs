@@ -5,7 +5,7 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 // 네트워크 아이템의 Rigidbody를 서버에서만 시뮬레이션하고,
 // 바닥에 안정적으로 안착한 뒤 Kinematic 상태로 고정한다.
-public sealed class ItemRigidbodySettler : NetworkBehaviour
+public sealed class ItemRigidbodySetter : NetworkBehaviour
 {
     // 스폰 후 이 시간이 지나고 바닥에 닿아 있으면 안착한 것으로 판정한다.
     private const float SettleDuration = 1f;
@@ -25,7 +25,7 @@ public sealed class ItemRigidbodySettler : NetworkBehaviour
         _rigidbody = GetComponent<Rigidbody>();
         if (_rigidbody == null)
         {
-            Debug.LogError($"[ItemRigidbodySettler] '{name}'에 Rigidbody가 없습니다.", this);
+            Debug.LogError($"[ItemRigidbodySetter] '{name}'에 Rigidbody가 없습니다.", this);
             return;
         }
 
@@ -73,6 +73,42 @@ public sealed class ItemRigidbodySettler : NetworkBehaviour
             _rigidbody.rotation = groundAlignment * _rigidbody.rotation;
         }
 
+        _rigidbody.isKinematic = true;
+    }
+
+    // 인벤토리에서 다시 꺼내는 등, 이미 스폰된 오브젝트를 재사용할 때 물리를 스폰 직후 상태로 되돌린다.
+    // OnNetworkSpawn은 스폰 시 한 번만 불리므로, 재사용 시점엔 이걸 직접 호출해줘야 한다.
+    public void Rearm(Vector3 position, Quaternion rotation, Vector3 initialVelocity)
+    {
+        if (!IsServer || _rigidbody == null)
+        {
+            return;
+        }
+
+        _spawnElapsed = 0f;
+        _hasGroundContact = false;
+        _rigidbody.position = position;
+        _rigidbody.rotation = rotation;
+        _rigidbody.isKinematic = false;
+        _rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
+        _rigidbody.constraints =
+            RigidbodyConstraints.FreezeRotationX |
+            RigidbodyConstraints.FreezeRotationZ;
+        _rigidbody.WakeUp();
+        _rigidbody.linearVelocity = initialVelocity;
+        _rigidbody.angularVelocity = Vector3.zero;
+    }
+    // 인벤토리에 넣는 등, 물리 시뮬레이션을 완전히 멈춰야 할 때 사용한다.
+    public void Freeze()
+    {
+        if (_rigidbody == null)
+        {
+            return;
+        }
+
+        _rigidbody.linearVelocity = Vector3.zero;
+        _rigidbody.angularVelocity = Vector3.zero;
         _rigidbody.isKinematic = true;
     }
 

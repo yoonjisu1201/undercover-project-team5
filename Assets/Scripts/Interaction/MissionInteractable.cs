@@ -17,10 +17,8 @@ public sealed class MissionInteractable : InteractableBase
     // 미션을 하기 위한 조건을 설정합니다. 조건의 충족 여부따라서 상호작용 안내 문구가 달라집니다.
     [Header("미션 시작 아이템")]
     [SerializeField] private ItemData _requiredItem;
-    [SerializeField] private string _requiredItemInsertText = "투입";
     [SerializeField] private string _requiredItemMissingText = "필요";
     [SerializeField] private string _requiredItemInsertedText = "분석 가능";
-    [SerializeField, Min(0.1f)] private float _requiredItemInsertHoldDuration = 1.2f;
 
 
     // 완료 여부와 퍼즐 시드는 서버가 기록하고 모든 클라이언트가 읽는다. (서버에서만 쓰기 가능)
@@ -34,6 +32,7 @@ public sealed class MissionInteractable : InteractableBase
 
     public bool IsCompleted => _isCompleted.Value;
     public bool IsRequiredItemInserted => _requiredItem == null || _requiredItemInserted.Value;
+    public ItemType RequiredItemId => _requiredItem != null ? _requiredItem.ItemId : ItemType.None;
 
     // 완료 여부가 바뀔 때마다 알린다. 배터리 회로처럼 다른 컴포넌트가 완료 시점에 반응해야 할 때 사용한다.
     public event System.Action<bool> IsCompletedChanged;
@@ -47,6 +46,8 @@ public sealed class MissionInteractable : InteractableBase
     public override bool CanInteract(GameObject interactor) => true;
 
     // 시작 아이템이 필요한 기계는 지금 그 아이템을 들고 있는지에 따라 문구가 달라진다.
+    // 아이템을 들고 조준 중일 때 보여줄 문구(투입하기 등)는 PlayerInteraction이 IInteractionApplier
+    // 쪽에서 직접 가져가므로, 여기서는 "아직 안 들고 있음" 상태만 신경 쓰면 된다.
     public override string GetInteractionText(GameObject interactor)
     {
         if (IsCompleted || _requiredItem == null)
@@ -54,33 +55,15 @@ public sealed class MissionInteractable : InteractableBase
             return InteractionText;
         }
 
-        if (IsRequiredItemInserted)
-        {
-            return $"{_requiredItem.DisplayName} {_requiredItemInsertedText}";
-        }
-
-        return HasSelectedRequiredItem(interactor)
-            ? $"{_requiredItem.DisplayName} {_requiredItemInsertText}"
+        return IsRequiredItemInserted
+            ? $"{_requiredItem.DisplayName} {_requiredItemInsertedText}"
             : $"{_requiredItem.DisplayName} {_requiredItemMissingText}";
     }
 
     // 아이템이 없으면 눌러도 아무 일이 없으므로 [E] 힌트를 감춰 안내 문구만 남긴다.
     public override bool ShowInteractionKeyHint(GameObject interactor)
     {
-        return IsCompleted || IsRequiredItemInserted || HasSelectedRequiredItem(interactor);
-    }
-
-
-    //---   미션 시작 아이템을 기계에 넣을 때는 실수 방지를 위해 E를 길게 눌러 투입   ---///
-    public override bool RequiresHoldInteraction(GameObject interactor) => !IsRequiredItemInserted && HasSelectedRequiredItem(interactor);
-    public override float HoldInteractionDuration => _requiredItemInsertHoldDuration;   // 길게 눌러서 상호작용(투입 시간)
-
-
-    // 플레이어가 현재 선택한 슬롯에 미션 시작 아이템을 들고 있는지 확인한다.
-    private bool HasSelectedRequiredItem(GameObject interactor)
-    {
-        if (_requiredItem == null || !interactor.TryGetComponent(out PlayerInventory inventory)) { return false; }
-        return inventory.TryGetSelectedItem(out string itemId) && itemId == _requiredItem.ItemId;
+        return IsCompleted || IsRequiredItemInserted;
     }
 
 
@@ -111,17 +94,12 @@ public sealed class MissionInteractable : InteractableBase
     }
 
     // 미션 UI를 열고 완료된 게임이면 완료 안내만 표시한다.
+    // 필요한 아이템 투입은 PlayerInteraction이 IInteractionApplier 쪽에서 직접 처리하므로,
+    // 여기서는 아직 투입 전이면(=E를 눌러도 열 게 없으면) 그냥 아무것도 하지 않는다.
     public override void Interact(GameObject interactor)
     {
-        if (!CanInteract(interactor))
+        if (!CanInteract(interactor) || !IsRequiredItemInserted)
         {
-            return;
-        }
-
-        // 필요한 아이템이 아직 투입되지 않았다면 UI를 열지 않고 서버에 아이템 투입을 요청한다.
-        if (!IsRequiredItemInserted)
-        {
-            if (HasSelectedRequiredItem(interactor) && interactor.TryGetComponent(out PlayerInventory inventory)) { InsertRequiredItemRpc(inventory.SelectedIndex); }
             return;
         }
 
@@ -176,14 +154,11 @@ public sealed class MissionInteractable : InteractableBase
         }
     }
 
-    // 요청한 플레이어의 선택 슬롯을 서버에서 검증하고 아이템을 소비한다.
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void InsertRequiredItemRpc(int selectedIndex, RpcParams rpcParams = default)
+    // 서버 전용: PlayerInteraction의 공용 IInteractionApplier 적용 RPC를 거쳐 검증된 아이템이
+    // 투입 완료 상태를 기록할 때 호출한다.
+    public void MarkRequiredItemInsertedOnServer()
     {
-        if (_requiredItem == null || _requiredItemInserted.Value) { return; }
-        if (!NetworkManager.ConnectedClients.TryGetValue(rpcParams.Receive.SenderClientId, out NetworkClient client) || client.PlayerObject == null) { return; }
-        if ((client.PlayerObject.transform.position - transform.position).sqrMagnitude > 25f) { return; }
-        if (!client.PlayerObject.TryGetComponent(out PlayerInventory inventory) || !inventory.TryRemoveSelectedItemOnServer(_requiredItem.ItemId, selectedIndex)) { return; }
+        if (!IsServer) { return; }
         _requiredItemInserted.Value = true;
     }
 
@@ -304,15 +279,28 @@ public sealed class MissionInteractable : InteractableBase
 
         GameObject rewardObject = Instantiate(_completionReward.WorldPrefab, spawnPosition, Quaternion.identity);
 
-        if (!rewardObject.TryGetComponent(out PickupItem pickupItem) || !rewardObject.TryGetComponent(out NetworkObject networkObject))
+        if (!rewardObject.TryGetComponent(out ItemBase pickupItem) || !rewardObject.TryGetComponent(out NetworkObject networkObject))
         {
-            Debug.LogError($"[Mission] '{_completionReward.WorldPrefab.name}'에 PickupItem 또는 NetworkObject가 없습니다.", this);
+            Debug.LogError($"[Mission] '{_completionReward.WorldPrefab.name}'에 ItemBase 또는 NetworkObject가 없습니다.", this);
             Destroy(rewardObject);
             return;
         }
 
         pickupItem.Configure(_completionReward);
         networkObject.Spawn(destroyWithScene: true);
+
+        // 보상이 단서면, 아직 아무 데도 배정되지 않은 번호 중 하나를 무작위로 받아온다.
+        if (pickupItem is ClueItem rewardClue)
+        {
+            if (ClueSpawner.Instance != null && ClueSpawner.Instance.TryClaimRandomClueNumber(out int clueNumber))
+            {
+                rewardClue.SetClueNumber(clueNumber);
+            }
+            else
+            {
+                Debug.LogError($"[Mission] '{name}' 완료 보상에 배정할 단서 번호를 받아오지 못했습니다.", this);
+            }
+        }
 
         GetComponent<MissionRewardLauncher>()?.Launch(rewardObject, spawnPosition, requestingPlayerPosition);
     }

@@ -67,7 +67,7 @@ public class PlayerArrestInput : NetworkBehaviour
     private bool IsToolSelected()
     {
         return _inventory != null
-            && _inventory.TryGetSelectedItem(out string itemId)
+            && _inventory.TryGetSelectedItemId(out ItemType itemId)
             && itemId == ArrestChaseManager.CaptureToolItemId;
     }
 

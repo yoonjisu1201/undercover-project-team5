@@ -1,40 +1,31 @@
-using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Unity.Netcode;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class ClueModulePreview : MonoBehaviour
 {
-    // 전체 처리 순서
-    // 1. 범인 데이터 대기 → 2. 단서 UI 슬롯 탐색 → 3. 범인 파츠 촬영 → 4. 카메라/텍스처 처리
-    private const string ClueImageName = "ClueImage";
-    private const string BackgroundName = "BackGround";
-
     [Header("Preview")]
     [SerializeField] private Transform _moduleSpawnPoint;
     [SerializeField] private Camera _clueCamera;
     [SerializeField] private RenderTexture _renderTexture;
+    [SerializeField, Min(1)] private int _clueCount = 8;
 
     private readonly List<GameObject> _equippedModules = new();
     private readonly List<MontageParts> _equippedParts = new();
     private readonly List<Texture2D> _capturedTextures = new();
+    private readonly List<string> _capturedPartLabels = new();
     private ClueModuleCapture _moduleCapture;
 
     private CriminalNpcManager _criminalManager;
     private NetworkObject _capturedCriminal;
     private bool _isCapturing;
 
-    // 결과 패널 등 외부에서 촬영된 단서 이미지를 읽기 전용으로 참조하기 위한 프로퍼티
     public IReadOnlyList<Texture2D> CapturedTextures => _capturedTextures;
 
     private void Start()
     {
-        // ClueModuleCapture를 초기화하고 범인 단서 촬영을 시작한다.
         _moduleCapture = new ClueModuleCapture(this, _moduleSpawnPoint, _clueCamera, _renderTexture);
 
         if (RoundManager.Instance != null)
@@ -69,11 +60,7 @@ public class ClueModulePreview : MonoBehaviour
             _criminalManager ??= await WaitForCriminalManagerAsync(token);
             NetworkObject previousCriminal = _capturedCriminal;
 
-            // RoundState와 새 범인 NetworkVariable의 도착 순서가 다를 수 있으므로
-            // 실제 범인이 변경될 때까지 기다린다.
             await UniTask.WaitUntil(() => _criminalManager.CriminalNpc != null && _criminalManager.CriminalNpc != previousCriminal, cancellationToken: token);
-
-            // 같은 네트워크 프레임에 CriminalFeature도 갱신될 시간을 준다.
             await UniTask.NextFrame(token);
 
             ClearCapturedTextures();
@@ -81,7 +68,6 @@ public class ClueModulePreview : MonoBehaviour
 
             _capturedCriminal = _criminalManager.CriminalNpc;
         }
-
         finally
         {
             _isCapturing = false;
@@ -98,25 +84,21 @@ public class ClueModulePreview : MonoBehaviour
 
         ShuffleEquippedModules(_criminalManager.CriminalNpc.NetworkObjectId);
 
-        List<(ClueUI clueUi, RawImage clueImage)> clueSlots = FindClueSlots();
-
-        // UI 슬롯을 최대한 채우고, 착용 모듈보다 슬롯이 많으면 처음부터 다시 사용한다. -> 단서 중복
-        for (int i = 0; i < clueSlots.Count; i++)
+        // 캡처 결과는 단서 번호별로 보관하고, 각 ClueItem 인스턴스가 자기 Canvas에 꺼내 쓴다.
+        for (int i = 0; i < _clueCount; i++)
         {
-            int moduleIndex = i % _equippedModules.Count;   // 모듈이 슬롯보다 적으면 처음부터 다시 사용한다. (단서 중복)
-            GameObject module = _equippedModules[moduleIndex];  // 착용 모듈을 단서 UI 슬롯에 맞춰 순서대로 촬영한다.
-            Texture2D texture = await _moduleCapture.CaptureAsync(module, cancellationToken);
+            int moduleIndex = i % _equippedModules.Count;
+            Texture2D texture = await _moduleCapture.CaptureAsync(_equippedModules[moduleIndex], cancellationToken);
 
-            if (texture != null)
-            {
-                // 단서 UI 슬롯에 촬영된 텍스처를 적용하고, 단서 설명에 부위명을 표시한다.
-                ApplyCapturedTexture(clueSlots[i], texture, i, GetPartLabel(_equippedParts[moduleIndex]));
-            }
+            _capturedTextures.Add(texture);
+            _capturedPartLabels.Add(GetPartLabel(_equippedParts[moduleIndex]));
 
             _moduleCapture.ReleasePreview();
             await UniTask.NextFrame(cancellationToken);
         }
-        Debug.Log($"[ClueModulePreview] 단서 촬영 완료 | 총 {clueSlots.Count}개", this);
+
+        RefreshSpawnedClueCanvases();
+        Debug.Log($"[ClueModulePreview] 단서 촬영 완료 | 총 {_capturedTextures.Count}개", this);
     }
 
     private void ClearCapturedTextures()
@@ -128,20 +110,24 @@ public class ClueModulePreview : MonoBehaviour
                 Destroy(texture);
             }
         }
-        _capturedTextures.Clear();
 
-        foreach (var slot in FindClueSlots())
+        _capturedTextures.Clear();
+        _capturedPartLabels.Clear();
+        RefreshSpawnedClueCanvases();
+    }
+
+    private static void RefreshSpawnedClueCanvases()
+    {
+        foreach (ClueItem clueItem in FindObjectsByType<ClueItem>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            slot.clueUi.ClearClueImage("단서");
+            clueItem.RefreshCanvas();
         }
     }
 
-    private async UniTask<CriminalNpcManager> WaitForCriminalManagerAsync(
-        CancellationToken cancellationToken)
+    private async UniTask<CriminalNpcManager> WaitForCriminalManagerAsync(CancellationToken cancellationToken)
     {
         CriminalNpcManager criminalManager = null;
         await UniTask.WaitUntil(() => (criminalManager = FindFirstObjectByType<CriminalNpcManager>()) != null, cancellationToken: cancellationToken);
-
         return criminalManager;
     }
 
@@ -153,7 +139,6 @@ public class ClueModulePreview : MonoBehaviour
             return false;
         }
 
-        // 동기화된 범인의 Outfit Feature에 해당하는 실제 파츠만 가져온다.
         outfitController.GetEquippedModules(criminalManager.CriminalFeature.Outfit, _equippedModules, _equippedParts);
         if (_equippedModules.Count > 0)
         {
@@ -166,7 +151,6 @@ public class ClueModulePreview : MonoBehaviour
 
     private void ShuffleEquippedModules(ulong criminalNetworkObjectId)
     {
-        // 동기화된 범인 ID를 시드로 사용해 모든 클라이언트가 같은 순서로 섞는다.
         System.Random random = new(unchecked((int)criminalNetworkObjectId));
 
         for (int i = _equippedModules.Count - 1; i > 0; i--)
@@ -179,7 +163,6 @@ public class ClueModulePreview : MonoBehaviour
         }
     }
 
-    // 촬영된 파츠(MontageParts)를 단서 설명에 노출할 한글 부위명으로 변환한다.
     private static string GetPartLabel(MontageParts part) => part switch
     {
         MontageParts.Hats => "모자",
@@ -196,46 +179,20 @@ public class ClueModulePreview : MonoBehaviour
         _ => "의상"
     };
 
-    // 단서 UI 슬롯을 찾아서 (ClueUI, RawImage) 리스트로 반환한다.
-    private List<(ClueUI clueUi, RawImage clueImage)> FindClueSlots()
+    // clueNumber는 1부터 시작한다.
+    public bool TryApplyTo(int clueNumber, ClueUI clueUi)
     {
-        ClueUI[] clueUis = FindObjectsByType<ClueUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        Array.Sort(clueUis, (left, right) => string.CompareOrdinal(left.name, right.name));
-
-        var slots = new List<(ClueUI clueUi, RawImage clueImage)>();
-        foreach (ClueUI clueUi in clueUis)
+        int clueIndex = clueNumber - 1;
+        if (clueUi == null || clueIndex < 0 || clueIndex >= _capturedTextures.Count)
         {
-            RawImage clueImage = Array.Find(clueUi.GetComponentsInChildren<RawImage>(true), image => image.name == ClueImageName);
-            if (clueImage == null)
-            {
-                continue;
-            }
-
-            MoveBackgroundBehindClueImage(clueImage);
-            slots.Add((clueUi, clueImage));
+            return false;
         }
 
-        return slots;
-    }
-
-    private static void MoveBackgroundBehindClueImage(RawImage clueImage)
-    {
-        Transform background = clueImage.transform.Find(BackgroundName);
-        if (background == null)
-        {
-            return;
-        }
-
-        background.SetParent(clueImage.transform.parent, false);
-        background.SetAsFirstSibling();
-        background.gameObject.SetActive(true);
-    }
-
-    private void ApplyCapturedTexture((ClueUI clueUi, RawImage clueImage) clueSlot, Texture2D texture, int clueIndex, string partLabel)
-    {
-        _capturedTextures.Add(texture);
-        clueSlot.clueImage.texture = texture;
-        clueSlot.clueUi.ShowClueImage(texture, $"확대 이미지 단서 {clueIndex + 1}", partLabel);
+        clueUi.ShowClueImage(
+            _capturedTextures[clueIndex],
+            $"확대 이미지 단서 {clueNumber}",
+            _capturedPartLabels[clueIndex]);
+        return true;
     }
 
     private void OnDestroy()
@@ -244,6 +201,7 @@ public class ClueModulePreview : MonoBehaviour
         {
             RoundManager.Instance.OnRoundStarted -= HandleRoundStarted;
         }
+
         _moduleCapture?.Dispose();
         ClearCapturedTextures();
     }
