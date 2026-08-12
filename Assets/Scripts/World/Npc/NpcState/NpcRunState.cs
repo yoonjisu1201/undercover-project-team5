@@ -8,9 +8,6 @@ public sealed class NpcRunState : INpcState
     // Animator의 Run 상태 값은 Root Transition의 NpcState 조건과 동일한 2입니다.
     private const int NpcStateValue = 2;
 
-    // 기존 Animator Transition이 Run 진입을 판정할 파라미터입니다.
-    private static readonly int NpcStateHash = Animator.StringToHash("NpcState");
-
     [Header("Run Movement")]
     // Run State에서 NavMeshAgent에 적용할 기존 달리기 속도입니다.
     [SerializeField, Min(0f)] private float _speed = 4f;
@@ -38,7 +35,7 @@ public sealed class NpcRunState : INpcState
         _movement.SetSpeed(_speed);
 
         // 기존 Root Transition이 Run State로 이동하도록 상태 값을 설정합니다.
-        _animator.SetInteger(NpcStateHash, NpcStateValue);
+        _animator.SetInteger(AnimatorHashes.NpcState, NpcStateValue);
 
         // 목적지 없는 추격 요청은 기존 NavMesh 경로를 그대로 이어서 달립니다.
         if (!_hasDestination)

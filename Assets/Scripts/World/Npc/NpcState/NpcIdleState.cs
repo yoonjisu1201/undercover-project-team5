@@ -20,11 +20,6 @@ public sealed class NpcIdleState : INpcState
         Count
     }
 
-    // 기존 Animator Transition이 현재 FSM 상태와 선택 애니메이션을 판정할 파라미터입니다.
-    private static readonly int NpcStateHash = Animator.StringToHash("NpcState");
-    private static readonly int AnimationVariantHash = Animator.StringToHash("AnimationVariant");
-    private static readonly int EndPhoneActionHash = Animator.StringToHash("EndPhoneAction");
-
     [Header("Idle Animation")]
     // 기본 Idle 대신 다른 정지 애니메이션을 선택할 확률입니다.
     [SerializeField, Range(0f, 1f)] private float _alternativeAnimationChance = 0.9f;
@@ -122,6 +117,8 @@ public sealed class NpcIdleState : INpcState
         _animationEvents.PhoneEndingRequested -= RequestPhoneEnding;
         _animationEvents.PhoneEndingCompleted -= CompletePhoneEnding;
 
+        Debug.Log($"[NpcIdleState] '{_movement.name}' Idle State 구독 해제", _movement);
+
         // Phone 종료 대기 밖에서 State가 종료돼도 남은 휴대폰을 정리합니다.
         if (_usesPhone)
         {
@@ -131,7 +128,7 @@ public sealed class NpcIdleState : INpcState
         // End Trigger가 소비되기 전에 강제 전환됐다면 다음 Phone 행동에 남지 않도록 정리합니다.
         if (_isPhoneEnding)
         {
-            ResetTrigger(EndPhoneActionHash);
+            ResetTrigger(AnimatorHashes.EndPhoneAction);
         }
 
         // 다음 Idle 진입에 현재 구간 정보가 남지 않도록 진행 상태를 초기화합니다.
@@ -158,7 +155,7 @@ public sealed class NpcIdleState : INpcState
         if (!_isPhoneEnding)
         {
             _isPhoneEnding = true;
-            SetTrigger(EndPhoneActionHash);
+            SetTrigger(AnimatorHashes.EndPhoneAction);
         }
 
         return true;
@@ -200,7 +197,7 @@ public sealed class NpcIdleState : INpcState
 
         // 클립에 배치한 시점에서 같은 Phone 묶음의 End 애니메이션을 시작합니다.
         _isPhoneEnding = true;
-        SetTrigger(EndPhoneActionHash);
+        SetTrigger(AnimatorHashes.EndPhoneAction);
     }
 
     private void CompletePhoneEnding()
@@ -255,9 +252,9 @@ public sealed class NpcIdleState : INpcState
     private void ApplyAnimationSelection(IdleAnimation animation)
     {
         // 먼저 Variant를 설정해 Idle 진입 순간 잘못된 분기가 평가되지 않게 합니다.
-        _animator.SetInteger(AnimationVariantHash, (int)animation);
+        _animator.SetInteger(AnimatorHashes.AnimationVariant, (int)animation);
         // 기존 Root Transition이 Idle 서브 스테이트 머신으로 이동하도록 상태 값을 설정합니다.
-        _animator.SetInteger(NpcStateHash, NpcStateValue);
+        _animator.SetInteger(AnimatorHashes.NpcState, NpcStateValue);
     }
 
     private void SetTrigger(int triggerHash)

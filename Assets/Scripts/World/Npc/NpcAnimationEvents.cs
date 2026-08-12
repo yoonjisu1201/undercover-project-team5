@@ -5,14 +5,6 @@ using UnityEngine;
 [RequireComponent(typeof(Animator))]
 public sealed class NpcAnimationEvents : MonoBehaviour
 {
-    // 휴대폰 애니메이션을 벗어난 클라이언트에서 소품을 정리할 때 사용합니다.
-    private const string PhoneActionTag = "PhoneAction";
-
-    // Walking While Texting에서만 전용 휴대폰 Transform을 적용하기 위한 State Hash입니다.
-    private static readonly int WalkingWhileTextingStartHash = Animator.StringToHash("Walking While Texting Start");
-    // 한 회성 애니메이션 종료 후 기본 Idle 또는 Walk에 머물도록 선택값을 초기화합니다.
-    private static readonly int AnimationVariantHash = Animator.StringToHash("AnimationVariant");
-
     [Header("Phone Prop")]
     // 손 아래에 배치한 휴대폰 오브젝트를 Animation Event 시점에 표시합니다.
     [SerializeField] private GameObject _phoneProp;
@@ -28,6 +20,8 @@ public sealed class NpcAnimationEvents : MonoBehaviour
     private Quaternion _defaultPhoneLocalRotation;
     // 현재 전용 Transform이 적용됐는지 기록해 중복 복원을 막습니다.
     private bool _isUsingWalkingWhileTextingPhoneTransform;
+    // 휴대폰을 표시한 루트 NPC 상태를 기록하며, null이면 표시 중인 휴대폰이 없습니다.
+    private int? _npcStateWhenPhoneShown;
 
     // Standard Idle 또는 Arm Stretching 애니메이션이 끝났음을 현재 Idle State에 알립니다.
     public event Action IdleAnimationCompleted;
@@ -50,23 +44,37 @@ public sealed class NpcAnimationEvents : MonoBehaviour
 
     private void LateUpdate()
     {
-        // 휴대폰이 꺼져 있거나 PhoneAction 상태가 계속되면 별도 정리가 필요 없습니다.
-        if (!_phoneProp.activeSelf || IsPlayingPhoneAction())
+        // 표시 중인 휴대폰이 없으면 루트 상태 변경을 확인하지 않습니다.
+        if (!_npcStateWhenPhoneShown.HasValue)
         {
             return;
         }
 
-        // Run처럼 End 동작을 건너뛴 전환에서는 Tag 확인 후 남은 소품을 정리합니다.
+        // 같은 Idle 또는 Walk 상태에서는 기존 Start, Loop, End 이벤트 흐름을 유지합니다.
+        if (_animator.GetInteger(AnimatorHashes.NpcState) == _npcStateWhenPhoneShown.Value)
+        {
+            return;
+        }
+
+        // 다른 루트 상태로 강제 전환되어 End 이벤트가 생략되면 소품을 정리합니다.
         HidePhone();
+    }
+
+    private void OnDestroy()
+    {
+        IdleAnimationCompleted = null;
+        PhoneEndingRequested = null;
+        PhoneStartingCompleted = null;
+        PhoneEndingCompleted = null;
     }
 
     // Animation Event: Standard Idle 또는 Arm Stretching 애니메이션의 마지막 프레임에서 호출됩니다.
     public void CompleteIdleAnimation()
     {
         // Walk나 Run으로 전환된 뒤 도착한 Idle Event가 새 Variant를 덮어쓰지 않게 합니다.
-        if (_animator.GetInteger("NpcState") == 0)
+        if (_animator.GetInteger(AnimatorHashes.NpcState) == 0)
         {
-            _animator.SetInteger(AnimationVariantHash, 0);
+            _animator.SetInteger(AnimatorHashes.AnimationVariant, 0);
         }
 
         // 현재 활성 Idle State에 애니메이션 완료 시점을 전달합니다.
@@ -84,13 +92,16 @@ public sealed class NpcAnimationEvents : MonoBehaviour
     public void ShowPhone()
     {
         // Walking While Texting에서만 직접 조정한 전용 Transform을 적용합니다.
-        if (IsAnimatorStateActive(WalkingWhileTextingStartHash))
+        if (IsAnimatorStateActive(AnimatorHashes.WalkingWhileTextingStart))
         {
             Transform phoneTransform = _phoneProp.transform;
             phoneTransform.localPosition = _walkingWhileTextingPhoneLocalPosition;
             phoneTransform.localRotation = Quaternion.Euler(_walkingWhileTextingPhoneLocalEulerAngles);
             _isUsingWalkingWhileTextingPhoneTransform = true;
         }
+
+        // 강제 상태 전환 시 휴대폰을 정리할 수 있도록 현재 루트 상태를 기록합니다.
+        _npcStateWhenPhoneShown = _animator.GetInteger(AnimatorHashes.NpcState);
 
         // 손이 휴대폰을 잡는 프레임에 맞춰 소품을 표시합니다.
         _phoneProp.SetActive(true);
@@ -108,6 +119,9 @@ public sealed class NpcAnimationEvents : MonoBehaviour
             _isUsingWalkingWhileTextingPhoneTransform = false;
         }
 
+        // 휴대폰 표시 상태를 종료해 이후 프레임의 상태 변경 확인을 멈춥니다.
+        _npcStateWhenPhoneShown = null;
+
         // 손이 휴대폰을 넣었거나 휴대폰 상태를 벗어나면 소품을 숨깁니다.
         _phoneProp.SetActive(false);
     }
@@ -123,21 +137,9 @@ public sealed class NpcAnimationEvents : MonoBehaviour
     public void CompletePhoneEnding()
     {
         // 기본 Idle 또는 Walk로 돌아온 뒤 같은 Phone Variant가 재진입하지 않도록 비웁니다.
-        _animator.SetInteger(AnimationVariantHash, 0);
+        _animator.SetInteger(AnimatorHashes.AnimationVariant, 0);
         // 현재 활성 Idle 또는 Walk State가 행동 구간을 마칠 수 있도록 완료 이벤트를 보냅니다.
         PhoneEndingCompleted?.Invoke();
-    }
-
-    private bool IsPlayingPhoneAction()
-    {
-        // 현재 State가 PhoneAction이면 휴대폰 소품을 유지합니다.
-        if (_animator.GetCurrentAnimatorStateInfo(0).IsTag(PhoneActionTag))
-        {
-            return true;
-        }
-
-        // 전환 중에는 다음 State까지 확인해 중간 프레임에 소품이 꺼지지 않게 합니다.
-        return _animator.IsInTransition(0) && _animator.GetNextAnimatorStateInfo(0).IsTag(PhoneActionTag);
     }
 
     // 대상 Animator State가 현재 재생 중이거나 전환 후 진입할 State인지 확인합니다.

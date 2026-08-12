@@ -30,11 +30,6 @@ public sealed class NpcWalkState : INpcState
         PhoneEndingToRun
     }
 
-    // 기존 Animator Transition이 현재 FSM 상태와 선택 애니메이션을 판정할 파라미터입니다.
-    private static readonly int NpcStateHash = Animator.StringToHash("NpcState");
-    private static readonly int AnimationVariantHash = Animator.StringToHash("AnimationVariant");
-    private static readonly int EndPhoneActionHash = Animator.StringToHash("EndPhoneAction");
-
     [Header("Walk Movement")]
     // Walk State에서 NavMeshAgent에 적용할 기존 이동 속도입니다.
     [SerializeField, Min(0f)] private float _speed = 2f;
@@ -168,6 +163,8 @@ public sealed class NpcWalkState : INpcState
         _animationEvents.PhoneStartingCompleted -= CompletePhoneStarting;
         _animationEvents.PhoneEndingCompleted -= CompletePhoneEnding;
 
+        Debug.Log($"[NpcWalkState] '{_movement.name}' Walk State 구독 해제", _movement);
+
         // Phone 종료 대기 밖에서 State가 종료돼도 남은 휴대폰을 정리합니다.
         if (IsUsingPhone)
         {
@@ -177,7 +174,7 @@ public sealed class NpcWalkState : INpcState
         // End Trigger가 소비되기 전에 강제 전환됐다면 다음 Phone 행동에 남지 않도록 정리합니다.
         if (IsPhoneEnding)
         {
-            ResetTrigger(EndPhoneActionHash);
+            ResetTrigger(AnimatorHashes.EndPhoneAction);
         }
 
         // 새 목적지는 Prepare에서 장거리 여부를 덮어쓰고, 휴식 재개는 현재 계획을 그대로 사용합니다.
@@ -211,7 +208,7 @@ public sealed class NpcWalkState : INpcState
         _phase = WalkPhase.PhoneEndingToRun;
         if (shouldRequestPhoneEnd)
         {
-            SetTrigger(EndPhoneActionHash);
+            SetTrigger(AnimatorHashes.EndPhoneAction);
         }
 
         return true;
@@ -352,7 +349,7 @@ public sealed class NpcWalkState : INpcState
                 _movement);
 
             // 현재 Phone Loop에서 같은 묶음의 Phone End로 전환하도록 Trigger를 보냅니다.
-            SetTrigger(EndPhoneActionHash);
+            SetTrigger(AnimatorHashes.EndPhoneAction);
             return;
         }
 
@@ -386,9 +383,9 @@ public sealed class NpcWalkState : INpcState
     private void ApplyAnimationSelection(WalkAnimation animation)
     {
         // 먼저 Variant를 설정해 Walk 진입 순간 잘못된 분기가 평가되지 않게 합니다.
-        _animator.SetInteger(AnimationVariantHash, (int)animation);
+        _animator.SetInteger(AnimatorHashes.AnimationVariant, (int)animation);
         // 기존 Root Transition이 Walk 서브 스테이트 머신으로 이동하도록 상태 값을 설정합니다.
-        _animator.SetInteger(NpcStateHash, NpcStateValue);
+        _animator.SetInteger(AnimatorHashes.NpcState, NpcStateValue);
     }
 
     private void SetTrigger(int triggerHash)
