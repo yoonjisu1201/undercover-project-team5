@@ -84,6 +84,12 @@ public sealed class NpcStateMachine : MonoBehaviour
         CurrentState?.Execute();
     }
 
+    private void OnDestroy()
+    {
+        _idleState.UnsubscribeAnimationEvents();
+        _walkState.UnsubscribeAnimationEvents();
+    }
+
     public void ChangeToIdle()
     {
         // 이미 Idle이면 Sub-State Machine Entry를 다시 실행할 필요가 없습니다.

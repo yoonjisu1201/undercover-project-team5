@@ -11,4 +11,7 @@ public static class AnimatorHashes
     public static readonly int EndPhoneAction = Animator.StringToHash("EndPhoneAction");
     public static readonly int WalkingWhileTextingStart =
         Animator.StringToHash("Walking While Texting Start");
+
+    // 휴대폰 소품을 유지해야 하는 Animator State Tag입니다.
+    public const string PhoneActionTag = "PhoneAction";
 }

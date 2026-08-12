@@ -3,7 +3,6 @@ using Unity.Netcode.Components;
 using UnityEngine;
 
 // 지정한 목적지까지 걷는 이동과 구간별 애니메이션, 장거리 휴식을 관리합니다.
-[Serializable]
 public sealed class NpcWalkState : INpcState
 {
     // Animator의 Walk 상태 값은 Root Transition의 NpcState 조건과 동일한 1입니다.
@@ -30,24 +29,21 @@ public sealed class NpcWalkState : INpcState
         PhoneEndingToRun
     }
 
-    [Header("Walk Movement")]
     // Walk State에서 NavMeshAgent에 적용할 기존 이동 속도입니다.
-    [SerializeField, Min(0f)] private float _speed = 2f;
+    [Range(1f, 2f)] private float _speed = 2f;
 
-    [Header("Long Travel Rest")]
     // 처음 목적지가 이 거리 이상 떨어져 있을 때만 이동 중 휴식을 사용합니다.
-    [SerializeField, Min(0f)] private float _longTravelDistanceThreshold = 20f;
+    [Min(0f)] private float _longTravelDistanceThreshold = 20f;
     // 장거리 이동 중 이 거리만큼 진행할 때마다 한 이동 구간을 끝내고 휴식합니다.
-    [SerializeField, Min(0.1f)] private float _restIntervalDistance = 10f;
+    [Min(0.1f)] private float _restIntervalDistance = 10f;
     // 휴식 State에 전달할 무작위 행동 시간 범위입니다.
-    [SerializeField, Min(0f)] private float _minimumRestSeconds = 1f;
-    [SerializeField, Min(0f)] private float _maximumRestSeconds = 3f;
+    [Min(0f)] private float _minimumRestSeconds = 1f;
+    [Min(0f)] private float _maximumRestSeconds = 3f;
 
-    [Header("Walk Animation")]
     // 기본 Walk 대신 휴대폰 Walk 애니메이션을 선택할 확률입니다.
-    [SerializeField, Range(0f, 1f)] private float _alternativeAnimationChance = 0.45f;
+    [Range(0f, 1f)] private float _alternativeAnimationChance = 0.45f;
     // 예상 이동 시간이 이 값보다 짧으면 휴대폰 애니메이션을 선택하지 않습니다.
-    [SerializeField, Min(0f)] private float _minimumPhoneSeconds = 6f;
+    [Min(0f)] private float _minimumPhoneSeconds = 6f;
 
     // State가 직접 사용하는 이동, Animator, 네트워크 Trigger와 휴대폰 이벤트를 보관합니다.
     private NpcMovement _movement;
@@ -180,6 +176,17 @@ public sealed class NpcWalkState : INpcState
         // 새 목적지는 Prepare에서 장거리 여부를 덮어쓰고, 휴식 재개는 현재 계획을 그대로 사용합니다.
         _distanceSinceRest = 0f;
         _phase = WalkPhase.Inactive;
+    }
+
+    public void UnsubscribeAnimationEvents()
+    {
+        if (_animationEvents == null)
+        {
+            return;
+        }
+
+        _animationEvents.PhoneStartingCompleted -= CompletePhoneStarting;
+        _animationEvents.PhoneEndingCompleted -= CompletePhoneEnding;
     }
 
     public bool TryCompletePhoneBeforeExit()

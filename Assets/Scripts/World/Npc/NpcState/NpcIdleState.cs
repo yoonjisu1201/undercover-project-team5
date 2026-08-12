@@ -3,7 +3,6 @@ using Unity.Netcode.Components;
 using UnityEngine;
 
 // NPC가 멈춰 있는 동안의 애니메이션 선택과 행동 완료 이벤트를 관리합니다.
-[Serializable]
 public sealed class NpcIdleState : INpcState
 {
     // Animator의 Idle 상태 값과 enum 기본값을 같은 0으로 유지합니다.
@@ -20,9 +19,8 @@ public sealed class NpcIdleState : INpcState
         Count
     }
 
-    [Header("Idle Animation")]
     // 기본 Idle 대신 다른 정지 애니메이션을 선택할 확률입니다.
-    [SerializeField, Range(0f, 1f)] private float _alternativeAnimationChance = 0.9f;
+    [Range(0f, 1f)] private float _alternativeAnimationChance = 0.9f;
 
     // State가 직접 사용하는 이동, Animator, 네트워크 Trigger와 Animation Event를 보관합니다.
     private NpcMovement _movement;
@@ -137,6 +135,18 @@ public sealed class NpcIdleState : INpcState
         _isPhoneEnding = false;
         _isPhoneExitRequested = false;
         IsComplete = false;
+    }
+
+    public void UnsubscribeAnimationEvents()
+    {
+        if (_animationEvents == null)
+        {
+            return;
+        }
+
+        _animationEvents.IdleAnimationCompleted -= HandleIdleAnimationCompleted;
+        _animationEvents.PhoneEndingRequested -= RequestPhoneEnding;
+        _animationEvents.PhoneEndingCompleted -= CompletePhoneEnding;
     }
 
     public bool TryCompletePhoneBeforeExit()

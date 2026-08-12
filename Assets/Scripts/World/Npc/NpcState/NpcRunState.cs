@@ -2,15 +2,13 @@ using System;
 using UnityEngine;
 
 // 추격 진입 시 기존 경로를 유지하거나 새 목적지로 달리는 행동을 관리합니다.
-[Serializable]
 public sealed class NpcRunState : INpcState
 {
     // Animator의 Run 상태 값은 Root Transition의 NpcState 조건과 동일한 2입니다.
     private const int NpcStateValue = 2;
 
-    [Header("Run Movement")]
     // Run State에서 NavMeshAgent에 적용할 기존 달리기 속도입니다.
-    [SerializeField, Min(0f)] private float _speed = 4f;
+    [Range(4f, 6f)] private float _speed = 4f;
 
     // Run State가 직접 사용하는 이동과 Animator 의존성만 보관합니다.
     private NpcMovement _movement;
