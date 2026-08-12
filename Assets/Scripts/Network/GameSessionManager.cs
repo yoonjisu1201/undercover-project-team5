@@ -125,7 +125,7 @@ public class GameSessionManager : MonoBehaviour
 			stage = "음성 채널 참가";
             VivoxManager.Instance.JoinSessionChannel(CurrentSession.Code);
 
-			stage = "씬 이벤트 구독";
+			stage = "연결 확인";
 			// 죽은 방은 로비 레코드가 TTL 동안 남아 있어 조인 자체는 통과한다. 실제 연결이 섰는지 여기서 확인한다.
 			if (!NetworkManager.Singleton.IsListening)
 			{
@@ -135,6 +135,7 @@ public class GameSessionManager : MonoBehaviour
 					null);
 			}
 
+			stage = "씬 이벤트 구독";
             SubscribeSceneEvents();
 			OnSessionJoined?.Invoke();
 		}
@@ -191,8 +192,7 @@ public class GameSessionManager : MonoBehaviour
 				return "요청이 너무 잦습니다. 잠시 후 다시 시도해주세요";
 			default:
 				// 정원 초과는 별도 SessionError 없이 Unknown으로 넘어와 메시지로만 구분할 수 있다.
-				return sessionException.Message != null &&
-				       sessionException.Message.Contains("full", StringComparison.OrdinalIgnoreCase)
+				return sessionException.Message.Contains("full", StringComparison.OrdinalIgnoreCase)
 					? "방 정원이 가득 찼습니다"
 					: defaultMessage;
 		}
@@ -346,22 +346,30 @@ public class GameSessionManager : MonoBehaviour
 		}
 
 		if (_isLeavingVoluntarily) return "방을 나왔습니다";
-		return NetworkManager.Singleton.IsHost ? "연결이 끊겼습니다" : "호스트가 방을 나갔습니다";
+		if (NetworkManager.Singleton.IsHost) return "연결이 끊겼습니다";
+
+		// 내 연결이 끊겨 밀려난 경우와 호스트가 방을 닫은 경우는 원인이 달라 문구도 달라야 한다.
+		return NetworkManager.Singleton.NetworkConfig.NetworkTransport.DisconnectEvent
+			is NetworkTransport.DisconnectEvents.ProtocolTimeout
+			or NetworkTransport.DisconnectEvents.ProtocolError
+			or NetworkTransport.DisconnectEvents.MaxConnectionAttempts
+			? "서버와의 연결이 끊어졌습니다"
+			: "다른 플레이어의 접속이 끊어졌습니다";
 	}
 
-	public async void LeaveSession()
-	{
-		if (CurrentSession == null) return;
+	// 사유를 지정하지 않으면 ResolveLeaveReason의 기본 문구("방을 나왔습니다")가 표시된다.
+	public void LeaveSession() => LeaveSessionWithReason(null);
 
-		_isLeavingVoluntarily = true;
-		await ReleaseCurrentSessionAsync();
-	}
-
-	// 타임아웃/오류로 클라이언트가 스스로 나갈 때, 로비에 표시할 사유를 지정해 퇴장한다.
+	// 로비에 표시할 사유를 지정해 퇴장한다.
 	public void LeaveSessionWithReason(string reason)
 	{
 		_pendingLeaveReason = reason;
-		LeaveSession();
+		_isLeavingVoluntarily = true;
+
+		// LeaveAsync()의 로비 서비스 왕복을 먼저 기다리면 로비 복귀가 그만큼 늦어지고,
+		// 그 사이에 서버의 킥 백스톱이 터진다. 연결부터 끊어 서버가 즉시 알게 하고,
+		// 로비 멤버십 정리는 HandleClientDisconnected가 백그라운드로 이어서 처리한다.
+		NetworkManager.Singleton.Shutdown();
 	}
 
 	// 방장이 대기방에서 "게임 시작"을 눌렀을 때 호출한다.
