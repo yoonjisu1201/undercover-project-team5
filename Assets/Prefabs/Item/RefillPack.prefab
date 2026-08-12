@@ -1248,13 +1248,13 @@ GameObject:
   - component: {fileID: 4647601964722243545}
   - component: {fileID: 3056107983050229912}
   - component: {fileID: 8680719220392402810}
-  - component: {fileID: 1710790513281617295}
   - component: {fileID: 7341952611582707209}
   - component: {fileID: 4895721996300589811}
   - component: {fileID: 8633659673270298759}
   - component: {fileID: 1988245835378097422}
+  - component: {fileID: 1564006862001549608}
   m_Layer: 6
-  m_Name: RefillPack_Textured
+  m_Name: RefillPack
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1654,7 +1654,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3836368957
+  GlobalObjectIdHash: 2917718626
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1668,21 +1668,6 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
---- !u!114 &1710790513281617295
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5691458352578530118}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 63550851027b88044bd1dbee2c23ad8a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PickupItem
-  ShowTopMostFoldoutHeaderGroup: 1
-  _outlineFadeDuration: 0.15
-  _itemData: {fileID: 11400000, guid: 530ca651fbbbab74dbe4526b256548d3, type: 2}
 --- !u!65 &7341952611582707209
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1756,7 +1741,7 @@ MonoBehaviour:
   ScaleLerpSmoothing: 1
   ScaleMaxInterpolationTime: 0.1
   AuthorityMode: 0
-  TickSyncChildren: 0
+  TickSyncChildren: 1
   UseUnreliableDeltas: 0
   SyncPositionX: 1
   SyncPositionY: 1
@@ -1791,6 +1776,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemRigidbodySettler
   ShowTopMostFoldoutHeaderGroup: 1
   _alignToGround: 1
+--- !u!114 &1564006862001549608
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5691458352578530118}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f8d8c1d22ba45be861d7b277adecd9b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Interaction.Item.RefillPack
+  ShowTopMostFoldoutHeaderGroup: 1
+  _outlineFadeDuration: 0.15
+  _itemData: {fileID: 11400000, guid: 50e363c4449fb604aa5f1f176cd7fe5e, type: 2}
+  _itemHoldThreshold: 1.2
 --- !u!1 &5940398390445203370
 GameObject:
   m_ObjectHideFlags: 0

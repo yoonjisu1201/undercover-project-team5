@@ -10,8 +10,8 @@ public interface IUsable
     string UseCompletedMessage { get; }
 
     // 판정만 한다 - 부작용 없음. 커서 갱신/입력 게이트 양쪽에서 호출된다.
-    // false + message => 지금은 못 쓴다(이유 표시). false + null => 처리 안 함.
-    bool CanUse(GameObject user, out string message);
+    // false + failReason => 지금은 못 쓴다(이유 표시). false + null => 처리 안 함.
+    bool CanUse(GameObject user, out string failReason);
 
     // 서버 전용. 효과를 적용하고, 소모할지 여부도 스스로 정한다 (예: inventory.TryRemoveSelectedItemOnServer 호출).
     void Use(GameObject user, PlayerInventory inventory, int selectedIndex);

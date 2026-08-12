@@ -35,18 +35,18 @@ public class PlayerItemUse : NetworkBehaviour
         _promptUI = promptUI;
     }
 
-    public bool TryCompleteSelectedItemUse(out string message)
+    public bool TryCompleteSelectedItemUse(out string failReason)
     {
-        message = null;
+        failReason = null;
 
         if (!_inventory.TryGetSelectedItemBase(out ItemBase item) || item is not IUsable usable)
         {
             return false;
         }
 
-        if (!usable.CanUse(gameObject, out message))
+        if (!usable.CanUse(gameObject, out failReason))
         {
-            return message != null;
+            return failReason != null;
         }
 
         if (_audioSource != null && item.ItemData != null && item.ItemData.AudioClip != null)

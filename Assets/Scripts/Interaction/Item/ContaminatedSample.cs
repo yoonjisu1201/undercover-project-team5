@@ -4,11 +4,11 @@ using UnityEngine;
 public class ContaminatedSample : ItemBase, IInteractionApplier
 {
     public string InteractionApplyText => "투입하기";
-    public bool ConsumedOnApply => true;
+    public string ApplyCompletedMessage => "샘플 투입 완료";
 
-    public bool CanApplyTo(GameObject user, InteractableBase target, out string message)
+    public bool CanApplyTo(GameObject user, InteractableBase target, out string failReason)
     {
-        message = null;
+        failReason = null;
         return target is MissionInteractable mission
             && !mission.IsRequiredItemInserted
             && mission.RequiredItemId == ItemId;
@@ -21,9 +21,6 @@ public class ContaminatedSample : ItemBase, IInteractionApplier
             mission.MarkRequiredItemInsertedOnServer();
         }
 
-        if (ConsumedOnApply)
-        {
-            inventory.TryRemoveSelectedItemOnServer(ItemId, selectedIndex);
-        }
+        inventory.TryRemoveSelectedItemOnServer(ItemId, selectedIndex);
     }
 }

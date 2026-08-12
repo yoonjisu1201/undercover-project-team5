@@ -643,7 +643,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3451639346
+  GlobalObjectIdHash: 77683806
   InScenePlacedSourceGlobalObjectIdHash: 77683806
   DeferredDespawnTick: 0
   Ownership: 1
@@ -667,11 +667,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 59c132e1c01fc1741928081a0fcbadb9, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ClueItem
   ShowTopMostFoldoutHeaderGroup: 1
   _outlineFadeDuration: 0.15
   _itemData: {fileID: 11400000, guid: d4c04607b5b327143b49925c8c0b3b6c, type: 2}
+  _itemHoldThreshold: 0
   _clueCanvasPrefab: {fileID: 9027674564749472435, guid: eac0722f000577f428bc89a36de8fb24, type: 3}
 --- !u!114 &4869042935809241928
 MonoBehaviour:
@@ -698,7 +699,7 @@ MonoBehaviour:
   ScaleLerpSmoothing: 1
   ScaleMaxInterpolationTime: 0.1
   AuthorityMode: 0
-  TickSyncChildren: 0
+  TickSyncChildren: 1
   UseUnreliableDeltas: 0
   SyncPositionX: 1
   SyncPositionY: 1
@@ -811,3 +812,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ItemRigidbodySettler
   ShowTopMostFoldoutHeaderGroup: 1
+  _alignToGround: 1

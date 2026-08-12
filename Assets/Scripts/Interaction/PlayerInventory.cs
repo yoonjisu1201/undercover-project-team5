@@ -265,8 +265,7 @@ public class PlayerInventory : NetworkBehaviour
     // 소비/소모되어 완전히 사라지는 경우 (에너지바 사용, 추적기 부착, 안테나 설치 등).
     public bool TryRemoveSelectedItemOnServer(ItemType expectedItemId, int selectedIndex)
     {
-        if (!IsServer || !TryGetItemAt(selectedIndex, expectedItemId, out ItemBase item))
-        {
+        if (!IsServer || !TryGetItemAt(selectedIndex, expectedItemId, out ItemBase item)) {
             return false;
         }
 
