@@ -8,9 +8,9 @@ public class EnergyBar : ItemBase, IUsable
     public string UseText => "에너지바 마시기";
     public string UseCompletedMessage => "에너지바 사용";
 
-    public bool CanUse(GameObject user, out string message)
+    public bool CanUse(GameObject user, out string failReason)
     {
-        message = null;
+        failReason = null;
 
         if (!user.TryGetComponent(out PlayerHealth health))
         {
@@ -24,7 +24,7 @@ public class EnergyBar : ItemBase, IUsable
 
         if (health.CurrentHp >= health.MaxHp)
         {
-            message = "HP가 가득 차 있습니다.";
+            failReason = "HP가 가득 차 있습니다.";
             return false;
         }
 

@@ -176,15 +176,15 @@ public class PlayerInteraction : NetworkBehaviour
         // 선택한 아이템이 사용 가능하면 그 처리를 우선한다.
         if (_inventory != null && _inventory.TryGetSelectedItemBase(out ItemBase item) && item is IUsable usable)
         {
-            if (usable.CanUse(gameObject, out string message))
+            if (usable.CanUse(gameObject, out string failReason))
             {
                 BeginHoldAction(HoldAction.UseItem, item.ItemHoldThreshold);
                 return;
             }
 
-            if (message != null)
+            if (failReason != null)
             {
-                _promptUI?.ShowTemporaryPrompt(message);
+                _promptUI?.ShowTemporaryPrompt(failReason);
                 return;
             }
         }
@@ -277,9 +277,9 @@ public class PlayerInteraction : NetworkBehaviour
         switch (completedAction)
         {
             case HoldAction.UseItem:
-                if (_itemUse != null && _itemUse.TryCompleteSelectedItemUse(out string message) && !string.IsNullOrWhiteSpace(message))
+                if (_itemUse != null && _itemUse.TryCompleteSelectedItemUse(out string failReason) && !string.IsNullOrWhiteSpace(failReason))
                 {
-                    _promptUI?.ShowTemporaryPrompt(message);
+                    _promptUI?.ShowTemporaryPrompt(failReason);
                 }
                 break;
 
@@ -320,7 +320,21 @@ public class PlayerInteraction : NetworkBehaviour
         if (!targetRef.TryGet(out InteractableBase target) || !target.CanInteract(gameObject)) { return; }
         if (!applier.CanApplyTo(gameObject, target, out _)) { return; }
 
+        // ApplyToOnServer가 아이템을 소모(파괴)할 수 있으므로, 완료 메시지는 그 전에 미리 읽어둔다.
+        string completedMessage = applier.ApplyCompletedMessage;
+
         applier.ApplyToOnServer(gameObject, target, _inventory, selectedIndex);
+
+        HandleItemAppliedOwnerRpc(completedMessage, RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
+    }
+
+    [Rpc(SendTo.SpecifiedInParams)]
+    private void HandleItemAppliedOwnerRpc(string message, RpcParams rpcParams = default)
+    {
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            _promptUI?.ShowTemporaryPrompt(message);
+        }
     }
 
     private void CancelHoldAction()

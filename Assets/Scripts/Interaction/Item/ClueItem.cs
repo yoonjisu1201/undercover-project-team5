@@ -55,9 +55,9 @@ public class ClueItem : ItemBase, IUsable
         RefreshCanvas();
     }
 
-    public bool CanUse(GameObject user, out string message)
+    public bool CanUse(GameObject user, out string failReason)
     {
-        message = null;
+        failReason = null;
         return _clueCanvas != null;
     }
 

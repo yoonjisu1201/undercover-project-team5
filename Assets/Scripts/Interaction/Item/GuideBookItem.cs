@@ -8,9 +8,9 @@ public class GuideBookItem : ItemBase, IUsable
     public string UseText => "가이드북 확인";
     public string UseCompletedMessage => string.Empty;
 
-    public bool CanUse(GameObject user, out string message)
+    public bool CanUse(GameObject user, out string failReason)
     {
-        message = null;
+        failReason = null;
         return true;
     }
 
