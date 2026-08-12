@@ -2,6 +2,8 @@ using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
 
+[RequireComponent(typeof(NetworkTransform),
+    typeof(ItemRigidbodySetter))]
 public class ItemBase : InteractableBase {
     [SerializeField] private ItemData _itemData;
 
