@@ -9,13 +9,12 @@ public class HqScreen : InteractableBase {
 	
 	public override string InteractionText => "관제 콘솔 사용하기";
 
-	// 역할 체크는 여기서 빼고 점유 여부만 본다. 본부요원이 아니어도 조준/상호작용 시도는 가능해야
+	// 역할 체크는 여기서 빼고 점유 여부만 본다.
 	// GetInteractionText로 안내 문구를 보여줄 수 있다.
 	public override bool CanInteract(GameObject interactor) {
 		return _occupiedPlayer == null;
 	}
-
-	// 본부요원이 아니면 평소 문구 대신 역할 제한 안내를 보여준다.
+	
 	public override string GetInteractionText(GameObject interactor) {
 		return InteractionText;
 	}
