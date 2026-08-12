@@ -142,7 +142,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1605405010
+  GlobalObjectIdHash: 3598001912
   InScenePlacedSourceGlobalObjectIdHash: 3053326673
   DeferredDespawnTick: 0
   Ownership: 1
@@ -221,7 +221,7 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.5
+  m_Radius: 0.3
   m_Height: 1.8535615
   m_Direction: 1
   m_Center: {x: 0, y: 0.9214044, z: 0}
@@ -234,7 +234,7 @@ NavMeshAgent:
   m_GameObject: {fileID: 1669351557380495861}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 0.5
+  m_Radius: 0.45
   m_Speed: 3.5
   m_Acceleration: 8
   avoidancePriority: 50
@@ -301,10 +301,12 @@ MonoBehaviour:
   _minWanderDistance: 4
   _wanderSampleAttempts: 8
   _wanderSpeed: 1.6
-  _chaseStartDistance: 30
-  _chaseKeepDistance: 35
+  _chaseStartDistance: 20
+  _chaseKeepDistance: 25
   _targetStopDistance: 1.4
   _targetResumeDistance: 1.8
+  _maxClonesNearTarget: 2
+  _nearTargetRadius: 6
   _chaseSpeed: 3.5
   _chaseFailureTimeout: 2.5
   _lostTargetRetryDelay: 2
