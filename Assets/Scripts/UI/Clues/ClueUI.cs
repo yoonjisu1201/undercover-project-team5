@@ -23,6 +23,7 @@ public class ClueUI : MonoBehaviour, IClosableUi
     private SceneCursorSettings _sceneCursorSettings;   // 씬 커서 설정을 관리하는 컴포넌트
     private CustomInputActions _actions;    // 사용자 입력을 처리하는 커스텀 입력 액션
     private string _descriptionTemplate;    // {parts} 자리표시자를 포함한 원본 설명 문구 (부위명 치환용)
+    private bool _waitingForInteractRelease;    // 창을 연 E 입력이 그대로 닫기로 이어지지 않게 막는 동안 true
 
     private void Awake()
     {
@@ -56,6 +57,10 @@ public class ClueUI : MonoBehaviour, IClosableUi
         GameplayUiMode.Instance?.RegisterUi(this);
         _closeButton.onClick.AddListener(Close);
         GameplayUiMode.Instance?.ActivateCursor();
+
+        _actions.Enable();
+        // 단서를 여는 것도 E라서, 창이 열린 프레임의 입력이 그대로 닫기로 이어지지 않게 한 번은 떼도록 한다.
+        _waitingForInteractRelease = true;
     }
 
     private void OnDisable()
@@ -63,11 +68,27 @@ public class ClueUI : MonoBehaviour, IClosableUi
         GameplayUiMode.Instance?.UnregisterUi(this);
         _closeButton.onClick.RemoveListener(Close);
         GameplayUiMode.Instance?.DeactivateCursor();
+        _actions?.Disable();
     }
 
+    // 단서 창은 E로도 닫는다. 창이 열려 있는 동안에는 플레이어 상호작용이 잠기므로 E가 겹치지 않는다.
     private void Update()
     {
+        if (_actions == null)
+        {
+            return;
+        }
 
+        if (_waitingForInteractRelease)
+        {
+            _waitingForInteractRelease = _actions.Player.Interact.IsPressed();
+            return;
+        }
+
+        if (_actions.Player.Interact.WasPressedThisFrame())
+        {
+            Close();
+        }
     }
 
 

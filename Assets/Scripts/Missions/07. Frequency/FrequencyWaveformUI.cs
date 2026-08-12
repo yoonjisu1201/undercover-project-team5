@@ -17,6 +17,8 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
     private const float ClearedNoticeSeconds = 3f;
     // 파형 높이가 새 값으로 따라붙는 속도다. 값이 클수록 즉각 반응한다.
     private const float WaveFollowSpeed = 12f;
+    // 공유 상태를 아직 못 찾았을 때 다시 찾아보는 간격이다.
+    private const float SyncStateSearchSeconds = 0.5f;
 
     [Header("파형")]
     // 왼쪽부터 순서대로 배치된 세로 바들이다. 각 바의 높이로 파형을 표현한다.
@@ -61,18 +63,36 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
     // 좌표 통과 안내를 언제까지 띄울지와 그 문구다.
     private float _clearedNoticeUntil = -1f;
     private string _clearedNotice;
+    // 공유 상태를 다시 찾아볼 시각이다.
+    private float _nextSyncStateSearchTime;
 
     private void Awake()
     {
-        _syncState = FindFirstObjectByType<FrequencySyncState>();
         _progressText ??= FindText("ProgressText");
 
-        if (_syncState != null)
+        EnsureSyncState();
+        Redraw();
+    }
+
+    // 현장 기계는 라운드 중에 스폰되므로 이 화면이 먼저 깨어나면 공유 상태를 못 찾는다.
+    // Awake에서 한 번만 찾으면 그대로 null로 남아 "안테나 미소지"에서 멈추므로, 찾을 때까지 다시 확인한다.
+    private void EnsureSyncState()
+    {
+        if (_syncState != null || Time.unscaledTime < _nextSyncStateSearchTime)
         {
-            _syncState.OnStateChanged += Redraw;
-            _syncState.OnZoneCleared += HandleZoneCleared;
+            return;
         }
 
+        _nextSyncStateSearchTime = Time.unscaledTime + SyncStateSearchSeconds;
+
+        _syncState = FindFirstObjectByType<FrequencySyncState>(FindObjectsInactive.Include);
+        if (_syncState == null)
+        {
+            return;
+        }
+
+        _syncState.OnStateChanged += Redraw;
+        _syncState.OnZoneCleared += HandleZoneCleared;
         Redraw();
     }
 
@@ -117,6 +137,7 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
 
     private void Update()
     {
+        EnsureSyncState();
         UpdateSound();
         RefreshWaveBars();
 
@@ -370,6 +391,11 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         if (_syncState != null && _syncState.IsCompleted)
         {
             _distanceText.text = _progressText != null ? "연결 완료" : BuildProgressLabel("연결 완료");
+        }
+        else if (_syncState == null)
+        {
+            // 아직 공유 상태를 못 찾은 것이라 소지 여부를 알 수 없다. 미소지로 단정하지 않는다.
+            _distanceText.text = "신호 없음";
         }
         else if (!hasHolder)
         {

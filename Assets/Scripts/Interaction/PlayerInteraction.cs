@@ -85,6 +85,7 @@ public class PlayerInteraction : NetworkBehaviour
         if (_inventory != null)
         {
             _inventory.OnInventoryChanged += HandleInventoryChanged;
+            _inventory.OnSlotSelected += HandleSlotSelected;
         }
     }
 
@@ -106,6 +107,7 @@ public class PlayerInteraction : NetworkBehaviour
         if (_inventory != null)
         {
             _inventory.OnInventoryChanged -= HandleInventoryChanged;
+            _inventory.OnSlotSelected -= HandleSlotSelected;
         }
     }
 
@@ -415,6 +417,32 @@ public class PlayerInteraction : NetworkBehaviour
         RefreshInteractionPrompt();
     }
 
+    // 휠·숫자키로 슬롯을 바꾸면 손에 든 아이템 안내를 1초만 보여준다.
+    // 사용할 수 있는 아이템이면 사용 문구를("단서 확인 : [E]"), 그 외에는 아이템 이름을 띄운다.
+    // 이 안내는 우선순위가 가장 낮아서, 조준 중인 대상이 있으면 그 안내를 가리지 않는다.
+    private void HandleSlotSelected(int selectedIndex)
+    {
+        if (_currentTarget != null || _health.IsDowned || CarryingCart != null || GameplayUiMode.IsActive)
+        {
+            return;
+        }
+
+        if (_inventory == null
+            || !_inventory.TryGetSelectedItemBase(out ItemBase item)
+            || item.ItemData == null)
+        {
+            return;
+        }
+
+        if (item is IUsable usable)
+        {
+            _promptUI?.ShowTemporaryPrompt(AppendHoldSuffix(usable.UseText, item.ItemHoldThreshold), true);
+            return;
+        }
+
+        _promptUI?.ShowTemporaryPrompt(item.ItemData.DisplayName);
+    }
+
     // 현재 조준 대상과 들고 있는 아이템 기준으로 상호작용 안내 문구를 갱신한다.
     private void RefreshInteractionPrompt()
     {
@@ -440,13 +468,8 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
-        // 3. 조준 대상이 없고 IUsable 아이템을 들고 있으면 아이템 문구.
-        if (_inventory != null && _inventory.TryGetSelectedItemBase(out ItemBase usableItem) && usableItem is IUsable usable)
-        {
-            _promptUI?.SetInteractionPrompt(AppendHoldSuffix(usable.UseText, usableItem.ItemHoldThreshold), true);
-            return;
-        }
-
+        // 들고 있는 아이템 안내는 슬롯을 고른 직후 1초만 띄운다(HandleSlotSelected). 상시로 띄우면
+        // 조준 대상이 없는 동안 계속 남아 화면을 가린다.
         _promptUI?.SetInteractionPrompt(null, false);
     }
 

@@ -22,7 +22,11 @@ public class ItemBase : InteractableBase {
     private ItemRigidbodySetter _rigidBodySetter;
     private NetworkTransform _networkTransform;
 
+    // 프리팹에 저장해 둔 자세(예: 눕혀 놓은 건전지). 드롭할 때 이 자세를 살려 놓기 위해 기억한다.
+    private Quaternion _initialRotation = Quaternion.identity;
+
     public ItemData ItemData => _itemData;
+    public Quaternion InitialRotation => _initialRotation;
     public ItemType ItemId => _itemData != null ? _itemData.ItemId : ItemType.None;
     public bool IsStored => _isStored.Value;
     public float ItemHoldThreshold => _itemHoldThreshold;
@@ -32,6 +36,10 @@ public class ItemBase : InteractableBase {
     protected override void Awake()
     {
         base.Awake();
+
+        // 아직 플레이어 밑으로 들어가거나 바닥에 안착하며 회전이 바뀌기 전이라, 지금 값이 프리팹에 저장된 자세다.
+        _initialRotation = transform.localRotation;
+
         _renderers = GetComponentsInChildren<Renderer>(true);
         _itemColliders = GetComponentsInChildren<Collider>(true);
         _rigidBodySetter = GetComponent<ItemRigidbodySetter>();

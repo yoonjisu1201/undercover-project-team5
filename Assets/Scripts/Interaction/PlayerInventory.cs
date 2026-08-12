@@ -147,6 +147,9 @@ public class PlayerInventory : NetworkBehaviour
 
         if (emptySlotIndex < 0) {
             Debug.LogWarning("[PlayerInventory] 인벤토리가 가득 찼습니다.");
+
+            // 자리가 없는 건 서버만 알 수 있으니, 주우려 한 본인 화면에 이유를 알려준다.
+            ShowInventoryFullMessageOwnerRpc(RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
             return;
         }
 
@@ -164,11 +167,18 @@ public class PlayerInventory : NetworkBehaviour
     }
 
     [Rpc(SendTo.SpecifiedInParams)]
+    private void ShowInventoryFullMessageOwnerRpc(RpcParams rpcParams = default)
+    {
+        FindFirstObjectByType<InteractionPromptUI>(FindObjectsInactive.Include)
+            ?.ShowTemporaryPrompt("인벤토리가 가득 찼습니다");
+    }
+
+    // 주워서 커서가 옮겨 가는 경우다. 직접 고른 게 아니므로 OnSlotSelected(아이템 안내 표시)는 알리지 않는다.
+    [Rpc(SendTo.SpecifiedInParams)]
     private void ChangeSelectedNumberRpc(int index, RpcParams rpcParams = default)
     {
         _selectedIndex.Value = index;
         OnInventoryChanged?.Invoke();
-        OnSlotSelected?.Invoke(index);
         NotifySelectedItem();
     }
 
@@ -192,8 +202,9 @@ public class PlayerInventory : NetworkBehaviour
             return;
         }
 
-        // 플레이어가 바라보는 Y축 방향으로 내려놓는다.
-        Quaternion dropRotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
+        // 플레이어가 바라보는 Y축 방향으로 내려놓되, 프리팹에 저장된 자세는 그대로 살린다.
+        // (건전지처럼 눕혀 놓은 아이템이 세워진 채로 떨어지지 않게 한다.)
+        Quaternion dropRotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f) * item.InitialRotation;
         item.DropItemToWorldRpc(dropPosition, dropRotation, dropVelocity, _dropInteractionDelay);
     }
 
@@ -214,6 +225,7 @@ public class PlayerInventory : NetworkBehaviour
         Vector3 dropVelocity = cameraTransform.forward * 2f + Vector3.up;
         RequestDropRpc(itemId, SelectedIndex, dropPosition, dropVelocity);
     }
+    // 휠이나 1~4번으로 직접 고른 경우다. 이때만 OnSlotSelected로 아이템 안내를 띄운다.
     private void SelectSlot(int index)
     {
         if (index < 0 || index >= InventorySize)

@@ -15,8 +15,6 @@ public class InteractionPromptUI : MonoBehaviour
     private string _interactionText;
     private Sprite _useHoldProgressSprite;
 
-    public bool HasActiveInteractionPrompt => !string.IsNullOrWhiteSpace(_interactionText);
-
     private void Awake()
     {
         if (_interactionPromptText == null)
@@ -56,7 +54,8 @@ public class InteractionPromptUI : MonoBehaviour
         ApplyInteractionPrompt(interactionText);
     }
 
-    public void ShowTemporaryPrompt(string message)
+    // showKeyHint가 true면 상시 안내와 같은 " : [E]" 형식으로 보여준다 (예: "단서 확인 : [E]").
+    public void ShowTemporaryPrompt(string message, bool showKeyHint = false)
     {
         if (string.IsNullOrWhiteSpace(message))
         {
@@ -68,7 +67,7 @@ public class InteractionPromptUI : MonoBehaviour
             StopCoroutine(_selectedItemPromptRoutine);
         }
 
-        _selectedItemPromptRoutine = StartCoroutine(ShowSelectedItemPrompt(message));
+        _selectedItemPromptRoutine = StartCoroutine(ShowSelectedItemPrompt(message, showKeyHint));
     }
 
     public void SetUseHoldProgress(float progress, bool visible)
@@ -151,11 +150,11 @@ public class InteractionPromptUI : MonoBehaviour
         return _useHoldProgressSprite;
     }
 
-    private IEnumerator ShowSelectedItemPrompt(string message)
+    private IEnumerator ShowSelectedItemPrompt(string message, bool showKeyHint)
     {
         if (_interactionPromptText != null)
         {
-            _interactionPromptText.text = message;
+            _interactionPromptText.text = showKeyHint ? $"{message} : [E]" : message;
             _interactionPromptText.gameObject.SetActive(true);
         }
 

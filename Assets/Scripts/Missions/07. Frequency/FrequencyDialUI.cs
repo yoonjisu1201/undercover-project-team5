@@ -54,8 +54,12 @@ public sealed class FrequencyDialUI : MonoBehaviour
     // 마지막 조작 후 이 시간 동안은 서버가 보내온 값을 무시한다.
     // 돌리는 중에 한 박자 늦은 서버 값이 덮어쓰면 노브가 앞뒤로 튕겨 끊기는 것처럼 보인다.
     private const float LocalControlHoldSeconds = 0.5f;
+    // 공유 상태를 아직 못 찾았을 때 다시 찾아보는 간격이다.
+    private const float SyncStateSearchSeconds = 0.5f;
 
     private FrequencySyncState _syncState;
+    // 공유 상태를 다시 찾아볼 시각이다.
+    private float _nextSyncStateSearchTime;
     // 서버 응답을 기다리지 않고 손맛을 유지하기 위해 이 화면이 들고 있는 값이다.
     private float _localFrequency;
     private float _lastLocalTuneTime = -99f;
@@ -65,16 +69,10 @@ public sealed class FrequencyDialUI : MonoBehaviour
 
     private void Awake()
     {
-        // 이 미션은 라운드당 하나만 존재하므로 다른 오브젝트에 있는 공유 상태를 찾아 구독한다.
-        _syncState = FindFirstObjectByType<FrequencySyncState>();
-        _localFrequency = _syncState != null ? _syncState.CurrentFrequency : FrequencySyncState.MinFrequency;
+        _localFrequency = FrequencySyncState.MinFrequency;
         _progressText ??= FindText("ProgressText");
 
-        if (_syncState != null)
-        {
-            _syncState.OnStateChanged += HandleStateChanged;
-            _syncState.OnZoneCleared += HandleZoneCleared;
-        }
+        EnsureSyncState();
 
         if (_knob != null)
         {
@@ -86,6 +84,35 @@ public sealed class FrequencyDialUI : MonoBehaviour
             _rollerDrag.OnDelta += HandleRollerDelta;
         }
 
+        Redraw();
+    }
+
+    private void Update()
+    {
+        EnsureSyncState();
+    }
+
+    // 현장 기계는 라운드 중에 스폰되므로 이 화면이 먼저 깨어나면 공유 상태를 못 찾는다.
+    // Awake에서 한 번만 찾으면 그대로 null로 남아 다이얼이 영원히 잠긴 것처럼 보이므로, 찾을 때까지 다시 확인한다.
+    // 이 미션은 라운드당 하나만 존재하므로 찾은 하나를 그대로 구독한다.
+    private void EnsureSyncState()
+    {
+        if (_syncState != null || Time.unscaledTime < _nextSyncStateSearchTime)
+        {
+            return;
+        }
+
+        _nextSyncStateSearchTime = Time.unscaledTime + SyncStateSearchSeconds;
+
+        _syncState = FindFirstObjectByType<FrequencySyncState>(FindObjectsInactive.Include);
+        if (_syncState == null)
+        {
+            return;
+        }
+
+        _localFrequency = _syncState.CurrentFrequency;
+        _syncState.OnStateChanged += HandleStateChanged;
+        _syncState.OnZoneCleared += HandleZoneCleared;
         Redraw();
     }
 

@@ -30,6 +30,8 @@ public class GuideBook : MonoBehaviour, IClosableUi
 
     private int _index;
     private Tween _flip;
+    private CustomInputActions _actions;
+    private bool _waitingForInteractRelease;    // 창을 연 E 입력이 그대로 닫기로 이어지지 않게 막는 동안 true
 
     private void Awake()
     {
@@ -50,6 +52,11 @@ public class GuideBook : MonoBehaviour, IClosableUi
     {
         GameplayUiMode.Instance?.RegisterUi(this);
         GameplayUiMode.Instance?.ActivateCursor();
+
+        _actions ??= new CustomInputActions();
+        _actions.Enable();
+        // 가이드북을 여는 것도 E라서, 창이 열린 프레임의 입력이 그대로 닫기로 이어지지 않게 한 번은 떼도록 한다.
+        _waitingForInteractRelease = true;
     }
 
     private void OnDisable()
@@ -57,6 +64,27 @@ public class GuideBook : MonoBehaviour, IClosableUi
         _flip?.Kill();  // 페이지 넘기는 중에 꺼지면 Tween이 남아있어도 화면에 표시되지 않으므로 강제 종료
         GameplayUiMode.Instance?.UnregisterUi(this);
         GameplayUiMode.Instance?.DeactivateCursor();
+        _actions?.Disable();
+    }
+
+    // 가이드북도 E로 닫는다. 창이 열려 있는 동안에는 플레이어 상호작용이 잠기므로 E가 겹치지 않는다.
+    private void Update()
+    {
+        if (_actions == null)
+        {
+            return;
+        }
+
+        if (_waitingForInteractRelease)
+        {
+            _waitingForInteractRelease = _actions.Player.Interact.IsPressed();
+            return;
+        }
+
+        if (_actions.Player.Interact.WasPressedThisFrame())
+        {
+            Close();
+        }
     }
 
     // 다음 페이지: 현재 페이지(맨 앞)가 위로 접혀 올라가며 뒤의 다음 페이지를 드러낸다.

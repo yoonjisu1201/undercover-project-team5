@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 public class InventoryUI : MonoBehaviour
@@ -7,7 +7,6 @@ public class InventoryUI : MonoBehaviour
     [SerializeField] private Image[] _itemIcons;
     [SerializeField] private RectTransform _selectionOutline;
     [SerializeField] private ItemCatalog _itemCatalog;
-    [SerializeField] private InteractionPromptUI _promptUI;
     private GameObject[] _slots;    // 인벤토리 슬롯 UI 오브젝트 배열
 
     private void Awake()
@@ -18,11 +17,6 @@ public class InventoryUI : MonoBehaviour
         if (_itemCatalog == null)
         {
             _itemCatalog = FindFirstObjectByType<ItemCatalog>();
-        }
-
-        if (_promptUI == null)
-        {
-            _promptUI = FindFirstObjectByType<InteractionPromptUI>(FindObjectsInactive.Include);
         }
 
         for (int i = 0; i < _slots.Length; i++)
@@ -44,7 +38,6 @@ public class InventoryUI : MonoBehaviour
         if (_inventory != null)
         {
             _inventory.OnInventoryChanged += Refresh;
-            // _inventory.OnSlotSelected += HandleSlotSelected;   // 보류: IUsable.UseText 상시 표시와 겹침 (아래 HandleSlotSelected 참고)
         }
 
         Refresh();
@@ -55,7 +48,6 @@ public class InventoryUI : MonoBehaviour
         if (_inventory != null)
         {
             _inventory.OnInventoryChanged -= Refresh;
-            // _inventory.OnSlotSelected -= HandleSlotSelected;
         }
     }
 
@@ -69,7 +61,6 @@ public class InventoryUI : MonoBehaviour
         if (_inventory != null)
         {
             _inventory.OnInventoryChanged -= Refresh;
-            // _inventory.OnSlotSelected -= HandleSlotSelected;
         }
 
         _inventory = inventory;
@@ -77,42 +68,9 @@ public class InventoryUI : MonoBehaviour
         if (_inventory != null && isActiveAndEnabled)
         {
             _inventory.OnInventoryChanged += Refresh;
-            // _inventory.OnSlotSelected += HandleSlotSelected;
         }
 
         Refresh();
-    }
-
-    // 보류: IUsable.UseText가 이제 대상 없을 때 항상 안내 문구를 채워서, IsActiveInteractionPrompt로
-    // 우선순위를 가리던 이 로직과 겹친다. OnSlotSelected 구독을 위에서 잠시 꺼둠 - 정리 방식 결정되면 다시 켠다.
-    // 슬롯 선택 시(1~4번 입력 또는 스크롤, PlayerInventory가 처리) 현재 손에 든 아이템 이름을
-    // 상호작용 안내 위치에 잠시 표시한다.
-    private void HandleSlotSelected(int index)
-    {
-        if (index < 0 || index >= _inventory.Slots.Count)
-        {
-            return;
-        }
-
-        InventorySlot slot = _inventory.Slots[index];
-        if (slot.IsEmpty)
-        {
-            return;
-        }
-
-        string displayName = slot.ItemId.ToString();
-        if (_itemCatalog != null && _itemCatalog.TryGet(slot.ItemId, out ItemData itemData))
-        {
-            displayName = itemData.DisplayName;
-        }
-
-        // 상호작용 가능한 대상을 보고 있을 때는 낮은 우선순위의 선택 아이템 안내를 표시하지 않는다.
-        if (_promptUI != null && _promptUI.HasActiveInteractionPrompt)
-        {
-            return;
-        }
-
-        _promptUI?.ShowTemporaryPrompt(displayName);
     }
 
     private void Refresh()
