@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Services.Multiplayer;
 using UnityEngine;
@@ -32,6 +33,7 @@ public class GameSessionManager : MonoBehaviour
 	public event Action<AsyncOperation> OnWaitingRoomSceneLoadStarted; // 내 로컬 씬 로딩이 시작됨 (진행률 포함)
 
 	private bool _isLeavingVoluntarily;
+	private string _pendingLeaveReason;
 
 	private void Awake()
 	{
@@ -95,7 +97,8 @@ public class GameSessionManager : MonoBehaviour
 		catch (Exception e)
 		{
 			Debug.LogError($"[GameSessionManager] 세션 생성 중 '{stage}' 단계에서 오류가 발생했습니다.\n오류 내용: {e.Message}");
-			OnSessionError?.Invoke(e.Message);
+			await CleanUpFailedSessionAsync();
+			OnSessionError?.Invoke(ToUserMessage(e));
 		}
 	}
 
@@ -118,13 +121,68 @@ public class GameSessionManager : MonoBehaviour
             VivoxManager.Instance.JoinSessionChannel(CurrentSession.Code);
 
 			stage = "씬 이벤트 구독";
+			// 죽은 방은 로비 레코드가 TTL 동안 남아 있어 조인 자체는 통과한다. 실제 연결이 섰는지 여기서 확인한다.
+			if (!NetworkManager.Singleton.IsListening)
+			{
+				throw new SessionException(
+					"Joined the lobby record but the network client never started (host is gone).",
+					SessionError.NetworkManagerStartFailed,
+					null);
+			}
+
             SubscribeSceneEvents();
 			OnSessionJoined?.Invoke();
 		}
 		catch (Exception e)
 		{
 			Debug.LogError($"[GameSessionManager] 세션 참가 중 '{stage}' 단계에서 오류가 발생했습니다.\n오류 내용: {e.Message}");
-			OnSessionError?.Invoke(e.Message);
+			await CleanUpFailedSessionAsync();
+			OnSessionError?.Invoke(ToUserMessage(e));
+		}
+	}
+
+	// 조인이 통과한 뒤 실패하면 CurrentSession이 남아 로비에 유령 참가자로 걸린다.
+	// 다음 방 생성/참가가 정상 동작하도록 여기서 정리한다.
+	private async Task CleanUpFailedSessionAsync()
+	{
+		if (CurrentSession == null) return;
+
+		try
+		{
+			await CurrentSession.LeaveAsync();
+		}
+		catch (Exception e)
+		{
+			// 이미 사라진 세션이면 나가기도 실패하는데, 참조만 끊으면 되므로 로그만 남긴다.
+			Debug.LogWarning($"[GameSessionManager] 실패한 세션 정리 중 오류: {e.Message}");
+		}
+
+		CurrentSession = null;
+	}
+
+	// Unity Services 예외 메시지는 영문 원문이라 그대로 띄우면 알아볼 수 없어 한글 문구로 바꿔준다.
+	// (원문은 호출부의 Debug.LogError에 그대로 남는다)
+	private static string ToUserMessage(Exception e)
+	{
+		const string defaultMessage = "네트워크 오류로 연결하지 못했습니다";
+
+		if (e is not SessionException sessionException) return defaultMessage;
+
+		switch (sessionException.Error)
+		{
+			case SessionError.SessionNotFound:
+			case SessionError.SessionDeleted:
+			case SessionError.NetworkManagerStartFailed:
+			case SessionError.NetworkSetupFailed:
+				return "방 코드를 다시 확인해주세요";
+			case SessionError.RateLimitExceeded:
+				return "요청이 너무 잦습니다. 잠시 후 다시 시도해주세요";
+			default:
+				// 정원 초과는 별도 SessionError 없이 Unknown으로 넘어와 메시지로만 구분할 수 있다.
+				return sessionException.Message != null &&
+				       sessionException.Message.Contains("full", StringComparison.OrdinalIgnoreCase)
+					? "방 정원이 가득 찼습니다"
+					: defaultMessage;
 		}
 	}
 
@@ -253,16 +311,30 @@ public class GameSessionManager : MonoBehaviour
 	{
 		if (clientId != NetworkManager.Singleton.LocalClientId) return;
 
-		LastLeaveReason = _isLeavingVoluntarily
-			? "방을 나왔습니다"
-			: NetworkManager.Singleton.IsHost
-				? "연결이 끊겼습니다"
-				: "호스트가 방을 나갔습니다";
+		LastLeaveReason = ResolveLeaveReason();
+		_pendingLeaveReason = null;
 		_isLeavingVoluntarily = false;
 
         VivoxManager.Instance.LeaveSessionChannel();
         CurrentSession = null;
 		SceneManager.LoadScene(_lobbySceneName);
+	}
+
+	// 내가 사유를 지정하고 나간 경우가 아니면 기존 기본 문구를 쓴다.
+	private string ResolveLeaveReason()
+	{
+		if (!string.IsNullOrEmpty(_pendingLeaveReason)) return _pendingLeaveReason;
+
+		// NGO는 서버가 사유를 보내지 않았을 때도 "[Disconnect Event]..." 형태의 디버그 문자열을 채워둔다.
+		// 대괄호로 시작하지 않는 경우만 서버가 실제로 보낸 사유로 취급한다.
+		string disconnectReason = NetworkManager.Singleton.DisconnectReason;
+		if (!string.IsNullOrEmpty(disconnectReason) && !disconnectReason.StartsWith("["))
+		{
+			return disconnectReason;
+		}
+
+		if (_isLeavingVoluntarily) return "방을 나왔습니다";
+		return NetworkManager.Singleton.IsHost ? "연결이 끊겼습니다" : "호스트가 방을 나갔습니다";
 	}
 
 	public async void LeaveSession()
@@ -271,6 +343,13 @@ public class GameSessionManager : MonoBehaviour
 
 		_isLeavingVoluntarily = true;
 		await CurrentSession.LeaveAsync();
+	}
+
+	// 타임아웃/오류로 클라이언트가 스스로 나갈 때, 로비에 표시할 사유를 지정해 퇴장한다.
+	public void LeaveSessionWithReason(string reason)
+	{
+		_pendingLeaveReason = reason;
+		LeaveSession();
 	}
 
 	// 방장이 대기방에서 "게임 시작"을 눌렀을 때 호출한다.

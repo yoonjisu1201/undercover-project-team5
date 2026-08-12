@@ -32,7 +32,7 @@ public class RoundConfig
     public int ClearReward = 1000;        // 라운드 클리어 시 지급할 공용 크레딧
 }
 
-public class RoundManager : NetworkBehaviour
+public partial class RoundManager : NetworkBehaviour
 {
     public static RoundManager Instance { get; private set; }
 
@@ -62,12 +62,6 @@ public class RoundManager : NetworkBehaviour
 
     [Header("라운드 클리어 보상 지급 담당")]
     [SerializeField] private ShopManager _shopManager;
-
-    [Header("게임 시작하면서 몽타주 데이터 로딩하기 위함")]
-    [Header("게임 시작하면서 몽타주 의류 데이터 로딩하기 위함")]
-    [SerializeField] private MontageClothCatalog _catalog;
-    [SerializeField] private MontageSyncManager _syncManager;
-    [SerializeField] private MontageShareManager _shareManager;
 
     private readonly NetworkVariable<RoundState> _currentState =
         new(RoundState.Waiting, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -105,9 +99,6 @@ public class RoundManager : NetworkBehaviour
     private bool _isPausedForVote;
     private double _votePauseStartTime;
     private bool _isStartingNextRound;
-
-    // 스폰 완료 확인 응답을 보낸 클라이언트 목록 (서버만 사용, 네트워크 동기화 불필요)
-    private readonly HashSet<ulong> _spawnReadyConfirmedClients = new();
 
     public RoundState CurrentState => _currentState.Value;
     public int CurrentRoundIndex => _currentRoundIndex.Value;
@@ -167,7 +158,7 @@ public class RoundManager : NetworkBehaviour
         OnRoundStateChanged?.Invoke(_currentState.Value); // OnValueChanged는 최초 동기화값에는 발동하지 않으므로 직접 1회 호출
 
         // 서버/클라이언트(호스트 포함) 모두 자기 화면에 NPC/단서가 다 왔는지 직접 확인한 뒤 서버에 보고한다.
-        WaitForLocalSpawnReadyAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        BeginSpawnReadyFlow();
 
         if (IsServer && ArrestVoteManager.Instance != null)
         {
@@ -183,47 +174,11 @@ public class RoundManager : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         _currentState.OnValueChanged -= HandleStateChanged;
+        EndSpawnReadyFlow();
 
         if (IsServer && ArrestVoteManager.Instance != null)
         {
             ArrestVoteManager.Instance.OnVoteStateChanged -= HandleArrestVoteStateChanged;
-        }
-    }
-
-    // 로컬 씬에 NPC/단서가 기대한 수만큼 존재할 때까지 기다린 뒤 서버에 준비됐다고 보고한다.
-    private async UniTaskVoid WaitForLocalSpawnReadyAsync(CancellationToken cancellationToken)
-    {
-        if (_npcSpawner == null || _clueSpawner == null)
-        {
-            Debug.LogError("[RoundManager] NpcSpawner/ClueSpawner 참조가 비어 있어 스폰 완료를 확인할 수 없습니다.", this);
-            return;
-        }
-
-        await UniTask.WaitUntil(
-            () => FindObjectsByType<NpcStateMachine>(FindObjectsSortMode.None).Length >= _npcSpawner.SpawnCount
-                && FindObjectsByType<ItemBase>(FindObjectsSortMode.None).Length >= _clueSpawner.SpawnCount,
-            cancellationToken: cancellationToken);
-
-        // 나를 적절한 위치로 스폰시킨다
-        _playerSpawner.SpawnPlayer(NetworkManager.Singleton.LocalClient.PlayerObject);
-
-        // 몽타주 옷 데이터를 미리 로딩하고, 지금까지 조합된 몽타주를 내 화면에도 조립해둔다.
-        await _catalog.LoadClothData();
-        await _syncManager.InitializeAsync();
-        await _shareManager.InitializeAsync();
-        
-        ReportSpawnReadyServerRpc();
-    }
-
-    // 접속자 전원의 준비 보고가 모이면 게임을 시작한다.
-    [Rpc(SendTo.Server)]
-    private void ReportSpawnReadyServerRpc(RpcParams rpcParams = default)
-    {
-        _spawnReadyConfirmedClients.Add(rpcParams.Receive.SenderClientId);
-
-        if (_spawnReadyConfirmedClients.Count >= NetworkManager.ConnectedClientsIds.Count)
-        {
-            StartGame();
         }
     }
 
