@@ -188,11 +188,25 @@ public class GameSessionManager : MonoBehaviour
 			{
 				SpawnPlayerForClient(clientId);
 			}
-			else if (playerObject.TryGetComponent(out PlayerMoveSample player))
-			{
-				player.TeleportToPosition(Vector3.zero, playerObject.transform.rotation);
-			}
-		}
+
+            // PlayerMoveSample이 있으면 항상 Teleport, PlayerHealth가 있으면 Reset만 추가로 수행합니다.
+            PlayerMoveSample player = null;
+            PlayerHealth playerHealth = null;
+
+            playerObject.TryGetComponent(out player);
+            playerObject.TryGetComponent(out playerHealth);
+
+            if (player != null)
+            {
+                if (playerHealth != null)
+                {
+                    // 서버/네트워크 권한이 필요하면 여기서 검증하거나 서버-side 초기화로 옮기세요.
+                    playerHealth.ResetForNewRound();
+                }
+
+                player.TeleportToPosition(Vector3.zero, playerObject.transform.rotation);
+            }
+        }
 	}
 
 	// 플레이어 오브젝트는 대기방(WaitingRoom)에서 스폰된 채로 게임씬(PlayScene) 전환에도 파괴되지 않고 그대로 유지된다.
