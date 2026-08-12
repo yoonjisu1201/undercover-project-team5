@@ -16,6 +16,8 @@ public sealed class PlayerListPanelUI : MonoBehaviour
     [SerializeField] private TMP_Text[] _playerNameTexts = new TMP_Text[MaxPlayerCount];
     [SerializeField] private Image[] _stateIconImages = new Image[MaxPlayerCount];
     [SerializeField] private TMP_Text[] _stateTexts = new TMP_Text[MaxPlayerCount];
+    // 좌석별 음성 아이콘. 체력바 쪽과 같은 컴포넌트를 쓴다.
+    [SerializeField] private PlayerVoiceIconUI[] _voiceIcons = new PlayerVoiceIconUI[MaxPlayerCount];
 
     [Header("상태 아이콘 스프라이트")]
     [SerializeField] private Sprite _hostIconSprite;
@@ -122,6 +124,7 @@ public sealed class PlayerListPanelUI : MonoBehaviour
                 _playerNameTexts[i].text = "";
                 _stateIconImages[i].enabled = false;
                 _stateTexts[i].text = "";
+                ClearVoiceIcon(i);
                 continue;
             }
 
@@ -144,6 +147,19 @@ public sealed class PlayerListPanelUI : MonoBehaviour
             Color stateColor = isHost ? HostColor : slot.IsReady ? ReadyColor : NotReadyColor;
             _stateIconImages[i].color = stateColor;
             _stateTexts[i].color = stateColor;
+
+            if (i < _voiceIcons.Length && _voiceIcons[i] != null)
+            {
+                _voiceIcons[i].Bind(slot.Player);
+            }
+        }
+    }
+
+    private void ClearVoiceIcon(int index)
+    {
+        if (index < _voiceIcons.Length && _voiceIcons[index] != null)
+        {
+            _voiceIcons[index].Clear();
         }
     }
 }

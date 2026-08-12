@@ -1,17 +1,17 @@
 using Cysharp.Threading.Tasks;
 using System;
-using System.Collections.Generic;
 using Unity.Services.Vivox;
 using UnityEngine;
-using UnityEngine.UI;
 
-// Vivox 음성 서비스 초기화 + 로그인을 앱 시작 시 한 번만 수행한다.
+// Vivox 음성 서비스 초기화 + 로그인을 앱 시작 시 한 번만 수행하고,
+// 게임(세션) 음성 채널 참가와 마이크 테스트를 조정한다.
 // NetworkBootstrap의 UGS 로그인이 끝난 뒤에 실행되어야 한다.
-
+//
+// 장치 목록 규칙은 VivoxAudioDevices, 마이크 소리 되들려주기는 MicMonitor가 담당한다.
 public class VivoxManager : MonoBehaviour
 {
-	private const string DefaultSystemDeviceId = "Default System Device";
-	private const string DefaultCommunicationDeviceId = "Default Communication Device";     // Vivox에서 제공하는 기본 시스템 장치 ID인데 사용 안할 것이므로 해당 장치 ID는 목록에서 제외하기 위해서
+	// 이 음량(0~1) 이상이면 말하는 중으로 본다. 숨소리나 잡음으로 아이콘이 깜빡이지 않을 정도로만 잡는다.
+	private const double SpeakingEnergyThreshold = 0.02;
 
 	public static VivoxManager Instance { get; private set; }
 
@@ -23,20 +23,27 @@ public class VivoxManager : MonoBehaviour
 	// Preserve()로 여러 곳에서 반복 await 가능하게 만든다.
 	public static UniTask LoginTask { get; private set; }
 
-	//--- 현재 참가 중인 테스트 채널과 세션 채널 이름을 저장하는 변수 ---//
 	private string _sessionChannelName; // 실제 플레이 음성채널
-	private string _micTestChannelName; // 마이크 테스트용 음성채널
 
-	private bool _isMicTesting; // 마이크 테스트용 음성채널 참가 여부
-	private bool _isChangingMicTest; // 마이크 테스트용 음성채널 참가 중 변경 여부
+	private bool _isMicTesting;
+	private bool _isChangingMicTest; // 시작/종료 전환이 진행 중인지
 
+	// 마이크 테스트 전의 장치 상태. 테스트가 끝나면 이대로 되돌린다.
 	private bool _inputWasMuted;
 	private bool _outputWasMuted;
 
-	public bool IsMicTesting => _isMicTesting;
-	public string MicTestChannelName => _micTestChannelName;
+	private MicMonitor _micMonitor;
 
-	//--- Vivox Device 목록 가져오기 ---//
+	public bool IsMicTesting => _isMicTesting;
+
+	// 팀원 입장에서 내 목소리가 들리지 않는 상태.
+	// 직접 마이크를 껐거나, 마이크 테스트 중이라 게임 채널로 전송되지 않는 경우다.
+	// (뮤트 버튼 UI는 장치 자체의 상태인 IsMicMuted를 쓴다.)
+	public bool IsMutedForSessionChannel => IsMicMuted || _isMicTesting;
+
+	// 레벨 막대에 쓸 현재 마이크 음량(0~1). 테스트 중이 아니면 0이다.
+	public float MicMonitorEnergy01 => _micMonitor != null ? _micMonitor.Energy01 : 0f;
+
 	public event Action AudioDevicesChanged;
 	public event Action<bool> MicTestStateChanged;
 
@@ -50,14 +57,35 @@ public class VivoxManager : MonoBehaviour
 			Destroy(gameObject);
 			return;
 		}
+
 		Instance = this;
 		DontDestroyOnLoad(gameObject);
+
+		_micMonitor = new MicMonitor(gameObject);
 	}
 
 	private void Start()
 	{
 		LoginTask = LoginAsync().Preserve();
 	}
+
+	private void OnDestroy()
+	{
+		if (Instance != this)
+		{
+			return;
+		}
+
+		if (VivoxService.Instance != null)
+		{
+			VivoxService.Instance.AvailableInputDevicesChanged -= OnAudioDevicesChanged;
+			VivoxService.Instance.AvailableOutputDevicesChanged -= OnAudioDevicesChanged;
+		}
+
+		Instance = null;
+	}
+
+	//--- 로그인 ---//
 
 	private async UniTask LoginAsync()
 	{
@@ -75,7 +103,7 @@ public class VivoxManager : MonoBehaviour
 					await VivoxService.Instance.LoginAsync();
 				}
 
-				await SelectDefaultCommunicationDevicesAsync();
+				await VivoxAudioDevices.SelectDefaultCommunicationDevicesAsync();
 				SubscribeAudioDeviceEvents();
 
 				Debug.Log($"[Vivox] 로그인 완료: {VivoxService.Instance.SignedInPlayerId}");
@@ -91,11 +119,14 @@ public class VivoxManager : MonoBehaviour
 			}
 		}
 	}
+
+	//--- 게임 음성 채널 ---//
+
 	public void JoinSessionChannel(string channelName)
 	{
 		JoinSessionChannelAsync(channelName).Forget();
-
 	}
+
 	private async UniTask JoinSessionChannelAsync(string channelName)
 	{
 		try
@@ -103,6 +134,11 @@ public class VivoxManager : MonoBehaviour
 			await LoginTask;
 			await VivoxService.Instance.JoinGroupChannelAsync(channelName, ChatCapability.AudioOnly);
 			_sessionChannelName = channelName;
+
+			// 전송 모드는 로그인 세션 단위 설정이라 채널 참가만으로는 복구되지 않는다.
+			// 이전에 None으로 남았다면 마이크가 죽은 상태이므로, 참가할 때마다 되돌린다.
+			await RestoreSessionTransmissionAsync();
+
 			Debug.Log($"[Vivox] 채널 참가 완료: {channelName}");
 		}
 		catch (Exception e)
@@ -110,11 +146,12 @@ public class VivoxManager : MonoBehaviour
 			Debug.LogError($"[Vivox] 채널 참가 실패: {e.Message}");
 		}
 	}
+
 	public void LeaveSessionChannel()
 	{
 		LeaveSessionChannelAsync().Forget();
-
 	}
+
 	private async UniTask LeaveSessionChannelAsync()
 	{
 		if (VivoxService.Instance == null || !VivoxService.Instance.IsLoggedIn) return;
@@ -122,12 +159,74 @@ public class VivoxManager : MonoBehaviour
 		try
 		{
 			await VivoxService.Instance.LeaveAllChannelsAsync();
+
+			_sessionChannelName = null;
+			_isMicTesting = false;
 		}
 		catch (Exception e)
 		{
 			Debug.LogError($"[Vivox] 채널 나가기 실패: {e.Message}");
 		}
 	}
+
+	// 내 목소리를 게임 채널로만 내보낸다.
+	private async UniTask RestoreSessionTransmissionAsync()
+	{
+		var service = VivoxService.Instance;
+
+		if (string.IsNullOrEmpty(_sessionChannelName) || !service.ActiveChannels.ContainsKey(_sessionChannelName))
+		{
+			// 아직 게임 채널이 없으면 내보낼 곳이 없다. 방에 들어갈 때 다시 세팅한다.
+			await service.SetChannelTransmissionModeAsync(TransmissionMode.None);
+			return;
+		}
+
+		await service.SetChannelTransmissionModeAsync(TransmissionMode.Single, _sessionChannelName);
+
+		// 실제로 복구됐는지 확인한다. 여기가 비어 있으면 내 목소리가 아무에게도 가지 않는 상태다.
+		if (service.TransmittingChannels.Count == 0)
+		{
+			Debug.LogError($"[Vivox] 전송 채널 복구 실패. 게임 채널: {_sessionChannelName}, 참가 중 채널: {string.Join(", ", service.ActiveChannels.Keys)}");
+		}
+	}
+
+	//--- 말하는 중 판정 ---//
+
+	// 내가 지금 게임 채널로 말하고 있는지.
+	// 남이 말하는지도 Vivox로 볼 수는 있지만, 그 참가자가 화면의 어느 플레이어인지 잇는 게 ID 문자열 일치에
+	// 의존해 취약하고 오디오가 실제로 도달해야만 판정된다. 그래서 각자 자기 상태만 보고 Player가 공유한다.
+	public bool IsLocalSpeaking
+	{
+		get
+		{
+			var service = VivoxService.Instance;
+
+			// 테스트 중에는 게임 채널로 전송되지 않으므로 팀원에게 들리지 않는다. 아이콘도 띄우지 않는다.
+			if (service == null || !service.IsLoggedIn || IsMicMuted || _isMicTesting
+				|| string.IsNullOrEmpty(_sessionChannelName))
+			{
+				return false;
+			}
+
+			if (!service.ActiveChannels.TryGetValue(_sessionChannelName, out var participants))
+			{
+				return false;
+			}
+
+			foreach (var participant in participants)
+			{
+				if (participant.IsSelf)
+				{
+					// SpeechDetected는 Vivox의 VAD 결과다. 안 올라오는 경우가 있어 실제 음량도 함께 본다.
+					return participant.SpeechDetected || participant.AudioEnergy >= SpeakingEnergyThreshold;
+				}
+			}
+
+			return false;
+		}
+	}
+
+	//--- 뮤트 토글 (버튼에서 직접 호출) ---//
 
 	// 내 마이크(내가 말하는 소리)를 토글한다. 로그인 전이면 아무 동작도 하지 않는다.
 	public void ToggleMicMute()
@@ -167,32 +266,15 @@ public class VivoxManager : MonoBehaviour
 		}
 	}
 
-	// Vivox 입력 장치 목록이 변경되었을 때 호출되는 콜백
+	//--- 장치 선택 ---//
+
 	public async UniTask SelectInputDeviceAsync(int direction)
 	{
 		await LoginTask;
 
-		var service = VivoxService.Instance;
-		var devices = GetSelectableInputDevices();
-
-		if (devices.Count == 0)
+		if (await VivoxAudioDevices.SelectNextInputAsync(direction))
 		{
 			AudioDevicesChanged?.Invoke();
-			return;
-		}
-
-		int currentIndex = FindInputDeviceIndex(devices, service.ActiveInputDevice?.DeviceID);
-
-		int nextIndex = WrapIndex(currentIndex + direction, devices.Count);
-
-		try
-		{
-			await service.SetActiveInputDeviceAsync(devices[nextIndex]);
-			AudioDevicesChanged?.Invoke();
-		}
-		catch (Exception e)
-		{
-			Debug.LogError($"[Vivox] 입력 장치 변경 실패: {e.Message}");
 		}
 	}
 
@@ -200,122 +282,9 @@ public class VivoxManager : MonoBehaviour
 	{
 		await LoginTask;
 
-		var service = VivoxService.Instance;
-		var devices = GetSelectableOutputDevices();
-
-		if (devices.Count == 0)
+		if (await VivoxAudioDevices.SelectNextOutputAsync(direction))
 		{
 			AudioDevicesChanged?.Invoke();
-			return;
-		}
-
-		int currentIndex = FindOutputDeviceIndex(devices, service.ActiveOutputDevice?.DeviceID);
-
-		int nextIndex = WrapIndex(currentIndex + direction, devices.Count);
-
-		try
-		{
-			await service.SetActiveOutputDeviceAsync(devices[nextIndex]);
-			AudioDevicesChanged?.Invoke();
-		}
-		catch (Exception e)
-		{
-			Debug.LogError($"[Vivox] 출력 장치 변경 실패: {e.Message}");
-		}
-	}
-
-	private static int FindInputDeviceIndex(IReadOnlyList<VivoxInputDevice> devices, string deviceId)
-	{
-		for (int i = 0; i < devices.Count; i++)
-		{
-			if (devices[i].DeviceID == deviceId)
-			{
-				return i;
-			}
-		}
-		return 0; // 현재 장치가 목록에 없으면 0 반환
-	}
-
-	private static int FindOutputDeviceIndex(IReadOnlyList<VivoxOutputDevice> devices, string deviceId)
-	{
-		for (int i = 0; i < devices.Count; i++)
-		{
-			if (devices[i].DeviceID == deviceId)
-			{
-				return i;
-			}
-		}
-		return 0; // 현재 장치가 목록에 없으면 0 반환
-	}
-
-	private static int WrapIndex(int index, int count)
-	{
-		return (index % count + count) % count; // 음수 인덱스도 올바르게 처리
-	}
-
-	private static List<VivoxInputDevice> GetSelectableInputDevices()
-	{
-		var result = new List<VivoxInputDevice>();
-
-		foreach (var device in VivoxService.Instance.AvailableInputDevices)
-		{
-			if (device.DeviceID == DefaultCommunicationDeviceId)
-			{
-				continue;
-			}
-
-			if (device.DeviceID == DefaultSystemDeviceId)
-			{
-				result.Insert(0, device);
-			}
-			else
-			{
-				result.Add(device);
-			}
-		}
-
-		return result;
-	}
-
-	private static List<VivoxOutputDevice> GetSelectableOutputDevices()
-	{
-		var result = new List<VivoxOutputDevice>();
-
-		foreach (var device in VivoxService.Instance.AvailableOutputDevices)
-		{
-			if (device.DeviceID == DefaultCommunicationDeviceId)
-			{
-				continue;
-			}
-
-			if (device.DeviceID == DefaultSystemDeviceId)
-			{
-				result.Insert(0, device);
-			}
-			else
-			{
-				result.Add(device);
-			}
-		}
-
-		return result;
-	}
-
-	private async UniTask SelectDefaultCommunicationDevicesAsync()
-	{
-		var inputDevices = GetSelectableInputDevices();
-		var outputDevices = GetSelectableOutputDevices();
-
-		int inputIndex = FindInputDeviceIndex(inputDevices, DefaultCommunicationDeviceId);
-		if (inputDevices.Count > 0 && inputDevices[inputIndex].DeviceID == DefaultCommunicationDeviceId)
-		{
-			await VivoxService.Instance.SetActiveInputDeviceAsync(inputDevices[inputIndex]);
-		}
-
-		int outputIndex = FindOutputDeviceIndex(outputDevices, DefaultCommunicationDeviceId);
-		if (outputDevices.Count > 0 && outputDevices[outputIndex].DeviceID == DefaultCommunicationDeviceId)
-		{
-			await VivoxService.Instance.SetActiveOutputDeviceAsync(outputDevices[outputIndex]);
 		}
 	}
 
@@ -332,32 +301,51 @@ public class VivoxManager : MonoBehaviour
 		AudioDevicesChanged?.Invoke();
 	}
 
-	private void OnDestroy()
-	{
-		if (Instance != this)
-		{
-			return;
-		}
-
-		if (VivoxService.Instance != null)
-		{
-			VivoxService.Instance.AvailableInputDevicesChanged -= OnAudioDevicesChanged;
-			VivoxService.Instance.AvailableOutputDevicesChanged -= OnAudioDevicesChanged;
-		}
-
-		Instance = null;
-	}
+	//--- 마이크 테스트 ---//
+	// 테스트 중에는 게임 채널로 전송하지 않고(= 팀원에게 뮤트), 마이크 입력을 로컬에서 되들려준다.
 
 	public void ToggleMicTest()
 	{
+		// 게임 채널 차단은 여기서 곧바로 한다. 아래 비동기 처리를 기다리면 그 사이 동안
+		// 내 목소리가 팀원에게 그대로 들린다. MuteInputDevice는 동기 호출이라 즉시 끊긴다.
+		if (!_isMicTesting && VivoxService.Instance != null && VivoxService.Instance.IsLoggedIn)
+		{
+			_inputWasMuted = VivoxService.Instance.IsInputDeviceMuted;
+			_outputWasMuted = VivoxService.Instance.IsOutputDeviceMuted;
+
+			VivoxService.Instance.MuteInputDevice();
+			VivoxService.Instance.UnmuteOutputDevice();  // 내 목소리를 들어야 하므로 스피커는 켠다
+		}
+
 		ToggleMicTestAsync().Forget();
 	}
 
 	public void StopMicTest()
 	{
-		if (_isMicTesting)
+		StopMicTestRequestAsync().Forget();
+	}
+
+	// 설정 창을 닫는 경로는 버튼 토글과 달리 언제든 들어올 수 있다.
+	// 시작이 진행 중인데 종료가 끼어들면 뒤늦게 도착한 시작 처리가 상태를 되살려 버리므로,
+	// 진행 중인 전환이 끝나기를 기다린다.
+	private async UniTask StopMicTestRequestAsync()
+	{
+		await UniTask.WaitUntil(() => !_isChangingMicTest);
+
+		if (!_isMicTesting)
 		{
-			StopMicTestAsync().Forget();
+			return;
+		}
+
+		_isChangingMicTest = true;
+
+		try
+		{
+			await StopMicTestAsync();
+		}
+		finally
+		{
+			_isChangingMicTest = false;
 		}
 	}
 
@@ -391,22 +379,15 @@ public class VivoxManager : MonoBehaviour
 	{
 		await LoginTask;
 
-		var service = VivoxService.Instance;
-
-		_micTestChannelName = $"Mic-Test-{service.SignedInPlayerId}";
-		_inputWasMuted = service.IsInputDeviceMuted;
-		_outputWasMuted = service.IsOutputDeviceMuted;
-
-		// 마이크 테스트용 채널 참가 시, 마이크 테스트용 채널에서는 내 목소리만 들리도록 설정
-		await service.JoinEchoChannelAsync(_micTestChannelName, ChatCapability.AudioOnly);
-		await service.SetChannelTransmissionModeAsync(TransmissionMode.Single, _micTestChannelName);
-
-		service.UnmuteInputDevice();
-		service.UnmuteOutputDevice();
-
+		// 게임 채널 차단(MuteInputDevice)과 원래 상태 기록은 ToggleMicTest에서 이미 끝냈다.
+		// 여기서는 내 목소리를 들려주는 일만 한다.
 		_isMicTesting = true;
 		MicTestStateChanged?.Invoke(true);
-		Debug.Log($"[Vivox] 마이크 테스트 시작");
+
+		// 캡처 시작을 기다리는 동안 테스트가 끝났으면 재생하지 않는다.
+		await _micMonitor.StartAsync(() => _isMicTesting);
+
+		Debug.Log("[Vivox] 마이크 테스트 시작");
 	}
 
 	private async UniTask StopMicTestAsync()
@@ -418,40 +399,41 @@ public class VivoxManager : MonoBehaviour
 
 		var service = VivoxService.Instance;
 
-		// 채널 전환 순간 게임 채널로 소리가 새지 않게 잠시 음소거
-		service.MuteInputDevice();
-
-		// 마이크 테스트용 채널에서 세션 채널로 전환 시, 세션 채널에서는 내 목소리가 들리지 않도록 설정
-		if (!string.IsNullOrEmpty(_sessionChannelName) && service.ActiveChannels.ContainsKey(_sessionChannelName))
-		{
-			await service.SetChannelTransmissionModeAsync(TransmissionMode.Single, _sessionChannelName);
-		}
-		else
-		{
-			await service.SetChannelTransmissionModeAsync(TransmissionMode.None);
-		}
-
-		if (service.ActiveChannels.ContainsKey(_micTestChannelName))
-		{
-			await service.LeaveChannelAsync(_micTestChannelName);
-		}
-
-		//--- 마이크 테스트 종료 시, 원래 마이크가 음소거 상태가 아니었다면 마이크를 다시 켠다. ---//
-		if (!_inputWasMuted)
-		{
-			service.UnmuteInputDevice();
-		}
-
-		if (_outputWasMuted)
-		{
-			service.MuteOutputDevice();
-		}
-
-		_micTestChannelName = null;
+		// 상태를 먼저 내려둔다. 아래에서 실패해도 "테스트 중"으로 남아 다음 종료가 막히지 않게 한다.
 		_isMicTesting = false;
-		MicTestStateChanged?.Invoke(false);
 
-		Debug.Log("[Vivox] 마이크 테스트 종료");
+		try
+		{
+			_micMonitor.Stop();
+
+			// 전송 대상이 게임 채널을 가리키는지 확인해 둔다. 테스트 중에는 채널을 건드리지 않았지만,
+			// 그 사이에 방을 옮겼거나 이전 상태가 남아 있을 수 있다.
+			await RestoreSessionTransmissionAsync();
+		}
+		finally
+		{
+			// 게임 채널로 복귀한 다음에 장치 상태를 테스트 전으로 되돌린다.
+			// 중간에 실패해도 마이크가 꺼진 채로 남지 않도록 finally에서 처리한다.
+			if (_inputWasMuted)
+			{
+				service.MuteInputDevice();
+			}
+			else
+			{
+				service.UnmuteInputDevice();
+			}
+
+			if (_outputWasMuted)
+			{
+				service.MuteOutputDevice();
+			}
+			else
+			{
+				service.UnmuteOutputDevice();
+			}
+
+			MicTestStateChanged?.Invoke(false);
+			Debug.Log("[Vivox] 마이크 테스트 종료");
+		}
 	}
-
 }

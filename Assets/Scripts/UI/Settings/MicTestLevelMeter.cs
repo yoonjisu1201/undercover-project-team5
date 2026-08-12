@@ -1,5 +1,3 @@
-using System.Linq;
-using Unity.Services.Vivox;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -34,32 +32,12 @@ public sealed class MicTestLevelMeter : MonoBehaviour
         RefreshBars(_displayEnergy);
     }
 
+    // 마이크 테스트는 Vivox 채널을 거치지 않고 마이크 입력을 바로 들려주므로,
+    // 막대도 그 입력에서 계산한 음량을 쓴다.
     private float GetMicEnergy()
     {
-        var manager = VivoxManager.Instance;
-
-        if (manager == null || !manager.IsMicTesting)
-        {
-            return 0f;
-        }
-
-        var service = VivoxService.Instance;
-        string channelName = manager.MicTestChannelName;
-
-        if (service == null || string.IsNullOrEmpty(channelName) || !service.ActiveChannels.TryGetValue(channelName, out var channel))
-        {
-            return 0f;
-        }
-
-        var localParticipant = channel.FirstOrDefault(participant => participant.IsSelf);
-
-        if (localParticipant == null)
-        {
-            return 0f;
-        }
-
-        // Vivox AudioEnergy 값은 0~1 범위다.
-        return Mathf.Clamp01((float)localParticipant.AudioEnergy);
+        VivoxManager manager = VivoxManager.Instance;
+        return manager != null ? manager.MicMonitorEnergy01 : 0f;
     }
 
     private void RefreshBars(float energy)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -482,15 +482,6 @@ public sealed class FrequencySyncState : NetworkBehaviour
         return null;
     }
 
-    // P1이 몇 번째 좌표를 진행할지 고른다.
-    public void SubmitSelectedZone(int index)
-    {
-        if (IsSpawned)
-        {
-            SetSelectedZoneRpc(((index % ZoneCount) + ZoneCount) % ZoneCount);
-        }
-    }
-
     // P3가 다이얼을 돌린 값을 보고한다.
     public void SubmitFrequency(float frequency)
     {
@@ -540,19 +531,6 @@ public sealed class FrequencySyncState : NetworkBehaviour
     }
 
     // 이 기계는 서버 소유지만 RPC를 호출하는 쪽은 각 화면을 조작하는 클라이언트다. Breaker와 같은 이유로 Everyone으로 열어둔다.
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void SetSelectedZoneRpc(int index)
-    {
-        // 이미 통과한 좌표는 다시 고를 수 없다.
-        if (IsZoneCompleted(index) || _stageIndex.Value == index)
-        {
-            return;
-        }
-
-        _stageIndex.Value = index;
-        BeginStageOnServer();
-    }
-
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void SetFrequencyRpc(float frequency)
     {
