@@ -32,6 +32,13 @@ public class LobbyButtonUI : MonoBehaviour
 		if (string.IsNullOrEmpty(reason)) return;
 
 		GameSessionManager.Instance.LastLeaveReason = null;
+		ShowReasonText(reason);
+	}
+
+	// 퇴장 사유와 방 입장 실패 사유를 같은 자리에 같은 방식으로 띄운다.
+	private void ShowReasonText(string reason)
+	{
+		CancelInvoke(nameof(HideLeaveReasonText)); // 연속 실패 시 앞선 숨김 예약이 새 문구를 지우지 않도록
 		_leaveReasonText.text = reason;
 		_leaveReasonText.gameObject.SetActive(true);
 		Invoke(nameof(HideLeaveReasonText), 2f);
@@ -59,6 +66,13 @@ public class LobbyButtonUI : MonoBehaviour
 
 	private void HandleJoinButtonClicked()
 	{
+		// 빈 값으로 요청하면 서버까지 갔다 와서 애매한 오류가 뜨므로 여기서 먼저 막는다.
+		if (string.IsNullOrWhiteSpace(_joinCodeInputField.text))
+		{
+			ShowReasonText("방 코드를 입력해주세요");
+			return;
+		}
+
 		GameSessionManager.Instance.JoinSessionByCode(_joinCodeInputField.text);
 	}
 
@@ -84,5 +98,6 @@ public class LobbyButtonUI : MonoBehaviour
 	private void HandleSessionError(string message)
 	{
 		Debug.LogError($"세션 오류: {message}");
+		ShowReasonText(message);
 	}
 }
