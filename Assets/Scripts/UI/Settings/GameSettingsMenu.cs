@@ -315,6 +315,11 @@ public sealed class GameSettingsMenu : MonoBehaviour
         SetMenuActive(true);
     }
 
+    public void OpenSettings()
+    {
+        SetMenuActive(true);
+    }
+
     private void SetMenuActive(bool active)
     {
         _settingsPanel.SetActive(active);

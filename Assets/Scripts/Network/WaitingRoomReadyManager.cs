@@ -18,7 +18,7 @@ public class WaitingRoomReadyManager : NetworkBehaviour
             ClientId == other.ClientId && IsReady == other.IsReady;
     }
 
-    public const int MinPlayersToStart = 3;
+    public const int MinPlayersToStart = 1;  //최소 시작 인원.  테스트할때는 1, 빌드할때는 3
 
     private readonly NetworkList<PlayerSlot> _slots = new();
 
