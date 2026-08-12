@@ -18,15 +18,10 @@ public sealed class NpcRandomWander : MonoBehaviour
     [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 1f;
     [SerializeField, Min(0f)] private float _minimumMoveDistance = 2f;
 
-    [Header("Idle Settings")]
-    [SerializeField, Min(0f)] private float _minimumIdleSeconds = 1f;
-    [SerializeField, Min(0f)] private float _maximumIdleSeconds = 3f;
-
     private NpcMovement _movement;
     private NpcStateMachine _stateMachine;
     private MapRegion _spawnRegion;
     private MapRegionController _regionController;
-    private float _nextMoveTime;
     private bool _hasRequestedMove;
 
     private bool IsChaseTarget
@@ -73,11 +68,6 @@ public sealed class NpcRandomWander : MonoBehaviour
         }
     }
 
-    private void Start()
-    {
-        ScheduleNextMove();
-    }
-
     private void Update()
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer ||
@@ -96,11 +86,10 @@ public sealed class NpcRandomWander : MonoBehaviour
             }
 
             _hasRequestedMove = false;
-            ScheduleNextMove();
             return;
         }
 
-        if (!IsChaseTarget &&Time.time < _nextMoveTime)
+        if (!IsChaseTarget && !_stateMachine.CanSelectDestination)
         {
             return;
         }
@@ -109,18 +98,21 @@ public sealed class NpcRandomWander : MonoBehaviour
         {
             if (IsChaseTarget)
             {
-                _stateMachine.RequestRun(destination);
+                _stateMachine.ChangeToRun(destination);
             }
             else
             {
-                _stateMachine.RequestWalk(destination);
+                _stateMachine.ChangeToWalk(destination);
             }
 
             _hasRequestedMove = true;
             return;
         }
 
-        ScheduleNextMove();
+        if (!IsChaseTarget)
+        {
+            _stateMachine.WaitForNextIdleCompletion();
+        }
     }
 
     private bool TryGetRandomDestination(out Vector3 destination)
@@ -178,20 +170,6 @@ public sealed class NpcRandomWander : MonoBehaviour
         }
 
         return false;
-    }
-
-    private void ScheduleNextMove()
-    {
-        if(IsChaseTarget)
-        {
-            _nextMoveTime = Time.time;
-
-            return;
-        }
-
-        float minimum = Mathf.Min(_minimumIdleSeconds, _maximumIdleSeconds);
-        float maximum = Mathf.Max(_minimumIdleSeconds, _maximumIdleSeconds);
-        _nextMoveTime = Time.time + Random.Range(minimum, maximum);
     }
 
     private void FindWanderArea()

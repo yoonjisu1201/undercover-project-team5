@@ -125,7 +125,7 @@ public sealed partial class DebugMenuController
 
         if (frozen)
         {
-            criminal.GetComponent<NpcStateMachine>()?.RequestIdle();
+            criminal.GetComponent<NpcStateMachine>()?.ChangeToIdle();
             movement.HoldExternally();
         }
         else
