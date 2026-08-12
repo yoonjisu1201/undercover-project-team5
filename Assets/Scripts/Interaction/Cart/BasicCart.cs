@@ -120,4 +120,8 @@ public class BasicCart : CartBase {
 		// 실제 회복에 사용된 양 만큼만 차감
 		_remainingHealAmount.Value -= realAmount;
 	}
+	
+	public void RefillHealingAmount() {
+		_remainingHealAmount.Value = _maxHealAmount;
+	}
 }
