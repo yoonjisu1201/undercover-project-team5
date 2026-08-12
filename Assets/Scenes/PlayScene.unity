@@ -235382,10 +235382,8 @@ MonoBehaviour:
   _completionReward: {fileID: 0}
   _rewardSpawnOffset: {x: 0, y: 0.5, z: 1.2}
   _requiredItem: {fileID: 11400000, guid: dd3dd4d373394aa7aa758c8a8b58e1f7, type: 2}
-  _requiredItemInsertText: "\uD22C\uC785"
   _requiredItemMissingText: "\uD544\uC694"
   _requiredItemInsertedText: "\uBD84\uC11D \uAC00\uB2A5"
-  _requiredItemInsertHoldDuration: 1.2
 --- !u!114 &1339301596
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -266147,13 +266145,6 @@ MonoBehaviour:
   _items:
   - {fileID: 11400000, guid: cb0ad0ca2daa5ef4aac47ce2d868712c, type: 2}
   - {fileID: 11400000, guid: d4c04607b5b327143b49925c8c0b3b6c, type: 2}
-  - {fileID: 11400000, guid: 715cdf53515e39241903065aa5726362, type: 2}
-  - {fileID: 11400000, guid: 13b21f3065a8aac4b892ca81f7deda9a, type: 2}
-  - {fileID: 11400000, guid: bdb2b427d4773324c8050f3d5803d6fc, type: 2}
-  - {fileID: 11400000, guid: ed6380ebc5ca27540bd0359ea59208fb, type: 2}
-  - {fileID: 11400000, guid: eb76c54b670d010438de9486d117cb0b, type: 2}
-  - {fileID: 11400000, guid: a33f66087e23c01428564e2e2dfa4c07, type: 2}
-  - {fileID: 11400000, guid: 68345ec1c1e9ecb4691b1665178cbd12, type: 2}
   - {fileID: 11400000, guid: 726edf1bc07b0724f94fdcbe331b9069, type: 2}
   - {fileID: 11400000, guid: 22f98367f57cde744b0d3fe9abccc2d8, type: 2}
   - {fileID: 11400000, guid: f54effa30c8be5a40af1147571bcb582, type: 2}
@@ -276748,6 +276739,7 @@ MonoBehaviour:
   _moduleSpawnPoint: {fileID: 953815738}
   _clueCamera: {fileID: 621774299}
   _renderTexture: {fileID: 8400000, guid: 83903618b7fe8e74380213a2c9942e8f, type: 2}
+  _clueCount: 8
 --- !u!4 &1598438047
 Transform:
   m_ObjectHideFlags: 0
@@ -348812,7 +348804,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2009719988
 RectTransform:
   m_ObjectHideFlags: 0
@@ -354305,19 +354297,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5bf6da54c89b41c4bbdad75e72bb20c9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ClueSpawner
-  _clues:
-  - {fileID: 11400000, guid: d4c04607b5b327143b49925c8c0b3b6c, type: 2}
-  - {fileID: 11400000, guid: 715cdf53515e39241903065aa5726362, type: 2}
-  - {fileID: 11400000, guid: 13b21f3065a8aac4b892ca81f7deda9a, type: 2}
-  - {fileID: 11400000, guid: bdb2b427d4773324c8050f3d5803d6fc, type: 2}
-  - {fileID: 11400000, guid: ed6380ebc5ca27540bd0359ea59208fb, type: 2}
-  - {fileID: 11400000, guid: eb76c54b670d010438de9486d117cb0b, type: 2}
-  - {fileID: 11400000, guid: a33f66087e23c01428564e2e2dfa4c07, type: 2}
-  - {fileID: 11400000, guid: 68345ec1c1e9ecb4691b1665178cbd12, type: 2}
+  _clueData: {fileID: 11400000, guid: d4c04607b5b327143b49925c8c0b3b6c, type: 2}
   _spawnCluesAtRoundStart: 1
-  _missionRewardClues:
-  - {fileID: 11400000, guid: d4c04607b5b327143b49925c8c0b3b6c, type: 2}
-  - {fileID: 11400000, guid: 13b21f3065a8aac4b892ca81f7deda9a, type: 2}
+  _totalClueCount: 8
+  _missionRewardClueCount: 3
   _regionController: {fileID: 361850273}
   _spawnCoordinator: {fileID: 361850274}
   _spawnRule:
@@ -370095,10 +370078,18 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1503917031015257849, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4116093105206914288, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 5837840438065526402, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+      propertyPath: _promptUI
+      value: 
+      objectReference: {fileID: 1748716109536420700}
     - target: {fileID: 5837840438065526402, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
       propertyPath: _itemCatalog
       value: 
@@ -370139,6 +370130,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: InventoryCanvas
       objectReference: {fileID: 0}
+    - target: {fileID: 6867887084107031234, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6948077601196424578, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: -2647956062019823955, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
     - target: {fileID: 6956392925238415198, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -370153,6 +370152,14 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6956392925238415198, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
       propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7413037309360603347, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 800
+      objectReference: {fileID: 0}
+    - target: {fileID: 7413037309360603347, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+      propertyPath: m_AnchoredPosition.x
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7514348910333129600, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
@@ -370238,7 +370245,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 6867887084107031234, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1748716109536420700}
   m_SourcePrefab: {fileID: 100100000, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
 --- !u!1 &1748716109536420696 stripped
 GameObject:
@@ -370261,6 +370271,32 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 4116093105206914288, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
   m_PrefabInstance: {fileID: 1748716109536420695}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1748716109536420699 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6948077601196424578, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+  m_PrefabInstance: {fileID: 1748716109536420695}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
+--- !u!114 &1748716109536420700
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1748716109536420696}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f91fb811849c78948ae1976b98c67654, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptUI
+  _interactionPromptText: {fileID: 1748716109536420699}
+  _selectedItemPromptDuration: 1
+  _useHoldProgressImage: {fileID: 0}
 --- !u!114 &1797539548508009725
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -375494,6 +375530,10 @@ PrefabInstance:
     - target: {fileID: 3307682496631258040, guid: a780a97c82f5e0344b45f17b448c660f, type: 3}
       propertyPath: m_Name
       value: RoundResultPanel
+      objectReference: {fileID: 0}
+    - target: {fileID: 3307682496631258040, guid: a780a97c82f5e0344b45f17b448c660f, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8852242791068924255, guid: a780a97c82f5e0344b45f17b448c660f, type: 3}
       propertyPath: m_Pivot.x

@@ -18,7 +18,7 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
 
     private readonly List<RectTransform> _inventoryCells = new();    // 미션 진입 시 실제 인벤토리에서 꺼내 미션이 임시로 보관하는 건전지 ID들이다.
 
-    private readonly List<string> _stagedBatteryItemIds = new();
+    private readonly List<ItemType> _stagedBatteryItemIds = new();
 
     private Transform _inventoryPanel;
     private RectTransform _inventoryContent;

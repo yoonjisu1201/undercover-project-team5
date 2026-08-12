@@ -21,7 +21,7 @@ public sealed class ShopManager : NetworkBehaviour {
 
 	public event Action<int> CreditsChanged;
 	public event Action InventoryFull;
-	public event Action<string, int> PurchaseCompleted;
+	public event Action<ItemType, int> PurchaseCompleted;
 	public event Action<string> PurchaseFailed;
 
 	public override void OnNetworkSpawn() 
@@ -51,7 +51,7 @@ public sealed class ShopManager : NetworkBehaviour {
 	}
 
 	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-	public void RequestPurchaseRpc(string itemId, RpcParams rpcParams = default)
+	public void RequestPurchaseRpc(ItemType itemId, RpcParams rpcParams = default)
 	{
 		ShopItemData shopItem = FindShopItem(itemId);
 		ulong senderClientId = rpcParams.Receive.SenderClientId;
@@ -85,7 +85,7 @@ public sealed class ShopManager : NetworkBehaviour {
 				return;
 			}
 
-			if (!inventory.TryAddItemOnServer(itemData.ItemId))
+			if (!ItemBase.TrySpawnAndAddToInventory(itemData, inventory))
 			{
 				NotifyPurchaseFailedRpc("인벤토리가 가득 찼습니다.", RpcTarget.Single(senderClientId, RpcTargetUse.Temp));
 				return;
@@ -97,7 +97,7 @@ public sealed class ShopManager : NetworkBehaviour {
 		}
 
 		if (itemData.WorldPrefab == null ||
-			!itemData.WorldPrefab.TryGetComponent(out PickupItem _) ||
+			!itemData.WorldPrefab.TryGetComponent(out ItemBase _) ||
 			!itemData.WorldPrefab.TryGetComponent(out NetworkObject _)) 
 		{
 			return;
@@ -108,10 +108,10 @@ public sealed class ShopManager : NetworkBehaviour {
 			_itemDropPoint.position,
 			itemData.WorldPrefab.transform.rotation);
 
-		PickupItem pickupItem = itemObject.GetComponent<PickupItem>();
+		ItemBase itemBase = itemObject.GetComponent<ItemBase>();
 		NetworkObject networkObject = itemObject.GetComponent<NetworkObject>();
 
-		pickupItem.Configure(itemData);
+		itemBase.Configure(itemData);
 		networkObject.Spawn(destroyWithScene: true);
 
 		_credits.Value -= shopItem.Price;
@@ -119,13 +119,7 @@ public sealed class ShopManager : NetworkBehaviour {
 	}
 
 	[Rpc(SendTo.SpecifiedInParams)]
-	private void NotifyInventoryFullRpc(RpcParams rpcParams = default)
-	{
-		InventoryFull?.Invoke();
-	}
-
-	[Rpc(SendTo.SpecifiedInParams)]
-	private void NotifyPurchaseCompletedRpc(string itemId, int remainingCredits, RpcParams rpcParams = default)
+	private void NotifyPurchaseCompletedRpc(ItemType itemId, int remainingCredits, RpcParams rpcParams = default)
 	{
 		PurchaseCompleted?.Invoke(itemId, remainingCredits);
 	}
@@ -136,7 +130,7 @@ public sealed class ShopManager : NetworkBehaviour {
 		PurchaseFailed?.Invoke(reason);
 	}
 
-	private ShopItemData FindShopItem(string itemId) 
+	private ShopItemData FindShopItem(ItemType itemId)
 	{
 		foreach (ShopItemData shopItem in _shopItems) 
 		{

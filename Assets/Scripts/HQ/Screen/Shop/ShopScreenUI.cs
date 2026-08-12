@@ -255,11 +255,11 @@ public sealed class ShopScreenUI : ScreenBase, IClosableUi
 		HandlePurchaseFailed(InventoryFullReason);
 	}
 
-	private void HandlePurchaseCompleted(string itemId, int remainingCredits)
+	private void HandlePurchaseCompleted(ItemType itemId, int remainingCredits)
 	{
 		HideInventoryFullWarning();
 
-		string itemName = itemId;
+		string itemName = itemId.ToString();
 		ShopItemData purchasedItem = FindShopItem(itemId);
 		if (purchasedItem != null)
 		{
@@ -330,7 +330,7 @@ public sealed class ShopScreenUI : ScreenBase, IClosableUi
 		GameplayUiMode.Instance?.UnregisterUi(this);
 	}
 
-	private ShopItemData FindShopItem(string itemId)
+	private ShopItemData FindShopItem(ItemType itemId)
 	{
 		foreach (ShopItemData item in _shopManager.ShopItems)
 		{

@@ -1210,6 +1210,7 @@ Transform:
   m_Children:
   - {fileID: 432645721594799797}
   - {fileID: 7237436107012484508}
+  - {fileID: 2493310890254095942}
   - {fileID: 6978609527677792072}
   - {fileID: 7695406492542880755}
   m_Father: {fileID: 0}
@@ -1248,7 +1249,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 433006339
+  GlobalObjectIdHash: 1139338985
   InScenePlacedSourceGlobalObjectIdHash: 433006339
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1426,6 +1427,8 @@ MonoBehaviour:
   _inventoryUI: {fileID: 0}
   _clueItemIdPrefix: Clue
   _guideBookItemId: GuideBook
+  _useItemHoldDuration: 1.2
+  _reviveHoldDuration: 1.2
 --- !u!114 &8122667368698811361
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1692,6 +1695,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 90abd54f8fb544fabc878f511949f2a7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCartIK
+--- !u!114 &1045602665402390820
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7dde49958db34625a654bb351dc68c49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UsableItem
+  ShowTopMostFoldoutHeaderGroup: 1
+  _eatingClip: {fileID: 8300000, guid: e2f30b2f19c27e7499a1b2b90649b9f1, type: 3}
+  _eatingVolume: 1
 --- !u!114 &4616303595814608194
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3556,7 +3574,6 @@ Transform:
   - {fileID: 566639903177380924}
   - {fileID: 6590663676592714737}
   - {fileID: 1753970972892001806}
-  - {fileID: 2493310890254095942}
   m_Father: {fileID: 7257694396862523126}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5638451447080039697
@@ -4067,7 +4084,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5656303216670194713}
-  m_Father: {fileID: 7695406492542880755}
+  m_Father: {fileID: 7257694396862523126}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -5645,18 +5662,3 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6183289162139396044, guid: c7b61cc7aec032741a9bf16c1ff75a46, type: 3}
   m_PrefabInstance: {fileID: 3684273918762742894}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1045602665402390820
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2530359100604845935}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7dde49958db34625a654bb351dc68c49, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::UsableItem
-  ShowTopMostFoldoutHeaderGroup: 1
-  _eatingClip: {fileID: 8300000, guid: e2f30b2f19c27e7499a1b2b90649b9f1, type: 3}
-  _eatingVolume: 1

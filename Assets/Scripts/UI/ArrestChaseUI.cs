@@ -190,7 +190,7 @@ public class ArrestChaseUI : MonoBehaviour
         }
 
         bool hasToolEquipped = localPlayer.TryGetComponent(out PlayerInventory inventory)
-            && inventory.TryGetSelectedItem(out string itemId)
+            && inventory.TryGetSelectedItemId(out ItemType itemId)
             && itemId == ArrestChaseManager.CaptureToolItemId;
 
         string desiredMessage = !hasToolEquipped

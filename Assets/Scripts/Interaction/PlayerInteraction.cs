@@ -1,45 +1,43 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
-// 플레이어 상호작용의 코어: 참조/라이프사이클과 프레임별 입력 분배를 담당한다.
-// 세부 로직은 partial로 분리되어 있다.
-//   - PlayerInteraction.Targeting.cs            : 화면 중심 조준으로 대상 감지·선택
-//   - PlayerInteraction.ItemUI.cs               : 아이템 획득 시 단서·가이드 북 UI 여닫기
-//   - PlayerInteraction.Drop.cs                 : 선택한 아이템 드롭
+// 플레이어 상호작용: 참조/라이프사이클, 프레임별 입력 분배, 화면 중심 조준을 통한 대상 감지·선택을 담당한다.
 [RequireComponent(typeof(PlayerInventory), typeof(PlayerHealth))]
-public partial class PlayerInteraction : NetworkBehaviour
+public class PlayerInteraction : NetworkBehaviour
 {
+    // 상호작용 범위(SphereCollider) 안의 후보 목록과 중복 진입 카운트.
+    private readonly HashSet<InteractableBase> _nearbyInteractables = new();
+    private readonly Dictionary<InteractableBase, int> _overlapCounts = new();
+
     // 인스펙터에서 연결하는 참조와 상호작용 범위를 조절하는 값.
     [Header("상호작용 설정")]
     [SerializeField] private Camera _playerCamera;
     [Range(0.01f, 0.5f)]
     [SerializeField] private float _screenCenterRadius = 0.2f; // 화면 중심에서 상호작용 가능한 영역의 반지름
-    [SerializeField, Min(0f)] private float _dropInteractionDelay = 1.5f;   // 드롭 후 상호작용 차단 시간
-    [SerializeField] private ItemCatalog _itemCatalog;
-    [SerializeField] private InventoryUI _inventoryUI;
-    [SerializeField] private string _clueItemIdPrefix = "Clue";
-    [SerializeField] private string _guideBookItemId = "GuideBook";
-    [SerializeField, Min(0.1f)] private float _useItemHoldDuration = 1.2f;
-    [SerializeField, Min(0.1f)] private float _reviveHoldDuration = 1.2f;
+    [SerializeField] private InteractionPromptUI _promptUI;
 
     private InteractableBase _currentTarget;  // 현재 상호작용 가능한 대상
 
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
     private PlayerHealth _health;
-    private IUsableItem _usableItem;
+    private PlayerItemUse _itemUse;
     private HoldAction _activeHoldAction = HoldAction.None;
+    // Interact및 아이템 사용 시 사용할 타이머 및 Threshold
     private float _holdTimer;
-    private float _holdDuration;
+    private float _holdThreshold;
     private float _promptRefreshUntil; // 서버 상호작용 결과가 늦게 도착해도 안내 문구가 바로 바뀌도록 잠깐만 재확인한다.
     private InteractableBase _holdTarget;
 
+    
+    // 홀드 시 유형별로 어떤 조건을 체크해야 할지 여기서 나뉜다.
     private enum HoldAction
     {
         None,
         UseItem,
-        Revive,
-        Interactable
+        Interactable,
+        ApplyItem
     }
 
     public CartBase CarryingCart { get; set; } // 플레이어가 끌고 있는 카트. null이면 카트를 끌고 있지 않다.
@@ -49,7 +47,7 @@ public partial class PlayerInteraction : NetworkBehaviour
         _actions = new CustomInputActions();
         _inventory = GetComponent<PlayerInventory>();
         _health = GetComponent<PlayerHealth>();
-        _usableItem = GetComponent<IUsableItem>();
+        _itemUse = GetComponent<PlayerItemUse>();
 
         if (_inventory == null)
         {
@@ -77,41 +75,39 @@ public partial class PlayerInteraction : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         // 입력과 UI는 이 플레이어를 조작하는 클라이언트에서만 초기화한다.
-        if (_itemCatalog == null)
-        {
-            _itemCatalog = FindFirstObjectByType<ItemCatalog>();
-        }
-
-        if (!IsOwner)
-        {
+        if (!IsOwner) {
             _actions.Disable();
             return;
         }
 
-        if (_inventoryUI == null)
-        {
-            _inventoryUI = FindFirstObjectByType<InventoryUI>(FindObjectsInactive.Include);
-        }
-
-        _inventoryUI?.BindInventory(_inventory);
-        if (_usableItem is UsableItem usableItem)
-        {
-            usableItem.BindInventoryUI(_inventoryUI);
-        }
+        InitializeOnGameScene();
 
         if (_inventory != null)
         {
-            _inventory.ItemAdded += HandleItemAdded;
-            _inventory.InventoryChanged += HandleInventoryChanged;
+            _inventory.OnInventoryChanged += HandleInventoryChanged;
+            _inventory.OnSlotSelected += HandleSlotSelected;
         }
+    }
+
+    // 대기방에서 스폰된 채로 게임씬까지 파괴되지 않고 유지되는 플레이어 오브젝트는
+    // OnNetworkSpawn이 대기방에서 한 번만 실행되어 게임씬 전용 UI를 못 찾는다.
+    // 게임씬 로드가 끝난 뒤 GameSessionManager가 이 함수만 다시 호출해 UI 참조를 갱신한다
+    // (이벤트 재구독까지 같이 도는 OnNetworkSpawn() 전체 재호출은 이중 구독을 유발하므로 피한다).
+    public void InitializeOnGameScene()
+    {
+        if (_promptUI == null) {
+            _promptUI = FindFirstObjectByType<InteractionPromptUI>(FindObjectsInactive.Include);
+        }
+
+        _itemUse?.BindInteractionPromptUI(_promptUI);
     }
 
     public override void OnNetworkDespawn()
     {
         if (_inventory != null)
         {
-            _inventory.ItemAdded -= HandleItemAdded;
-            _inventory.InventoryChanged -= HandleInventoryChanged;
+            _inventory.OnInventoryChanged -= HandleInventoryChanged;
+            _inventory.OnSlotSelected -= HandleSlotSelected;
         }
     }
 
@@ -142,15 +138,6 @@ public partial class PlayerInteraction : NetworkBehaviour
             CancelHoldAction();
             SetCurrentTarget(null);
 
-            if (_actions.Player.Interact.WasPressedThisFrame())
-            {
-                // 가이드 북이 열려 있으면 먼저 닫고, 아니면 단서 UI를 닫는다.
-                if (!TryCloseGuideBook())
-                {
-                    TryCloseVisibleClue();
-                }
-            }
-
             return;
         }
 
@@ -168,80 +155,76 @@ public partial class PlayerInteraction : NetworkBehaviour
         {
             HandleInteractInput();
         }
-        if (_actions.Player.Drop.WasPressedThisFrame()) // 드롭 버튼이 눌렸을 때
-        {
-            CancelHoldAction();
-            TryDropSelectedItem();
-        }
+
     }
 
     private void HandleInteractInput()
     {
-        // 조준 중인 대상이 있으면 단서 UI보다 필드 상호작용을 우선한다.
+        // 대상을 조준 중이고 그 대상에 적용 가능한 IInteractionApplier 아이템을 들고 있으면 최우선으로 적용을 시도한다.
+        if (_currentTarget != null && TryGetApplierForTarget(_currentTarget, out ItemBase applierItem, out _))
+        {
+            BeginHoldAction(HoldAction.ApplyItem, applierItem.ItemHoldThreshold, _currentTarget);
+            return;
+        }
+
+        // 조준 중인 대상이 있으면 필드 상호작용을 우선한다. threshold가 0이면 BeginHoldAction 안에서 그 자리에 즉시 처리된다.
         if (_currentTarget != null)
         {
-            if (_currentTarget is PlayerReviveInteractable)
-            {
-                BeginHoldAction(HoldAction.Revive, _reviveHoldDuration, _currentTarget);
-            }
-
-            //  상호작용 대상이 길게 누르기 상호작용을 요구하면 HoldAction을 시작하고, 아니면 즉시 상호작용을 시도한다.
-            else if (_currentTarget.RequiresHoldInteraction(gameObject))
-            {
-                BeginHoldAction(HoldAction.Interactable, _currentTarget.HoldInteractionDuration, _currentTarget);
-            }
-
-            else
-            {
-                TryInteract();
-            }
-
+            BeginHoldAction(HoldAction.Interactable, _currentTarget.InteractHoldThreshold, _currentTarget);
             return;
         }
-
-        if (TryCloseVisibleClue())
+        // 선택한 아이템이 사용 가능하면 그 처리를 우선한다.
+        if (_inventory != null && _inventory.TryGetSelectedItemBase(out ItemBase item) && item is IUsable usable)
         {
-            return;
-        }
-
-        // 선택한 사용 아이템이 E 입력을 처리했다면 단서 UI를 열지 않는다.
-        if (_usableItem != null && _usableItem.TryGetSelectedItemUse(out string message, out bool requiresHold))
-        {
-            if (requiresHold)
+            if (usable.CanUse(gameObject, out string message))
             {
-                BeginHoldAction(HoldAction.UseItem, _useItemHoldDuration);
-            }
-            else
-            {
-                _inventoryUI?.ShowTemporaryPrompt(message);
+                BeginHoldAction(HoldAction.UseItem, item.ItemHoldThreshold);
+                return;
             }
 
-            return;
+            if (message != null)
+            {
+                _promptUI?.ShowTemporaryPrompt(message);
+                return;
+            }
         }
-
-        TryShowSelectedItemUi();
     }
 
-    private void TryInteract()
+    // 현재 선택한 아이템이 target에 적용 가능한 IInteractionApplier인지 확인한다.
+    private bool TryGetApplierForTarget(InteractableBase target, out ItemBase item, out IInteractionApplier applier)
     {
-        if (_currentTarget == null)
+        item = null;
+        applier = null;
+
+        if (target == null
+            || _inventory == null
+            || !_inventory.TryGetSelectedItemBase(out ItemBase selected)
+            || selected is not IInteractionApplier itemApplier
+            || !itemApplier.CanApplyTo(gameObject, target, out _))
         {
-            return;
+            return false;
         }
 
-        // 선택을 먼저 해제해 아웃라인과 안내 문구를 즉시 갱신한다.
-        IInteractable target = _currentTarget;
-        SetCurrentTarget(null);
-        target.Interact(gameObject);
+        item = selected;
+        applier = itemApplier;
+        return true;
     }
 
-    private void BeginHoldAction(HoldAction action, float duration, InteractableBase target = null)
+    private void BeginHoldAction(HoldAction action, float holdThreshold, InteractableBase target = null)
     {
         _activeHoldAction = action;
         _holdTimer = 0f;
-        _holdDuration = duration;
+        _holdThreshold = holdThreshold;
         _holdTarget = target;
-        _inventoryUI?.SetUseHoldProgress(0f, true);
+
+        // threshold가 0 이하면 즉시 처리한다.
+        if (!(holdThreshold > 0f))
+        {
+            CompleteHoldAction();
+            return;
+        }
+
+        _promptUI?.SetUseHoldProgress(0f, true);
     }
 
     private void UpdateHoldAction()
@@ -258,8 +241,8 @@ public partial class PlayerInteraction : NetworkBehaviour
         }
 
         _holdTimer += Time.deltaTime;
-        float progress = Mathf.Clamp01(_holdTimer / _holdDuration);
-        _inventoryUI?.SetUseHoldProgress(progress, true);
+        float progress = Mathf.Clamp01(_holdTimer / _holdThreshold);
+        _promptUI?.SetUseHoldProgress(progress, true);
 
         if (progress < 1f)
         {
@@ -271,12 +254,15 @@ public partial class PlayerInteraction : NetworkBehaviour
 
     private bool IsHoldActionStillValid()
     {
-        // holdAction은 아이템을 사용하거나, 소생시키거나, holdTarget과의 상호작용시에만 적용됩니다.
+        // holdAction은 선택한 아이템을 사용하거나, 조준한 대상과 상호작용하거나, 아이템을 투입할 때만 유지됩니다.
         return _activeHoldAction switch
         {
+            // 아이템 사용 홀드시에는 타겟이 게속 없어야 함
             HoldAction.UseItem => _currentTarget == null,
-            HoldAction.Revive => _holdTarget != null && ReferenceEquals(_currentTarget, _holdTarget) && _holdTarget.CanInteract(gameObject),
+            // Interact할 때에는 그 타겟이 바뀌면 안됨
             HoldAction.Interactable => _holdTarget != null && ReferenceEquals(_currentTarget, _holdTarget) && _holdTarget.CanInteract(gameObject),
+            // 아이템을 사용해 물체와 상호작용할 때에는 그 물체를 계속 바라봐야함
+            HoldAction.ApplyItem => _holdTarget != null && ReferenceEquals(_currentTarget, _holdTarget) && TryGetApplierForTarget(_holdTarget, out _, out _),
             _ => false
         };
     }
@@ -285,21 +271,15 @@ public partial class PlayerInteraction : NetworkBehaviour
     {
         HoldAction completedAction = _activeHoldAction;
         InteractableBase completedTarget = _holdTarget;
+        float completedThreshold = _holdThreshold;
         CancelHoldAction();
 
         switch (completedAction)
         {
             case HoldAction.UseItem:
-                if (_usableItem != null && _usableItem.TryCompleteSelectedItemUse(out string message))
+                if (_itemUse != null && _itemUse.TryCompleteSelectedItemUse(out string message) && !string.IsNullOrWhiteSpace(message))
                 {
-                    _inventoryUI?.ShowTemporaryPrompt(message);
-                }
-                break;
-
-            case HoldAction.Revive:
-                if (completedTarget != null && completedTarget.CanInteract(gameObject))
-                {
-                    completedTarget.Interact(gameObject);
+                    _promptUI?.ShowTemporaryPrompt(message);
                 }
                 break;
 
@@ -307,11 +287,40 @@ public partial class PlayerInteraction : NetworkBehaviour
                 if (completedTarget != null && completedTarget.CanInteract(gameObject))
                 {
                     completedTarget.Interact(gameObject);
-                    _promptRefreshUntil = Time.time + 0.75f;
-                    RefreshInteractionPrompt();
+
+                    // 실제로 길게 눌렀을 때만(threshold > 0) 재확인 구간을 연다.
+                    if (completedThreshold > 0f)
+                    {
+                        _promptRefreshUntil = Time.time + 0.75f;
+                        RefreshInteractionPrompt();
+                    }
+                }
+                break;
+
+            case HoldAction.ApplyItem:
+                if (completedTarget != null && TryGetApplierForTarget(completedTarget, out ItemBase completedItem, out _))
+                {
+                    RequestApplyItemRpc(new NetworkBehaviourReference(completedItem), new NetworkBehaviourReference(completedTarget), _inventory.SelectedIndex);
+
+                    if (completedThreshold > 0f)
+                    {
+                        _promptRefreshUntil = Time.time + 0.75f;
+                        RefreshInteractionPrompt();
+                    }
                 }
                 break;
         }
+    }
+
+    // 조준 대상에 들고 있는 IInteractionApplier 아이템을 적용한다 (예: 오염 샘플을 미션 기계에 투입).
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+    private void RequestApplyItemRpc(NetworkBehaviourReference itemRef, NetworkBehaviourReference targetRef, int selectedIndex)
+    {
+        if (!itemRef.TryGet(out ItemBase item) || item is not IInteractionApplier applier) { return; }
+        if (!targetRef.TryGet(out InteractableBase target) || !target.CanInteract(gameObject)) { return; }
+        if (!applier.CanApplyTo(gameObject, target, out _)) { return; }
+
+        applier.ApplyToOnServer(gameObject, target, _inventory, selectedIndex);
     }
 
     private void CancelHoldAction()
@@ -323,8 +332,241 @@ public partial class PlayerInteraction : NetworkBehaviour
 
         _activeHoldAction = HoldAction.None;
         _holdTimer = 0f;
-        _holdDuration = 0f;
+        _holdThreshold = 0f;
         _holdTarget = null;
-        _inventoryUI?.SetUseHoldProgress(0f, false);
+        _promptUI?.SetUseHoldProgress(0f, false);
+    }
+
+    private void UpdateCartInteraction()
+    {
+        SetCurrentTarget(null);
+        _promptUI.SetInteractionPrompt($"{CarryingCart.CartName}카트 놓기");
+
+        if (_actions.Player.Interact.WasPressedThisFrame())
+        {
+            CarryingCart.ReleaseCart();
+            _promptUI.SetInteractionPrompt("");
+        }
+    }
+
+    // 상호작용 범위에 들어온 대상을 후보 목록에 추가한다.
+    private void OnTriggerEnter(Collider other) // SphereCollider에 들어온 아이템을 nearbyInteractables에 추가
+    {
+        if (!IsOwner)
+        {
+            return;
+        }
+
+        if (IsWanderAreaCollider(other))
+        {
+            return; // NPC 배회 반경 콜라이더는 상호작용 판정 대상이 아니다
+        }
+
+        InteractableBase newTarget = other.GetComponentInParent<InteractableBase>();
+        if (newTarget != null)
+        {
+            _overlapCounts.TryGetValue(newTarget, out int overlapCount);
+            _overlapCounts[newTarget] = overlapCount + 1;
+            _nearbyInteractables.Add(newTarget);
+        }
+    }
+
+    // 범위를 벗어난 대상을 제거하고, 선택 중이었다면 선택도 해제한다.
+    private void OnTriggerExit(Collider other)  // SphereCollider에서 나간 상호작용 대상을 nearbyInteractables에서 제거
+    {
+        if (!IsOwner)
+        {
+            return;
+        }
+
+        if (IsWanderAreaCollider(other))
+        {
+            return;
+        }
+
+        InteractableBase outTarget = other.GetComponentInParent<InteractableBase>();
+        if (outTarget == null)
+        {
+            return;
+        }
+
+        if (_overlapCounts.TryGetValue(outTarget, out int overlapCount) && overlapCount > 1)
+        {
+            _overlapCounts[outTarget] = overlapCount - 1;
+            return;
+        }
+
+        _overlapCounts.Remove(outTarget);
+        _nearbyInteractables.Remove(outTarget);
+        if (ReferenceEquals(outTarget, _currentTarget))
+        {
+            SetCurrentTarget(null);
+        }
+    }
+
+    // NPC의 배회 반경 콜라이더인지 확인한다. 같은 오브젝트에 다른 콜라이더(몸체 등)가 있을 수 있으므로 참조까지 비교한다.
+    private static bool IsWanderAreaCollider(Collider other)
+    {
+        return other.TryGetComponent(out NpcRandomWander wander) && wander.WanderAreaCollider == other;
+    }
+
+    // 선택 슬롯이 바뀌면(예: 스크롤로 아이템 선택/해제) 안내 문구를 바로 갱신한다.
+    // 대상을 조준 중이 아니어도 들고 있는 IUsable 아이템 문구가 바뀔 수 있어 대상 유무와 상관없이 갱신한다.
+    private void HandleInventoryChanged()
+    {
+        RefreshInteractionPrompt();
+    }
+
+    // 휠·숫자키로 슬롯을 바꾸면 손에 든 아이템 안내를 1초만 보여준다.
+    // 사용할 수 있는 아이템이면 사용 문구를("단서 확인 : [E]"), 그 외에는 아이템 이름을 띄운다.
+    // 이 안내는 우선순위가 가장 낮아서, 조준 중인 대상이 있으면 그 안내를 가리지 않는다.
+    private void HandleSlotSelected(int selectedIndex)
+    {
+        if (_currentTarget != null || _health.IsDowned || CarryingCart != null || GameplayUiMode.IsActive)
+        {
+            return;
+        }
+
+        if (_inventory == null
+            || !_inventory.TryGetSelectedItemBase(out ItemBase item)
+            || item.ItemData == null)
+        {
+            return;
+        }
+
+        if (item is IUsable usable)
+        {
+            _promptUI?.ShowTemporaryPrompt(AppendHoldSuffix(usable.UseText, item.ItemHoldThreshold), true);
+            return;
+        }
+
+        _promptUI?.ShowTemporaryPrompt(item.ItemData.DisplayName);
+    }
+
+    // 현재 조준 대상과 들고 있는 아이템 기준으로 상호작용 안내 문구를 갱신한다.
+    private void RefreshInteractionPrompt()
+    {
+        // 누워있거나, 카트 끌고 있거나, UI화성화중에는 SetInteractionPrompt 안띄우기
+        if (_health.IsDowned || CarryingCart != null || GameplayUiMode.IsActive)
+        {
+            _promptUI?.SetInteractionPrompt(null, false);
+            return;
+        }
+
+        // 1. 대상을 조준 중이고, 그 대상에 적용 가능한 IInteractionApplier 아이템을 들고 있으면 아이템 쪽 문구가 최우선.
+        if (_currentTarget != null && TryGetApplierForTarget(_currentTarget, out ItemBase applierItem, out IInteractionApplier applier))
+        {
+            _promptUI?.SetInteractionPrompt(AppendHoldSuffix(applier.InteractionApplyText, applierItem.ItemHoldThreshold), true);
+            return;
+        }
+
+        // 2. 대상만 조준 중이면 대상 자체 문구.
+        if (_currentTarget != null)
+        {
+            string interactionText = AppendHoldSuffix(_currentTarget.GetInteractionText(gameObject), _currentTarget.InteractHoldThreshold);
+            _promptUI?.SetInteractionPrompt(interactionText, _currentTarget.ShowInteractionKeyHint(gameObject));
+            return;
+        }
+
+        // 들고 있는 아이템 안내는 슬롯을 고른 직후 1초만 띄운다(HandleSlotSelected). 상시로 띄우면
+        // 조준 대상이 없는 동안 계속 남아 화면을 가린다.
+        _promptUI?.SetInteractionPrompt(null, false);
+    }
+
+    // 길게 눌러야 하는 상호작용이면(threshold > 0) 안내 문구에 "(길게 누르기)"를 붙인다.
+    private static string AppendHoldSuffix(string text, float holdThreshold)
+    {
+        return holdThreshold > 0f && !string.IsNullOrWhiteSpace(text) ? $"{text} (길게 누르기)" : text;
+    }
+
+    private void UpdateCurrentTarget()
+    {
+        if (_playerCamera == null)
+        {
+            SetCurrentTarget(null);
+            return;
+        }
+
+        _nearbyInteractables.RemoveWhere(target => target == null); // 파괴된 대상 제거
+        // 파괴된 대상을 정리한 뒤, 가장 가까운 후보를 찾는다.
+
+        InteractableBase closestTarget = null;
+        float closestDistanceSqr = float.MaxValue;
+
+        Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+        // 화면 중앙과의 거리를 기준으로 조준 대상을 비교한다.
+
+        foreach (InteractableBase target in _nearbyInteractables)
+        {
+            if (target == null)
+            {
+                continue;
+            }
+
+            if (!target.CanInteract(gameObject))  // 상호작용이 차단된 대상은 무시
+            {
+                continue;
+            }
+
+            Vector3 screenPos = _playerCamera.WorldToScreenPoint(target.InteractionPosition);
+
+            if (screenPos.z < 0)
+            {
+                continue; // 대상이 카메라 뒤에 있는 경우 무시
+            }
+
+            Vector2 targetScreenPos = new Vector2(screenPos.x, screenPos.y);
+
+            // 화면 중심과 대상의 스크린 좌표 간의 거리 제곱 계산
+            // 제곱 거리를 사용해 불필요한 제곱근 계산을 피한다.
+            float distanceSqr = (targetScreenPos - screenCenter).sqrMagnitude;
+
+            // 대상별 배율(AimRadiusMultiplier)을 반영해 판정 반경을 계산한다 (예: 계속 움직이는 NPC는 더 넓게).
+            float radiusPixels = Screen.height * _screenCenterRadius * target.AimRadiusMultiplier;
+            float radiusSqr = radiusPixels * radiusPixels;
+
+            if (distanceSqr > radiusSqr)
+            {
+                continue; // 아이템이 상호작용 가능한 영역 밖에 있는 경우 무시
+            }
+
+            if (distanceSqr < closestDistanceSqr)
+            {
+                closestDistanceSqr = distanceSqr;
+                closestTarget = target;
+            }
+        }
+        SetCurrentTarget(closestTarget);
+    }
+
+    public void RemoveNearbyInteractable(InteractableBase target)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        _nearbyInteractables.Remove(target);
+        _overlapCounts.Remove(target);
+
+        if (ReferenceEquals(_currentTarget, target))
+        {
+            SetCurrentTarget(null);
+        }
+    }
+
+    private void SetCurrentTarget(InteractableBase nextTarget)
+    {
+        if (ReferenceEquals(_currentTarget, nextTarget)) {
+            return;
+        }
+
+        // 이전에 선택된 대상의 아웃라인을 끈다.
+        _currentTarget?.SetOutline(false);
+
+        _currentTarget = nextTarget;
+        _currentTarget?.SetOutline(true);
+
+        RefreshInteractionPrompt();
     }
 }

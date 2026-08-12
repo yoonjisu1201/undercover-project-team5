@@ -74,10 +74,10 @@ public sealed class HqItemSpawner : MonoBehaviour
                 spawnPoint.position,
                 spawnRotation);
 
-            if (!toolObject.TryGetComponent(out PickupItem pickupItem) ||
+            if (!toolObject.TryGetComponent(out ItemBase pickupItem) ||
                 !toolObject.TryGetComponent(out NetworkObject networkObject))
             {
-                Debug.LogError($"[HqItemSpawner] '{_item.WorldPrefab.name}' 프리팹에 PickupItem 또는 NetworkObject가 없습니다.", this);
+                Debug.LogError($"[HqItemSpawner] '{_item.WorldPrefab.name}' 프리팹에 ItemBase 또는 NetworkObject가 없습니다.", this);
                 Destroy(toolObject);
                 continue;
             }
@@ -91,7 +91,7 @@ public sealed class HqItemSpawner : MonoBehaviour
     {
         Transform prefabTransform = _item.WorldPrefab.transform;
 
-        if (_item.ItemId != "AlienCaptureGun")
+        if (_item.ItemId != ItemType.AlienCaptureGun)
         {
             return prefabTransform.rotation;
         }
@@ -116,11 +116,17 @@ public sealed class HqItemSpawner : MonoBehaviour
     private void DespawnAllFieldTools()
     {
         // 본부에서 최초 스폰된 것뿐만 아니라, 플레이어가 필드에 다시 버린 아이템까지 찾는다.
-        PickupItem[] fieldItems = FindObjectsByType<PickupItem>(FindObjectsSortMode.None);
+        ItemBase[] fieldItems = FindObjectsByType<ItemBase>(FindObjectsSortMode.None);
 
-        foreach (PickupItem fieldItem in fieldItems)
+        foreach (ItemBase fieldItem in fieldItems)
         {
             if (fieldItem.ItemId != _item.ItemId)
+            {
+                continue;
+            }
+
+            // 누군가 인벤토리에 들고 있는 도구는 필드에 있는 게 아니므로 건드리지 않는다.
+            if (fieldItem.IsStored)
             {
                 continue;
             }

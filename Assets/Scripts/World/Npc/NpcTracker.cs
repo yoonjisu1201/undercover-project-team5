@@ -5,7 +5,7 @@ using UnityEngine;
 // NPC에 위치추적기(BeaconTracker)가 부착됐는지 여부를 관리한다.
 public class NpcTracker : NetworkBehaviour
 {
-    [SerializeField] private string _trackerItemId = "BeaconTracker";
+    [SerializeField] private ItemType _trackerItemId = ItemType.BeaconTracker;
 
     // 서버 재검사 시 네트워크 지연으로 인한 위치 오차를 흡수하기 위한 여유 거리 (ArrestCandidateInteractable의 동명 필드와 같은 용도).
     [SerializeField, Min(0f)] private float _rangeTolerance = 2f;
@@ -58,7 +58,7 @@ public class NpcTracker : NetworkBehaviour
     public bool IsTrackerItemSelected(GameObject interactor)
     {
         return interactor.TryGetComponent(out PlayerInventory inventory)
-            && inventory.TryGetSelectedItem(out string itemId)
+            && inventory.TryGetSelectedItemId(out ItemType itemId)
             && itemId == _trackerItemId;
     }
 

@@ -5,15 +5,20 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Box Collider로 나눈 구역의 통합 NavMesh 위에 등록된 단서를 서버 권한으로 생성하는 클래스
+// Box Collider로 나눈 구역의 통합 NavMesh 위에 등록된 단서를 서버 권한으로 생성하는 클래스.
+// 단서는 ItemData/프리팹 하나를 전부 공유하고, 몇 번 단서인지는 스폰 시점에 번호를 배정해서 구분한다.
 public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
 {
-    [Header("단서 데이터")]
-    [SerializeField] private ItemData[] _clues;
-    [SerializeField] private bool _spawnCluesAtRoundStart;
-    [SerializeField] private ItemData[] _missionRewardClues;
+    public static ClueSpawner Instance { get; private set; }
 
-    public int SpawnCount => _spawnCluesAtRoundStart ? CountInitialClues() : 0;
+    [Header("단서 데이터")]
+    [SerializeField] private ItemData _clueData;
+    [SerializeField] private bool _spawnCluesAtRoundStart;
+    [SerializeField, Min(0)] private int _totalClueCount = 8;
+    [SerializeField, Min(0)] private int _missionRewardClueCount;
+
+    public int SpawnCount => _spawnCluesAtRoundStart ? FieldClueCount : 0;
+    private int FieldClueCount => Mathf.Max(0, _totalClueCount - _missionRewardClueCount);
 
     [Header("스폰 영역")]
     [SerializeField] private MapRegionController _regionController;
@@ -32,9 +37,17 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
 
     private bool _hasSpawned;
     private readonly List<NetworkObject> _spawnedClues = new();
-    private const string ClueItemIdPrefix = "Clue";
+
+    // 이번 라운드에 배정된 단서 번호(필드 스폰 + 미션 보상 공통). 라운드가 바뀌면 초기화된다.
+    private readonly HashSet<int> _usedClueNumbers = new();
 
     public SpawnRule Rule => _spawnRule;
+
+    private void Awake()
+    {
+        if (Instance == null) { Instance = this; }
+        else { Destroy(gameObject); }
+    }
 
     private void OnEnable()
     {
@@ -56,17 +69,14 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleSceneLoaded;
     }
 
+    // ClueSpawner는 씬이 로딩 완료되면 단서를 스폰한다.
     private void HandleSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
     {
-        if (_hasSpawned || sceneName != gameObject.scene.name || !NetworkManager.Singleton.IsServer)
-        {
+        if (_hasSpawned || sceneName != gameObject.scene.name || !NetworkManager.Singleton.IsServer)        {
             return;
         }
 
-        // 플레이어 인벤토리를 초기화하고 단서를 새로 스폰
-        RoundManager.Instance?.ClearAllPlayerInventories();
-
-        SpawnAsync(_spawnCoordinator, this.GetCancellationTokenOnDestroy()).Forget();
+        SpawnClues();
     }
 
     public void SpawnClues()
@@ -95,15 +105,9 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
 
         _hasSpawned = true;
 
-        foreach (ItemData clueData in _clues)
+        for (int i = 0; i < FieldClueCount; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            // 플레이 가능한 미션의 보상 단서는 필드에 미리 생성하지 않는다.
-            if (IsMissionRewardClue(clueData))
-            {
-                continue;
-            }
 
             if (!coordinator.TryGetSpawnPose(
                     _regionController,
@@ -113,85 +117,68 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
                     out Vector3 spawnPosition,
                     out Quaternion spawnRotation))
             {
-                Debug.LogWarning($"[ClueSpawner] '{clueData.ItemId}'의 스폰 위치를 찾지 못했습니다.", this);
+                Debug.LogWarning("[ClueSpawner] 단서의 스폰 위치를 찾지 못했습니다.", this);
                 continue;
             }
 
+            if (!TryClaimRandomClueNumber(out int clueNumber))
+            {
+                Debug.LogWarning("[ClueSpawner] 배정 가능한 단서 번호가 없습니다.", this);
+                break;
+            }
+
             GameObject clueObject = Instantiate(
-                clueData.WorldPrefab,
+                _clueData.WorldPrefab,
                 spawnPosition,
                 spawnRotation);
 
-            if (!clueObject.TryGetComponent(out PickupItem pickupItem) ||
+            if (!clueObject.TryGetComponent(out ItemBase pickupItem) ||
                 !clueObject.TryGetComponent(out NetworkObject networkObject))
             {
-                Debug.LogError($"[ClueSpawner] '{clueData.WorldPrefab.name}'에 PickupItem 또는 NetworkObject가 없습니다.", this);
+                Debug.LogError($"[ClueSpawner] '{_clueData.WorldPrefab.name}'에 ItemBase 또는 NetworkObject가 없습니다.", this);
                 Destroy(clueObject);
                 continue;
             }
 
-            pickupItem.Configure(clueData);
+            pickupItem.Configure(_clueData);
             networkObject.Spawn(destroyWithScene: true);
+            (pickupItem as ClueItem)?.SetClueNumber(clueNumber);
             _spawnedClues.Add(networkObject);
         }
 
         return UniTask.CompletedTask;
     }
 
-    // 라운드 시작에 생성할 일반 단서 개수를 계산한다.
-    private int CountInitialClues()
+    // 아직 아무 데도 배정되지 않은 단서 번호 중 하나를 무작위로 배정한다.
+    // 필드 스폰과 미션 보상(MissionInteractable) 양쪽에서 공통으로 써서 번호가 서로 겹치지 않게 한다.
+    public bool TryClaimRandomClueNumber(out int clueNumber)
     {
-        if (_clues == null)
+        List<int> available = new();
+        for (int number = 1; number <= _totalClueCount; number++)
         {
-            return 0;
-        }
-
-        int count = 0;
-        foreach (ItemData clue in _clues)
-        {
-            if (!IsMissionRewardClue(clue))
+            if (!_usedClueNumbers.Contains(number))
             {
-                count++;
+                available.Add(number);
             }
         }
 
-        return count;
-    }
-
-    // 해당 단서가 미션 성공으로 생성될 보상인지 확인한다.
-    private bool IsMissionRewardClue(ItemData clue)
-    {
-        if (_missionRewardClues == null)
+        if (available.Count == 0)
         {
+            clueNumber = 0;
             return false;
         }
 
-        foreach (ItemData rewardClue in _missionRewardClues)
-        {
-            if (rewardClue == clue)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        clueNumber = available[Random.Range(0, available.Count)];
+        _usedClueNumbers.Add(clueNumber);
+        return true;
     }
 
     private bool ValidateSettings()
     {
-        if (_clues == null || _clues.Length == 0)
+        if (_clueData == null || _clueData.WorldPrefab == null)
         {
-            Debug.LogError("[ClueSpawner] 단서 데이터를 하나 이상 등록해야 합니다.", this);
+            Debug.LogError("[ClueSpawner] 단서 데이터를 설정해야 합니다.", this);
             return false;
-        }
-
-        foreach (ItemData clueData in _clues)
-        {
-            if (clueData == null || clueData.WorldPrefab == null)
-            {
-                Debug.LogError("[ClueSpawner] 비어 있거나 WorldPrefab이 없는 단서 데이터가 있습니다.", this);
-                return false;
-            }
         }
 
         if (_regionController == null)
@@ -203,13 +190,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         return true;
     }
 
-    public void RespawnClues()
-    {
-        PrepareForNextRound();
-        SpawnForNextRound();
-    }
-
-    // 라운드 전환이 시작되면 인벤토리와 이전 라운드의 필드 단서를 먼저 정리합니다.
+    // 라운드 전환이 시작되면 이전 라운드의 필드 단서를 먼저 정리합니다.
     public void PrepareForNextRound()
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
@@ -218,7 +199,6 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
             return;
         }
 
-        RoundManager.Instance?.ClearAllPlayerInventories();
         ClearSpawned();
     }
 
@@ -250,6 +230,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
 
         DespawnAllFieldClues();
         _spawnedClues.Clear();
+        _usedClueNumbers.Clear();
         _spawnCoordinator?.ClearPositions(this);
         _hasSpawned = false;
     }
@@ -257,15 +238,21 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     private void DespawnAllFieldClues()
     {
         // 최초 스폰 단서뿐만 아니라 플레이어가 다시 버린 단서까지 찾는다.
-        PickupItem[] fieldItems = FindObjectsByType<PickupItem>(
+        ItemBase[] fieldItems = FindObjectsByType<ItemBase>(
             FindObjectsInactive.Include,
             FindObjectsSortMode.None);
 
-        foreach (PickupItem fieldItem in fieldItems)
+        foreach (ItemBase fieldItem in fieldItems)
         {
-            if (string.IsNullOrEmpty(fieldItem.ItemId) || !fieldItem.ItemId.StartsWith(ClueItemIdPrefix, System.StringComparison.Ordinal))
+            if (fieldItem.ItemId != ItemType.Clue)
             {
                 // 단서가 아닌 아이템은 무시
+                continue;
+            }
+
+            // 누군가 인벤토리에 들고 있는 단서는 필드에 있는 게 아니므로 건드리지 않는다.
+            if (fieldItem.IsStored)
+            {
                 continue;
             }
 

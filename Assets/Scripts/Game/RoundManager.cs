@@ -201,7 +201,7 @@ public class RoundManager : NetworkBehaviour
 
         await UniTask.WaitUntil(
             () => FindObjectsByType<NpcStateMachine>(FindObjectsSortMode.None).Length >= _npcSpawner.SpawnCount
-                && FindObjectsByType<PickupItem>(FindObjectsSortMode.None).Length >= _clueSpawner.SpawnCount,
+                && FindObjectsByType<ItemBase>(FindObjectsSortMode.None).Length >= _clueSpawner.SpawnCount,
             cancellationToken: cancellationToken);
 
         // 나를 적절한 위치로 스폰시킨다
@@ -302,6 +302,7 @@ public class RoundManager : NetworkBehaviour
             ResetPlayerHealthForNewRound();
 
             // 이전 라운드 인벤토리와 필드 단서를 먼저 제거해 전환 중 드롭된 단서가 남지 않게 합니다.
+            ClearAllPlayerInventories();
             _clueSpawner?.PrepareForNextRound();
             _playerSpawner?.RespawnAllPlayers();
 
@@ -337,6 +338,7 @@ public class RoundManager : NetworkBehaviour
         _debugStoppedRemainingTime.Value = 0f;
         ResetMissionsForNewRound();
         ResetNpcTrackersForNewRound();
+        ClearAllPlayerInventories();
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[0].Duration;
         _currentState.Value = RoundState.InRound;
         AnnounceRoundStartRpc(0);

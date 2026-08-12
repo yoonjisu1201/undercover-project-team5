@@ -3,17 +3,17 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Inventory/ItemData", fileName = "NewItemData")]
 public class ItemData : ScriptableObject
 {
-    [SerializeField] private string _itemId;
+    [SerializeField] private ItemType _itemId;
     [SerializeField] private string _displayName;
     [SerializeField] private Sprite _icon;
     [SerializeField] private GameObject _worldPrefab;
-    [SerializeField] private Role _interactableRole; 
-    [SerializeField] private ItemData _completionReward;
+    [SerializeField] private Role _interactableRole;
+    [SerializeField] private AudioClip _audioClip;
 
-    public string ItemId => _itemId;
+    public ItemType ItemId => _itemId;
     public string DisplayName => _displayName;
     public Sprite Icon => _icon;
     public GameObject WorldPrefab => _worldPrefab;
     public Role InteractableRole => _interactableRole;
-    public ItemData CompletionReward => _completionReward;
+    public AudioClip AudioClip => _audioClip;
 }

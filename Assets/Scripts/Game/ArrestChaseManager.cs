@@ -16,7 +16,7 @@ public class ArrestChaseManager : NetworkBehaviour
     public static ArrestChaseManager Instance { get; private set; }
 
     // 검거 도구 itemId
-    public const string CaptureToolItemId = "AlienCaptureGun";
+    public const ItemType CaptureToolItemId = ItemType.AlienCaptureGun;
 
     // 추격에 필요한 인원
     public const int RequiredParticipants = 2;
@@ -199,7 +199,7 @@ public class ArrestChaseManager : NetworkBehaviour
 
             // 도구 판정: 인벤토리에서 "선택된" 슬롯이 검거 도구여야 한다. (그냥 소지만으로는 인정 안 됨)
             if (!playerObject.TryGetComponent(out PlayerInventory inventory)) continue;
-            if (!inventory.TryGetSelectedItem(out string itemId) || itemId != CaptureToolItemId) continue;
+            if (!inventory.TryGetSelectedItemId(out ItemType itemId) || itemId != CaptureToolItemId) continue;
 
             if (!playerObject.TryGetComponent(out PlayerArrestInput arrestInput) || !arrestInput.IsHoldingArrestKey) continue;
 

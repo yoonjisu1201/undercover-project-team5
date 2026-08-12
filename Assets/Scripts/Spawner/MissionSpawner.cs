@@ -9,7 +9,7 @@ public sealed class MissionSpawner : MonoBehaviour
     private const int RequiredMissionMachineCount = 8;
 
     [Header("미션 머신 데이터")]
-    [SerializeField] private ItemData[] _MissionMachine;
+    [SerializeField] private MissionMachineData[] _MissionMachine;
 
     [Header("오염 샘플")]
     [SerializeField] private ItemData _contaminatedSample;
@@ -101,11 +101,11 @@ public sealed class MissionSpawner : MonoBehaviour
 
         for (int index = 0; index < _MissionMachine.Length; index++)
         {
-            ItemData missionMachineData = _MissionMachine[index];
+            MissionMachineData missionMachineData = _MissionMachine[index];
 
             if (!TryFindSpawnPose(out Vector3 spawnPosition, out Quaternion spawnRotation))
             {
-                Debug.LogWarning($"[MissionSpawner] '{missionMachineData.ItemId}'의 스폰 위치를 찾지 못했습니다.", this);
+                Debug.LogWarning($"[MissionSpawner] '{missionMachineData.WorldPrefab.name}'의 스폰 위치를 찾지 못했습니다.", this);
                 continue;
             }
 
@@ -190,7 +190,7 @@ public sealed class MissionSpawner : MonoBehaviour
             return false;
         }
 
-        foreach (ItemData missionMachineData in _MissionMachine)
+        foreach (MissionMachineData missionMachineData in _MissionMachine)
         {
             if (missionMachineData == null || missionMachineData.WorldPrefab == null)
             {

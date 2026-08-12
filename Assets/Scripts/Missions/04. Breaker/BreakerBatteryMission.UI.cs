@@ -103,7 +103,7 @@ public sealed partial class BreakerBatteryMission
         }
     }
 
-    private void BindInventoryItem(RectTransform cell, string itemId)
+    private void BindInventoryItem(RectTransform cell, ItemType itemId)
     {
         // 복제된 셀은 원본 배터리가 전원 슬롯으로 옮겨간 상태였으면 배터리 자식이 없다.
         BatteryDragItem battery = cell.GetComponentInChildren<BatteryDragItem>(true);
@@ -125,7 +125,7 @@ public sealed partial class BreakerBatteryMission
         _batteries.Add(battery);
     }
 
-    private Sprite GetItemIcon(string itemId)
+    private Sprite GetItemIcon(ItemType itemId)
     {
         if (_itemCatalog != null
             && _itemCatalog.TryGet(itemId, out ItemData itemData)

@@ -8,7 +8,7 @@ public sealed class ContaminatedSampleSource : InteractableBase
     // 채취했을 때 인벤토리에 넣어 줄 아이템이다. 스포너가 Configure로 넣어 준다.
     [SerializeField] private ItemData _sampleItem;
     // E를 눌러 채취를 끝내기까지 걸리는 시간이다.
-    [SerializeField, Min(0.1f)] private float _collectHoldDuration = 1.2f;
+    [SerializeField, Min(0f)] private float _collectHoldDuration = 1.2f;
 
     // 이미 채취한 플레이어 목록이다. 요원마다 한 번씩 샘플을 가져갈 수 있게 서버가 관리한다.
     private readonly NetworkList<ulong> _collectorClientIds = new(readPerm: NetworkVariableReadPermission.Everyone, writePerm: NetworkVariableWritePermission.Server);
@@ -27,10 +27,8 @@ public sealed class ContaminatedSampleSource : InteractableBase
     }
 
     // 즉시 줍기가 아니라 길게 누르게 해서, 위험한 것을 조심히 담는 느낌을 준다.
-    public override bool RequiresHoldInteraction(GameObject interactor) => true;
-
-    // PlayerInteraction의 기존 길게 누르기 UI가 이 시간을 그대로 쓴다.
-    public override float HoldInteractionDuration => _collectHoldDuration;
+    // PlayerInteraction의 공통 길게 누르기 UI가 이 시간을 그대로 쓴다.
+    public override float InteractHoldThreshold => _collectHoldDuration;
 
     // 역할과 상관없이, 아직 이 플레이어가 채취하지 않았으면 채취할 수 있다.
     public override bool CanInteract(GameObject interactor)
@@ -89,7 +87,7 @@ public sealed class ContaminatedSampleSource : InteractableBase
 
         // 인벤토리가 꽉 찼으면 지급에 실패하므로, 채취 표시도 남기지 않고 다시 시도할 수 있게 둔다.
         if (!client.PlayerObject.TryGetComponent(out PlayerInventory inventory)
-            || !inventory.TryAddItemOnServer(_sampleItem.ItemId))
+            || !ItemBase.TrySpawnAndAddToInventory(_sampleItem, inventory))
         {
             return;
         }
