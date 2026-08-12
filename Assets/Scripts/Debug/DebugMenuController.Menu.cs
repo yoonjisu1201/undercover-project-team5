@@ -13,7 +13,6 @@ public sealed partial class DebugMenuController
     [SerializeField] private GameObject _playerPanel;
     [SerializeField] private GameObject _missionTeleportPanel;
     [SerializeField] private GameObject _itemPanel;
-    [SerializeField] private GameObject _rolePanel;
     [SerializeField] private GameObject _criminalPanel;
     [SerializeField] private GameObject _interferencePanel;
     [SerializeField] private GameObject _cctvPanel;
@@ -56,13 +55,6 @@ public sealed partial class DebugMenuController
     // 각 루트 하위 메뉴를 열거나 닫습니다.
     public void OnItemMenuClick() => ToggleRootSubMenu(_itemPanel);
     public void OnInterferenceMenuClick() => ToggleRootSubMenu(_interferencePanel);
-
-    // 역할 메뉴를 열고 현재 역할 색상을 반영합니다.
-    public void OnRoleMenuClick()
-    {
-        ToggleRootSubMenu(_rolePanel);
-        RefreshRoleButtonColors();
-    }
 
     // 범인 메뉴를 열 때 외계인 하위 메뉴는 접은 상태에서 시작합니다.
     public void OnCriminalMenuClick()
@@ -121,7 +113,7 @@ public sealed partial class DebugMenuController
     {
         GameObject[] panels =
         {
-            _teleportPanel, _playerPanel, _missionTeleportPanel, _itemPanel, _rolePanel,
+            _teleportPanel, _playerPanel, _missionTeleportPanel, _itemPanel,
             _criminalPanel, _interferencePanel, _cctvPanel, _cctvPowerPanel, _regionPanel,
             _roundPanel, _hpPanel, _missionPanel, _missionCompletePanel, _missionSoloPanel,
             _alienPanel

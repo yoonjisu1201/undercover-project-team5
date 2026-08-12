@@ -139,12 +139,4 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 		// 새 라운드는 새 범인이므로 이전 라운드에 조합한 몽타주를 비운다
 		_montageState.Value = MontageState.Empty;
 	}
-	
-	protected bool IsHeadquarter(ulong clientId) {
-		if (!NetworkManager.ConnectedClients.TryGetValue(clientId, out NetworkClient client)) { return false; }
-		if (client.PlayerObject == null) { return false; }
-		if (!client.PlayerObject.TryGetComponent(out Player player)) { return false; }
-
-		return player.PlayerRole == Role.Headquarter;
-	}
 }

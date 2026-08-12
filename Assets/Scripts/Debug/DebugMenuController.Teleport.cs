@@ -52,25 +52,6 @@ public sealed partial class DebugMenuController
         ShowStatus("본부로 이동했습니다.");
     }
 
-    // 본부 역할로 변경되면 본부로 이동시킵니다. (필드 역할은 본부와 이어져 있어 별도 이동이 없습니다.)
-    private void MoveLocalPlayerToRoleArea(Role role)
-    {
-        if (role != Role.Headquarter)
-        {
-            return;
-        }
-
-        Player player = GetLocalPlayer();
-        HqEntrance entrance = FindFirstObjectByType<HqEntrance>();
-        if (player == null || entrance == null)
-        {
-            ShowStatus("본부 이동 지점을 찾지 못했습니다.");
-            return;
-        }
-
-        TeleportToSafeHqPosition(player, entrance);
-    }
-
     // 자신을 제외하고 소유자 ID로 정렬된 플레이어 중 지정 순번으로 이동합니다.
     private void TeleportToOtherPlayer(int index)
     {

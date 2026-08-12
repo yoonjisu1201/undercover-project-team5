@@ -15,11 +15,6 @@ public class MontageShareManager : MontageSyncBase {
 
 	[Rpc(SendTo.Server)]
 	public void ShareMontageRpc(RpcParams rpcParams = default) {
-		if (!IsHeadquarter(rpcParams.Receive.SenderClientId)) {
-			Debug.LogError($"[MontageShareManager] 본부 요원이 아닌 사람이 몽타주 공유를 시도했습니다.");
-			return;
-		}
-		
 		if (LastSharedTime.Value + RoundManager.Instance.MontageShareCooldown > NetworkManager.Singleton.ServerTime.Time) {
 			Debug.LogError($"[MontageShareManager] 쿨타임이 완료되지 않았는데 몽타주 공유를 시도했습니다.");
 			return;

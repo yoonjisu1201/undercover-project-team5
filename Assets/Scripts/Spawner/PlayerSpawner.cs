@@ -12,10 +12,9 @@ public class PlayerSpawner : MonoBehaviour
 
     // 현장 역할 플레이어들 중 이 플레이어가 몇 번째인지에 따라 고정 스폰 포인트를 배정한다.
     // OwnerClientId로 정렬해 어느 클라이언트에서 계산해도 동일한 결과가 나오도록 한다.
-    private int GetFieldSpawnIndex(Player player)
+    private int GetSpawnIndex(Player player)
     {
         return Player.ActiveInstances
-            .Where(p => p.PlayerRole == Role.Field)
             .OrderBy(p => p.OwnerClientId)
             .ToList()
             .IndexOf(player);
@@ -30,25 +29,8 @@ public class PlayerSpawner : MonoBehaviour
             Debug.LogError("[PlayerSpawner] 아직 캐릭터가 스폰되지 않았습니다.", this);
             return;
         }
-
-        if (player.PlayerRole == Role.Headquarter) {
-            if (_hqSpawnPoint == null) {
-                Debug.LogError("[PlayerSpawner] 본부 HQSpawnPoint가 설정되지 않았습니다.", this);
-                return;
-            }
-            
-            move.TeleportToPosition(_hqSpawnPoint.position, _hqSpawnPoint.rotation);
-            
-            // 현재 라운드에서 실제 배치에 사용한 본부 위치를 기본 복귀 위치로 기록합니다.
-            if (playerObject.TryGetComponent(out PlayerEmergencyEscape emergencyEscape)) {
-                emergencyEscape.RecordRoundSpawnPose(
-                    _hqSpawnPoint.position,
-                    _hqSpawnPoint.rotation);
-            }
-            return;
-        }
         
-        int index = GetFieldSpawnIndex(player);
+        int index = GetSpawnIndex(player);
         if (index < 0 || index >= _fieldSpawnPoints.Length || _fieldSpawnPoints[index] == null)
         {
             Debug.LogError("[PlayerSpawner] 현장 스폰 포인트가 부족합니다.", this);

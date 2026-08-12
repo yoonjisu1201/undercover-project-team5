@@ -23,22 +23,8 @@ public class WaitingRoomReadyManager : NetworkBehaviour
     private readonly NetworkList<PlayerSlot> _slots = new();
 
     public NetworkList<PlayerSlot> Slots => _slots;
-
-    // HeadQuarter에 이미 선택된 요원이 있는지 확인 후 Boolean으로 반환
-    public bool IsHeadquartersAvailableFor(ulong clientId)
-    {
-        foreach (var slot in _slots)
-        {
-            // 이미 다른 유저가 본부이고, 그 본부 유저가 내가 아니라면 False 반환
-            if (slot.Player.PlayerRole == Role.Headquarter && slot.ClientId != clientId) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     // 접속 인원이 최소 인원 이상이고, 방장을 제외한 전원이 준비를 마쳤을 때 시작 가능하다.
-    public bool CanStart => HasEnoughPlayers && IsAllReady && HaveHqAgent;
+    public bool CanStart => HasEnoughPlayers && IsAllReady;
     // 인원수 확인
     public bool HasEnoughPlayers => _slots.Count >= MinPlayersToStart;
     // 전체가 준비했는지 확인
@@ -52,18 +38,6 @@ public class WaitingRoomReadyManager : NetworkBehaviour
                 if (!slot.IsReady) return false;
             }
             return true;
-        }
-    }
-
-    // 본부 요원이 지정되었는지 확인
-    public bool HaveHqAgent {
-        get {
-            foreach (var slot in _slots) {
-                if (slot.Player.PlayerRole == Role.Headquarter) {
-                    return true;
-                }
-            }
-            return false;
         }
     }
 
@@ -142,28 +116,5 @@ public class WaitingRoomReadyManager : NetworkBehaviour
                 return;
             }
         }
-    }
-    
-    
-    // 자신이 역할을 선택했음을 서버에 알린다.
-    [Rpc(SendTo.Server)]
-    public void SetRoleServerRpc(Role role, RpcParams rpcParams = default)
-    {
-        ulong clientId = rpcParams.Receive.SenderClientId;
-        // 본부 선택했는데, 현재 이미 본부요원 존재하면 return
-        if (role == Role.Headquarter && !IsHeadquartersAvailableFor(clientId)) {
-            return;
-        }
-
-        // Player.PlayerRole 바꿔주기
-        // PlayerObject가 아직 스폰되지 않았거나(씬 전환 중 등) Player 컴포넌트가 없으면
-        // 서버 NRE로 이어지므로 TryGetValue와 null 체크로 방어한다.
-        if (NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var senderClient) &&
-            senderClient.PlayerObject != null &&
-            senderClient.PlayerObject.TryGetComponent(out Player player))
-        {
-            player.PlayerRole = role;
-        }
-        else { Debug.LogError($"[WaitingRoomReadyManager] clientId {clientId}의 PlayerObject를 찾을 수 없어 역할을 {role}로 변경하지 못했습니다."); }
     }
 }

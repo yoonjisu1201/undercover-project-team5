@@ -11,7 +11,7 @@ public class SubwayMapObject : InteractableBase {
 	public override string InteractionText => $"지하철 노선도 확인";
 	
 	public override bool CanInteract(GameObject interactor) {
-		return interactor.TryGetComponent(out Player player) && player.PlayerRole == Role.Headquarter;
+		return interactor.TryGetComponent(out Player player);
 	}
 	
 	public override void Interact(GameObject interactor) {

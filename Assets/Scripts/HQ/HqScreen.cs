@@ -17,22 +17,13 @@ public class HqScreen : InteractableBase {
 
 	// 본부요원이 아니면 평소 문구 대신 역할 제한 안내를 보여준다.
 	public override string GetInteractionText(GameObject interactor) {
-		return IsHeadquarter(interactor) ? InteractionText : "본부요원만 사용할 수 있습니다";
-	}
-
-	// 본부요원이 아닐 때는 눌러도 콘솔이 열리지 않으므로 " : E" 키 힌트를 숨긴다.
-	public override bool ShowInteractionKeyHint(GameObject interactor) {
-		return IsHeadquarter(interactor);
-	}
-
-	private static bool IsHeadquarter(GameObject interactor) {
-		return interactor.TryGetComponent<Player>(out var player) && player.PlayerRole == Role.Headquarter;
+		return InteractionText;
 	}
 
 	private PlayerMoveSample _occupiedPlayer = null;
 
 	public override void Interact(GameObject interactor) {
-		if (_occupiedPlayer != null || !IsHeadquarter(interactor)) {
+		if (_occupiedPlayer != null) {
 			return;
 		}
 

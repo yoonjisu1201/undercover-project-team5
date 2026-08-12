@@ -134,20 +134,6 @@ public sealed partial class DebugMenuController
     // 플레이어 역할을 초기화한 뒤 전원을 웨이팅룸으로 이동시킵니다.
     private void RequestWaitingRoomRpc()
     {
-        ResetPlayerRolesForWaitingRoom();
         NetworkManager.SceneManager?.LoadScene(WaitingRoomSceneName, LoadSceneMode.Single);
-    }
-
-    // 씬 전환 후에도 유지되는 Player 오브젝트에서 이전 게임의 역할 정보를 제거합니다.
-    private void ResetPlayerRolesForWaitingRoom()
-    {
-        foreach (NetworkClient client in NetworkManager.ConnectedClientsList)
-        {
-            if (client.PlayerObject != null &&
-                client.PlayerObject.TryGetComponent(out Player player))
-            {
-                player.PlayerRole = Role.Field;
-            }
-        }
     }
 }

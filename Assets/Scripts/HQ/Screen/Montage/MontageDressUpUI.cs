@@ -105,9 +105,6 @@ public class MontageDressUpUI : ScreenBase {
 		_montageShareButton.onClick.AddListener(ShareMontage);
 		_montageResetButton.onClick.AddListener(ResetMontage);
 		
-		// 현장 요원은 몽타주를 볼 수만 있고 조합할 수는 없으므로 조작 UI를 만들지 않는다
-		if (!IsLocalPlayerHeadquarter()) { return; }
-		
 		SetActiveTab(_activePart);
 		
 		// 카메라 활성화
@@ -129,15 +126,6 @@ public class MontageDressUpUI : ScreenBase {
 		if (_syncManager.MontageCamera != null) {
 			_syncManager.MontageCamera.enabled = false;
 		}
-	}
-	
-	private static bool IsLocalPlayerHeadquarter() {
-		if (!NetworkManager.Singleton.LocalClient.PlayerObject.TryGetComponent<Player>(out var player)) {
-			Debug.LogError($"[MontageDressUpUi] PlayerObject 로딩 실패");
-			return false;
-		}
-
-		return player.PlayerRole == Role.Headquarter;
 	}
 
 	private void Update() {

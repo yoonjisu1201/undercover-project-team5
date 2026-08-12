@@ -52,12 +52,9 @@ public class ItemBase : InteractableBase {
         {
             return false;
         }
-
-        // 상호작용 가능 대상 확인
-        Role interactorRole = interactor.GetComponent<Player>().PlayerRole;
+        
         // 상호작용 가능 시간이면서, 상호작용 역할이 제한되어있지 않은 아이템이거나, 상호작용 가능한 대상의 역할과 일치해야 함
-        return Time.time >= _interactionBlockedUntil
-            && (_itemData.InteractableRole == Role.None || _itemData.InteractableRole == interactorRole);
+        return Time.time >= _interactionBlockedUntil;
     }
 
     private float _interactionBlockedUntil;

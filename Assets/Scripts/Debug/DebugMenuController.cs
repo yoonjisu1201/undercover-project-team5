@@ -74,8 +74,6 @@ public sealed partial class DebugMenuController : NetworkBehaviour
             _nextLocationLabelRefreshTime = Time.unscaledTime + 0.2f;
             RefreshHqFieldButtonLabel();
             RefreshRoundTimeStopButton();
-            // 역할 변경과 레버 조작은 서버를 거쳐 반영되므로, 결과가 도착한 뒤 색이 맞도록 주기적으로 다시 칠한다.
-            RefreshRoleButtonColors();
             RefreshBreakerPowerButton();
             RefreshInvincibleButton();
         }
