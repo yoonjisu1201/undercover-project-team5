@@ -14,7 +14,6 @@ public enum ItemType
     BeaconTracker = 7,
     Book = 8,
     Clue = 9,
-    GuideBook = 10,
     UnusedTraceAnalyzer = 11,
     EnergyBar = 12,
     RefillPack = 13,

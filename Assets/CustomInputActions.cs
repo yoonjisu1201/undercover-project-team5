@@ -420,6 +420,15 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""OpenGuideBook"",
+                    ""type"": ""Button"",
+                    ""id"": ""6f9a1f0e-7c2b-4b8a-9a3f-3e7c2d5b9a1c"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -431,6 +440,17 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""groups"": """",
                     ""action"": ""Montage"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""0d5e7a4c-9b3f-4a2d-8c6e-1f4a7b2c9d3e"",
+                    ""path"": ""<Keyboard>/h"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""OpenGuideBook"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -459,6 +479,7 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         // UI
         m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
         m_UI_Montage = m_UI.FindAction("Montage", throwIfNotFound: true);
+        m_UI_OpenGuideBook = m_UI.FindAction("OpenGuideBook", throwIfNotFound: true);
     }
 
     ~@CustomInputActions()
@@ -855,6 +876,7 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
     private readonly InputActionMap m_UI;
     private List<IUIActions> m_UIActionsCallbackInterfaces = new List<IUIActions>();
     private readonly InputAction m_UI_Montage;
+    private readonly InputAction m_UI_OpenGuideBook;
     /// <summary>
     /// Provides access to input actions defined in input action map "UI".
     /// </summary>
@@ -870,6 +892,10 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "UI/Montage".
         /// </summary>
         public InputAction @Montage => m_Wrapper.m_UI_Montage;
+        /// <summary>
+        /// Provides access to the underlying input action "UI/OpenGuideBook".
+        /// </summary>
+        public InputAction @OpenGuideBook => m_Wrapper.m_UI_OpenGuideBook;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -899,6 +925,9 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
             @Montage.started += instance.OnMontage;
             @Montage.performed += instance.OnMontage;
             @Montage.canceled += instance.OnMontage;
+            @OpenGuideBook.started += instance.OnOpenGuideBook;
+            @OpenGuideBook.performed += instance.OnOpenGuideBook;
+            @OpenGuideBook.canceled += instance.OnOpenGuideBook;
         }
 
         /// <summary>
@@ -913,6 +942,9 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
             @Montage.started -= instance.OnMontage;
             @Montage.performed -= instance.OnMontage;
             @Montage.canceled -= instance.OnMontage;
+            @OpenGuideBook.started -= instance.OnOpenGuideBook;
+            @OpenGuideBook.performed -= instance.OnOpenGuideBook;
+            @OpenGuideBook.canceled -= instance.OnOpenGuideBook;
         }
 
         /// <summary>
@@ -1067,5 +1099,12 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnMontage(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "OpenGuideBook" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnOpenGuideBook(InputAction.CallbackContext context);
     }
 }
