@@ -8,7 +8,6 @@ using UnityEngine.Localization.Components;
 using UnityEngine.SceneManagement;
 
 // TestRoom1 씬의 나가기 버튼, 조인코드 표시 텍스트와 GameSessionManager를 연결한다.
-
 public class WaitingRoomUI : MonoBehaviour, IClosableUi
 {
 	[Header("참조")]
@@ -26,18 +25,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     [SerializeField] private Button _nicknameConfirmButton;
     [SerializeField] private GameObject _nicknameSettingPanel;
 
-    [Header("=== 역할 선택 관련 ===")]
-    [SerializeField] private Button _fieldRoleButton;
-    [SerializeField] private Button _headquartersRoleButton;
-    [SerializeField] private TextMeshProUGUI _selectedRoleText;
-    [SerializeField] private TextMeshProUGUI _headquartersAvailabilityText;
-
     [Header("=== 사용될 LocalizedString ===")]
-    [SerializeField] private LocalizedString _fieldSelectedText;
-    [SerializeField] private LocalizedString _headquarterSelectedText;
-    [SerializeField] private LocalizedString _hqAlreadyExistsText;
-    [SerializeField] private LocalizedString _hqAvailableText;
-    [SerializeField] private LocalizedString _startInfoNeedsHq;
     [SerializeField] private LocalizedString _startInfoAllReady;
     [SerializeField] private LocalizedString _startInfoNeedsMorePlayer;
 
@@ -48,10 +36,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     // 준비 전(흰색, 나가기 버튼과 동일) / 준비 완료(옅은 초록) 버튼 색상
     private static readonly Color NotReadyColor = Color.white;
     private static readonly Color ReadyColor = new Color(0f, 1f, 0f, 0.5f);
-    private static readonly Color UnselectedRoleColor = new Color(0.2f, 0.24f, 0.32f, 1f);
-    private static readonly Color FieldRoleColor = new Color(0.13f, 0.52f, 0.86f, 1f);
-    private static readonly Color HeadquartersRoleColor = new Color(0.95f, 0.58f, 0.15f, 1f);
-    private static readonly Color HeadquartersUnavailableColor = new Color(0.95f, 0.4f, 0.4f, 1f);
 
     private bool _isHost;
     private bool _isReady;
@@ -60,16 +44,12 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     private readonly List<Player> _subscribedPlayers = new();
 
     // 매 갱신마다 GetComponent를 반복 호출하지 않도록 Start에서 1회 캐싱한다.
-    private LocalizeStringEvent _selectedRoleLocalize;
-    private LocalizeStringEvent _headquartersAvailabilityLocalize;
     private LocalizeStringEvent _startGameButtonInfoLocalize;
 
     private void Start()
 	{
         // LocalizeStringEvent가 붙어있지 않으면 이후 갱신 시 NRE가 나므로,
         // 캐싱 시점에 미리 확인해 원인을 바로 알 수 있게 경고를 남긴다.
-        _selectedRoleLocalize = GetRequiredLocalizeStringEvent(_selectedRoleText);
-        _headquartersAvailabilityLocalize = GetRequiredLocalizeStringEvent(_headquartersAvailabilityText);
         _startGameButtonInfoLocalize = GetRequiredLocalizeStringEvent(_startGameButtonInfoText);
 
 		_leaveButton.onClick.AddListener(HandleLeaveButtonClicked);
@@ -77,8 +57,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 		_outputMuteButton.onClick.AddListener(HandleOutputMuteButtonClicked);
         _startGameButton.onClick.AddListener(HandleStartGameButtonClicked);
         _readyButton.onClick.AddListener(HandleReadyButtonClicked);
-        _fieldRoleButton.onClick.AddListener(HandleFieldRoleButtonClicked);
-        _headquartersRoleButton.onClick.AddListener(HandleHeadquartersRoleButtonClicked);
 
         _nicknameInputField.characterLimit = Player.MaxPlayerNameLength;
         _nicknameConfirmButton.onClick.AddListener(HandleNicknameConfirmButtonClicked);
@@ -115,8 +93,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         // 준비돼 있으면 바로, 아니면 씬 동기화가 끝난 뒤에 구독/역할 선택 UI를 초기화한다.
         if (NetworkManager.Singleton.LocalClient?.PlayerObject != null)
         {
-            RefreshPlayerSubscriptions();
-            UpdateRoleSelection();
         }
         else
         {
@@ -127,8 +103,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     private void HandleInitialLoadCompleted(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
     {
         NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleInitialLoadCompleted;
-        RefreshPlayerSubscriptions();
-        UpdateRoleSelection();
     }
 
 	private void OnDestroy()
@@ -138,8 +112,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 		_outputMuteButton.onClick.RemoveListener(HandleOutputMuteButtonClicked);
         _startGameButton.onClick.RemoveListener(HandleStartGameButtonClicked);
         _readyButton.onClick.RemoveListener(HandleReadyButtonClicked);
-        _fieldRoleButton.onClick.RemoveListener(HandleFieldRoleButtonClicked);
-        _headquartersRoleButton.onClick.RemoveListener(HandleHeadquartersRoleButtonClicked);
 
         _nicknameConfirmButton.onClick.RemoveListener(HandleNicknameConfirmButtonClicked);
 
@@ -154,7 +126,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         {
             _readyManager.Slots.OnListChanged -= HandleSlotsChanged;
         }
-        UnsubscribeAllPlayers();
 
         if (NetworkManager.Singleton != null)
         {
@@ -235,93 +206,13 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         _readyButton.targetGraphic.color = _isReady ? ReadyColor : NotReadyColor;
     }
 
+    // 입장/퇴장/준비 상태 변경으로 슬롯 구성이 바뀔 때마다 호출된다.
     private void HandleSlotsChanged(NetworkListEvent<WaitingRoomReadyManager.PlayerSlot> _)
-    {
-        RefreshPlayerSubscriptions();
-        RefreshRoleDependentUI();
-    }
-
-    // 입장/퇴장으로 슬롯 구성이 바뀔 때마다 호출된다.
-    // 본부 선택 가능 여부(IsHeadquartersAvailableFor)와 시작 가능 여부(HaveHqAgent)가
-    // 다른 플레이어의 역할에 따라 달라지므로, 현재 슬롯에 있는 Player들의 역할 변경을 직접 구독해서 감지한다.
-    private void RefreshPlayerSubscriptions()
-    {
-        UnsubscribeAllPlayers();
-
-        foreach (var slot in _readyManager.Slots)
-        {
-            Player player = slot.Player;
-            player.PlayerRoleChanged += HandlePlayerRoleChanged;
-            _subscribedPlayers.Add(player);
-        }
-    }
-
-    private void UnsubscribeAllPlayers()
-    {
-        foreach (var player in _subscribedPlayers)
-        {
-            player.PlayerRoleChanged -= HandlePlayerRoleChanged;
-        }
-        _subscribedPlayers.Clear();
-    }
-
-    private void HandlePlayerRoleChanged(Role oldRole, Role newRole) => RefreshRoleDependentUI();
-
-    private void RefreshRoleDependentUI()
     {
         if (_isHost)
         {
             UpdateStartButtonAndText();
         }
-
-        UpdateRoleSelection();
-    }
-
-    private void HandleFieldRoleButtonClicked()
-    {
-        _readyManager.SetRoleServerRpc(Role.Field);
-    }
-
-    private void HandleHeadquartersRoleButtonClicked()
-    {
-        _readyManager.SetRoleServerRpc(Role.Headquarter);
-    }
-
-    // Slot(접속된 유저들의 상태)가 변경될때마다 호출된다.
-    private void UpdateRoleSelection()
-    {
-        if (!NetworkManager.Singleton.LocalClient.PlayerObject.TryGetComponent(out Player player)) {
-	        Debug.LogError($"[UpdateRoleSelection] 잘못된 Player의 요청입니다");
-	        return;
-        }
-
-        Role selectedRole = player.PlayerRole;
-
-        bool isField = selectedRole == Role.Field;
-        bool headquartersAvailable = _readyManager.IsHeadquartersAvailableFor(NetworkManager.Singleton.LocalClientId);
-
-        _fieldRoleButton.targetGraphic.color = isField ? FieldRoleColor : UnselectedRoleColor;
-        _headquartersRoleButton.targetGraphic.color = isField ? UnselectedRoleColor : HeadquartersRoleColor;
-        _headquartersRoleButton.interactable = headquartersAvailable;
-
-        // 선택된 역할과 현재 게임 상태에 맞게 선택된 역할 텍스트, 본부 선택 가능 여부 텍스트 갱신하기
-        if (_selectedRoleLocalize != null)
-        {
-            _selectedRoleLocalize.StringReference = isField ? _fieldSelectedText : _headquarterSelectedText;
-            _selectedRoleLocalize.RefreshString();
-        }
-        _selectedRoleText.color = isField ? FieldRoleColor : HeadquartersRoleColor;
-
-        if (_headquartersAvailabilityLocalize != null)
-        {
-            _headquartersAvailabilityLocalize.StringReference = headquartersAvailable
-                ? _hqAvailableText
-                : _hqAlreadyExistsText;
-            _headquartersAvailabilityLocalize.RefreshString();
-        }
-        _headquartersAvailabilityText.color = headquartersAvailable
-            ? Color.white
-            : HeadquartersUnavailableColor;
     }
 
     // 시작 버튼 및 알림 텍스트 갱신한다.
@@ -344,9 +235,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         } else if (!_readyManager.IsAllReady) {
 	        // 레디 다 안해서 시작 못하는 경우
 	        _startGameButtonInfoLocalize.StringReference = _startInfoAllReady;
-        } else if (!_readyManager.HaveHqAgent) {
-	        // 본부 요원 없어서 시작 못하는 경우
-	        _startGameButtonInfoLocalize.StringReference = _startInfoNeedsHq;
         }
         
         _startGameButtonInfoLocalize.RefreshString();

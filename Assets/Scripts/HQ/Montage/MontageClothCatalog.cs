@@ -25,17 +25,12 @@ public class MontageClothCatalog : MonoBehaviour {
 			return UniTask.CompletedTask;
 		}
 		
-		if (value.PlayerRole ==  Role.Headquarter) {
-			if (!_loadStarted) {
-				Debug.Log($"[MontageClothCatalog] 본부이기에 몽타주 데이터 전체 로딩합니다.");
-				_loadStarted = true;
-				_loadTask = LoadAsync().Preserve();
-			}
-			
-			return _loadTask;
+		if (!_loadStarted) {
+			Debug.Log($"[MontageClothCatalog] 몽타주 데이터 전체 로딩합니다.");
+			_loadStarted = true;
+			_loadTask = LoadAsync().Preserve();
 		}
-		Debug.Log($"[MontageClothCatalog] 현장이기에 몽타주 로딩하지 않았습니다.");
-		return UniTask.CompletedTask;
+		return _loadTask;
 	}
 
 	private async UniTask LoadAsync() {

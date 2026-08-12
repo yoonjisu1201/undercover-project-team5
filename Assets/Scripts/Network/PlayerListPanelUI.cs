@@ -93,7 +93,6 @@ public sealed class PlayerListPanelUI : MonoBehaviour
         foreach (var slot in _manager.Slots)
         {
             Player player = slot.Player;
-            player.PlayerRoleChanged += HandlePlayerStateChanged;
             player.PlayerNameChanged += HandlePlayerStateChanged;
             _subscribedPlayers.Add(player);
         }
@@ -103,13 +102,10 @@ public sealed class PlayerListPanelUI : MonoBehaviour
     {
         foreach (var player in _subscribedPlayers)
         {
-            player.PlayerRoleChanged -= HandlePlayerStateChanged;
             player.PlayerNameChanged -= HandlePlayerStateChanged;
         }
         _subscribedPlayers.Clear();
     }
-
-    private void HandlePlayerStateChanged(Role oldRole, Role newRole) => Render();
     private void HandlePlayerStateChanged(FixedString32Bytes oldName, FixedString32Bytes newName) => Render();
 
     private void Render()
@@ -131,26 +127,19 @@ public sealed class PlayerListPanelUI : MonoBehaviour
 
             // slots[i]가 곧 i번 좌석: WaitingRoomReadyManager가 ClientId 오름차순으로 정렬을 유지해준다.
             var slot = slots[i];
-            bool isHost = slot.ClientId == NetworkManager.ServerClientId; // 방장의 로컬 클라이언트 ID는 항상 0
-            string roleText = null; // = slot.Role == Role.Headquarter ? "HQ" : "Field";
+            bool isHost = slot.ClientId == NetworkManager.ServerClientId; 
             
             // 실제 이름 기준으로 이름, 역할 작성
             _playerNameTexts[i].text = slot.Player.PlayerName;
-            roleText = slot.Player.PlayerRole switch {
-                Role.Field => "Field",
-                Role.Headquarter => "HQ",
-                _ => throw new InvalidEnumArgumentException($"[PlayerListPanelUI] None은 Player가 가질 수 없는 Role입니다.")
-            };
-            
             _stateIconImages[i].enabled = true;
             _stateIconImages[i].sprite = isHost
                 ? _hostIconSprite
                 : slot.IsReady ? _readyIconSprite : _notReadyIconSprite;
             _stateTexts[i].text = isHost
-                ? $"방장 · {roleText}"
+                ? $"방장"
                 : slot.IsReady
-                    ? $"준비 완료 · {roleText}"
-                    : $"준비 중 · {roleText}";
+                    ? $"준비 완료"
+                    : $"준비 중";
 
             Color stateColor = isHost ? HostColor : slot.IsReady ? ReadyColor : NotReadyColor;
             _stateIconImages[i].color = stateColor;

@@ -6,13 +6,6 @@ using Unity.Netcode;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-public enum Role : byte
-{
-	Field,
-	Headquarter,
-	None
-}
-
 [RequireComponent(typeof(PlayerMoveSample),
 	typeof(PlayerInventory),
 	typeof(PlayerInteraction))]
@@ -50,16 +43,9 @@ public class Player : NetworkBehaviour {
 		NetworkVariableWritePermission.Owner
 	);
 	
-	private readonly NetworkVariable<Role> _playerRole = new NetworkVariable<Role>(
-		Role.Field,
-		NetworkVariableReadPermission.Everyone,
-		NetworkVariableWritePermission.Server
-	);
-	
 	// 외부에서 변경 감지 구독
 	public event Action<FixedString32Bytes, FixedString32Bytes> PlayerNameChanged;
 	public event Action<Color, Color> PlayerColorChanged;
-	public event Action<Role, Role> PlayerRoleChanged;
 
 	// PlayerName을 가져오도록 하는 Property. 닉네임을 설정했으면 설정한 닉네임을 제공하고, 설정되지 않았다면 Player 1같은 값을 반환한다.
 	public string PlayerName {
@@ -71,21 +57,6 @@ public class Player : NetworkBehaviour {
 	}
 	
 	public Color PlayerColor => _playerColor.Value;
-	public Role PlayerRole {
-		get => _playerRole.Value;
-		set {
-			if (!IsServer) {
-				Debug.LogError("Role은 서버에서만 변경할 수 있습니다."); 
-				return;
-			}
-			
-			if (value == Role.None) {
-				throw new InvalidEnumArgumentException($"[Player] None은 Player가 가질 수 없는 Role입니다.");
-			}
-			
-			_playerRole.Value = value;
-		}
-	}
 	
 	private void Awake() {
 		PlayerMove = GetComponent<PlayerMoveSample>();
@@ -126,7 +97,6 @@ public class Player : NetworkBehaviour {
 		
 		_playerName.OnValueChanged += HandlePlayerNameChanged;
 		_playerColor.OnValueChanged += HandlePlayerColorChanged;
-		_playerRole.OnValueChanged += HandlePlayerRoleChanged;
 		
 		PlayerNameChanged += PlayerInfoPresenter.HandlePlayerNameChanged;
 		PlayerColorChanged += PlayerInfoPresenter.HandlePlayerColorChanged;
@@ -139,7 +109,6 @@ public class Player : NetworkBehaviour {
 	public override void OnNetworkDespawn() {
 		_playerName.OnValueChanged -= HandlePlayerNameChanged;
 		_playerColor.OnValueChanged -= HandlePlayerColorChanged;
-		_playerRole.OnValueChanged -= HandlePlayerRoleChanged;
 		_activeInstances.Remove(this);
 	}
 	
@@ -153,10 +122,5 @@ public class Player : NetworkBehaviour {
 	private void HandlePlayerColorChanged(Color previousValue, Color newValue)
 	{
 		PlayerColorChanged?.Invoke(previousValue, newValue);
-	}
-
-	private void HandlePlayerRoleChanged(Role previousValue, Role newValue)
-	{
-		PlayerRoleChanged?.Invoke(previousValue, newValue);
 	}
 }
