@@ -168,7 +168,7 @@ public partial class RoundManager
         foreach (ulong clientId in pendingClients)
         {
             Debug.LogWarning($"[RoundManager] 클라이언트 {clientId}의 스폰 준비가 제한 시간을 초과해 내보냅니다.", this);
-            NetworkManager.DisconnectClient(clientId, SpawnReadyTimeoutReason);
+            DisconnectWithReason(clientId, SpawnReadyTimeoutReason);
         }
 
         // DisconnectClient가 서버측 접속자 목록을 즉시 정리하므로 여기서 바로 남은 인원을 셀 수 있다.
@@ -195,10 +195,14 @@ public partial class RoundManager
 
         foreach (ulong clientId in clientsToDisconnect)
         {
-            NetworkManager.DisconnectClient(clientId, reason);
+            DisconnectWithReason(clientId, reason);
         }
 
         // 호스트가 나가는 순간 방이 사라지므로, 클라이언트에게 사유를 보낸 뒤 마지막에 나간다.
         GameSessionManager.Instance.LeaveSessionWithReason(reason);
     }
+
+    // NGO가 자동으로 채우는 영문 사유와 구분되도록 표식을 붙여 내보낸다.
+    private void DisconnectWithReason(ulong clientId, string reason)
+        => NetworkManager.DisconnectClient(clientId, GameSessionManager.ServerReasonPrefix + reason);
 }

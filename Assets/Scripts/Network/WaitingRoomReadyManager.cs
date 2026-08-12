@@ -18,7 +18,7 @@ public class WaitingRoomReadyManager : NetworkBehaviour
             ClientId == other.ClientId && IsReady == other.IsReady;
     }
 
-    public const int MinPlayersToStart = 1; // TODO: 테스트용 임시 변경, 테스트 끝나면 3으로 되돌릴 것
+    public const int MinPlayersToStart = 3;
 
     private readonly NetworkList<PlayerSlot> _slots = new();
 

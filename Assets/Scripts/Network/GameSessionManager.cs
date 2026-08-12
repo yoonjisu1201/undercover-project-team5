@@ -26,6 +26,10 @@ public class GameSessionManager : MonoBehaviour
 	public string JoinCode => CurrentSession?.Code;
 	public string LastLeaveReason { get; set; }
 
+	// 서버가 우리 코드에서 클라이언트를 내보낼 때 사유 앞에 붙이는 표식.
+	// NGO가 자동으로 채우는 영문 사유("Client-1 disconnected by server." 등)와 구분하기 위함이다.
+	public const string ServerReasonPrefix = "UC|";
+
 	public event Action<string> OnSessionCreated; // 조인코드 발급 완료
 	public event Action OnSessionJoined;          // 조인코드로 참가 완료
 	public event Action<string> OnSessionError;   // 실패 사유 전달
@@ -96,8 +100,9 @@ public class GameSessionManager : MonoBehaviour
 		}
 		catch (Exception e)
 		{
-			Debug.LogError($"[GameSessionManager] 세션 생성 중 '{stage}' 단계에서 오류가 발생했습니다.\n오류 내용: {e.Message}");
-			await CleanUpFailedSessionAsync();
+			Debug.LogError($"[GameSessionManager] 세션 생성 중 '{stage}' 단계에서 오류가 발생했습니다.\n" +
+			               $"오류 내용: [{DescribeError(e)}] {e.Message}");
+			await ReleaseCurrentSessionAsync();
 			OnSessionError?.Invoke(ToUserMessage(e));
 		}
 	}
@@ -135,30 +140,37 @@ public class GameSessionManager : MonoBehaviour
 		}
 		catch (Exception e)
 		{
-			Debug.LogError($"[GameSessionManager] 세션 참가 중 '{stage}' 단계에서 오류가 발생했습니다.\n오류 내용: {e.Message}");
-			await CleanUpFailedSessionAsync();
+			Debug.LogError($"[GameSessionManager] 세션 참가 중 '{stage}' 단계에서 오류가 발생했습니다.\n" +
+			               $"오류 내용: [{DescribeError(e)}] {e.Message}");
+			await ReleaseCurrentSessionAsync();
 			OnSessionError?.Invoke(ToUserMessage(e));
 		}
 	}
 
-	// 조인이 통과한 뒤 실패하면 CurrentSession이 남아 로비에 유령 참가자로 걸린다.
-	// 다음 방 생성/참가가 정상 동작하도록 여기서 정리한다.
-	private async Task CleanUpFailedSessionAsync()
+	// Unity Lobby 멤버십은 Netcode 연결과 별개라, 연결이 끊겨도 로비에는 멤버로 남는다.
+	// 명시적으로 나가지 않으면 같은 방 코드로 재참가할 때 SessionConflict
+	// ("player is already a member of the lobby")가 난다.
+	private async Task ReleaseCurrentSessionAsync()
 	{
-		if (CurrentSession == null) return;
+		// 나가기 요청이 도는 동안 다른 코드가 죽은 세션을 잡지 않도록 참조부터 끊는다.
+		var session = CurrentSession;
+		CurrentSession = null;
+		if (session == null) return;
 
 		try
 		{
-			await CurrentSession.LeaveAsync();
+			await session.LeaveAsync();
 		}
 		catch (Exception e)
 		{
-			// 이미 사라진 세션이면 나가기도 실패하는데, 참조만 끊으면 되므로 로그만 남긴다.
-			Debug.LogWarning($"[GameSessionManager] 실패한 세션 정리 중 오류: {e.Message}");
+			// 이미 사라진 세션이면 나가기도 실패하는데, 참조는 이미 끊었으므로 로그만 남긴다.
+			Debug.LogWarning($"[GameSessionManager] 세션 정리 중 오류: {e.Message}");
 		}
-
-		CurrentSession = null;
 	}
+
+	// 실패 원인을 한눈에 구분하기 위해 SessionError 코드(또는 예외 타입)를 함께 남긴다.
+	private static string DescribeError(Exception e) =>
+		e is SessionException sessionException ? $"SessionError.{sessionException.Error}" : e.GetType().Name;
 
 	// Unity Services 예외 메시지는 영문 원문이라 그대로 띄우면 알아볼 수 없어 한글 문구로 바꿔준다.
 	// (원문은 호출부의 Debug.LogError에 그대로 남는다)
@@ -316,7 +328,8 @@ public class GameSessionManager : MonoBehaviour
 		_isLeavingVoluntarily = false;
 
         VivoxManager.Instance.LeaveSessionChannel();
-        CurrentSession = null;
+        // 로비 화면 복귀가 네트워크 왕복을 기다리지 않도록 완료를 기다리지 않는다.
+        _ = ReleaseCurrentSessionAsync();
 		SceneManager.LoadScene(_lobbySceneName);
 	}
 
@@ -325,12 +338,11 @@ public class GameSessionManager : MonoBehaviour
 	{
 		if (!string.IsNullOrEmpty(_pendingLeaveReason)) return _pendingLeaveReason;
 
-		// NGO는 서버가 사유를 보내지 않았을 때도 "[Disconnect Event]..." 형태의 디버그 문자열을 채워둔다.
-		// 대괄호로 시작하지 않는 경우만 서버가 실제로 보낸 사유로 취급한다.
+		// NGO는 서버가 사유를 보내지 않아도 영문 문자열을 채워두므로, 우리가 붙인 표식이 있을 때만 채택한다.
 		string disconnectReason = NetworkManager.Singleton.DisconnectReason;
-		if (!string.IsNullOrEmpty(disconnectReason) && !disconnectReason.StartsWith("["))
+		if (!string.IsNullOrEmpty(disconnectReason) && disconnectReason.StartsWith(ServerReasonPrefix))
 		{
-			return disconnectReason;
+			return disconnectReason.Substring(ServerReasonPrefix.Length);
 		}
 
 		if (_isLeavingVoluntarily) return "방을 나왔습니다";
@@ -342,7 +354,7 @@ public class GameSessionManager : MonoBehaviour
 		if (CurrentSession == null) return;
 
 		_isLeavingVoluntarily = true;
-		await CurrentSession.LeaveAsync();
+		await ReleaseCurrentSessionAsync();
 	}
 
 	// 타임아웃/오류로 클라이언트가 스스로 나갈 때, 로비에 표시할 사유를 지정해 퇴장한다.
