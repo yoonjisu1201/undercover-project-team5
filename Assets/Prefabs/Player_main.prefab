@@ -1201,6 +1201,7 @@ GameObject:
   - component: {fileID: 2974533433762144473}
   - component: {fileID: 2671811247175395020}
   - component: {fileID: 2890800428293612904}
+  - component: {fileID: 6501738294651027834}
   - component: {fileID: 4795415604205157010}
   - component: {fileID: 8049373391342024038}
   - component: {fileID: 7986587932523917439}
@@ -1393,23 +1394,38 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _moveSpeedWithCart: 4
   _moveSpeed: 5
-  _rotateSpeed: 0.5
   _runSpeedMultiplier: 1.5
   _jumpPower: 10
   _gravityValue: 2.5
   _riseMultiplier: 2
   _rigidbody: {fileID: 2513456902304565783}
   _gripMaterial: {fileID: 13400000, guid: b63e968860ba4ec5b647897462d69591, type: 2}
-  _headPivot: {fileID: 652807202391233900}
-  _camera: {fileID: 6481610273975784339}
-  _headBone: {fileID: 8796666323345990700}
-  _downedCameraAnchor: {fileID: 18798367909611978}
-  _cameraTransitionDuration: 0.35
+  _playerCameraController: {fileID: 6501738294651027834}
   _groundCheck: {fileID: 432645721594799797}
   _groundCheckRadius: 0.3
   _jumpableSurfaceMask:
     serializedVersion: 2
     m_Bits: 72
+--- !u!114 &6501738294651027834
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b478dbaaf8864ffbb10537de994fdc78, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCameraController
+  ShowTopMostFoldoutHeaderGroup: 1
+  _headPivot: {fileID: 652807202391233900}
+  _camera: {fileID: 6481610273975784339}
+  _cameraPivot: {fileID: 6978609527677792072}
+  _headBone: {fileID: 8796666323345990700}
+  _downedCameraAnchor: {fileID: 18798367909611978}
+  _cameraTransitionDuration: 0.35
+  _rotateSpeed: 0.5
   _minPitch: -60
   _maxPitch: 60
   _armFollowPivot: {fileID: 1105795469393611950}
@@ -1702,7 +1718,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAimIK
   gun: {fileID: 0}
-  playerMovement: {fileID: 0}
+  playerCameraController: {fileID: 6501738294651027834}
   gunAimAxis: {x: 0.1, y: -0.1, z: -1}
   gunUpAxis: {x: 0, y: 1, z: 0}
   maxAimPitch: 25

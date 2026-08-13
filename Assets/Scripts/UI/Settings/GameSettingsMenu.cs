@@ -182,9 +182,9 @@ public sealed class GameSettingsMenu : MonoBehaviour
         var playerObject = NetworkManager.Singleton?.LocalClient?.PlayerObject;
 
         if (playerObject != null &&
-            playerObject.TryGetComponent(out PlayerMoveSample playerMove))
+            playerObject.TryGetComponent(out PlayerCameraController playerCameraController))
         {
-            playerMove.SetMouseSensitivity(sensitivity);
+            playerCameraController.SetMouseSensitivity(sensitivity);
         }
     }
 
