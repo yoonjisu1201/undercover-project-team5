@@ -115,7 +115,7 @@ public sealed class NpcIdleState : INpcState
         _animationEvents.PhoneEndingRequested -= RequestPhoneEnding;
         _animationEvents.PhoneEndingCompleted -= CompletePhoneEnding;
 
-        Debug.Log($"[NpcIdleState] '{_movement.name}' Idle State 구독 해제", _movement);
+        //Debug.Log($"[NpcIdleState] '{_movement.name}' Idle State 구독 해제", _movement);
 
         // Phone 종료 대기 밖에서 State가 종료돼도 남은 휴대폰을 정리합니다.
         if (_usesPhone)
