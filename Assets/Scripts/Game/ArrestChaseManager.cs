@@ -144,7 +144,7 @@ public class ArrestChaseManager : NetworkBehaviour
 
         if (candidate.TryGetComponent(out NpcStateMachine stateMachine))
         {
-            stateMachine.RequestRun();
+            stateMachine.ChangeToRun();
         }
     }
 
@@ -214,7 +214,7 @@ public class ArrestChaseManager : NetworkBehaviour
     {
         if (_target.TryGetComponent(out NpcStateMachine stateMachine))
         {
-            stateMachine.RequestIdle();
+            stateMachine.ChangeToIdle();
         }
 
         _state.Value = ArrestChaseState.Completed;

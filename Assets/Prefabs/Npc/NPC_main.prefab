@@ -119,12 +119,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3747b9647bc9bf449882d846cee1152a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcStateMachine
-  _walkSpeed: 2
-  _runSpeed: 4
-  _longTravelDistanceThreshold: 20
-  _restIntervalDistance: 10
-  _minimumRestSeconds: 1
-  _maximumRestSeconds: 3
+  _idleState:
+    _alternativeAnimationChance: 0.9
+  _walkState:
+    _speed: 2
+    _longTravelDistanceThreshold: 20
+    _restIntervalDistance: 10
+    _minimumRestSeconds: 1
+    _maximumRestSeconds: 3
+    _alternativeAnimationChance: 0.45
+    _minimumPhoneSeconds: 6
+  _runState:
+    _speed: 4
 --- !u!114 &-6353674599839067019
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1170,18 +1176,18 @@ MonoBehaviour:
   TransitionStateInfoList: []
   AnimatorParameterEntries:
     ParameterEntries:
-    - name: IsRunning
-      NameHash: -887662580
-      Synchronize: 1
-      ParameterType: 4
-    - name: ActionState
-      NameHash: -821380803
+    - name: NpcState
+      NameHash: -1622300533
       Synchronize: 1
       ParameterType: 3
-    - name: IsWalking
-      NameHash: 1282839668
+    - name: AnimationVariant
+      NameHash: -1654443778
       Synchronize: 1
-      ParameterType: 4
+      ParameterType: 3
+    - name: EndPhoneAction
+      NameHash: 536432603
+      Synchronize: 1
+      ParameterType: 9
   AnimatorParametersExpanded: 0
 --- !u!114 &-5934287379106585781
 MonoBehaviour:
@@ -1238,8 +1244,6 @@ MonoBehaviour:
   _raycastDistance: 30
   _navMeshSampleDistance: 1
   _minimumMoveDistance: 2
-  _minimumIdleSeconds: 1
-  _maximumIdleSeconds: 3
 --- !u!114 &-6738867006488543690
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2019,6 +2023,77 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
+--- !u!1001 &6146842250102468796
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 6842971508460475878}
+    m_Modifications:
+    - target: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.09
+      objectReference: {fileID: 0}
+    - target: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.02
+      objectReference: {fileID: 0}
+    - target: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.77000225
+      objectReference: {fileID: 0}
+    - target: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.06550394
+      objectReference: {fileID: 0}
+    - target: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.0014643028
+      objectReference: {fileID: 0}
+    - target: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.6346681
+      objectReference: {fileID: 0}
+    - target: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 90
+      objectReference: {fileID: 0}
+    - target: {fileID: 5560905291789515636, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_Name
+      value: phone1k
+      objectReference: {fileID: 0}
+    - target: {fileID: 5560905291789515636, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+--- !u!1 &1756884976458812360 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5560905291789515636, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+  m_PrefabInstance: {fileID: 6146842250102468796}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &9176520610624119646 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3032176635680216034, guid: 4b658ae02ca4e154f80cea2d74db1ef1, type: 3}
+  m_PrefabInstance: {fileID: 6146842250102468796}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &7435468663572080464
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3810,7 +3885,13 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3037894868568228032, guid: 2cbfaddd75f4e8e4eb6ee42d063afefa, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4675336727329572882}
-    m_AddedComponents: []
+    - targetCorrespondingSourceObject: {fileID: 4163306336784020150, guid: 2cbfaddd75f4e8e4eb6ee42d063afefa, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9176520610624119646}
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 2047045267326962253, guid: 2cbfaddd75f4e8e4eb6ee42d063afefa, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3183772443691262877}
   m_SourcePrefab: {fileID: 100100000, guid: 2cbfaddd75f4e8e4eb6ee42d063afefa, type: 3}
 --- !u!4 &107833168930441499 stripped
 Transform:
@@ -4147,6 +4228,21 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 2047045267326962253, guid: 2cbfaddd75f4e8e4eb6ee42d063afefa, type: 3}
   m_PrefabInstance: {fileID: 7435468663572080464}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &3183772443691262877
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8888002890869255453}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 61cade2ee5ac59b4a9be515bfc64a143, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NpcAnimationEvents
+  _phoneProp: {fileID: 1756884976458812360}
+  _walkingWhileTextingPhoneLocalPosition: {x: 0, y: 0.117, z: 0.086}
+  _walkingWhileTextingPhoneLocalEulerAngles: {x: 150.219, y: 107.609, z: 93.796}
 --- !u!4 &9133823430866988564 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1869498927660943684, guid: 2cbfaddd75f4e8e4eb6ee42d063afefa, type: 3}
