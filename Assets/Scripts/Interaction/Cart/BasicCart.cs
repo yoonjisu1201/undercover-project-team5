@@ -13,7 +13,7 @@ public class BasicCart : CartBase {
 	[Header("=== 매 초 체력 얼마나 찰지 ===")] 
 	[SerializeField] private float _healPerSecond = 10f;
 	[Header("=== 카트가 가진 총 회복량 ===")] 
-	[SerializeField] private float _maxHealAmount = 200f;
+	[SerializeField] private float _maxHealAmount = 1000f;
 	[Header("=== 체력량 캔버스 ===")] 
 	[SerializeField] private HealthBarCanvas healthBarCanvas;
 	
