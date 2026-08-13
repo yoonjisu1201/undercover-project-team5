@@ -1,3 +1,4 @@
+using System;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -43,6 +44,12 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private float _minPitch = -50f; // 위쪽으로 볼 수 있는 한계
 	[SerializeField] private float _maxPitch = 50f;  // 아래쪽으로 볼 수 있는 한계
 
+	// 손전등 등 손 IK가 따라가는 각도. 헤드 피벗(카메라)보다 좁게 잡아서 팔이 가동 범위를 넘어 꺾이지 않게 한다.
+	[Header("팔 IK 따라가기 (헤드 피벗과 별도로 클램프)")]
+	[SerializeField] private Transform _armFollowPivot;
+	[SerializeField] private float _armFollowMinPitch = -20f;
+	[SerializeField] private float _armFollowMaxPitch = 20f;
+
 	private float _yaw = 0f;
 	private float _pitch = 0f;
 	private Quaternion _headBoneBaseRotation;
@@ -79,7 +86,10 @@ public class PlayerMoveSample : NetworkBehaviour
 	private bool _isJumping;
 	// #392: 실제 소생 후 Getting Up에서 Idle로 돌아갈 때까지 이동을 차단한다.
 	private bool _isGettingUp;
-	
+
+	// Getting Up 애니메이션 + 블렌딩이 완전히 끝나는 시점(FixedUpdate에서 감지)에 발동한다.
+	public event Action GettingUpFinished;
+
 	public GameObject HeadPivot => _headPivot;
 
 	// 팔 IK와 레이저가 카메라 상하 조준을 따라가도록 소유자는 로컬 값, 다른 클라이언트는 동기화 값을 제공한다.
@@ -258,6 +268,13 @@ public class PlayerMoveSample : NetworkBehaviour
 		_headPivot.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
 		_networkPitch.Value = _pitch;
 
+		// 손 IK 타겟은 헤드 피벗보다 좁은 범위 안에서만 따라가게 별도 피벗에 클램프된 값을 적용한다.
+		if (_armFollowPivot != null)
+		{
+			float armPitch = Mathf.Clamp(_pitch, _armFollowMinPitch, _armFollowMaxPitch);
+			_armFollowPivot.localRotation = Quaternion.Euler(armPitch, 0f, 0f);
+		}
+
 		/// 버튼 입력 방식 적용하기
 		// Player - Interact라는 행동이 이번 프레임에 눌렸는지 확인한다.
 		// Keyboard.current.eKey.wasPressedThisFrame와 비슷하게 동작함
@@ -297,6 +314,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			_animator.GetCurrentAnimatorStateInfo(0).IsName("Base Layer.Idle"))
 		{
 			_isGettingUp = false;
+			GettingUpFinished?.Invoke();
 		}
 
 		// #392: 다운 중에는 PlayerHealth, 소생 후 기상 중에는 _isGettingUp으로 이동을 차단한다.
