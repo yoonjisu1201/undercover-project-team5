@@ -103,41 +103,67 @@ public sealed class MissionSpawner : MonoBehaviour
         {
             MissionMachineData missionMachineData = _MissionMachine[index];
 
-            if (!TryFindSpawnPose(out Vector3 spawnPosition, out Quaternion spawnRotation))
+            // CCTV 담당 기계는 현재 해방된 지역의 CCTV 수만큼 깔고, 각 기계에 1번부터 담당 CCTV를 나눠 준다.
+            int machineCount = missionMachineData.SpawnPerCctv ? GetActiveCctvCount() : 1;
+            for (int machineIndex = 0; machineIndex < machineCount; machineIndex++)
             {
-                Debug.LogWarning($"[MissionSpawner] '{missionMachineData.WorldPrefab.name}'의 스폰 위치를 찾지 못했습니다.", this);
-                continue;
+                SpawnMissionMachine(missionMachineData, machineIndex + 1);
             }
-
-            GameObject missionMachineObject = Instantiate(
-                missionMachineData.WorldPrefab,
-                spawnPosition,
-                spawnRotation);
-
-            if (!missionMachineObject.TryGetComponent(out NetworkObject networkObject))
-            {
-                Debug.LogError($"[MissionSpawner] '{missionMachineData.WorldPrefab.name}'에 NetworkObject가 없습니다.", this);
-                Destroy(missionMachineObject);
-                continue;
-            }
-
-            if (!missionMachineObject.TryGetComponent(out MissionInteractable mission))
-            {
-                Debug.LogError($"[MissionSpawner] '{missionMachineData.WorldPrefab.name}'에 MissionInteractable이 없습니다.", this);
-                Destroy(missionMachineObject);
-                continue;
-            }
-
-            mission.ConfigureCompletionReward(missionMachineData.CompletionReward);
-            networkObject.Spawn(destroyWithScene: true);
-            _spawnedMachines.Add(networkObject);
-            _spawnedPositions.Add(spawnPosition);
-            Debug.Log($"[MissionSpawner] '{missionMachineData.WorldPrefab.name}' 스폰 완료: {spawnPosition}", this);
         }
 
         SpawnContaminatedSample();
 
-        Debug.Log($"[MissionSpawner] 미션 머신 {_spawnedMachines.Count}/{RequiredMissionMachineCount}개 스폰 완료.", this);
+        // CCTV 미션은 CCTV 수만큼 여러 대가 깔리므로, 스폰 수가 미션 종류 수와 같지 않다.
+        Debug.Log($"[MissionSpawner] 미션 머신 {_spawnedMachines.Count}개 스폰 완료. (미션 종류 {RequiredMissionMachineCount}개)", this);
+    }
+
+    // 미션 머신 한 대를 배치하고 담당 번호를 심어 스폰합니다.
+    private void SpawnMissionMachine(MissionMachineData missionMachineData, int targetNumber)
+    {
+        if (!TryFindSpawnPose(out Vector3 spawnPosition, out Quaternion spawnRotation))
+        {
+            Debug.LogWarning($"[MissionSpawner] '{missionMachineData.WorldPrefab.name}'의 스폰 위치를 찾지 못했습니다.", this);
+            return;
+        }
+
+        GameObject missionMachineObject = Instantiate(
+            missionMachineData.WorldPrefab,
+            spawnPosition,
+            spawnRotation);
+
+        if (!missionMachineObject.TryGetComponent(out NetworkObject networkObject))
+        {
+            Debug.LogError($"[MissionSpawner] '{missionMachineData.WorldPrefab.name}'에 NetworkObject가 없습니다.", this);
+            Destroy(missionMachineObject);
+            return;
+        }
+
+        if (!missionMachineObject.TryGetComponent(out MissionInteractable mission))
+        {
+            Debug.LogError($"[MissionSpawner] '{missionMachineData.WorldPrefab.name}'에 MissionInteractable이 없습니다.", this);
+            Destroy(missionMachineObject);
+            return;
+        }
+
+        mission.ConfigureCompletionReward(missionMachineData.CompletionReward);
+        mission.ConfigureTargetNumber(targetNumber);
+        networkObject.Spawn(destroyWithScene: true);
+        _spawnedMachines.Add(networkObject);
+        _spawnedPositions.Add(spawnPosition);
+        Debug.Log($"[MissionSpawner] '{missionMachineData.WorldPrefab.name}' {targetNumber}번 스폰 완료: {spawnPosition}", this);
+    }
+
+    // 지역 해방 시 CCTVHub가 그 지역 포인트로 목록을 다시 채우므로, 스폰 시점의 CCTV 수를 그대로 사용합니다.
+    private int GetActiveCctvCount()
+    {
+        CCTVHub cctvHub = FindFirstObjectByType<CCTVHub>();
+        if (cctvHub == null || cctvHub.CameraCount == 0)
+        {
+            Debug.LogError("[MissionSpawner] 활성화된 CCTV가 없어 CCTV 미션 기계를 1대만 생성합니다.", this);
+            return 1;
+        }
+
+        return cctvHub.CameraCount;
     }
 
     // 해금된 지역의 바닥 한 곳에 오염 샘플을 서버 권한으로 생성합니다.
