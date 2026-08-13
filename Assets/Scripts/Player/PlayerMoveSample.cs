@@ -196,6 +196,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 			if (IsOwner)
 			{
+				Layers.ShowLayerToCamera(_camera, Layers.LocalPlayerHead);
 				BeginCameraTransition();
 			}
 		}		
@@ -232,11 +233,6 @@ public class PlayerMoveSample : NetworkBehaviour
 			Quaternion.Slerp(_cameraTransitionStartRotation, targetRotation, progress));
 
 		_isCameraTransitioning = progress < 1f;
-
-		if (!_isCameraTransitioning && useDownedCamera)
-		{
-			Layers.ShowLayerToCamera(_camera, Layers.LocalPlayerHead);
-		}
 	}
 
 	private void UpdateJumpAnimation()
