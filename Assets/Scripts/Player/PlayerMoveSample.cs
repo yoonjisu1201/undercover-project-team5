@@ -33,6 +33,8 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private GameObject _headPivot;
 	[SerializeField] private Camera _camera;
 	[SerializeField] private Transform _headBone;
+	[SerializeField] private Transform _downedCameraAnchor;
+	[SerializeField, Min(0.01f)] private float _cameraTransitionDuration = 0.35f;
 
 	[Header("지면 판정")]
 	[SerializeField] private Transform _groundCheck;
@@ -53,6 +55,10 @@ public class PlayerMoveSample : NetworkBehaviour
 	private float _yaw = 0f;
 	private float _pitch = 0f;
 	private Quaternion _headBoneBaseRotation;
+	private Vector3 _cameraTransitionStartPosition;
+	private Quaternion _cameraTransitionStartRotation;
+	private float _cameraTransitionElapsed;
+	private bool _isCameraTransitioning;
 
 	// 오너가 갱신하는 pitch 값. 다른 클라이언트는 이 값을 읽어 헤드 본을 회전시킨다.
 	private readonly NetworkVariable<float> _networkPitch =
@@ -187,10 +193,51 @@ public class PlayerMoveSample : NetworkBehaviour
 			SetMovingState(false);
 			SetRunningState(false);
 			SetJumpingState(false);
+
+			if (IsOwner)
+			{
+				BeginCameraTransition();
+			}
 		}		
 
 		_isGettingUp = previousValue && !value;
 	}		
+
+	private void BeginCameraTransition()
+	{
+		_cameraTransitionStartPosition = _camera.transform.position;
+		_cameraTransitionStartRotation = _camera.transform.rotation;
+		_cameraTransitionElapsed = 0f;
+		_isCameraTransitioning = true;
+	}
+
+	private void UpdateCameraTransition()
+	{
+		bool useDownedCamera = _playerHealth.IsDowned || _isGettingUp;
+		Transform cameraTransform = _camera.transform;
+
+		Vector3 targetPosition = useDownedCamera
+			? _downedCameraAnchor.position
+			: cameraTransform.parent.position;
+
+		Quaternion targetRotation = useDownedCamera
+			? _downedCameraAnchor.rotation
+			: cameraTransform.parent.rotation * Quaternion.Euler(_pitch, 0f, 0f);
+
+		_cameraTransitionElapsed += Time.deltaTime;
+		float progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(_cameraTransitionElapsed / _cameraTransitionDuration));
+
+		cameraTransform.SetPositionAndRotation(
+			Vector3.Lerp(_cameraTransitionStartPosition, targetPosition, progress),
+			Quaternion.Slerp(_cameraTransitionStartRotation, targetRotation, progress));
+
+		_isCameraTransitioning = progress < 1f;
+
+		if (!_isCameraTransitioning && useDownedCamera)
+		{
+			Layers.ShowLayerToCamera(_camera, Layers.LocalPlayerHead);
+		}
+	}
 
 	private void UpdateJumpAnimation()
 	{
@@ -276,6 +323,11 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
+		if (_playerHealth.IsDowned || _isGettingUp || _isCameraTransitioning)
+		{
+			return;
+		}
+
 		/// 마우스 관련 이동 적용하기
 		Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
 
@@ -310,6 +362,20 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void LateUpdate()
 	{
+		if (IsOwner && _isCameraTransitioning)
+		{
+			UpdateCameraTransition();
+			return;
+		}
+
+		if (IsOwner && (_playerHealth.IsDowned || _isGettingUp))
+		{
+			_camera.transform.SetPositionAndRotation(
+				_downedCameraAnchor.position,
+				_downedCameraAnchor.rotation);
+			return;
+		}
+
 		if (_headBone == null)
 		{
 			return;
@@ -338,12 +404,15 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_isGettingUp = false;
 			GettingUpFinished?.Invoke();
+			Layers.HideLayerFromCamera(_camera, Layers.LocalPlayerHead);
+			BeginCameraTransition();
 		}
 
 		// #392: 다운 중에는 PlayerHealth, 소생 후 기상 중에는 _isGettingUp으로 이동을 차단한다.
 		if (GameplayUiMode.IsMovementBlocked ||
 			_playerHealth.IsDowned ||
-			_isGettingUp)
+			_isGettingUp ||
+			_isCameraTransitioning)
 		{
 			_jumpRequested = false;
 			SetMovingState(false);

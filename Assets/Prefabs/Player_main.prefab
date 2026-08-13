@@ -390,14 +390,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 652807202391233900}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.0024705827, y: -0, z: -0, w: 0.999997}
-  m_LocalPosition: {x: 0.10999999, y: 0.11462772, z: 0.33}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2787817719420301331}
   m_Father: {fileID: 6978609527677792072}
-  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!20 &6481610273975784339
 Camera:
   m_ObjectHideFlags: 0
@@ -1240,6 +1240,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 18798367909611978}
   - {fileID: 432645721594799797}
   - {fileID: 7237436107012484508}
   - {fileID: 2493310890254095942}
@@ -1402,6 +1403,8 @@ MonoBehaviour:
   _headPivot: {fileID: 652807202391233900}
   _camera: {fileID: 6481610273975784339}
   _headBone: {fileID: 8796666323345990700}
+  _downedCameraAnchor: {fileID: 18798367909611978}
+  _cameraTransitionDuration: 0.35
   _groundCheck: {fileID: 432645721594799797}
   _groundCheckRadius: 0.3
   _jumpableSurfaceMask:
@@ -3927,15 +3930,15 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6353375658605469420}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.1, y: 1.2, z: 0}
+  m_LocalRotation: {x: 0.015951447, y: -0, z: -0, w: 0.9998728}
+  m_LocalPosition: {x: 0, y: 1.3, z: 0.3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7467977410003670284}
   - {fileID: 1105795469393611950}
   m_Father: {fileID: 7257694396862523126}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 1.828, y: 0, z: 0}
 --- !u!1 &6550118395829563766
 GameObject:
   m_ObjectHideFlags: 0
@@ -5428,6 +5431,37 @@ Transform:
   - {fileID: 3437245957534309426}
   m_Father: {fileID: 1089470619493613469}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &8889394003797566314
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 18798367909611978}
+  m_Layer: 0
+  m_Name: DownedCameraAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &18798367909611978
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8889394003797566314}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.094747305, y: -0.36669162, z: 0.037570503, w: 0.9247425}
+  m_LocalPosition: {x: 1.9278105, y: 2, z: -2.2825775}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7257694396862523126}
+  m_LocalEulerAnglesHint: {x: 11.7, y: -43.26, z: 0}
 --- !u!1 &8943526384437034788
 GameObject:
   m_ObjectHideFlags: 0
