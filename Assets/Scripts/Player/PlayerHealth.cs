@@ -8,8 +8,8 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
 {
     [Header("HP 설정 (임시 기본값, 추후 밸런싱 이슈로 조정)")]
     [SerializeField] private float _maxHp = 100f;
-    [SerializeField] private float _decayPerSecond = 1f; //1초당 감소 HP 수치
-    [SerializeField] private float _reviveHpAmount = 50f; //쓰러진 플레이어 살릴때 회복 수치
+    [SerializeField] private float _decayPerSecond = 2f; //1초당 감소 HP 수치
+    [SerializeField] private float _reviveHpAmount = 20f; //쓰러진 플레이어 살릴때 회복 수치
     [SerializeField] private float _alienAttackDamage = 20f; //외계인 공격 1회당 감소 HP 수치
 
     private readonly NetworkVariable<float> _currentHp =
