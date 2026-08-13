@@ -3,15 +3,14 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-// CCTV별 배선 입력을 처리하고 연결 상태와 화면을 동기화합니다.
+// 기계 한 대가 담당하는 CCTV 한 대의 배선 입력을 처리하고 연결 상태와 화면을 동기화합니다.
 public sealed class CCTVSignalRepairGame : MonoBehaviour
 {
     private const int WireCount = CCTVPoint.RequiredConnectionCount;
 
-    [Header("CCTV 선택")]
-    [SerializeField] private Button[] _cameraButtons;
-    [SerializeField] private TMP_Text[] _cameraLabels;
-    [SerializeField] private TMP_Text[] _cameraFeeds;
+    [Header("CCTV 표시")]
+    [SerializeField] private TMP_Text _cameraLabel;
+    [SerializeField] private TMP_Text _cameraFeed;
 
     [Header("배선 보드")]
     [SerializeField] private RectTransform _connectionBoard;
@@ -26,7 +25,16 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     [SerializeField] private TMP_Text _progressText;
     [SerializeField] private GameObject _resultOverlay;
 
-    private CCTVRepairPuzzleState[] _states;
+    [Header("보조 상태 레일")]
+    [SerializeField] private TMP_Text _leftRailLabel;
+    [SerializeField] private TMP_Text _rightRailLabel;
+    [SerializeField] private Image _faultBar;
+    [SerializeField] private Image _signalBar;
+    [SerializeField] private Image[] _warningLamp;
+    [SerializeField] private Image[] _leftBoardLink;
+    [SerializeField] private Image[] _rightBoardLink;
+
+    private CCTVRepairPuzzleState _state;
     private readonly Color[] _wireColors =
     {
         new Color(0.95f, 0.18f, 0.18f), // 빨강
@@ -35,34 +43,13 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
         new Color(0.95f, 0.18f, 0.75f)  // 분홍
     };
 
-    private int _selectedCamera;
+    // 이 화면이 담당하는 CCTV 번호. 기계가 알려 주기 전까지는 아무 것도 하지 않는다.
+    private int _cameraIndex = -1;
     private CCTVHub _cctvHub;
 
-    private int CameraCount => _cctvHub.CameraCount;
-
-    // CCTV별 퍼즐 상태와 버튼, 드래그 단자를 초기화한다.
+    // 왼쪽 시작 단자에 해당 전선 번호와 게임 참조를 전달한다.
     private void Awake()
     {
-        // 이 미션은 프리팹으로 동적 생성되어 씬의 CCTVHub를 미리 참조할 수 없으므로 직접 찾는다.
-        _cctvHub = FindFirstObjectByType<CCTVHub>();
-        _states = new CCTVRepairPuzzleState[CameraCount];
-
-        // 각 CCTV가 서로 다른 단자 배치를 갖도록 퍼즐 상태를 따로 만듭니다.
-        for (int cameraIndex = 0; cameraIndex < CameraCount; cameraIndex++)
-        {
-            _states[cameraIndex] = new CCTVRepairPuzzleState();
-            SyncCameraStateFromStore(cameraIndex);
-        }
-
-        // 프리팹에 복제된 버튼도 배열 순서와 같은 CCTV를 선택하도록 클릭 이벤트를 연결한다.
-        for (int cameraIndex = 0; cameraIndex < CameraCount; cameraIndex++)
-        {
-            int capturedCameraIndex = cameraIndex;
-            _cameraButtons[cameraIndex].onClick.RemoveAllListeners();
-            _cameraButtons[cameraIndex].onClick.AddListener(() => SelectCamera(capturedCameraIndex));
-        }
-
-        // 왼쪽 시작 단자에 해당 전선 번호와 게임 참조를 전달한다.
         for (int wireIndex = 0; wireIndex < WireCount; wireIndex++)
         {
             CCTVWireTerminal terminal = _sourceTerminals[wireIndex].GetComponent<CCTVWireTerminal>();
@@ -70,68 +57,77 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
         }
 
         _resultOverlay.SetActive(false);
-        SelectCamera(0);
     }
 
-    // 화면이 활성화되면 서버 상태 변경을 구독하고 최신 배선 수를 복구합니다.
+    // 기계마다 담당 CCTV가 다르므로, UI를 연 기계가 자기 번호를 알려 준 시점에 퍼즐을 구성한다.
+    public void Initialize(MissionInteractable owner)
+    {
+        // 이 미션은 프리팹으로 동적 생성되어 씬의 CCTVHub를 미리 참조할 수 없으므로 직접 찾는다.
+        _cctvHub = FindFirstObjectByType<CCTVHub>();
+        if (_cctvHub == null || _cctvHub.CameraCount == 0)
+        {
+            Debug.LogError("[CCTV] 활성화된 CCTVHub를 찾지 못해 배선 퍼즐을 시작할 수 없습니다.", this);
+            return;
+        }
+
+        // 기계 번호는 1부터 시작하고, CCTV 포인트 번호는 0부터 시작한다.
+        _cameraIndex = Mathf.Clamp(owner.TargetNumber - 1, 0, _cctvHub.CameraCount - 1);
+
+        // 같은 기계를 여러 명이 동시에 열어도 같은 색 배치를 보도록, 서버가 정한 시드로 단자를 섞는다.
+        Random.State previousRandomState = Random.state;
+        try
+        {
+            Random.InitState(owner.PuzzleSeed);
+            _state = new CCTVRepairPuzzleState();
+        }
+        finally
+        {
+            Random.state = previousRandomState;
+        }
+
+        SyncStateFromStore();
+
+        _cctvHub.OnAnyPointStateChanged += HandleSharedConnectionStateChanged;
+        RefreshStatus();
+        RefreshBoard();
+    }
+
+    // 화면을 다시 열면 그동안 서버에서 바뀐 연결 상태를 복구하고 구독을 되살립니다.
     private void OnEnable()
     {
-        _cctvHub.OnAnyPointStateChanged +=
-            HandleSharedConnectionStateChanged;
-
-        // UI를 다시 열었을 때 그동안 서버에서 바뀐 연결 상태를 복구합니다.
-        if (_states[0] != null)
+        if (_cctvHub == null)
         {
-            for (int cameraIndex = 0; cameraIndex < CameraCount; cameraIndex++)
-            {
-                SyncCameraStateFromStore(cameraIndex);
-            }
-
-            RefreshCameraCards();
-            RefreshBoard();
+            return;
         }
+
+        _cctvHub.OnAnyPointStateChanged += HandleSharedConnectionStateChanged;
+        SyncStateFromStore();
+        RefreshStatus();
+        RefreshBoard();
     }
 
     // 화면이 비활성화되면 서버 상태 변경 구독을 해제합니다.
     private void OnDisable()
     {
-        _cctvHub.OnAnyPointStateChanged -=
-            HandleSharedConnectionStateChanged;
-    }
+        if (_cctvHub == null)
+        {
+            return;
+        }
 
-    // Unity Button의 On Click 이벤트에서 선택한 CCTV 번호를 전달받는다.
-    public void OnCameraButtonClick(int cameraIndex)
-    {
-        SelectCamera(cameraIndex);
-    }
-
-    // 선택한 CCTV를 현재 작업 대상으로 바꾸고 화면을 갱신한다.
-    private void SelectCamera(int cameraIndex)
-    {
-        _selectedCamera = cameraIndex;
-        RefreshCameraCards();
-        RefreshBoard();
+        _cctvHub.OnAnyPointStateChanged -= HandleSharedConnectionStateChanged;
     }
 
     // 연결 가능한 전선이면 드래그 선 표시를 시작한다.
     public void BeginWireDrag(int wireIndex, PointerEventData eventData)
     {
-        CCTVRepairPuzzleState state = _states[_selectedCamera];
-
-        // 완료된 CCTV이거나 이미 연결한 전선은 다시 드래그하지 않는다.
-        if (state.IsRepaired || state.ConnectedTargets[wireIndex] >= 0)
-        {
-            return;
-        }
-
         ContinueWireDrag(wireIndex, eventData);
     }
 
     // 드래그 중인 전선을 시작 단자부터 포인터 위치까지 그린다.
     public void ContinueWireDrag(int wireIndex, PointerEventData eventData)
     {
-        CCTVRepairPuzzleState state = _states[_selectedCamera];
-        if (state.IsRepaired || state.ConnectedTargets[wireIndex] >= 0)
+        // 완료된 CCTV이거나 이미 연결한 전선은 다시 드래그하지 않는다.
+        if (_state == null || _state.IsRepaired || _state.ConnectedTargets[wireIndex] >= 0)
         {
             return;
         }
@@ -148,8 +144,7 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     // 드롭한 위치의 색상이 맞으면 전선을 연결하고 완료 여부를 검사한다.
     public void EndWireDrag(int wireIndex, PointerEventData eventData)
     {
-        CCTVRepairPuzzleState state = _states[_selectedCamera];
-        if (state.IsRepaired || state.ConnectedTargets[wireIndex] >= 0)
+        if (_state == null || _state.IsRepaired || _state.ConnectedTargets[wireIndex] >= 0)
         {
             return;
         }
@@ -160,36 +155,56 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
         for (int targetIndex = 0; targetIndex < WireCount; targetIndex++)
         {
             if (RectTransformUtility.RectangleContainsScreenPoint(_targetTerminals[targetIndex], eventData.position, eventData.pressEventCamera)
-            && state.TargetColors[targetIndex] == wireIndex)
+            && _state.TargetColors[targetIndex] == wireIndex)
             {
                 matchedTarget = targetIndex;
                 break;
             }
         }
 
-        state.ConnectedTargets[wireIndex] = matchedTarget;
+        _state.ConnectedTargets[wireIndex] = matchedTarget;
         if (matchedTarget >= 0)
         {
             // 연결된 색상 정보가 유지되도록 전선 개수가 아닌 4비트 마스크를 동기화합니다.
-            SetSharedConnectionMask(_selectedCamera, state.ConnectionMask);
+            SetSharedConnectionMask(_state.ConnectionMask);
         }
-        RefreshCameraCards();
+
+        RefreshStatus();
         RefreshBoard();
+        TryCompleteMission();
+    }
+
+    // 담당 CCTV의 배선을 모두 이으면 미션을 완료 처리하고 결과 문구를 띄운다.
+    private void TryCompleteMission()
+    {
+        if (!_state.IsRepaired)
+        {
+            return;
+        }
+
+        MissionUIController controller = GetComponent<MissionUIController>();
+        if (controller == null)
+        {
+            return;
+        }
+
+        controller.MarkCompletionReady();
+        controller.ShowCompletedState();
     }
 
     // 미션에서 바뀐 연결 마스크를 서버에 보내 모든 클라이언트의 CCTV에 반영합니다.
-    private void SetSharedConnectionMask(int cameraIndex, int connectionMask)
+    private void SetSharedConnectionMask(int connectionMask)
     {
         if (CCTVConnectionNetworkState.Instance != null)
         {
             CCTVConnectionNetworkState.Instance.RequestConnectionMask(
-                cameraIndex,
+                _cameraIndex,
                 connectionMask);
             return;
         }
 
         // 네트워크 없이 프리팹만 테스트하는 경우에는 로컬 상태만 갱신합니다.
-        _cctvHub.ApplyConnectionMask(cameraIndex, connectionMask);
+        _cctvHub.ApplyConnectionMask(_cameraIndex, connectionMask);
     }
 
     // 서버에서 CCTV가 다시 끊기거나 복구되면 보관 중인 퍼즐 배선도 같은 수로 맞춥니다.
@@ -197,55 +212,112 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
         int cameraIndex,
         CCTVConnectionState _)
     {
-        SyncCameraStateFromStore(cameraIndex);
-        RefreshCameraCards();
-
-        if (cameraIndex == _selectedCamera)
+        if (cameraIndex != _cameraIndex)
         {
-            RefreshBoard();
+            return;
+        }
+
+        SyncStateFromStore();
+        RefreshStatus();
+        RefreshBoard();
+    }
+
+    // 공용 저장소의 연결 수를 담당 CCTV 퍼즐에 반영합니다.
+    private void SyncStateFromStore()
+    {
+        _state.SyncConnectionMask(_cctvHub.GetPoint(_cameraIndex).ConnectionMask);
+    }
+
+    // 담당 CCTV의 이름표, 연결 상태, 배선 진행도를 갱신한다.
+    private void RefreshStatus()
+    {
+        bool repaired = _state.IsRepaired;
+        int connectionCount = _state.ConnectedCount;
+
+        if (_cameraLabel != null)
+        {
+            _cameraLabel.text = $"CCTV {_cameraIndex + 1}";
+        }
+
+        if (_cameraFeed != null)
+        {
+            _cameraFeed.text = repaired ? "● CONNECTED" : connectionCount > 0 ? "◐ PARTIAL" : "× DISCONNECTED";
+            _cameraFeed.color = repaired ? new Color(0.2f, 1f, 0.55f) : connectionCount > 0 ? new Color(1f, 0.75f, 0.2f) : new Color(1f, 0.28f, 0.28f);
+        }
+
+        _progressText.text = $"WIRES  {connectionCount} / {WireCount}";
+        RefreshAuxiliaryRails(repaired, connectionCount);
+    }
+
+    // 보조 레일도 실제 CCTV 연결 상태와 같은 색과 문구를 사용한다.
+    private void RefreshAuxiliaryRails(bool repaired, int connectionCount)
+    {
+        bool partiallyConnected = !repaired && connectionCount > 0;
+        Color statusColor = repaired
+            ? new Color(0.2f, 1f, 0.55f)
+            : partiallyConnected
+                ? new Color(1f, 0.75f, 0.2f)
+                : new Color(1f, 0.28f, 0.28f);
+
+        if (_leftRailLabel != null)
+        {
+            _leftRailLabel.text = $"AUX\n{_cameraIndex + 1:00}";
+        }
+
+        if (_rightRailLabel != null)
+        {
+            _rightRailLabel.text = repaired ? "LINK\nOK" : partiallyConnected ? "LINK\nSYNC" : "LINK\nERR";
+            _rightRailLabel.color = statusColor;
+        }
+
+        if (_faultBar != null)
+        {
+            _faultBar.color = new Color(statusColor.r, statusColor.g, statusColor.b, 0.65f);
+        }
+
+        if (_signalBar != null)
+        {
+            _signalBar.color = new Color(statusColor.r, statusColor.g, statusColor.b, 0.65f);
+        }
+
+        foreach (Image lamp in _warningLamp)
+        {
+            if (lamp != null)
+            {
+                lamp.gameObject.SetActive(!repaired);
+                lamp.color = new Color(statusColor.r, statusColor.g, statusColor.b, 0.9f);
+            }
+        }
+
+        foreach (Image link in _leftBoardLink)
+        {
+            if (link != null)
+            {
+                link.color = new Color(0.15f, 0.85f, 0.82f, repaired ? 0.75f : 0.48f);
+            }
+        }
+
+        foreach (Image link in _rightBoardLink)
+        {
+            if (link != null)
+            {
+                link.color = new Color(statusColor.r, statusColor.g, statusColor.b, repaired ? 0.75f : 0.48f);
+            }
         }
     }
 
-    // 공용 저장소의 연결 수를 지정한 CCTV 퍼즐에 반영합니다.
-    private void SyncCameraStateFromStore(int cameraIndex)
-    {
-        _states[cameraIndex].SyncConnectionMask(_cctvHub.GetPoint(cameraIndex).ConnectionMask);
-    }
-
-    // CCTV 선택 카드의 문구, 색상, 선택 가능 상태와 진행도를 갱신한다.
-    private void RefreshCameraCards()
-    {
-        int repairedCount = 0;
-        for (int i = 0; i < CameraCount; i++)
-        {
-            bool repaired = _states[i].IsRepaired;
-            if (repaired) repairedCount++;
-
-            // 연결 완료 후에도 다시 끊길 수 있으므로 모든 CCTV는 계속 선택할 수 있습니다.
-            _cameraLabels[i].text = $"CCTV {i + 1}";
-            int connectionCount = _states[i].ConnectedCount;
-            // 배선 수에 맞춰 선택 카드에도 Disconnected/Partial/Connected를 동일하게 표시합니다.
-            _cameraFeeds[i].text = repaired ? "● CONNECTED" : connectionCount > 0 ? "◐ PARTIAL" : "× DISCONNECTED";
-            _cameraFeeds[i].color = repaired ? new Color(0.2f, 1f, 0.55f) : connectionCount > 0 ? new Color(1f, 0.75f, 0.2f) : new Color(1f, 0.28f, 0.28f);
-            _cameraButtons[i].interactable = true;
-        }
-
-        _progressText.text = $"ONLINE  {repairedCount} / {CameraCount}";
-    }
-
-    // 선택한 CCTV의 단자 색상과 현재 연결된 전선을 배선 보드에 표시한다.
+    // 담당 CCTV의 단자 색상과 현재 연결된 전선을 배선 보드에 표시한다.
     private void RefreshBoard()
     {
-        CCTVRepairPuzzleState state = _states[_selectedCamera];
-        _objectiveText.text = state.IsRepaired ? $"CCTV {_selectedCamera + 1} 연결 완료 — 다른 오프라인 CCTV를 선택하세요."
-        : $"CCTV {_selectedCamera + 1}: 같은 색 단자를 드래그해서 연결하세요.";
+        _objectiveText.text = _state.IsRepaired ? $"CCTV {_cameraIndex + 1} 연결 완료"
+        : $"CCTV {_cameraIndex + 1}: 같은 색 단자를 드래그해서 연결하세요.";
 
         for (int wireIndex = 0; wireIndex < WireCount; wireIndex++)
         {
             _sourceGraphics[wireIndex].color = _wireColors[wireIndex];
             _wireImages[wireIndex].color = _wireColors[wireIndex];
 
-            int targetIndex = state.ConnectedTargets[wireIndex];
+            int targetIndex = _state.ConnectedTargets[wireIndex];
             if (targetIndex < 0)
             {
                 // 아직 연결되지 않은 전선은 보드에서 숨긴다.
@@ -260,7 +332,7 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
         // 섞인 정답 배열을 기준으로 오른쪽 단자 색상을 표시한다.
         for (int targetIndex = 0; targetIndex < WireCount; targetIndex++)
         {
-            _targetGraphics[targetIndex].color = _wireColors[state.TargetColors[targetIndex]];
+            _targetGraphics[targetIndex].color = _wireColors[_state.TargetColors[targetIndex]];
         }
     }
 

@@ -26,11 +26,19 @@ public sealed class MissionInteractable : InteractableBase
     private readonly NetworkVariable<int> _puzzleSeed = new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private readonly NetworkVariable<bool> _requiredItemInserted = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    // 같은 프리팹을 여러 대 스폰하는 미션에서 각 기계가 담당하는 대상 번호(1부터). 예: CCTV 수리 기계의 CCTV 번호.
+    // 프리팹이 하나뿐이라 인스펙터로는 구분할 수 없어, 스폰할 때 서버가 정해 모든 클라이언트에 배포한다.
+    private readonly NetworkVariable<int> _targetNumber = new(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     private GameObject _uiInstance; // 열려있는 미션 ui 인스턴스
     private Transform _interactingPlayer;
     private static MissionInteractable _activeInteractable;
 
     public bool IsCompleted => _isCompleted.Value;
+    public int TargetNumber => _targetNumber.Value;
+
+    // UI 생성 이후에 퍼즐을 만드는 미션이 같은 문제를 뽑도록 서버가 정한 시드를 공개한다.
+    public int PuzzleSeed => _puzzleSeed.Value;
     public bool IsRequiredItemInserted => _requiredItem == null || _requiredItemInserted.Value;
     public ItemType RequiredItemId => _requiredItem != null ? _requiredItem.ItemId : ItemType.None;
 
@@ -93,6 +101,12 @@ public sealed class MissionInteractable : InteractableBase
         _completionReward = reward;
     }
 
+    // 서버가 스폰 직전에 이 기계가 담당할 대상 번호를 정한다. (Spawn 전에 넣어야 클라이언트 최초 값으로 배포된다)
+    public void ConfigureTargetNumber(int targetNumber)
+    {
+        _targetNumber.Value = targetNumber;
+    }
+
     // 미션 UI를 열고 완료된 게임이면 완료 안내만 표시한다.
     // 필요한 아이템 투입은 PlayerInteraction이 IInteractionApplier 쪽에서 직접 처리하므로,
     // 여기서는 아직 투입 전이면(=E를 눌러도 열 게 없으면) 그냥 아무것도 하지 않는다.
@@ -146,6 +160,12 @@ public sealed class MissionInteractable : InteractableBase
         if (_uiInstance.TryGetComponent(out BreakerBatteryMission breakerGame))
         {
             breakerGame.Initialize(GetComponent<BreakerCircuitState>());
+        }
+
+        // CCTV 수리는 기계마다 담당 CCTV가 달라, 어느 CCTV를 고치는 화면인지 알려 줘야 한다.
+        if (_uiInstance.TryGetComponent(out CCTVSignalRepairGame cctvGame))
+        {
+            cctvGame.Initialize(this);
         }
 
         if (IsCompleted)
@@ -260,9 +280,9 @@ public sealed class MissionInteractable : InteractableBase
     // UI를 닫은 플레이어 방향으로 완료 단서를 튕겨 내보낸다.
     private void SpawnCompletionReward(Vector3 requestingPlayerPosition)
     {
+        // CCTV 수리처럼 단서를 주지 않는 미션도 있으므로, 보상이 비어 있으면 조용히 넘어간다.
         if (_completionReward == null || _completionReward.WorldPrefab == null)
         {
-            Debug.LogError($"[Mission] '{name}'에 완료 단서가 설정되지 않았습니다.", this);
             return;
         }
 

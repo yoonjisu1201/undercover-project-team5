@@ -84,11 +84,17 @@ public sealed class MissionUIController : MonoBehaviour, IClosableUi
     }
 
     // 미션마다 결과 문구가 다르므로, 값이 채워져 있을 때만 프리팹 문구를 덮어쓴다.
+    // UI 프리팹은 여러 기계가 공유하므로, 기계별로 다른 번호는 {0} 자리에 채워 넣는다.
     private void ApplyResultText(string childName, string text)
     {
         if (string.IsNullOrEmpty(text))
         {
             return;
+        }
+
+        if (_owner != null)
+        {
+            text = text.Replace("{0}", _owner.TargetNumber.ToString());
         }
 
         Transform target = FindChild(childName);
