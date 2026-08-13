@@ -1,3 +1,4 @@
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,6 +20,15 @@ public class ClueUI : MonoBehaviour, IClosableUi
 
     [Header("Buttons")]
     [SerializeField] private Button _closeButton;   // 단서 UI를 닫는 버튼
+
+    [Header("등장/퇴장 연출")]
+    // 가이드북과 같은 방식으로 작게 시작해 제자리 크기로 커진다.
+    [SerializeField] private RectTransform _content;   // 비우면 이 오브젝트 자신을 쓴다
+    [SerializeField, Min(0f)] private float _openDuration = 0.22f;
+    [SerializeField, Range(0.1f, 1f)] private float _collapsedScale = 0.85f;
+
+    private Tween _scaleTween;
+    private bool _isClosing;
 
     private SceneCursorSettings _sceneCursorSettings;   // 씬 커서 설정을 관리하는 컴포넌트
     private CustomInputActions _actions;    // 사용자 입력을 처리하는 커스텀 입력 액션
@@ -69,6 +79,8 @@ public class ClueUI : MonoBehaviour, IClosableUi
         _closeButton.onClick.RemoveListener(Close);
         GameplayUiMode.Instance?.DeactivateCursor();
         _actions?.Disable();
+        _scaleTween?.Kill();
+        _isClosing = false;
     }
 
     // 단서 창은 E로도 닫는다. 창이 열려 있는 동안에는 플레이어 상호작용이 잠기므로 E가 겹치지 않는다.
@@ -98,6 +110,41 @@ public class ClueUI : MonoBehaviour, IClosableUi
         _sceneCursorSettings ??= GetComponent<SceneCursorSettings>();
     }
 
+
+    // 단서 목록에서 고른 번호의 단서를 연다. 캡처 결과는 씬의 ClueModulePreview가 들고 있다.
+    public void ShowClue(int clueNumber)
+    {
+        // 비활성 상태에서는 Awake가 아직 안 돌았을 수 있어, 켠 다음에 내용을 채운다.
+        gameObject.SetActive(true);
+
+        ClueModulePreview preview = FindFirstObjectByType<ClueModulePreview>(FindObjectsInactive.Include);
+        if (preview == null || !preview.TryApplyTo(clueNumber, this))
+        {
+            ClearClueImage($"단서 {clueNumber}");
+        }
+
+        PlayOpenAnimation();
+    }
+
+    // 가이드북과 같은 등장 연출.
+    private void PlayOpenAnimation()
+    {
+        RectTransform target = GetAnimationTarget();
+        if (target == null)
+        {
+            return;
+        }
+
+        _isClosing = false;
+        _scaleTween?.Kill();
+        target.localScale = Vector3.one * _collapsedScale;
+        _scaleTween = target.DOScale(1f, _openDuration).SetEase(Ease.OutBack);
+    }
+
+    private RectTransform GetAnimationTarget()
+    {
+        return _content != null ? _content : transform as RectTransform;
+    }
 
     public void ShowClueImage(Texture clueTexture, string clueType, string partName = null)
     {
@@ -146,8 +193,29 @@ public class ClueUI : MonoBehaviour, IClosableUi
         ShowClueImage(null, clueType, "???");
     }
 
+    // 가이드북과 같은 퇴장 연출. 다 줄어든 뒤에 꺼진다.
     public void Close()
     {
-        gameObject.SetActive(false);
+        if (!gameObject.activeSelf || _isClosing)
+        {
+            return;
+        }
+
+        RectTransform target = GetAnimationTarget();
+        if (target == null)
+        {
+            gameObject.SetActive(false);
+            return;
+        }
+
+        _isClosing = true;
+        _scaleTween?.Kill();
+        _scaleTween = target.DOScale(_collapsedScale, _openDuration * 0.7f).SetEase(Ease.InBack)
+            .OnComplete(() =>
+            {
+                _isClosing = false;
+                target.localScale = Vector3.one;
+                gameObject.SetActive(false);
+            });
     }
 }

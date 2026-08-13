@@ -231,10 +231,37 @@ public class ItemBase : InteractableBase {
             return;
         }
 
+        // 단서는 인벤토리 슬롯을 쓰지 않는다. 번호를 전원 단서 목록에 공유하고 월드 오브젝트는 없앤다.
+        // (슬롯을 안 거치므로 인벤토리가 꽉 차 있어도 획득이 막히지 않는다.)
+        if (this is ClueItem clue)
+        {
+            ShareClueOnServer(clue);
+            return;
+        }
+
         PlayerInventory inventory = player.GetComponent<PlayerInventory>();
 
         // 서버에서 인벤토리 공간을 확인하고, 되면 저장까지 한 번에 처리한다 (PickUpItemRpc 내부에서 TryStoreItemRpc 호출).
         inventory.PickUpItemRpc(new NetworkBehaviourReference(this));
+    }
+
+    // 서버 전용: 한 명이 찾은 단서는 현재 접속한 모든 플레이어의 목록에 넣는다.
+    // 각 클라이언트의 로컬 PlayerClueBook 변경 이벤트가 발생하므로 알림과 목록도 전원에게 동일하게 표시된다.
+    private static void ShareClueOnServer(ClueItem clue)
+    {
+        PlayerClueBook[] clueBooks = FindObjectsByType<PlayerClueBook>(FindObjectsSortMode.None);
+        if (clueBooks.Length == 0)
+        {
+            Debug.LogError("[ItemBase] PlayerClueBook을 찾지 못해 단서를 공유하지 못했습니다.", clue);
+            return;
+        }
+
+        foreach (PlayerClueBook clueBook in clueBooks)
+        {
+            clueBook.TryAddClueOnServer(clue.ClueNumber);
+        }
+
+        clue.NetworkObject.Despawn(destroy: true);
     }
 
     // 월드에 새 인스턴스를 만들어 곧바로 인벤토리에 넣는다 (상점 소모품 구매, 디버그 지급처럼

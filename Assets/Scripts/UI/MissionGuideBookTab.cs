@@ -9,6 +9,11 @@ using UnityEngine.EventSystems;
 public sealed class MissionGuideBookTab : MonoBehaviour,
     IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
+    [Header("동작 모드")]
+    // 켜면 미션 설명서가 아니라 공용 가이드북(GuideBook)을 여는 손잡이가 된다.
+    // 이 경우 Tab으로 정보 허브를 열었을 때 살짝 올라오고, 누르면 가이드북이 열린다.
+    [SerializeField] private bool _isGuideBook;
+
     [Header("올라오는 연출")]
     // 커서를 올렸을 때 위로 올라오는 높이다.
     [SerializeField] private float _hoverRise = 42f;
@@ -34,8 +39,22 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
         _guidePanel?.SetActive(false);
     }
 
+    private void OnEnable()
+    {
+        if (_isGuideBook)
+        {
+            InfoHubController.HubStateChanged += HandleHubStateChanged;
+            HandleHubStateChanged(InfoHubController.IsHubOpen);
+        }
+    }
+
     private void OnDisable()
     {
+        if (_isGuideBook)
+        {
+            InfoHubController.HubStateChanged -= HandleHubStateChanged;
+        }
+
         // 올라간 채로 꺼지면 다시 켤 때 어긋난 자리에서 시작한다.
         _riseTween?.Kill();
         _openTween?.Kill();
@@ -53,7 +72,11 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
 
     public void OnPointerEnter(PointerEventData eventData) => MoveTo(_restPosition.y + _hoverRise);
 
-    public void OnPointerExit(PointerEventData eventData) => MoveTo(_restPosition.y);
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        bool keepRaised = _isGuideBook && InfoHubController.IsHubOpen;
+        MoveTo(keepRaised ? _restPosition.y + _hoverRise : _restPosition.y);
+    }
 
     public void OnPointerClick(PointerEventData eventData) => OpenGuide();
 
@@ -73,8 +96,81 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
         _riseTween = _rect.DOAnchorPosY(targetY, _riseDuration).SetEase(Ease.OutQuad);
     }
 
+    // 가이드북 모드에서는 Tab으로 허브가 열려 있는 동안만 손잡이가 올라와 있는다.
+    private void HandleHubStateChanged(bool hubOpen)
+    {
+        MoveTo(hubOpen ? _restPosition.y + _hoverRise : _restPosition.y);
+
+        // 허브를 닫으면 열어 둔 가이드북도 접히면서 같이 닫힌다.
+        if (!hubOpen)
+        {
+            CloseGuideBookWithAnimation();
+        }
+    }
+
+    // 가이드북은 미션 설명 패널과 같은 방식으로 작게 시작해 제자리 크기로 커진다.
+    private void OpenGuideBookWithAnimation()
+    {
+        GuideBook guideBook = FindFirstObjectByType<GuideBook>(FindObjectsInactive.Include);
+        if (guideBook == null)
+        {
+            Debug.LogError("[MissionGuideBookTab] 씬에서 가이드북을 찾지 못했습니다.", this);
+            return;
+        }
+
+        MoveTo(_restPosition.y + _hoverRise);
+        guideBook.Show();
+
+        RectTransform content = GetGuideBookContent(guideBook);
+        if (content == null)
+        {
+            return;
+        }
+
+        _openTween?.Kill();
+        content.localScale = Vector3.one * 0.85f;
+        _openTween = content.DOScale(1f, _openDuration).SetEase(Ease.OutBack);
+    }
+
+    private void CloseGuideBookWithAnimation()
+    {
+        GuideBook guideBook = FindFirstObjectByType<GuideBook>(FindObjectsInactive.Include);
+        if (guideBook == null || !guideBook.gameObject.activeSelf)
+        {
+            return;
+        }
+
+        RectTransform content = GetGuideBookContent(guideBook);
+        if (content == null)
+        {
+            guideBook.Close();
+            return;
+        }
+
+        _openTween?.Kill();
+        _openTween = content.DOScale(0.85f, _openDuration * 0.7f).SetEase(Ease.InBack)
+            .OnComplete(() =>
+            {
+                guideBook.Close();
+                content.localScale = Vector3.one;
+            });
+    }
+
+    // 연출 대상은 가이드북 루트다. 인스펙터에서 따로 지정했으면 그것을 쓴다.
+    private RectTransform GetGuideBookContent(GuideBook guideBook)
+    {
+        return _guideContent != null ? _guideContent : guideBook.transform as RectTransform;
+    }
+
     private void OpenGuide()
     {
+        // 가이드북 모드는 미션 설명 패널이 아니라 씬의 공용 가이드북을 연다.
+        if (_isGuideBook)
+        {
+            OpenGuideBookWithAnimation();
+            return;
+        }
+
         if (_guidePanel == null)
         {
             Debug.LogWarning("[MissionGuideBookTab] 설명 패널이 연결되지 않았습니다.", this);

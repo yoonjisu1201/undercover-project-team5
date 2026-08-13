@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 // 게임씬 로드 완료 직후부터, NPC/단서 스폰이 끝나 RoundManager가 Round1을 시작할 때까지 로딩 패널을 보여준다.
@@ -6,10 +7,14 @@ public class GameSceneLoadingUI : MonoBehaviour
     [SerializeField] private GameObject _loadingPanel;
     [SerializeField] private GameObject _inventoryCanvas;
 
+	private readonly List<GameObject> _hiddenHudRoots = new();
+
     private void Start()
     {
         _loadingPanel.SetActive(true);
         _inventoryCanvas.SetActive(false);
+		HideGameplayHud<InfoHubController>();
+		HideGameplayHud<MontageShareUI>();
 
         if (RoundManager.Instance != null)
         {
@@ -33,5 +38,27 @@ public class GameSceneLoadingUI : MonoBehaviour
         RoundManager.Instance.OnRoundStateChanged -= HandleRoundReadyOnce;
         _loadingPanel.SetActive(false);
         _inventoryCanvas.SetActive(true);
+
+		foreach (GameObject hudRoot in _hiddenHudRoots)
+		{
+			if (hudRoot != null)
+			{
+				hudRoot.SetActive(true);
+			}
+		}
+
+		_hiddenHudRoots.Clear();
     }
+
+	private void HideGameplayHud<T>() where T : MonoBehaviour
+	{
+		T hud = FindFirstObjectByType<T>(FindObjectsInactive.Include);
+		if (hud == null || !hud.gameObject.activeSelf || _hiddenHudRoots.Contains(hud.gameObject))
+		{
+			return;
+		}
+
+		_hiddenHudRoots.Add(hud.gameObject);
+		hud.gameObject.SetActive(false);
+	}
 }

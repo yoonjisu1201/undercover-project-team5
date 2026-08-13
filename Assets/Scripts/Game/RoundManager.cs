@@ -459,6 +459,14 @@ public partial class RoundManager : NetworkBehaviour
         {
             inventory.ClearAllItemsOnServer();
         }
+
+        // 단서는 인벤토리가 아니라 별도 목록에 쌓이고, 라운드마다 번호가 새로 배정되므로 같이 비운다.
+        PlayerClueBook[] clueBooks = FindObjectsByType<PlayerClueBook>(FindObjectsSortMode.None);
+
+        foreach (PlayerClueBook clueBook in clueBooks)
+        {
+            clueBook.ClearOnServer();
+        }
     }
 
     // 결과 패널의 "확인" 버튼을 누르면 클라이언트가 호출한다. 접속 중인 전원이 확인하면 서버가 대기방 씬으로 전환한다.

@@ -84,7 +84,7 @@ public class ClueModulePreview : MonoBehaviour
 
         ShuffleEquippedModules(_criminalManager.CriminalNpc.NetworkObjectId);
 
-        // 캡처 결과는 단서 번호별로 보관하고, 각 ClueItem 인스턴스가 자기 Canvas에 꺼내 쓴다.
+        // 캡처 결과는 단서 번호별로 보관하고, 단서 목록 UI가 열람 시점에 꺼내 쓴다.
         for (int i = 0; i < _clueCount; i++)
         {
             int moduleIndex = i % _equippedModules.Count;
@@ -97,7 +97,6 @@ public class ClueModulePreview : MonoBehaviour
             await UniTask.NextFrame(cancellationToken);
         }
 
-        RefreshSpawnedClueCanvases();
         Debug.Log($"[ClueModulePreview] 단서 촬영 완료 | 총 {_capturedTextures.Count}개", this);
     }
 
@@ -113,15 +112,6 @@ public class ClueModulePreview : MonoBehaviour
 
         _capturedTextures.Clear();
         _capturedPartLabels.Clear();
-        RefreshSpawnedClueCanvases();
-    }
-
-    private static void RefreshSpawnedClueCanvases()
-    {
-        foreach (ClueItem clueItem in FindObjectsByType<ClueItem>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-        {
-            clueItem.RefreshCanvas();
-        }
     }
 
     private async UniTask<CriminalNpcManager> WaitForCriminalManagerAsync(CancellationToken cancellationToken)
@@ -178,6 +168,22 @@ public class ClueModulePreview : MonoBehaviour
         MontageParts.Eyebrows => "눈썹",
         _ => "의상"
     };
+
+    // 단서 목록에서 썸네일과 부위명만 필요할 때 쓴다. clueNumber는 1부터 시작한다.
+    public bool TryGetCapture(int clueNumber, out Texture2D texture, out string partLabel)
+    {
+        int clueIndex = clueNumber - 1;
+        if (clueIndex < 0 || clueIndex >= _capturedTextures.Count)
+        {
+            texture = null;
+            partLabel = null;
+            return false;
+        }
+
+        texture = _capturedTextures[clueIndex];
+        partLabel = _capturedPartLabels[clueIndex];
+        return true;
+    }
 
     // clueNumber는 1부터 시작한다.
     public bool TryApplyTo(int clueNumber, ClueUI clueUi)

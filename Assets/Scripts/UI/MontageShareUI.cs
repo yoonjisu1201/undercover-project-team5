@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DG.Tweening;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Localization;
@@ -10,8 +11,11 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	[SerializeField] private MontageShareManager _montageShareManager;
 
 	[Header("=== 접혔을 때의 UI와 열렸을 때의 UI ===")]
-	[SerializeField] private GameObject _foldedUI;
+	[SerializeField] private GameObject _notificationUI;
+	[SerializeField] private GameObject _tabUI;
 	[SerializeField] private GameObject _expandedUI;
+	[SerializeField] private RectTransform _expandedBody;
+	[SerializeField] private RectTransform _expandedContent;
 
 	[Header("=== 접혔을 때 보일 Text UI ===")]
 	[SerializeField] private LocalizeStringEvent _stateText;
@@ -28,23 +32,73 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	[SerializeField] private LocalizedString _montageAlreadyViewed;
 	[SerializeField] private LocalizedString _sentSecondsAgo;
 
-	private CustomInputActions _inputActions;
+	[Header("=== 펼침 연출 ===")]
+	// 단서 목록처럼 접힌 카드 높이에서 시작해 아래로 늘어나며 펼쳐진다. (확대/축소가 아니다)
+	[SerializeField, Min(0f)] private float _slideDuration = 0.24f;
+	// 우측 패널이므로 단서 목록과 반대로 내용물이 오른쪽에서 밀려 들어온다.
+	[SerializeField] private float _contentSlideOffset = 60f;
+
+	[Header("=== 몽타주 갱신 알림 ===")]
+	[SerializeField] private float _notificationHiddenX = 460f;
+	[SerializeField] private float _notificationShownX = -24f;
+	[SerializeField] private float _tabRestX = 300f;
+	[SerializeField, Min(0f)] private float _notificationSlideDuration = 0.3f;
+	[SerializeField, Min(0f)] private float _notificationHoldSeconds = 2.5f;
+	[SerializeField, Min(0f)] private float _tabRestoreDelay = 0.25f;
+	[SerializeField, Min(0f)] private float _tabRestoreSlideDuration = 0.35f;
+
+	public bool IsExpanded => _expandedUI != null && _expandedUI.activeSelf;
 
 	// 내가 확인하지 않은 새 몽타주가 있는가?
 	private bool _isMontageRenewed = false;
 
+	private float _expandedRestHeight;
+	private CanvasGroup _expandedContentGroup;
+	private Vector2 _expandedContentRestPosition;
+	private Tween _slide;
+	private Tween _compactSlide;
+	private Sequence _notificationSequence;
+	private bool _isNotificationPlaying;
+
 	private void Awake()
 	{
-		_inputActions = new CustomInputActions();
+		// 기존 프리팹의 NotificationState를 TabState로 이름 변경한 뒤 새 NotificationState를 추가했으므로,
+		// 이전 SerializedField 참조를 신뢰하지 않고 현재 계층 이름으로 두 상태를 명확히 구분한다.
+		GameObject notificationState = transform.Find("NotificationState")?.gameObject;
+		GameObject tabState = transform.Find("TabState")?.gameObject;
+		if (notificationState != null)
+		{
+			_notificationUI = notificationState;
+		}
+		if (tabState != null)
+		{
+			_tabUI = tabState;
+		}
+
+		if (_expandedBody != null)
+		{
+			_expandedRestHeight = _expandedBody.sizeDelta.y;
+		}
+
+		if (_expandedContent != null)
+		{
+			_expandedContentRestPosition = _expandedContent.anchoredPosition;
+			_expandedContentGroup = _expandedContent.GetComponent<CanvasGroup>();
+		}
+
+		ResetToCompactState();
 	}
 
 	private void OnEnable()
 	{
-		_inputActions.UI.Enable();
+		InfoHubController.HubStateChanged += HandleHubStateChanged;
 	}
 	private void OnDisable()
 	{
-		_inputActions.UI.Disable();
+		InfoHubController.HubStateChanged -= HandleHubStateChanged;
+		StopNotification();
+		_slide?.Kill();
+		_compactSlide?.Kill();
 		GameplayUiMode.Instance?.UnregisterUi(this);    // 펼친 채로 비활성화될 때 스택 정리
 	}
 
@@ -64,9 +118,10 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 
 	private void Update()
 	{
-		if (_inputActions.UI.Montage.WasPressedThisFrame())
+		// Tab은 InfoHubController가 받는다. 몽타주는 허브의 버튼으로 연다.
+		if (_sentSecondsAgoText == null || _montageShareManager == null || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
 		{
-			TogglePanelState();
+			return;
 		}
 
 		_sentSecondsAgoText.StringReference = _sentSecondsAgo;
@@ -79,8 +134,13 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	{
 		bool willExpand = !_expandedUI.activeSelf;
 
-		_foldedUI.gameObject.SetActive(!willExpand);
-		_expandedUI.gameObject.SetActive(willExpand);
+		// 접을 때는 다 줄어든 뒤에 카드를 되돌린다. (PlayExpandSlide의 OnComplete)
+		if (willExpand)
+		{
+			SetCompactCardsActive(false, false);
+		}
+
+		PlayExpandSlide(willExpand);
 
 		// 펼쳐졌을 때만 ESC 닫기 스택에 등록한다. (접힌 HUD 상태는 ESC 대상이 아님)
 		if (willExpand)
@@ -97,6 +157,204 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 		UpdateUiState();
 	}
 
+	// 카드 높이에서 시작해 아래로 늘어나며 펼쳐지고, 접을 때는 다시 카드 높이로 말려 올라간다.
+	// (단서 목록이 버튼 아래로 펼쳐지는 것과 같은 방식이다)
+	private void PlayExpandSlide(bool willExpand)
+	{
+		_slide?.Kill();
+
+		if (_expandedBody == null || _expandedContent == null || _expandedContentGroup == null)
+		{
+			_expandedUI.gameObject.SetActive(willExpand);
+			if (!willExpand)
+			{
+				RefreshCompactState();
+			}
+			return;
+		}
+
+		if (willExpand)
+		{
+			_expandedUI.gameObject.SetActive(true);
+			SetExpandedHeight(0f);
+			_expandedContentGroup.alpha = 1f;
+			_expandedContent.anchoredPosition = _expandedContentRestPosition + Vector2.right * _contentSlideOffset;
+
+			Sequence open = DOTween.Sequence()
+				.Join(DOTween.To(GetExpandedHeight, SetExpandedHeight, _expandedRestHeight, _slideDuration).SetEase(Ease.OutCubic))
+				.Join(_expandedContent.DOAnchorPos(_expandedContentRestPosition, _slideDuration).SetEase(Ease.OutCubic));
+
+			_slide = open;
+			return;
+		}
+
+		// Body가 위로 접히고, 내부 Content는 우측 화면 밖 방향으로 빠진다.
+		Sequence close = DOTween.Sequence()
+			.Join(DOTween.To(GetExpandedHeight, SetExpandedHeight, 0f, _slideDuration).SetEase(Ease.InCubic))
+			.Join(_expandedContent
+				.DOAnchorPos(_expandedContentRestPosition + Vector2.right * _contentSlideOffset, _slideDuration)
+				.SetEase(Ease.InCubic));
+
+		_slide = close.OnComplete(() =>
+		{
+			_expandedUI.gameObject.SetActive(false);
+			SetExpandedHeight(_expandedRestHeight);
+			ResetContent();
+			RefreshCompactState();
+		});
+	}
+
+	// 다음 연출을 위해 내용물의 위치와 투명도를 제자리로 되돌린다.
+	private void ResetContent()
+	{
+		_expandedContentGroup.alpha = 1f;
+		_expandedContent.anchoredPosition = _expandedContentRestPosition;
+	}
+
+	private void ResetToCompactState()
+	{
+		_slide?.Kill();
+
+		if (_expandedBody != null)
+		{
+			SetExpandedHeight(_expandedRestHeight);
+		}
+
+		if (_expandedContentGroup != null)
+		{
+			ResetContent();
+		}
+
+		_expandedUI.SetActive(false);
+		RefreshCompactState();
+	}
+
+	private void HandleHubStateChanged(bool hubOpen)
+	{
+		if (hubOpen)
+		{
+			StopNotification();
+		}
+
+		if (!IsExpanded)
+		{
+			RefreshCompactState();
+		}
+	}
+
+	public void ShowTabState(float hiddenX, float shownX, float duration)
+	{
+		StopNotification();
+		if (IsExpanded || _tabUI == null)
+		{
+			return;
+		}
+
+		SetCompactCardsActive(false, true);
+		RectTransform tabRect = _tabUI.transform as RectTransform;
+		tabRect.anchoredPosition = new Vector2(hiddenX, tabRect.anchoredPosition.y);
+
+		_compactSlide?.Kill();
+		_compactSlide = tabRect.DOAnchorPosX(shownX, duration).SetEase(Ease.OutCubic);
+	}
+
+	public void HideTabState(float hiddenX, float duration)
+	{
+		if (_tabUI == null)
+		{
+			return;
+		}
+
+		RectTransform tabRect = _tabUI.transform as RectTransform;
+		_compactSlide?.Kill();
+		_compactSlide = tabRect.DOAnchorPosX(hiddenX, duration).SetEase(Ease.InCubic);
+	}
+
+	private void RefreshCompactState()
+	{
+		bool showNotification = _isNotificationPlaying && !InfoHubController.IsHubOpen;
+		SetCompactCardsActive(showNotification, !showNotification);
+	}
+
+	private void PlayNotification()
+	{
+		if (InfoHubController.IsHubOpen || IsExpanded)
+		{
+			return;
+		}
+
+		StopNotification();
+		_compactSlide?.Kill();
+
+		RectTransform notificationRect = _notificationUI != null
+			? _notificationUI.transform as RectTransform
+			: null;
+		RectTransform tabRect = _tabUI != null ? _tabUI.transform as RectTransform : null;
+		if (notificationRect == null || tabRect == null)
+		{
+			Debug.LogError("[MontageShareUI] NotificationState 또는 TabState의 RectTransform을 찾지 못했습니다.", this);
+			RefreshCompactState();
+			return;
+		}
+
+		_isNotificationPlaying = true;
+		SetCompactCardsActive(true, false);
+
+		notificationRect.anchoredPosition = new Vector2(_notificationHiddenX, notificationRect.anchoredPosition.y);
+		_notificationSequence = DOTween.Sequence()
+			.Append(notificationRect.DOAnchorPosX(_notificationShownX, _notificationSlideDuration).SetEase(Ease.OutCubic))
+			.AppendInterval(_notificationHoldSeconds)
+			.Append(notificationRect.DOAnchorPosX(_notificationHiddenX, _notificationSlideDuration).SetEase(Ease.InCubic))
+			.AppendCallback(() => SetCompactCardsActive(false, false))
+			.AppendInterval(_tabRestoreDelay)
+			.AppendCallback(() =>
+			{
+				tabRect.anchoredPosition = new Vector2(_notificationHiddenX, tabRect.anchoredPosition.y);
+				SetCompactCardsActive(false, true);
+			})
+			.Append(tabRect.DOAnchorPosX(_tabRestX, _tabRestoreSlideDuration)
+				.SetEase(Ease.OutCubic))
+			.OnComplete(() =>
+			{
+				_isNotificationPlaying = false;
+			});
+	}
+
+	private void StopNotification()
+	{
+		_notificationSequence?.Kill();
+		_notificationSequence = null;
+		_isNotificationPlaying = false;
+	}
+
+	private void SetCompactCardsActive(bool notificationActive, bool tabActive)
+	{
+		if (_notificationUI != null)
+		{
+			_notificationUI.SetActive(notificationActive);
+		}
+		if (_tabUI != null)
+		{
+			_tabUI.SetActive(tabActive);
+		}
+	}
+
+	private float GetExpandedHeight() => _expandedBody.sizeDelta.y;
+
+	private void SetExpandedHeight(float height)
+	{
+		_expandedBody.sizeDelta = new Vector2(_expandedBody.sizeDelta.x, height);
+	}
+
+	// 정보 허브의 몽타주 버튼에서 호출한다. 이미 펼쳐져 있으면 그대로 둔다.
+	public void Expand()
+	{
+		if (!_expandedUI.activeSelf)
+		{
+			TogglePanelState();
+		}
+	}
+
 	// ESC 등으로 닫으면 펼쳐진 패널을 접는다. (IClosableUi)
 	public void Close()
 	{
@@ -111,6 +369,8 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	private void OnRoundStarted(int round)
 	{
 		_isMontageRenewed = false;
+		StopNotification();
+		ResetToCompactState();
 
 		UpdateUiState();
 	}
@@ -121,6 +381,10 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 		_isMontageRenewed = true;
 
 		UpdateUiState();
+		if (!IsExpanded)
+		{
+			PlayNotification();
+		}
 	}
 
 	private void UpdateUiState()

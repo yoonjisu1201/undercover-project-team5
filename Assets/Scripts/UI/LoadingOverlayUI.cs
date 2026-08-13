@@ -28,6 +28,24 @@ public class LoadingOverlayUI : MonoBehaviour
 			return;
 		}
 		s_instance = this;
+
+		// 이 컨트롤러는 로비 Canvas의 자식으로 배치돼 있다. 오버레이만 씬 전환 후에도 유지되도록
+		// 자체 루트 Canvas로 분리한 뒤 DontDestroyOnLoad를 적용한다.
+		transform.SetParent(null, false);
+		Canvas canvas = gameObject.GetComponent<Canvas>();
+		if (canvas == null)
+		{
+			canvas = gameObject.AddComponent<Canvas>();
+		}
+		canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+		canvas.overrideSorting = true;
+		canvas.sortingOrder = short.MaxValue;
+
+		if (gameObject.GetComponent<GraphicRaycaster>() == null)
+		{
+			gameObject.AddComponent<GraphicRaycaster>();
+		}
+
 		DontDestroyOnLoad(gameObject);
 	}
 
