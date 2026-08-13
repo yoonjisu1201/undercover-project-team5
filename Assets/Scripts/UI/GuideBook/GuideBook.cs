@@ -73,7 +73,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
         
         // 숨길 UI 꺼주기
         foreach (var ui  in _uisToHide) {
-			ui.SetActive(true);
+			ui.SetActive(false);
         }
     }
 
@@ -86,7 +86,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
         
         // 숨길 UI 켜주기
         foreach (var ui  in _uisToHide) {
-            ui.SetActive(false);
+            ui.SetActive(true);
         }
     }
 
