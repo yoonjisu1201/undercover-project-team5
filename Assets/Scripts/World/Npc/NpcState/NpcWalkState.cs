@@ -178,17 +178,6 @@ public sealed class NpcWalkState : INpcState
         _phase = WalkPhase.Inactive;
     }
 
-    public void UnsubscribeAnimationEvents()
-    {
-        if (_animationEvents == null)
-        {
-            return;
-        }
-
-        _animationEvents.PhoneStartingCompleted -= CompletePhoneStarting;
-        _animationEvents.PhoneEndingCompleted -= CompletePhoneEnding;
-    }
-
     public bool TryCompletePhoneBeforeExit()
     {
         // 휴대폰을 사용하지 않는 Walk는 End를 기다리지 않고 즉시 다른 State로 나갈 수 있습니다.

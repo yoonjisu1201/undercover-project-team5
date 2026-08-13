@@ -137,18 +137,6 @@ public sealed class NpcIdleState : INpcState
         IsComplete = false;
     }
 
-    public void UnsubscribeAnimationEvents()
-    {
-        if (_animationEvents == null)
-        {
-            return;
-        }
-
-        _animationEvents.IdleAnimationCompleted -= HandleIdleAnimationCompleted;
-        _animationEvents.PhoneEndingRequested -= RequestPhoneEnding;
-        _animationEvents.PhoneEndingCompleted -= CompletePhoneEnding;
-    }
-
     public bool TryCompletePhoneBeforeExit()
     {
         // 휴대폰을 사용하지 않는 Idle은 End를 기다리지 않고 즉시 다른 State로 나갈 수 있습니다.
