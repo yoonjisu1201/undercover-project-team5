@@ -111,7 +111,7 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
     // 가이드북은 미션 설명 패널과 같은 방식으로 작게 시작해 제자리 크기로 커진다.
     private void OpenGuideBookWithAnimation()
     {
-        GuideBook guideBook = FindFirstObjectByType<GuideBook>(FindObjectsInactive.Include);
+        GuideBook guideBook = GetGuideBook();
         if (guideBook == null)
         {
             Debug.LogError("[MissionGuideBookTab] 씬에서 가이드북을 찾지 못했습니다.", this);
@@ -134,7 +134,7 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
 
     private void CloseGuideBookWithAnimation()
     {
-        GuideBook guideBook = FindFirstObjectByType<GuideBook>(FindObjectsInactive.Include);
+        GuideBook guideBook = GetGuideBook();
         if (guideBook == null || !guideBook.gameObject.activeSelf)
         {
             return;
@@ -160,6 +160,13 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
     private RectTransform GetGuideBookContent(GuideBook guideBook)
     {
         return _guideContent != null ? _guideContent : guideBook.transform as RectTransform;
+    }
+
+    private GuideBook GetGuideBook()
+    {
+        return _guidePanel != null
+            ? _guidePanel.GetComponent<GuideBook>()
+            : FindFirstObjectByType<GuideBook>(FindObjectsInactive.Include);
     }
 
     private void OpenGuide()
