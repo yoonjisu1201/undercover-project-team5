@@ -7,12 +7,19 @@ using UnityEngine;
 [RequireComponent(typeof(PlayerAimIK))]
 [RequireComponent(typeof(PlayerCartIK))]
 [RequireComponent(typeof(PlayerItemIK))]
+[RequireComponent(typeof(PlayerHealth))]
+[RequireComponent(typeof(PlayerMoveSample))]
 public class PlayerHandIK : MonoBehaviour
 {
     private Animator _animator;
     private PlayerAimIK _aimIK;
     private PlayerCartIK _cartIK;
     private PlayerItemIK _itemIK;
+    private PlayerHealth _playerHealth;
+    private PlayerMoveSample _playerMove;
+
+    // 다운~기상(Getting Up) 애니메이션이 끝날 때까지 손 IK를 전부 애니메이션에 맡긴다.
+    private bool _handsSuppressed;
 
     private void Awake()
     {
@@ -20,10 +27,46 @@ public class PlayerHandIK : MonoBehaviour
         _aimIK = GetComponent<PlayerAimIK>();
         _cartIK = GetComponent<PlayerCartIK>();
         _itemIK = GetComponent<PlayerItemIK>();
+        _playerHealth = GetComponent<PlayerHealth>();
+        _playerMove = GetComponent<PlayerMoveSample>();
+    }
+
+    private void OnEnable()
+    {
+        _playerHealth.DownedStateChanged += HandleDownedStateChanged;
+        _playerMove.GettingUpFinished += HandleGettingUpFinished;
+    }
+
+    private void OnDisable()
+    {
+        _playerHealth.DownedStateChanged -= HandleDownedStateChanged;
+        _playerMove.GettingUpFinished -= HandleGettingUpFinished;
+    }
+
+    private void HandleDownedStateChanged(bool previousValue, bool isDowned)
+    {
+        if (!isDowned) return; // 소생 시작 시점은 아직 Getting Up 중이므로 무시, GettingUpFinished에서 해제한다.
+
+        _handsSuppressed = true;
+        _itemIK.DisableItems();
+    }
+
+    private void HandleGettingUpFinished()
+    {
+        _handsSuppressed = false;
     }
 
     private void OnAnimatorIK(int layerIndex)
-    { 
+    {
+        if (_handsSuppressed)
+        {
+            _animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0f);
+            _animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 0f);
+            _animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0f);
+            _animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0f);
+            return;
+        }
+
         if (_cartIK.IsActive)
         {
             _cartIK.ApplyIK(layerIndex);
