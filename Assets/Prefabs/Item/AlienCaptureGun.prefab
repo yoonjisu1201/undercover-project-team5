@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6183289162139396044}
-  - component: {fileID: 6653649104087828836}
   - component: {fileID: -507020779636714355}
   - component: {fileID: 4309028535687688052}
   - component: {fileID: 3225231422126764508}
@@ -19,6 +18,7 @@ GameObject:
   - component: {fileID: 4396408287653812395}
   - component: {fileID: 3037222780284069327}
   - component: {fileID: 3370096925600736603}
+  - component: {fileID: -7081587343900019641}
   m_Layer: 6
   m_Name: AlienCaptureGun
   m_TagString: Untagged
@@ -34,36 +34,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7954474125683034198}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0.13052624, z: -0.9914449, w: 0}
+  m_LocalRotation: {x: -0, y: 0.6686682, z: 0.743561, w: 0}
   m_LocalPosition: {x: 40.55778, y: 0, z: -104.16209}
-  m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
+  m_LocalScale: {x: 25, y: 25, z: 25}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: -15, y: 0, z: -180}
---- !u!136 &6653649104087828836
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7954474125683034198}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.69
-  m_Height: 2
-  m_Direction: 0
-  m_Center: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: -443.92902, y: 0, z: -180}
 --- !u!114 &-507020779636714355
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -76,7 +53,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3291290789
+  GlobalObjectIdHash: 3661148084
   InScenePlacedSourceGlobalObjectIdHash: 3661148084
   DeferredDespawnTick: 0
   Ownership: 1
@@ -115,7 +92,7 @@ MonoBehaviour:
   ScaleLerpSmoothing: 1
   ScaleMaxInterpolationTime: 0.1
   AuthorityMode: 0
-  TickSyncChildren: 0
+  TickSyncChildren: 1
   UseUnreliableDeltas: 0
   SyncPositionX: 1
   SyncPositionY: 1
@@ -203,6 +180,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _outlineFadeDuration: 0.15
   _itemData: {fileID: 11400000, guid: 22f98367f57cde744b0d3fe9abccc2d8, type: 2}
+  _itemHoldThreshold: 0
 --- !u!33 &441642455438851677
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -210,7 +188,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7954474125683034198}
-  m_Mesh: {fileID: 5461320835613783329, guid: 6d67c1ea08578134ebfb436329ab4941, type: 3}
+  m_Mesh: {fileID: 5461320835613783329, guid: 306ce6a7cc62d2e428dad5802b0a15d9, type: 3}
 --- !u!23 &5854691854475214629
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -313,3 +291,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemRigidbodySettler
   ShowTopMostFoldoutHeaderGroup: 1
   _alignToGround: 1
+--- !u!136 &-7081587343900019641
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7954474125683034198}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.009434257
+  m_Height: 0.020000014
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
