@@ -293,7 +293,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcSpawner
   _npcPrefab: {fileID: 5832881131759200260, guid: ea2e2856da514e41b79a89e34628f7ab, type: 3}
-  _spawnCount: 150
   _spawnBatchSize: 10
   _regionController: {fileID: 361850273}
   _spawnCoordinator: {fileID: 361850274}
@@ -37603,7 +37602,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MontageSyncManager
   ShowTopMostFoldoutHeaderGroup: 1
-  _montage: {fileID: 1339301588}
+  _montage: {fileID: 0}
+  _catalog: {fileID: 0}
+  _montageCamera: {fileID: 0}
 --- !u!114 &217820337
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -60442,6 +60443,8 @@ MonoBehaviour:
   - {fileID: 1190569023}
   _maxSpawnAttempts: 50
   _navMeshSampleDistance: 1
+  _cctvHub: {fileID: 0}
+  _initialRegionId: 0
 --- !u!114 &361850274
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -70359,12 +70362,13 @@ MonoBehaviour:
   _MissionMachine:
   - {fileID: 11400000, guid: bbd01a100fd2f774d8c173722677d24e, type: 2}
   - {fileID: 11400000, guid: 377e536f487cba8418dbb1a015e07c87, type: 2}
-  - {fileID: 11400000, guid: c1f5bdc53c81e56488b9de3dda512424, type: 2}
   - {fileID: 11400000, guid: eebfab8b99a1c924884dee24eb7273dd, type: 2}
   - {fileID: 11400000, guid: 4c80d0ee8335af640acf72ba22bd0b59, type: 2}
   - {fileID: 11400000, guid: 78e41b87675fd6d4c89268c15e5dec6f, type: 2}
   - {fileID: 11400000, guid: f9335d0731bb4744288d475600511965, type: 2}
   - {fileID: 11400000, guid: dde5712dd3d60f64f9168523695f4b7c, type: 2}
+  _contaminatedSample: {fileID: 0}
+  _contaminatedSampleSourcePrefab: {fileID: 0}
   _regionController: {fileID: 361850273}
   _groundLayer:
     serializedVersion: 2
@@ -93049,6 +93053,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _outlineFadeDuration: 0.15
   _hqSpawnPoint: {fileID: 1906881996}
+  _aimRadiusMultiplier: 3
 --- !u!114 &515606211
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -93513,7 +93518,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 16c35c161d583644cbbfcff48e76afbe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FieldVisionInterferenceEvent
-  ShowTopMostFoldoutHeaderGroup: 1
   ShowTopMostFoldoutHeaderGroup: 1
   _duration: 5
   _onInterferenceStarted:
@@ -130668,9 +130672,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a9c0f77cb5ca244eaedab3304790a5c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapRegion
-  _regionId: C
+  _regionId: 0
   _bounds: {fileID: 652338946}
-  _unlockedAtStart: 0
   _spawnArea: {fileID: 652338945}
   _lockObjects:
   - {fileID: 0}
@@ -144222,6 +144225,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CriminalNpcManager
   ShowTopMostFoldoutHeaderGroup: 1
+  _alienTypeCount: 5
 --- !u!4 &771327264
 Transform:
   m_ObjectHideFlags: 0
@@ -162881,6 +162885,7 @@ MonoBehaviour:
   _resultCountdownText: {fileID: 1282292918}
   _wrongTargetPanel: {fileID: 1943569282}
   _arrestSuccessPanel: {fileID: 654920305}
+  _revealedPanel: {fileID: 0}
   _candidatePortrait: {fileID: 454291399}
 --- !u!114 &865375202
 MonoBehaviour:
@@ -210496,9 +210501,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a9c0f77cb5ca244eaedab3304790a5c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapRegion
-  _regionId: C
+  _regionId: 0
   _bounds: {fileID: 1117398146}
-  _unlockedAtStart: 0
   _spawnArea: {fileID: 1117398145}
   _lockObjects:
   - {fileID: 0}
@@ -218712,9 +218716,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a9c0f77cb5ca244eaedab3304790a5c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapRegion
-  _regionId: F
+  _regionId: 0
   _bounds: {fileID: 1190569025}
-  _unlockedAtStart: 0
   _spawnArea: {fileID: 1190569024}
   _lockObjects:
   - {fileID: 0}
@@ -221824,19 +221827,33 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RoundManager
   ShowTopMostFoldoutHeaderGroup: 1
+  _catalog: {fileID: 0}
+  _syncManager: {fileID: 0}
+  _shareManager: {fileID: 0}
+  _spawnReadyTimeoutSeconds: 20
   _rounds:
   - Duration: 600
     ClearWaitDuration: 5
+    MontageShareCooldown: 20
+    NpcSpawnCount: 20
+    ClearReward: 1000
   - Duration: 600
     ClearWaitDuration: 5
+    MontageShareCooldown: 20
+    NpcSpawnCount: 20
+    ClearReward: 1000
   - Duration: 600
     ClearWaitDuration: 5
+    MontageShareCooldown: 20
+    NpcSpawnCount: 20
+    ClearReward: 1000
   _waitingRoomSceneName: WaitingRoom
   _npcSpawner: {fileID: 1946818}
   _clueSpawner: {fileID: 2064882557}
   _playerSpawner: {fileID: 1556109470}
-  _alienGunSpawner: {fileID: 0}
-  _syncManager: {fileID: 0}
+  _captureGunSpawner: {fileID: 0}
+  _shotgunSpawner: {fileID: 0}
+  _shopManager: {fileID: 0}
 --- !u!4 &1207988935
 Transform:
   m_ObjectHideFlags: 0
@@ -224037,6 +224054,9 @@ MonoBehaviour:
   _confirmedCountText: {fileID: 18273772}
   _remainingTimeText: {fileID: 1429427376}
   _wrongArrestCountText: {fileID: 1751818475}
+  _clearRewardText: {fileID: 0}
+  _totalCreditsText: {fileID: 0}
+  _creditSection: {fileID: 0}
   _criminalPortrait: {fileID: 454291399}
   _criminalNpcManager: {fileID: 771327263}
   _clueModulePreview: {fileID: 1598438046}
@@ -246100,8 +246120,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   _cctvCamera: {fileID: 83704420}
-  _cctvAreas:
-  - {fileID: 1695788308}
 --- !u!1 &1376120766
 GameObject:
   m_ObjectHideFlags: 0
@@ -250701,9 +250719,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a9c0f77cb5ca244eaedab3304790a5c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapRegion
-  _regionId: E
+  _regionId: 0
   _bounds: {fileID: 1406693308}
-  _unlockedAtStart: 0
   _spawnArea: {fileID: 1406693307}
   _lockObjects:
   - {fileID: 0}
@@ -272378,9 +272395,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a9c0f77cb5ca244eaedab3304790a5c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapRegion
-  _regionId: A
+  _regionId: 0
   _bounds: {fileID: 1521928689}
-  _unlockedAtStart: 1
   _spawnArea: {fileID: 1521928688}
   _lockObjects:
   - {fileID: 0}
@@ -277204,15 +277220,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47197d2bf8fe05645a5980ac35e97f39, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  _regionController: {fileID: 361850273}
-  _spawnCoordinator: {fileID: 361850274}
-  _spawnRule:
-    MinimumDistance: 3
-    MaxAttempts: 50
-    HeightOffset: 0.2
-    UseGroundPosition: 1
-    ReservePosition: 1
   _hqSpawnPoint: {fileID: 1906881996}
+  _fieldSpawnPoints: []
 --- !u!4 &1556109471
 Transform:
   m_ObjectHideFlags: 0
@@ -285433,6 +285442,7 @@ MonoBehaviour:
   _moduleSpawnPoint: {fileID: 953815738}
   _clueCamera: {fileID: 621774299}
   _renderTexture: {fileID: 8400000, guid: 83903618b7fe8e74380213a2c9942e8f, type: 2}
+  _clueCount: 8
 --- !u!4 &1598438047
 Transform:
   m_ObjectHideFlags: 0
@@ -360143,9 +360153,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a9c0f77cb5ca244eaedab3304790a5c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapRegion
-  _regionId: B
+  _regionId: 0
   _bounds: {fileID: 2030244062}
-  _unlockedAtStart: 0
   _spawnArea: {fileID: 2030244061}
   _lockObjects:
   - {fileID: 0}
@@ -364834,19 +364843,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5bf6da54c89b41c4bbdad75e72bb20c9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ClueSpawner
-  _clues:
-  - {fileID: 11400000, guid: d4c04607b5b327143b49925c8c0b3b6c, type: 2}
-  - {fileID: 11400000, guid: 715cdf53515e39241903065aa5726362, type: 2}
-  - {fileID: 11400000, guid: 13b21f3065a8aac4b892ca81f7deda9a, type: 2}
-  - {fileID: 11400000, guid: bdb2b427d4773324c8050f3d5803d6fc, type: 2}
-  - {fileID: 11400000, guid: ed6380ebc5ca27540bd0359ea59208fb, type: 2}
-  - {fileID: 11400000, guid: eb76c54b670d010438de9486d117cb0b, type: 2}
-  - {fileID: 11400000, guid: a33f66087e23c01428564e2e2dfa4c07, type: 2}
-  - {fileID: 11400000, guid: 68345ec1c1e9ecb4691b1665178cbd12, type: 2}
+  _clueData: {fileID: 0}
   _spawnCluesAtRoundStart: 1
-  _missionRewardClues:
-  - {fileID: 11400000, guid: d4c04607b5b327143b49925c8c0b3b6c, type: 2}
-  - {fileID: 11400000, guid: 13b21f3065a8aac4b892ca81f7deda9a, type: 2}
+  _totalClueCount: 8
+  _missionRewardClueCount: 0
   _regionController: {fileID: 361850273}
   _spawnCoordinator: {fileID: 361850274}
   _spawnRule:
@@ -372624,7 +372624,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb16697634c34c049b5f04844803b64d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AlienGunSpawner
-  _captureGun: {fileID: 11400000, guid: 22f98367f57cde744b0d3fe9abccc2d8, type: 2}
+  _item: {fileID: 0}
   _spawnPoints:
   - {fileID: 1850260680}
   - {fileID: 714290396}
