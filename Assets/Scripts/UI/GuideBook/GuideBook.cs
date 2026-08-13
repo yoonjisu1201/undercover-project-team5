@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
@@ -11,8 +12,14 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class GuideBook : MonoBehaviour, IClosableUi
 {
+    private readonly string _headerText = "요원 가이드북";
+    private readonly string _subtitleText = "요원들의 활동을 지원하기 위해 제공된 문서";
+
+    [Header("=== 가이드북 열리면 사라져야 할 UI들 ===")]
+    [SerializeField] private List<GameObject> _uisToHide;
+    
     [Header("페이지 (논리 순서대로: Page_01 ~ Page_05)")]
-    [SerializeField] private List<RectTransform> _pages = new List<RectTransform>();
+    [SerializeField] private List<GuideBookPage> _pages = new List<GuideBookPage>();
 
     [Header("네비게이션 버튼")]
     [SerializeField] private Button _topPrevious;   // 위 버튼 = 이전
@@ -31,7 +38,8 @@ public class GuideBook : MonoBehaviour, IClosableUi
     private int _index;
     private Tween _flip;
     private CustomInputActions _actions;
-    private bool _waitingForInteractRelease;    // 창을 연 E 입력이 그대로 닫기로 이어지지 않게 막는 동안 true
+    
+    public event Action OnClose;
 
     private void Awake()
     {
@@ -39,8 +47,15 @@ public class GuideBook : MonoBehaviour, IClosableUi
         for (int i = 0; i < _pages.Count; i++)
         {
             if (_pages[i] == null) continue;
-            _pages[i].localEulerAngles = Vector3.zero;
+            _pages[i].RectTransform.localEulerAngles = Vector3.zero;
             _pages[i].gameObject.SetActive(i == _index);
+            // 각 페이지 초기화도 여기서 담당한다
+            _pages[i].Initialize(
+                _headerText,
+                _subtitleText,
+                (uint)i + 1,
+                (uint)_pages.Count
+            );
         }
         if (_pageUpIndicator != null) _pageUpIndicator.SetActive(_index > 0);
         UpdateButtons();
@@ -55,8 +70,11 @@ public class GuideBook : MonoBehaviour, IClosableUi
 
         _actions ??= new CustomInputActions();
         _actions.Enable();
-        // 가이드북을 여는 것도 E라서, 창이 열린 프레임의 입력이 그대로 닫기로 이어지지 않게 한 번은 떼도록 한다.
-        _waitingForInteractRelease = true;
+        
+        // 숨길 UI 꺼주기
+        foreach (var ui  in _uisToHide) {
+			ui.SetActive(true);
+        }
     }
 
     private void OnDisable()
@@ -65,6 +83,11 @@ public class GuideBook : MonoBehaviour, IClosableUi
         GameplayUiMode.Instance?.UnregisterUi(this);
         GameplayUiMode.Instance?.DeactivateCursor();
         _actions?.Disable();
+        
+        // 숨길 UI 켜주기
+        foreach (var ui  in _uisToHide) {
+            ui.SetActive(false);
+        }
     }
 
     // 가이드북도 E로 닫는다. 창이 열려 있는 동안에는 플레이어 상호작용이 잠기므로 E가 겹치지 않는다.
@@ -75,14 +98,8 @@ public class GuideBook : MonoBehaviour, IClosableUi
             return;
         }
 
-        if (_waitingForInteractRelease)
-        {
-            _waitingForInteractRelease = _actions.Player.Interact.IsPressed();
-            return;
-        }
-
-        if (_actions.Player.Interact.WasPressedThisFrame())
-        {
+        // 이제 가이드북 아이템 아니다! 그래서 E로 닫는 것은 막고, H(여는 키)로만 닫히게 함
+        if (_actions.UI.OpenGuideBook.WasPressedThisFrame()) {
             Close();
         }
     }
@@ -92,8 +109,8 @@ public class GuideBook : MonoBehaviour, IClosableUi
     {
         if (IsFlipping() || _index >= _pages.Count - 1) return;
 
-        RectTransform current = _pages[_index];
-        RectTransform incoming = _pages[_index + 1];
+        RectTransform current = _pages[_index].RectTransform;
+        RectTransform incoming = _pages[_index + 1].RectTransform;
         _index++;
 
         // 다음 페이지를 뒤에 평평하게 깔아둔다.
@@ -119,8 +136,8 @@ public class GuideBook : MonoBehaviour, IClosableUi
     {
         if (IsFlipping() || _index <= 0) return;
 
-        RectTransform current = _pages[_index];
-        RectTransform incoming = _pages[_index - 1];
+        RectTransform current = _pages[_index].RectTransform;
+        RectTransform incoming = _pages[_index - 1].RectTransform;
         _index--;
 
         incoming.gameObject.SetActive(true);
@@ -173,6 +190,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
     public void Close()
     {
         gameObject.SetActive(false);
+        OnClose?.Invoke();
     }
 
     // X 버튼을 눌러 ui를 닫는다
