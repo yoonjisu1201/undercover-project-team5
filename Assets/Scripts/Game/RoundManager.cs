@@ -154,6 +154,9 @@ public partial class RoundManager : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        // 스폰 대기 흐름이 세는 NPC·단서가 확정된 구역 안에 생성되도록 구역을 가장 먼저 정한다.
+        BeginRegionFlow();
+
         _currentState.OnValueChanged += HandleStateChanged;
         OnRoundStateChanged?.Invoke(_currentState.Value); // OnValueChanged는 최초 동기화값에는 발동하지 않으므로 직접 1회 호출
 
@@ -175,6 +178,7 @@ public partial class RoundManager : NetworkBehaviour
     {
         _currentState.OnValueChanged -= HandleStateChanged;
         EndSpawnReadyFlow();
+        EndRegionFlow();
 
         if (IsServer && ArrestVoteManager.Instance != null)
         {
@@ -250,6 +254,8 @@ public partial class RoundManager : NetworkBehaviour
         try
         {
             _currentRoundIndex.Value++;
+            // 스폰보다 먼저 구역을 바꿔야 NPC·단서·미션이 새 구역 안에 생성된다.
+            SelectRegionForRound(avoidCurrent: true);
             _debugTimeStopped.Value = false;
             _debugStoppedRemainingTime.Value = 0f;
             ResetMissionsForNewRound();

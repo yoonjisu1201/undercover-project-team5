@@ -17,17 +17,16 @@ public sealed class MapRegionController : MonoBehaviour
     [Header("=== 특정 위치가 해금되면 CCTV도 열어주기 위해 CCTVHub등록 ===")]
     [SerializeField] private CCTVHub _cctvHub;
 
-    [Header("=== 씬 시작 시 활성화할 구역 ===")]
-    [SerializeField] private RegionId _initialRegionId;
+    [Header("=== 활성 구역으로 옮길 시작 지점(StartPoint 캠핑카) ===")]
+    [SerializeField] private Transform _startPoint;
 
     private readonly List<MapRegion> _availableRegions = new();
 
     public IReadOnlyList<MapRegion> Regions => _regions;
 
-    // 씬 시작 시 초기 구역을 활성화하고, CCTV 초기화합니다.
+    // 활성 구역은 RoundManager가 라운드마다 추첨해 SetActiveRegion()으로 지정합니다.
     private void Awake() {
         _cctvHub.Initialize();
-        SetActiveRegion(_initialRegionId);
     }
 
     // 한 번에 하나의 맵만 사용하도록 선택한 구역만 활성화합니다.
@@ -62,13 +61,36 @@ public sealed class MapRegionController : MonoBehaviour
             }
         }
 
+        MoveStartPointToRegion(selectedRegion);
+
         if (_cctvHub != null)
         {
             _cctvHub.ActivateCCTVInRegion(regionId);
         }
-        
+
         RefreshSpawnAreas();
         return true;
+    }
+
+    // 본부 입구, 플레이어 스폰 지점, 카트 스폰 지점이 모두 StartPoint의 자식이라
+    // 이 오브젝트만 옮기면 현장 배치가 전부 선택된 구역으로 따라옵니다.
+    private void MoveStartPointToRegion(MapRegion region)
+    {
+        if (_startPoint == null)
+        {
+            Debug.LogError("[MapRegionController] StartPoint 참조가 비어 있어 시작 지점을 옮길 수 없습니다.", this);
+            return;
+        }
+
+        if (region.StartPointAnchor == null)
+        {
+            Debug.LogError($"[MapRegionController] '{region.RegionId}' 구역에 StartPointAnchor가 설정되지 않았습니다.", region);
+            return;
+        }
+
+        _startPoint.SetPositionAndRotation(
+            region.StartPointAnchor.position,
+            region.StartPointAnchor.rotation);
     }
 
     // 월드 위치를 포함하는 해방 지역을 반환합니다.

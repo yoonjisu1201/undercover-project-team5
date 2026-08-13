@@ -22,6 +22,10 @@ public sealed class MapRegion : MonoBehaviour
     [FormerlySerializedAs("_clueSpawnArea")]
     [SerializeField] private MapSpawnArea _spawnArea;
 
+    [Header("이 구역에서 플레이할 때 시작 지점(캠핑카)을 놓을 위치")]
+    [Tooltip("StartPoint 오브젝트가 이 Transform의 위치·회전으로 옮겨집니다. 본부 입구, 플레이어 스폰, 카트 스폰이 모두 그 자식이라 함께 따라옵니다.")]
+    [SerializeField] private Transform _startPointAnchor;
+
     [Header("잠금 상태에서 활성화할 오브젝트")]
     [Tooltip("벽, 출입 차단물, NavMeshObstacle이 포함된 오브젝트 등을 등록합니다.")]
     [SerializeField] private GameObject[] _lockObjects = Array.Empty<GameObject>();
@@ -29,6 +33,7 @@ public sealed class MapRegion : MonoBehaviour
     public RegionId RegionId => _regionId;
     public BoxCollider Bounds => _bounds;
     public MapSpawnArea SpawnArea => _spawnArea;
+    public Transform StartPointAnchor => _startPointAnchor;
     public bool IsUnlocked { get; private set; } = false;
 
 
