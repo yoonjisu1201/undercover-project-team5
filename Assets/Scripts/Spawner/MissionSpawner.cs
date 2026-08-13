@@ -3,10 +3,10 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Box Collider로 나눈 구역의 통합 NavMesh 위에 8개 미션 머신을 서버 권한으로 생성하는 클래스
+// Box Collider로 나눈 구역의 통합 NavMesh 위에 7개 미션 머신을 서버 권한으로 생성하는 클래스
 public sealed class MissionSpawner : MonoBehaviour
 {
-    private const int RequiredMissionMachineCount = 8;
+    private const int RequiredMissionMachineCount = 7;
 
     [Header("미션 머신 데이터")]
     [SerializeField] private MissionMachineData[] _MissionMachine;
@@ -183,7 +183,7 @@ public sealed class MissionSpawner : MonoBehaviour
         Debug.Log($"[MissionSpawner] 오염 샘플 스폰 완료: {spawnPosition}", this);
     }
 
-    // 기존 장치를 정리하고 현재 해방된 지역을 기준으로 8개 장치를 다시 생성합니다.
+    // 기존 장치를 정리하고 현재 해방된 지역을 기준으로 7개 장치를 다시 생성합니다.
     public void RespawnMissionMachines()
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
