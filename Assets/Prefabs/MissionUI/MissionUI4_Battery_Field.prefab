@@ -7542,6 +7542,7 @@ GameObject:
   - component: {fileID: 7947565874414740117}
   - component: {fileID: 3919938475151814217}
   - component: {fileID: 8455886824442075447}
+  - component: {fileID: 3753420947027878636}
   m_Layer: 5
   m_Name: Page_01_Mission
   m_TagString: Untagged
@@ -7612,6 +7613,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &3753420947027878636
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6826803094378980383}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5da678f19a524bbf9a68a4c8dce8cbfd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuideBookPage
+  _headerText: {fileID: 0}
+  _subtitleText: {fileID: 0}
+  _sectionNumber: {fileID: 0}
+  _pageIndicatorText: {fileID: 0}
 --- !u!1 &6860830000832497250
 GameObject:
   m_ObjectHideFlags: 0
@@ -9513,9 +9530,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1ea2e84be3af7104d8f242fb6ce5ca12, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuideBook
+  _uisToHide: []
   _pages:
-  - {fileID: 7947565874414740117}
-  - {fileID: 4800576980561904071}
+  - {fileID: 3753420947027878636}
+  - {fileID: 1327573315824122990}
   _topPrevious: {fileID: 7174975133689207930}
   _bottomNext: {fileID: 1548839574816340961}
   _pageUpIndicator: {fileID: 1060731773862028720}
@@ -10176,6 +10194,7 @@ GameObject:
   - component: {fileID: 4800576980561904071}
   - component: {fileID: 6156778095676670188}
   - component: {fileID: 7136355194689378786}
+  - component: {fileID: 1327573315824122990}
   m_Layer: 5
   m_Name: Page_02_Mission
   m_TagString: Untagged
@@ -10246,6 +10265,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &1327573315824122990
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8938595836350137480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5da678f19a524bbf9a68a4c8dce8cbfd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuideBookPage
+  _headerText: {fileID: 0}
+  _subtitleText: {fileID: 0}
+  _sectionNumber: {fileID: 0}
+  _pageIndicatorText: {fileID: 0}
 --- !u!1 &9007534813829479569
 GameObject:
   m_ObjectHideFlags: 0
