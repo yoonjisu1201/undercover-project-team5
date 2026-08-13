@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using DG.Tweening;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -32,6 +34,8 @@ public class GuideBook : MonoBehaviour, IClosableUi
     private Tween _flip;
     private CustomInputActions _actions;
     private bool _waitingForInteractRelease;    // 창을 연 E 입력이 그대로 닫기로 이어지지 않게 막는 동안 true
+    
+    public event Action OnClose;
 
     private void Awake()
     {
@@ -81,7 +85,8 @@ public class GuideBook : MonoBehaviour, IClosableUi
             return;
         }
 
-        if (_actions.Player.Interact.WasPressedThisFrame())
+        // 이제 가이드북 아이템 아니다! 그래서 E로 닫는 것은 막고, H(여는 키)로만 닫히게 함
+        if (_actions.UI.OpenGuideBook.WasPressedThisFrame())
         {
             Close();
         }
@@ -173,6 +178,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
     public void Close()
     {
         gameObject.SetActive(false);
+        OnClose?.Invoke();
     }
 
     // X 버튼을 눌러 ui를 닫는다
