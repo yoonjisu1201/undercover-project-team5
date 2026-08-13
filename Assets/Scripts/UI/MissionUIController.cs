@@ -139,9 +139,7 @@ public sealed class MissionUIController : MonoBehaviour, IClosableUi
         GameplayUiMode.Instance?.DeactivateCursor();
 
         // 단계형 미션은 UI를 보관해 다시 열었을 때 완료한 단계부터 이어간다.
-        bool shouldPreserveProgress =
-            TryGetComponent<SubwayRouteMission>(out _) ||
-            TryGetComponent<CCTVSignalRepairGame>(out _);
+        bool shouldPreserveProgress = TryGetComponent<CCTVSignalRepairGame>(out _);
         if (submitCompletion && !_completionReady && shouldPreserveProgress)
         {
             gameObject.SetActive(false);
