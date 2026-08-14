@@ -22,8 +22,8 @@ public class PlayerCameraController : NetworkBehaviour
     // 손전등 등 손 IK가 따라가는 각도. 헤드 피벗(카메라)보다 좁게 잡아서 팔이 가동 범위를 넘어 꺾이지 않게 한다.
     [Header("팔 IK 따라가기 (헤드 피벗과 별도로 클램프)")]
     [SerializeField] private Transform _armFollowPivot;
-    [SerializeField] private float _armFollowMinPitch = -20f;
-    [SerializeField] private float _armFollowMaxPitch = 20f;
+    private readonly float _armFollowMinPitch = -40f;
+    private readonly float _armFollowMaxPitch = 20f;
 
     private CustomInputActions _actions;
     private float _yaw;
@@ -125,13 +125,6 @@ public class PlayerCameraController : NetworkBehaviour
         transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
         _headPivot.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
         _networkPitch.Value = _pitch;
-
-        // 손 IK 타겟은 헤드 피벗보다 좁은 범위 안에서만 따라가게 별도 피벗에 클램프된 값을 적용한다.
-        if (_armFollowPivot != null)
-        {
-            float armPitch = Mathf.Clamp(_pitch, _armFollowMinPitch, _armFollowMaxPitch);
-            _armFollowPivot.localRotation = Quaternion.Euler(armPitch, 0f, 0f);
-        }
     }
 
     private void LateUpdate()
@@ -160,6 +153,14 @@ public class PlayerCameraController : NetworkBehaviour
 
         // 기준 회전에서 현재 시야각을 계산해 매 프레임 회전이 누적되지 않게 한다.
         _headBone.localRotation = _headBoneBaseRotation * Quaternion.Euler(pitch, 0f, 0f);
+        
+        // 손 IK 타겟은 헤드 본보다 좁은 범위 안에서만 따라가게 별도 피벗에 클램프된 값을 적용한다.
+        // 다른 클라이언트에서도 보여야 하므로 헤드 본과 동일하게 이 시점에 갱신한다.
+        if (_armFollowPivot != null)
+        {
+            float armPitch = Mathf.Clamp(pitch, _armFollowMinPitch, _armFollowMaxPitch);
+            _armFollowPivot.localRotation = Quaternion.Euler(armPitch, 0f, 0f);
+        }
     }
 
     public void SetMouseSensitivity(float sensitivity)
