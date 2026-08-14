@@ -80,6 +80,7 @@ public class Player : NetworkBehaviour
 			return $"Player {OwnerClientId + 1}";
 		}
 	}
+	public bool IsPlayerNameSet => _playerName.Value.Length > 0;
 
 	public Color PlayerColor => _playerColor.Value;
 

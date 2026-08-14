@@ -1,11 +1,12 @@
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Unity.Netcode;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Components;
-using UnityEngine.SceneManagement;
 
 // TestRoom1 씬의 나가기 버튼, 조인코드 표시 텍스트와 GameSessionManager를 연결한다.
 public class WaitingRoomUI : MonoBehaviour, IClosableUi
@@ -60,12 +61,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         _nicknameInputField.characterLimit = Player.MaxPlayerNameLength;
         _nicknameConfirmButton.onClick.AddListener(HandleNicknameConfirmButtonClicked);
-
-        // 닉네임 패널이 열려 있으면 ESC 닫기 스택에 등록한다. (ESC 시 설정창보다 먼저 닫히도록)
-        if (_nicknameSettingPanel.activeSelf)
-        {
-            GameplayUiMode.Instance?.RegisterUi(this);
-        }
+        _nicknameSettingPanel.SetActive(false);
 
         UpdateJoinCodeText();
         GameSessionManager.Instance.OnSessionJoined += UpdateJoinCodeText; // 조인 완료가 씬 로드보다 늦을 때를 대비한 재확인용
@@ -89,20 +85,45 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         UpdateMicMuteButtonColor();
         UpdateOutputMuteButtonColor();
 
-        // 다른 플레이어들의 PlayerObject가 씬 전환 중이라 아직 재연결되지 않았을 수 있으므로,
-        // 준비돼 있으면 바로, 아니면 씬 동기화가 끝난 뒤에 구독/역할 선택 UI를 초기화한다.
-        if (NetworkManager.Singleton.LocalClient?.PlayerObject != null)
-        {
-        }
-        else
-        {
-            NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += HandleInitialLoadCompleted;
-        }
-	}
+        InitializeNicknamePanelWhenPlayerReadyAsync(this.GetCancellationTokenOnDestroy()).Forget();
+    }
 
-    private void HandleInitialLoadCompleted(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+    private async UniTaskVoid InitializeNicknamePanelWhenPlayerReadyAsync(CancellationToken cancellationToken)
     {
-        NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleInitialLoadCompleted;
+        await UniTask.WaitUntil(
+            () => NetworkManager.Singleton.LocalClient?.PlayerObject != null,
+            cancellationToken: cancellationToken);
+
+        InitializeNicknamePanel();
+    }
+
+    private void InitializeNicknamePanel()
+    {
+        NetworkObject localPlayerObject = NetworkManager.Singleton.LocalClient.PlayerObject;
+        bool isPlayerNameSet = localPlayerObject.TryGetComponent(out Player localPlayer) &&
+            localPlayer.IsPlayerNameSet;
+
+        SetNicknamePanelActive(!isPlayerNameSet);
+    }
+
+    private void SetNicknamePanelActive(bool isActive)
+    {
+        if (_nicknameSettingPanel.activeSelf == isActive)
+        {
+            return;
+        }
+
+        _nicknameSettingPanel.SetActive(isActive);
+
+        if (isActive)
+        {
+            GameplayUiMode.Instance?.RegisterUi(this);
+            GameplayUiMode.Instance?.ActivateCursor();
+            return;
+        }
+
+        GameplayUiMode.Instance?.UnregisterUi(this);
+        GameplayUiMode.Instance?.DeactivateCursor();
     }
 
 	private void OnDestroy()
@@ -125,11 +146,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         if (_readyManager != null)
         {
             _readyManager.Slots.OnListChanged -= HandleSlotsChanged;
-        }
-
-        if (NetworkManager.Singleton != null)
-        {
-            NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleInitialLoadCompleted;
         }
     }
 
@@ -156,8 +172,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     // ESC로 닫으면 이름 적용 없이 닉네임 패널을 취소(닫기)한다. (IClosableUi)
     public void Close()
     {
-        _nicknameSettingPanel.SetActive(false);
-        GameplayUiMode.Instance?.UnregisterUi(this);
+        SetNicknamePanelActive(false);
     }
 
     private void HandleNicknameConfirmButtonClicked()
@@ -167,8 +182,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         if (localPlayerObject.TryGetComponent(out Player localPlayer))
         {
             localPlayer.SetPlayerName(_nicknameInputField.text);
-            _nicknameSettingPanel.SetActive(false);
-            GameplayUiMode.Instance?.UnregisterUi(this);
+            SetNicknamePanelActive(false);
         }
     }
 
