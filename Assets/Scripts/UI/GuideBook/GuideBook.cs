@@ -38,18 +38,27 @@ public class GuideBook : MonoBehaviour, IClosableUi
     private int _index;
     private Tween _flip;
     private CustomInputActions _actions;
+    private bool _initialized;
     
     public event Action OnClose;
 
     private void Awake()
     {
-        // 첫 페이지만 펼친 상태로 두고 나머지는 회전 초기화 후 꺼둔다.
+        InitializePages();
+        UpdateButtons();
+    }
+
+    private void InitializePages()
+    {
+        if (_initialized) return;
+        _initialized = true;
+
+        // 열리는 순간 RectTransform 회전을 강제로 건드리면 일부 빌드에서 네이티브 크래시가 날 수 있어,
+        // 초기화 시에는 활성 페이지만 정하고 회전은 실제 페이지 전환 때만 조정한다.
         for (int i = 0; i < _pages.Count; i++)
         {
             if (_pages[i] == null) continue;
-            _pages[i].RectTransform.localEulerAngles = Vector3.zero;
             _pages[i].gameObject.SetActive(i == _index);
-            // 각 페이지 초기화도 여기서 담당한다
             _pages[i].Initialize(
                 _headerText,
                 _subtitleText,
@@ -57,14 +66,16 @@ public class GuideBook : MonoBehaviour, IClosableUi
                 (uint)_pages.Count
             );
         }
+
         if (_pageUpIndicator != null) _pageUpIndicator.SetActive(_index > 0);
-        UpdateButtons();
     }
 
     // 버튼 onClick은 인스펙터에서 위=GoPrevious / 아래=GoNext로 연결한다.
 
     private void OnEnable()
     {
+        InitializePages();
+
         GameplayUiMode.Instance?.RegisterUi(this);
         GameplayUiMode.Instance?.ActivateCursor();
 
@@ -73,6 +84,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
         
         // 숨길 UI 꺼주기
         foreach (var ui  in _uisToHide) {
+            if (ui == null) continue;
 			ui.SetActive(false);
         }
     }
@@ -86,6 +98,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
         
         // 숨길 UI 켜주기
         foreach (var ui  in _uisToHide) {
+            if (ui == null) continue;
             ui.SetActive(true);
         }
     }
@@ -115,7 +128,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
 
         // 다음 페이지를 뒤에 평평하게 깔아둔다.
         incoming.gameObject.SetActive(true);
-        incoming.localEulerAngles = Vector3.zero;
+        incoming.localRotation = Quaternion.identity;
 
         _flip = current.DOLocalRotate(new Vector3(-_flipAngle, 0f, 0f), _flipDuration)
             .SetEase(_liftEase)
@@ -123,7 +136,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
             .OnComplete(() =>
             {
                 current.gameObject.SetActive(false);
-                current.localEulerAngles = Vector3.zero; // 되돌아올 때를 위해 복구
+                current.localRotation = Quaternion.identity; // 되돌아올 때를 위해 복구
                 _flip = null;
                 UpdateButtons();
             });
@@ -141,7 +154,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
         _index--;
 
         incoming.gameObject.SetActive(true);
-        incoming.localEulerAngles = new Vector3(-_flipAngle, 0f, 0f); // 접힌 상태에서 시작
+        incoming.localRotation = Quaternion.Euler(-_flipAngle, 0f, 0f); // 접힌 상태에서 시작
 
         _flip = incoming.DOLocalRotate(Vector3.zero, _flipDuration)
             .SetEase(_dropEase)

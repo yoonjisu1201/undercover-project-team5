@@ -8,6 +8,8 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
 
     [Header("=== CCTV Hub 등록 ===")]
     [SerializeField] private CCTVHub _cctvHub;
+    private bool _serverStateInitialized;
+    private bool _isRebuildingServerState;
 
     public static CCTVConnectionNetworkState Instance { get; private set; }
 
@@ -21,8 +23,12 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _connectionMasks.OnListChanged += HandleConnectionMaskChanged;
+        if (_cctvHub != null)
+        {
+            _cctvHub.OnCctvPointsActivated += HandleCctvPointsActivated;
+        }
 
-        if (IsServer && _connectionMasks.Count == 0)
+        if (IsServer && !_serverStateInitialized && _cctvHub != null && _cctvHub.CameraCount > 0)
         {
             InitializeServerState();
         }
@@ -30,10 +36,25 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
         ApplyAllStatesLocally();
     }
 
+    private void Update()
+    {
+        if (!IsServer || _serverStateInitialized || _cctvHub == null || _cctvHub.CameraCount == 0)
+        {
+            return;
+        }
+
+        InitializeServerState();
+        ApplyAllStatesLocally();
+    }
+
     // 네트워크 오브젝트가 해제되면 목록 이벤트와 정적 참조를 정리합니다.
     public override void OnNetworkDespawn()
     {
         _connectionMasks.OnListChanged -= HandleConnectionMaskChanged;
+        if (_cctvHub != null)
+        {
+            _cctvHub.OnCctvPointsActivated -= HandleCctvPointsActivated;
+        }
 
         if (Instance == this)
         {
@@ -90,30 +111,54 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
     // 서버가 Partial CCTV 두 개와 각 초기 연결 수를 결정합니다.
     private void InitializeServerState()
     {
-        for (int cameraIndex = 0; cameraIndex < _cctvHub.CameraCount; cameraIndex++)
+        _isRebuildingServerState = true;
+        try
         {
-            _connectionMasks.Add(0);
+            _connectionMasks.Clear();
+
+            for (int cameraIndex = 0; cameraIndex < _cctvHub.CameraCount; cameraIndex++)
+            {
+                _connectionMasks.Add(0);
+            }
+
+            if (_cctvHub.CameraCount < 2)
+            {
+                _serverStateInitialized = true;
+                return;
+            }
+
+            int[] cameraIndexes = new int[_cctvHub.CameraCount];
+            for (int index = 0; index < cameraIndexes.Length; index++)
+            {
+                cameraIndexes[index] = index;
+            }
+
+            for (int index = cameraIndexes.Length - 1; index > 0; index--)
+            {
+                int swapIndex = Random.Range(0, index + 1);
+                (cameraIndexes[index], cameraIndexes[swapIndex]) = (cameraIndexes[swapIndex], cameraIndexes[index]);
+            }
+
+            _connectionMasks[cameraIndexes[0]] = CreateRandomConnectionMask(Random.Range(1, 3));
+            _connectionMasks[cameraIndexes[1]] = CreateRandomConnectionMask(Random.Range(1, 3));
+            _serverStateInitialized = true;
+        }
+        finally
+        {
+            _isRebuildingServerState = false;
+        }
+    }
+
+    private void HandleCctvPointsActivated()
+    {
+        _serverStateInitialized = false;
+
+        if (IsServer)
+        {
+            InitializeServerState();
         }
 
-        if (_cctvHub.CameraCount < 2)
-        {
-            return;
-        }
-
-        int[] cameraIndexes = new int[_cctvHub.CameraCount];
-        for (int index = 0; index < cameraIndexes.Length; index++)
-        {
-            cameraIndexes[index] = index;
-        }
-
-        for (int index = cameraIndexes.Length - 1; index > 0; index--)
-        {
-            int swapIndex = Random.Range(0, index + 1);
-            (cameraIndexes[index], cameraIndexes[swapIndex]) = (cameraIndexes[swapIndex], cameraIndexes[index]);
-        }
-
-        _connectionMasks[cameraIndexes[0]] = CreateRandomConnectionMask(Random.Range(1, 3));
-        _connectionMasks[cameraIndexes[1]] = CreateRandomConnectionMask(Random.Range(1, 3));
+        ApplyAllStatesLocally();
     }
 
     // 지정한 수만큼 서로 다른 전선 비트를 무작위로 켠 초기 Partial 마스크를 만듭니다.
@@ -139,7 +184,10 @@ public sealed class CCTVConnectionNetworkState : NetworkBehaviour
     // 복제 목록의 한 항목이 바뀌면 로컬 공용 저장소에도 같은 연결 마스크를 기록합니다.
     private void HandleConnectionMaskChanged(NetworkListEvent<int> changeEvent)
     {
-        if (changeEvent.Index < 0 || changeEvent.Index >= _cctvHub.CameraCount)
+        if (_isRebuildingServerState
+            || changeEvent.Index < 0
+            || changeEvent.Index >= _connectionMasks.Count
+            || changeEvent.Index >= _cctvHub.CameraCount)
         {
             return;
         }

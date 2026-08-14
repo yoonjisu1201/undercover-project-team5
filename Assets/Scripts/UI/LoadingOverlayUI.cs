@@ -1,6 +1,7 @@
 using Cysharp.Threading.Tasks;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 // 세션 생성/조인 대기 중 로딩 오버레이를 표시한다.
@@ -13,6 +14,7 @@ public class LoadingOverlayUI : MonoBehaviour
 
 	[SerializeField] private GameObject _overlayPanel;
 	[SerializeField] private Slider _progressSlider;
+	[SerializeField] private string _waitingRoomSceneName = "WaitingRoom";
 
 	[Header("세션 요청 대기 연출 (실제 진행률 없음)")]
 	[SerializeField] private float _preLoadFillDuration = 3f; // 0 → _preLoadFillCap까지 걸리는 시간
@@ -28,6 +30,24 @@ public class LoadingOverlayUI : MonoBehaviour
 			return;
 		}
 		s_instance = this;
+
+		// 이 컨트롤러는 로비 Canvas의 자식으로 배치돼 있다. 오버레이만 씬 전환 후에도 유지되도록
+		// 자체 루트 Canvas로 분리한 뒤 DontDestroyOnLoad를 적용한다.
+		transform.SetParent(null, false);
+		Canvas canvas = gameObject.GetComponent<Canvas>();
+		if (canvas == null)
+		{
+			canvas = gameObject.AddComponent<Canvas>();
+		}
+		canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+		canvas.overrideSorting = true;
+		canvas.sortingOrder = short.MaxValue;
+
+		if (gameObject.GetComponent<GraphicRaycaster>() == null)
+		{
+			gameObject.AddComponent<GraphicRaycaster>();
+		}
+
 		DontDestroyOnLoad(gameObject);
 	}
 
@@ -36,6 +56,9 @@ public class LoadingOverlayUI : MonoBehaviour
 		GameSessionManager.Instance.OnSessionStarting += Show;
 		GameSessionManager.Instance.OnSessionError += HandleSessionError;
 		GameSessionManager.Instance.OnWaitingRoomSceneLoadStarted += HandleSceneLoadStarted;
+		GameSessionManager.Instance.OnSessionJoined += HandleSessionJoined;
+		GameSessionManager.Instance.OnSessionCreated += HandleSessionCreated;
+		SceneManager.sceneLoaded += HandleSceneLoaded;
 
 		Hide();
 	}
@@ -47,8 +70,11 @@ public class LoadingOverlayUI : MonoBehaviour
 			GameSessionManager.Instance.OnSessionStarting -= Show;
 			GameSessionManager.Instance.OnSessionError -= HandleSessionError;
 			GameSessionManager.Instance.OnWaitingRoomSceneLoadStarted -= HandleSceneLoadStarted;
+			GameSessionManager.Instance.OnSessionJoined -= HandleSessionJoined;
+			GameSessionManager.Instance.OnSessionCreated -= HandleSessionCreated;
 		}
 
+		SceneManager.sceneLoaded -= HandleSceneLoaded;
 		_cts?.Cancel();
 		_cts?.Dispose();
 	}
@@ -96,6 +122,32 @@ public class LoadingOverlayUI : MonoBehaviour
 		TrackRealProgressAsync(asyncOperation, _cts.Token).Forget();
 	}
 
+	private void HandleSceneLoaded(Scene scene, LoadSceneMode loadSceneMode)
+	{
+		if (scene.name != _waitingRoomSceneName) return;
+
+		_progressSlider.value = 1f;
+		Hide();
+	}
+
+	private void HandleSessionJoined()
+	{
+		HideIfAlreadyInWaitingRoom();
+	}
+
+	private void HandleSessionCreated(string _)
+	{
+		HideIfAlreadyInWaitingRoom();
+	}
+
+	private void HideIfAlreadyInWaitingRoom()
+	{
+		if (SceneManager.GetActiveScene().name != _waitingRoomSceneName) return;
+
+		_progressSlider.value = 1f;
+		Hide();
+	}
+
 	// 씬 로드가 시작된 시점의 슬라이더 값부터 1까지, 실제 진행률에 맞춰 이어서 채운다.
 	private async UniTaskVoid TrackRealProgressAsync(AsyncOperation asyncOperation, CancellationToken token)
 	{
@@ -108,7 +160,6 @@ public class LoadingOverlayUI : MonoBehaviour
 		}
 
 		_progressSlider.value = 1f;
-		Hide();
 	}
 
 	private void HandleSessionError(string message)

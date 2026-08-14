@@ -28,7 +28,7 @@ public sealed class CCTVPoint : MonoBehaviour
             : ConnectionMask == 0
                 ? CCTVConnectionState.Disconnected
                 : CCTVConnectionState.Partial;
-    public int ConnectionMask { get; private set; } = FullConnectionMask;
+    public int ConnectionMask { get; private set; }
 
     public event Action<CCTVConnectionState> OnConnectionStateChanged;
 
