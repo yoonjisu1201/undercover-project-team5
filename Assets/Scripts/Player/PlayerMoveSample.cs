@@ -204,6 +204,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	public override void OnNetworkSpawn()
 	{
 		Debug.Log($"[PlayerMoveNetworkTest] OwnerClientId = {OwnerClientId}, IsOwner = {IsOwner}");
+		_camera ??= GetComponentInChildren<Camera>(true);
 
 		_networkIsMoving.OnValueChanged += HandleMovingChanged;
 		_networkIsRunning.OnValueChanged += HandleRunningChanged;
@@ -219,12 +220,11 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		if (!IsOwner)
 		{
-			_camera.enabled = false; // 내 캐릭터가 아니면 카메라 끄기
-			_camera.GetComponent<AudioListener>().enabled = false; //오디오 끄기
+			SetCameraActive(false);
 			return;
 		}
 
-		// 내 캐릭터 카메라 찾으면, 등록
+		SetCameraActive(true);
 		LocalCameraProvider.Register(_camera);
 	}
 
@@ -235,7 +235,30 @@ public class PlayerMoveSample : NetworkBehaviour
 		_networkIsJumping.OnValueChanged -= HandleJumpingChanged;
 		// #392: OnNetworkSpawn에서 등록한 다운 상태 구독을 네트워크 수명 종료 시 해제한다.
 		_playerHealth.DownedStateChanged -= HandleDownedStateChanged;
+		if (IsOwner)
+		{
+			LocalCameraProvider.Unregister(_camera);
+		}
 		base.OnNetworkDespawn();
+	}
+
+	private void SetCameraActive(bool active)
+	{
+		if (_camera == null)
+		{
+			Debug.LogError($"[PlayerMoveSample] Player prefab에 Camera 참조가 없습니다. OwnerClientId={OwnerClientId}, IsOwner={IsOwner}", this);
+			return;
+		}
+
+		if (_camera.gameObject.activeSelf != active)
+		{
+			_camera.gameObject.SetActive(active);
+		}
+		_camera.enabled = active;
+		if (_camera.TryGetComponent(out AudioListener listener))
+		{
+			listener.enabled = active;
+		}
 	}
 
 	private void Update()

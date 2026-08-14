@@ -22,6 +22,7 @@ public class CCTVHub : MonoBehaviour {
 
 	// 개별 CCTV 포인트의 연결 상태 변경을 카메라 번호와 함께 한 곳에서 받고 싶은 소비자를 위한 집계 이벤트
 	public event Action<int, CCTVConnectionState> OnAnyPointStateChanged;
+	public event Action OnCctvPointsActivated;
 
 	// 시작할 때 CCTV Region 찾고, 초기화
 	public void Initialize() {
@@ -61,6 +62,7 @@ public class CCTVHub : MonoBehaviour {
 		// 사용중인 포인트 0번으로 수정
 		_usingCctvNumber = 0;
 		SwitchCCTV(_usingCctvNumber);
+		OnCctvPointsActivated?.Invoke();
 	}
 	
 	private void DeactivateAllPoints() {

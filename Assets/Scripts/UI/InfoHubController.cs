@@ -66,16 +66,9 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
     private void Awake()
     {
         _entryTemplate.gameObject.SetActive(false);
-        SetBodyHeight(0f);
-
-        // 닫혀 있어도 양쪽 끝에 버튼이 조금씩 걸쳐 있어야 "Tab을 누르면 뭔가 있다"를 알 수 있다.
-		_cluePanel.gameObject.SetActive(true);
-		ApplyPanelX(_cluePanel, _cluePeekX);
 		EnsureMontageShareUI();
-        _dimmer.gameObject.SetActive(false);
-		SetClueButtonClickable(false);
 		CacheButtonTextStates();
-		SetButtonTextStates(false);
+		ResetClosedTabState();
     }
 
     private void OnEnable()
@@ -84,6 +77,11 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
         _actions.Enable();
         _clueButton.onClick.AddListener(ToggleClueList);
         ClueToast.ToastVisibilityChanged += HandleToastVisibilityChanged;
+
+		if (!_isOpen)
+		{
+			ResetClosedTabState();
+		}
     }
 
     private void OnDisable()
@@ -463,6 +461,22 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 		{
 			_clueButton.targetGraphic.raycastTarget = clickable;
 		}
+	}
+
+	private void ResetClosedTabState()
+	{
+		KillTweens();
+		_isOpen = false;
+		_isClueExpanded = false;
+		IsHubOpen = false;
+		SetBodyHeight(0f);
+		_cluePanel.gameObject.SetActive(true);
+		ApplyPanelX(_cluePanel, _cluePeekX);
+		_dimmer.gameObject.SetActive(false);
+		SetClueButtonClickable(false);
+		SetButtonTextStates(false);
+		EnsureMontageShareUI();
+		_montageShareUI?.HideTabState(_montagePeekX, 0f);
 	}
 
     private static void ApplyPanelX(RectTransform panel, float x)

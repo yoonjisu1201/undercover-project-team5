@@ -35,6 +35,7 @@ public class GameSessionManager : MonoBehaviour
 	public event Action<string> OnSessionError;   // 실패 사유 전달
 	public event Action OnSessionStarting;                            // 세션 생성/참가 시도 시작
 	public event Action<AsyncOperation> OnWaitingRoomSceneLoadStarted; // 내 로컬 씬 로딩이 시작됨 (진행률 포함)
+	public event Action OnWaitingRoomSceneLoadComplete; // 내 로컬 씬 로딩이 완료됨 (진행률 포함)
 
 	private bool _isLeavingVoluntarily;
 	private string _pendingLeaveReason;
@@ -111,7 +112,7 @@ public class GameSessionManager : MonoBehaviour
 		catch (Exception e)
 		{
 			Debug.LogError($"[GameSessionManager] 세션 생성 중 '{stage}' 단계에서 오류가 발생했습니다.\n" +
-			               $"오류 내용: [{DescribeError(e)}] {e.Message}");
+						   $"오류 내용: [{DescribeError(e)}] {e.Message}");
 			await ReleaseCurrentSessionAsync();
 			OnSessionError?.Invoke(ToUserMessage(e));
 		}
@@ -133,7 +134,7 @@ public class GameSessionManager : MonoBehaviour
 			CurrentSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(joinCode);
 
 			stage = "음성 채널 참가";
-            VivoxManager.Instance.JoinSessionChannel(CurrentSession.Code);
+			VivoxManager.Instance.JoinSessionChannel(CurrentSession.Code);
 
 			stage = "연결 확인";
 			// 죽은 방은 로비 레코드가 TTL 동안 남아 있어 조인 자체는 통과한다. 실제 연결이 섰는지 여기서 확인한다.
@@ -146,13 +147,13 @@ public class GameSessionManager : MonoBehaviour
 			}
 
 			stage = "씬 이벤트 구독";
-            SubscribeSceneEvents();
+			SubscribeSceneEvents();
 			OnSessionJoined?.Invoke();
 		}
 		catch (Exception e)
 		{
 			Debug.LogError($"[GameSessionManager] 세션 참가 중 '{stage}' 단계에서 오류가 발생했습니다.\n" +
-			               $"오류 내용: [{DescribeError(e)}] {e.Message}");
+						   $"오류 내용: [{DescribeError(e)}] {e.Message}");
 			await ReleaseCurrentSessionAsync();
 			OnSessionError?.Invoke(ToUserMessage(e));
 		}
@@ -255,42 +256,50 @@ public class GameSessionManager : MonoBehaviour
 		if (networkManager == null) return "NetworkManager is null.";
 
 		return $"IsListening={networkManager.IsListening}, IsServer={networkManager.IsServer}, " +
-		       $"IsClient={networkManager.IsClient}, IsConnectedClient={networkManager.IsConnectedClient}, " +
-		       $"DisconnectReason='{networkManager.DisconnectReason}', " +
-		       $"TransportDisconnectEvent={networkManager.NetworkConfig.NetworkTransport.DisconnectEvent}.";
+			   $"IsClient={networkManager.IsClient}, IsConnectedClient={networkManager.IsConnectedClient}, " +
+			   $"DisconnectReason='{networkManager.DisconnectReason}', " +
+			   $"TransportDisconnectEvent={networkManager.NetworkConfig.NetworkTransport.DisconnectEvent}.";
 	}
 
-    // NetworkManager.SceneManager는 시작된 후에 생성되므로, 세션 생성/참가가 끝난 뒤에 구독해야 한다.
-    // 대기방 씬 로드/동기화가 완료되면 서버가 직접 스폰한다.
-    private void SubscribeSceneEvents()
-    {
-        UnsubscribeSceneEvents(); // 중복 구독 방지 (기존 -= += 와 동일한 멱등성)
-        var networkManager = NetworkManager.Singleton;
-        networkManager.SceneManager.OnLoadEventCompleted += HandleWaitingRoomSceneLoaded;
-        networkManager.SceneManager.OnLoadEventCompleted += HandleGameSceneLoaded;
-        networkManager.SceneManager.OnSynchronizeComplete += HandleClientSynchronized;
-        networkManager.SceneManager.OnLoad += HandleWaitingRoomSceneLoadStarted;
-        networkManager.OnClientDisconnectCallback += HandleClientDisconnected;
-    }
-    private void UnsubscribeSceneEvents()
-    {
-        var networkManager = NetworkManager.Singleton;
-        if (networkManager == null) return;
-        if (networkManager.SceneManager != null)
-        {
-            networkManager.SceneManager.OnLoadEventCompleted -= HandleWaitingRoomSceneLoaded;
-            networkManager.SceneManager.OnLoadEventCompleted -= HandleGameSceneLoaded;
-            networkManager.SceneManager.OnSynchronizeComplete -= HandleClientSynchronized;
-            networkManager.SceneManager.OnLoad -= HandleWaitingRoomSceneLoadStarted;
-        }
-        networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
-    }
+	// NetworkManager.SceneManager는 시작된 후에 생성되므로, 세션 생성/참가가 끝난 뒤에 구독해야 한다.
+	// 대기방 씬 로드/동기화가 완료되면 서버가 직접 스폰한다.
+	private void SubscribeSceneEvents()
+	{
+		UnsubscribeSceneEvents(); // 중복 구독 방지 (기존 -= += 와 동일한 멱등성)
+		var networkManager = NetworkManager.Singleton;
+		networkManager.SceneManager.OnLoadEventCompleted += HandleWaitingRoomSceneLoaded;
+		networkManager.SceneManager.OnLoadEventCompleted += HandleGameSceneLoaded;
+		networkManager.SceneManager.OnSynchronizeComplete += HandleClientSynchronized;
+		networkManager.SceneManager.OnLoad += HandleWaitingRoomSceneLoadStarted;
+		networkManager.SceneManager.OnLoadComplete += HandleWaitingRoomSceneLoadCompleted;
+		networkManager.OnClientDisconnectCallback += HandleClientDisconnected;
+	}
+	private void UnsubscribeSceneEvents()
+	{
+		var networkManager = NetworkManager.Singleton;
+		if (networkManager == null) return;
+		if (networkManager.SceneManager != null)
+		{
+			networkManager.SceneManager.OnLoadEventCompleted -= HandleWaitingRoomSceneLoaded;
+			networkManager.SceneManager.OnLoadEventCompleted -= HandleGameSceneLoaded;
+			networkManager.SceneManager.OnSynchronizeComplete -= HandleClientSynchronized;
+			networkManager.SceneManager.OnLoad -= HandleWaitingRoomSceneLoadStarted;
+		}
+		networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
+	}
 
-    private void HandleWaitingRoomSceneLoadStarted(ulong clientId, string sceneName, LoadSceneMode loadSceneMode, AsyncOperation asyncOperation)
+	private void HandleWaitingRoomSceneLoadStarted(ulong clientId, string sceneName, LoadSceneMode loadSceneMode, AsyncOperation asyncOperation)
 	{
 		if (sceneName != _waitingRoomSceneName || clientId != NetworkManager.Singleton.LocalClientId) return;
 
 		OnWaitingRoomSceneLoadStarted?.Invoke(asyncOperation);
+	}
+
+	private void HandleWaitingRoomSceneLoadCompleted(ulong clientId, string sceneName, LoadSceneMode loadSceneMode)
+	{
+		if (sceneName != _waitingRoomSceneName || clientId != NetworkManager.Singleton.LocalClientId) return;
+
+		OnWaitingRoomSceneLoadComplete?.Invoke();
 	}
 
 	private void HandleConnectionApproval(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
@@ -321,24 +330,24 @@ public class GameSessionManager : MonoBehaviour
 				}
 			}
 
-            // PlayerMoveSample이 있으면 항상 Teleport, PlayerHealth가 있으면 Reset만 추가로 수행합니다.
-            PlayerMoveSample player = null;
-            PlayerHealth playerHealth = null;
+			// PlayerMoveSample이 있으면 항상 Teleport, PlayerHealth가 있으면 Reset만 추가로 수행합니다.
+			PlayerMoveSample player = null;
+			PlayerHealth playerHealth = null;
 
-            playerObject.TryGetComponent(out player);
-            playerObject.TryGetComponent(out playerHealth);
+			playerObject.TryGetComponent(out player);
+			playerObject.TryGetComponent(out playerHealth);
 
-            if (player != null)
-            {
-                if (playerHealth != null)
-                {
-                    // 서버/네트워크 권한이 필요하면 여기서 검증하거나 서버-side 초기화로 옮기세요.
-                    playerHealth.ResetForNewRound();
-                }
+			if (player != null)
+			{
+				if (playerHealth != null)
+				{
+					// 서버/네트워크 권한이 필요하면 여기서 검증하거나 서버-side 초기화로 옮기세요.
+					playerHealth.ResetForNewRound();
+				}
 
-                player.TeleportToPosition(Vector3.zero, playerObject.transform.rotation);
-            }
-        }
+				player.TeleportToPosition(Vector3.zero, playerObject.transform.rotation);
+			}
+		}
 	}
 
 	// 플레이어 오브젝트는 대기방(WaitingRoom)에서 스폰된 채로 게임씬(PlayScene) 전환에도 파괴되지 않고 그대로 유지된다.
@@ -350,16 +359,19 @@ public class GameSessionManager : MonoBehaviour
 
 		// 플레이어 각자가 자기 자신의 InteractionPromptUI/InventoryUI 초기화 및 바인딩
 		var localPlayerObject = NetworkManager.Singleton.LocalClient?.PlayerObject;
-		if (localPlayerObject == null) {
+		if (localPlayerObject == null)
+		{
 			Debug.LogError($"[GameSessionManger] 초기화 중 localPlayerObject 발견하지 못함.");
 			return;
 		}
 
-		if (localPlayerObject.TryGetComponent(out PlayerInteraction localPlayerInteraction)) {
+		if (localPlayerObject.TryGetComponent(out PlayerInteraction localPlayerInteraction))
+		{
 			localPlayerInteraction.InitializeOnGameScene();
 		}
 
-		if (localPlayerObject.TryGetComponent(out PlayerInventory localPlayerInventory)) {
+		if (localPlayerObject.TryGetComponent(out PlayerInventory localPlayerInventory))
+		{
 			localPlayerInventory.InitializeOnGameScene();
 		}
 	}
@@ -389,9 +401,9 @@ public class GameSessionManager : MonoBehaviour
 		_pendingLeaveReason = null;
 		_isLeavingVoluntarily = false;
 
-        VivoxManager.Instance.LeaveSessionChannel();
-        // 로비 화면 복귀가 네트워크 왕복을 기다리지 않도록 완료를 기다리지 않는다.
-        _ = ReleaseCurrentSessionAsync();
+		VivoxManager.Instance.LeaveSessionChannel();
+		// 로비 화면 복귀가 네트워크 왕복을 기다리지 않도록 완료를 기다리지 않는다.
+		_ = ReleaseCurrentSessionAsync();
 		SceneManager.LoadScene(_lobbySceneName);
 	}
 
