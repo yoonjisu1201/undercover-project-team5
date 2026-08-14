@@ -8,7 +8,7 @@ public sealed class PlayerAimIK : HandIKBase
 {
     [Header("References")]
     [SerializeField] private Transform gun;
-    [SerializeField] private PlayerMoveSample playerMovement;
+    [SerializeField] private PlayerCameraController playerCameraController;
 
     [Header("Aim")]
     [SerializeField] private Vector3 gunAimAxis = Vector3.right;
@@ -42,7 +42,7 @@ public sealed class PlayerAimIK : HandIKBase
     {
         base.Awake();
         
-        playerMovement ??= GetComponent<PlayerMoveSample>();
+        playerCameraController ??= GetComponent<PlayerCameraController>();
         activeParameterHash = Animator.StringToHash(activeParameter);
 
         foreach (AnimatorControllerParameter parameter in _animator.parameters)
@@ -90,7 +90,7 @@ public sealed class PlayerAimIK : HandIKBase
 
     private Vector3 CalculateAimDirection(out float pitch)
     {
-        float viewPitch = playerMovement != null ? playerMovement.ViewPitch : 0f;
+        float viewPitch = playerCameraController != null ? playerCameraController.ViewPitch : 0f;
         pitch = Mathf.Clamp(viewPitch, -maxAimPitch, maxAimPitch) * aimPitchWeight;
         return Quaternion.AngleAxis(pitch, transform.right) * transform.forward;
     }

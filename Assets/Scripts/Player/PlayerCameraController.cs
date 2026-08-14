@@ -1,0 +1,221 @@
+using Unity.Netcode;
+using UnityEngine;
+
+public class PlayerCameraController : NetworkBehaviour
+{
+    private const string MouseSensitivityKey = "MouseSensitivity";
+
+    [Header("카메라 관련")]
+    [SerializeField] private GameObject _headPivot;
+    [SerializeField] private Camera _camera;
+    [SerializeField] private Transform _cameraPivot;
+    [SerializeField] private Transform _headBone;
+    [SerializeField] private Transform _downedCameraAnchor;
+    [SerializeField, Min(0.01f)] private float _cameraTransitionDuration = 0.35f;
+    [SerializeField] private float _rotateSpeed = 0.5f;
+
+    // 카메라 상하 시야 각도 제한 (위로 볼 때 최소, 아래로 볼 때 최대)
+    // 값이 작을수록(0에 가까울수록) 시야 제한이 커진다
+    [SerializeField] private float _minPitch = -50f; // 위쪽으로 볼 수 있는 한계
+    [SerializeField] private float _maxPitch = 50f;  // 아래쪽으로 볼 수 있는 한계
+
+    // 손전등 등 손 IK가 따라가는 각도. 헤드 피벗(카메라)보다 좁게 잡아서 팔이 가동 범위를 넘어 꺾이지 않게 한다.
+    [Header("팔 IK 따라가기 (헤드 피벗과 별도로 클램프)")]
+    [SerializeField] private Transform _armFollowPivot;
+    [SerializeField] private float _armFollowMinPitch = -20f;
+    [SerializeField] private float _armFollowMaxPitch = 20f;
+
+    private CustomInputActions _actions;
+    private float _yaw;
+    private float _pitch;
+    private Quaternion _headBoneBaseRotation;
+    private Vector3 _cameraTransitionStartPosition;
+    private Quaternion _cameraTransitionStartRotation;
+    private float _cameraTransitionElapsedTime;
+    private bool _useDownedCameraView;
+    private bool _isCameraTransitioning;
+
+    // 오너가 갱신하는 pitch 값. 다른 클라이언트는 이 값을 읽어 헤드 본을 회전시킨다.
+    private readonly NetworkVariable<float> _networkPitch =
+        new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    public GameObject HeadPivot => _headPivot;
+
+    // 팔 IK와 레이저가 카메라 상하 조준을 따라가도록 소유자는 로컬 값, 다른 클라이언트는 동기화 값을 제공한다.
+    public float ViewPitch => IsOwner ? _pitch : _networkPitch.Value;
+
+    public bool IsCameraTransitioning => _isCameraTransitioning;
+
+    private void Awake()
+    {
+        _rotateSpeed = PlayerPrefs.GetFloat(MouseSensitivityKey, _rotateSpeed);
+        _actions = new CustomInputActions();
+        _actions.Enable();
+
+        if (_headBone != null)
+        {
+            _headBoneBaseRotation = _headBone.localRotation;
+        }
+    }
+
+    public override void OnDestroy()
+    {
+        _actions.Disable();
+        base.OnDestroy();
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        _camera ??= GetComponentInChildren<Camera>(true);
+
+        if (!IsOwner)
+        {
+            SetCameraActive(false);
+            return;
+        }
+
+        SetCameraActive(true);
+        LocalCameraProvider.Register(_camera);
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        if (IsOwner)
+        {
+            LocalCameraProvider.Unregister(_camera);
+        }
+        base.OnNetworkDespawn();
+    }
+
+    private void SetCameraActive(bool active)
+    {
+        if (_camera == null)
+        {
+            Debug.LogError($"[PlayerCameraController] Player prefab에 Camera 참조가 없습니다. OwnerClientId={OwnerClientId}, IsOwner={IsOwner}", this);
+            return;
+        }
+
+        if (_camera.gameObject.activeSelf != active)
+        {
+            _camera.gameObject.SetActive(active);
+        }
+        _camera.enabled = active;
+        if (_camera.TryGetComponent(out AudioListener listener))
+        {
+            listener.enabled = active;
+        }
+    }
+
+    private void Update()
+    {
+        if (!IsOwner ||
+            GameplayUiMode.IsActive ||
+            _useDownedCameraView ||
+            _isCameraTransitioning)
+        {
+            return;
+        }
+
+        Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
+
+        _yaw += mouseDelta.x * _rotateSpeed;
+        _pitch -= mouseDelta.y * _rotateSpeed;
+        _pitch = Mathf.Clamp(_pitch, _minPitch, _maxPitch);
+
+        transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
+        _headPivot.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+        _networkPitch.Value = _pitch;
+
+        // 손 IK 타겟은 헤드 피벗보다 좁은 범위 안에서만 따라가게 별도 피벗에 클램프된 값을 적용한다.
+        if (_armFollowPivot != null)
+        {
+            float armPitch = Mathf.Clamp(_pitch, _armFollowMinPitch, _armFollowMaxPitch);
+            _armFollowPivot.localRotation = Quaternion.Euler(armPitch, 0f, 0f);
+        }
+    }
+
+    private void LateUpdate()
+    {
+        if (IsOwner && _isCameraTransitioning)
+        {
+            UpdateCameraTransition();
+            return;
+        }
+
+        if (IsOwner && _useDownedCameraView)
+        {
+            _camera.transform.SetPositionAndRotation(
+                _downedCameraAnchor.position,
+                _downedCameraAnchor.rotation);
+            return;
+        }
+
+        if (_headBone == null)
+        {
+            return;
+        }
+
+        // 오너는 로컬 _pitch(지연 없음)를, 다른 클라이언트는 동기화된 값을 사용한다.
+        float pitch = IsOwner ? _pitch : _networkPitch.Value;
+
+        // 기준 회전에서 현재 시야각을 계산해 매 프레임 회전이 누적되지 않게 한다.
+        _headBone.localRotation = _headBoneBaseRotation * Quaternion.Euler(pitch, 0f, 0f);
+    }
+
+    public void SetMouseSensitivity(float sensitivity)
+    {
+        _rotateSpeed = Mathf.Clamp(sensitivity, 0.1f, 2f);
+    }
+
+    public void SetYaw(float yaw)
+    {
+        _yaw = yaw;
+    }
+
+    public void TransitionToDownedView()
+    {
+        _useDownedCameraView = true;
+        Layers.ShowLayerToCamera(_camera, Layers.LocalPlayerHead);
+        BeginCameraTransition();
+    }
+
+    public void TransitionToFirstPersonView()
+    {
+        _useDownedCameraView = false;
+        BeginCameraTransition();
+    }
+
+    private void BeginCameraTransition()
+    {
+        _cameraTransitionStartPosition = _camera.transform.position;
+        _cameraTransitionStartRotation = _camera.transform.rotation;
+        _cameraTransitionElapsedTime = 0f;
+        _isCameraTransitioning = true;
+    }
+
+    private void UpdateCameraTransition()
+    {
+        Vector3 targetPosition = _useDownedCameraView
+            ? _downedCameraAnchor.position
+            : _cameraPivot.position;
+
+        Quaternion targetRotation = _useDownedCameraView
+            ? _downedCameraAnchor.rotation
+            : _cameraPivot.rotation * Quaternion.Euler(_pitch, 0f, 0f);
+
+        _cameraTransitionElapsedTime += Time.deltaTime;
+        float transitionProgress = Mathf.Clamp01(_cameraTransitionElapsedTime / _cameraTransitionDuration);
+        float smoothedProgress = Mathf.SmoothStep(0f, 1f, transitionProgress);
+
+        _camera.transform.SetPositionAndRotation(
+            Vector3.Lerp(_cameraTransitionStartPosition, targetPosition, smoothedProgress),
+            Quaternion.Slerp(_cameraTransitionStartRotation, targetRotation, smoothedProgress));
+
+        _isCameraTransitioning = transitionProgress < 1f;
+
+        if (!_isCameraTransitioning && !_useDownedCameraView)
+        {
+            Layers.HideLayerFromCamera(_camera, Layers.LocalPlayerHead);
+        }
+    }
+}

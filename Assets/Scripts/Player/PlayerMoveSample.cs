@@ -10,12 +10,9 @@ using UnityEngine;
 
 public class PlayerMoveSample : NetworkBehaviour
 {
-	private const string MouseSensitivityKey = "MouseSensitivity";
-
 	[Header("이동 관련")]
 	[SerializeField] private float _moveSpeedWithCart = 3f;
 	[SerializeField] private float _moveSpeed = 5f;
-	[SerializeField] private float _rotateSpeed = 0.5f;
 	[SerializeField] private float _runSpeedMultiplier = 1.5f;
 	[SerializeField] private float _jumpPower = 10f;
 
@@ -30,33 +27,12 @@ public class PlayerMoveSample : NetworkBehaviour
 	private PhysicsMaterial _slideMaterial;                 // 이동 중 사용 (초기 마찰0 머티리얼)
 
 	[Header("카메라 관련")]
-	[SerializeField] private GameObject _headPivot;
-	[SerializeField] private Camera _camera;
-	[SerializeField] private Transform _headBone;
+	[SerializeField] private PlayerCameraController _playerCameraController;
 
 	[Header("지면 판정")]
 	[SerializeField] private Transform _groundCheck;
 	[SerializeField, Min(0.01f)] private float _groundCheckRadius = 0.3f;
 	[SerializeField] private LayerMask _jumpableSurfaceMask;
-
-	// 카메라 상하 시야 각도 제한 (위로 볼 때 최소, 아래로 볼 때 최대)
-	// 값이 작을수록(0에 가까울수록) 시야 제한이 커진다
-	[SerializeField] private float _minPitch = -50f; // 위쪽으로 볼 수 있는 한계
-	[SerializeField] private float _maxPitch = 50f;  // 아래쪽으로 볼 수 있는 한계
-
-	// 손전등 등 손 IK가 따라가는 각도. 헤드 피벗(카메라)보다 좁게 잡아서 팔이 가동 범위를 넘어 꺾이지 않게 한다.
-	[Header("팔 IK 따라가기 (헤드 피벗과 별도로 클램프)")]
-	[SerializeField] private Transform _armFollowPivot;
-	[SerializeField] private float _armFollowMinPitch = -20f;
-	[SerializeField] private float _armFollowMaxPitch = 20f;
-
-	private float _yaw = 0f;
-	private float _pitch = 0f;
-	private Quaternion _headBoneBaseRotation;
-
-	// 오너가 갱신하는 pitch 값. 다른 클라이언트는 이 값을 읽어 헤드 본을 회전시킨다.
-	private readonly NetworkVariable<float> _networkPitch =
-		new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
 	// 점프 입력 예약 (Update에서 감지 → FixedUpdate에서 힘 적용)
 	private bool _jumpRequested = false;
@@ -90,14 +66,8 @@ public class PlayerMoveSample : NetworkBehaviour
 	// Getting Up 애니메이션 + 블렌딩이 완전히 끝나는 시점(FixedUpdate에서 감지)에 발동한다.
 	public event Action GettingUpFinished;
 
-	public GameObject HeadPivot => _headPivot;
-
-	// 팔 IK와 레이저가 카메라 상하 조준을 따라가도록 소유자는 로컬 값, 다른 클라이언트는 동기화 값을 제공한다.
-	public float ViewPitch => IsOwner ? _pitch : _networkPitch.Value;
-
 	private void Awake()
 	{
-		_rotateSpeed = PlayerPrefs.GetFloat(MouseSensitivityKey, _rotateSpeed);
 		_actions = new CustomInputActions();
 		_actions.Enable();
 
@@ -110,16 +80,6 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_slideMaterial = _bodyCollider.sharedMaterial; // 인스펙터에 붙어 있는 마찰0 머티리얼
 		}
-
-		if (_headBone != null)
-		{
-			_headBoneBaseRotation = _headBone.localRotation;
-		}
-	}
-
-	public void SetMouseSensitivity(float sensitivity)
-	{
-		_rotateSpeed = Mathf.Clamp(sensitivity, 0.1f, 2f);
 	}
 
 	public override void OnDestroy()
@@ -187,6 +147,11 @@ public class PlayerMoveSample : NetworkBehaviour
 			SetMovingState(false);
 			SetRunningState(false);
 			SetJumpingState(false);
+
+			if (IsOwner)
+			{
+				_playerCameraController.TransitionToDownedView();
+			}
 		}		
 
 		_isGettingUp = previousValue && !value;
@@ -204,7 +169,6 @@ public class PlayerMoveSample : NetworkBehaviour
 	public override void OnNetworkSpawn()
 	{
 		Debug.Log($"[PlayerMoveNetworkTest] OwnerClientId = {OwnerClientId}, IsOwner = {IsOwner}");
-		_camera ??= GetComponentInChildren<Camera>(true);
 
 		_networkIsMoving.OnValueChanged += HandleMovingChanged;
 		_networkIsRunning.OnValueChanged += HandleRunningChanged;
@@ -217,15 +181,6 @@ public class PlayerMoveSample : NetworkBehaviour
 		HandleJumpingChanged(false, _networkIsJumping.Value);
 		// #392: 기존 상태 초기화와 형식을 맞추되, false를 이전 값으로 넘겨 최초 스폰을 소생으로 판정하지 않는다.
 		HandleDownedStateChanged(false, _playerHealth.IsDowned);
-
-		if (!IsOwner)
-		{
-			SetCameraActive(false);
-			return;
-		}
-
-		SetCameraActive(true);
-		LocalCameraProvider.Register(_camera);
 	}
 
 	public override void OnNetworkDespawn()
@@ -235,30 +190,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		_networkIsJumping.OnValueChanged -= HandleJumpingChanged;
 		// #392: OnNetworkSpawn에서 등록한 다운 상태 구독을 네트워크 수명 종료 시 해제한다.
 		_playerHealth.DownedStateChanged -= HandleDownedStateChanged;
-		if (IsOwner)
-		{
-			LocalCameraProvider.Unregister(_camera);
-		}
 		base.OnNetworkDespawn();
-	}
-
-	private void SetCameraActive(bool active)
-	{
-		if (_camera == null)
-		{
-			Debug.LogError($"[PlayerMoveSample] Player prefab에 Camera 참조가 없습니다. OwnerClientId={OwnerClientId}, IsOwner={IsOwner}", this);
-			return;
-		}
-
-		if (_camera.gameObject.activeSelf != active)
-		{
-			_camera.gameObject.SetActive(active);
-		}
-		_camera.enabled = active;
-		if (_camera.TryGetComponent(out AudioListener listener))
-		{
-			listener.enabled = active;
-		}
 	}
 
 	private void Update()
@@ -276,26 +208,11 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		/// 마우스 관련 이동 적용하기
-		Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
-
-		// 현재 yaw, pitch에 값 적용
-		_yaw += mouseDelta.x * _rotateSpeed;
-		_pitch -= mouseDelta.y * _rotateSpeed;
-		// 위로 쭉 민다고 시야 뒤로 넘어가지 않게 min ~ max 사이 값으로 유지
-		// 인스펙터에서 _minPitch(위쪽 한계), _maxPitch(아래쪽 한계) 조정 가능
-		_pitch = Mathf.Clamp(_pitch, _minPitch, _maxPitch);
-
-		// 회전 적용
-		transform.rotation = Quaternion.Euler(0, _yaw, 0f);
-		_headPivot.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
-		_networkPitch.Value = _pitch;
-
-		// 손 IK 타겟은 헤드 피벗보다 좁은 범위 안에서만 따라가게 별도 피벗에 클램프된 값을 적용한다.
-		if (_armFollowPivot != null)
+		if (_playerHealth.IsDowned ||
+			_isGettingUp ||
+			_playerCameraController.IsCameraTransitioning)
 		{
-			float armPitch = Mathf.Clamp(_pitch, _armFollowMinPitch, _armFollowMaxPitch);
-			_armFollowPivot.localRotation = Quaternion.Euler(armPitch, 0f, 0f);
+			return;
 		}
 
 		/// 버튼 입력 방식 적용하기
@@ -306,20 +223,6 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_jumpRequested = true;
 		}
-	}
-
-	private void LateUpdate()
-	{
-		if (_headBone == null)
-		{
-			return;
-		}
-
-		// 오너는 로컬 _pitch(지연 없음)를, 다른 클라이언트는 동기화된 값을 사용한다.
-		float pitch = IsOwner ? _pitch : _networkPitch.Value;
-
-		// 기준 회전에서 현재 시야각을 계산해 매 프레임 회전이 누적되지 않게 한다.
-		_headBone.localRotation = _headBoneBaseRotation * Quaternion.Euler(pitch, 0f, 0f);
 	}
 
 	private void FixedUpdate()
@@ -338,12 +241,14 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_isGettingUp = false;
 			GettingUpFinished?.Invoke();
+			_playerCameraController.TransitionToFirstPersonView();
 		}
 
 		// #392: 다운 중에는 PlayerHealth, 소생 후 기상 중에는 _isGettingUp으로 이동을 차단한다.
 		if (GameplayUiMode.IsMovementBlocked ||
 			_playerHealth.IsDowned ||
-			_isGettingUp)
+			_isGettingUp ||
+			_playerCameraController.IsCameraTransitioning)
 		{
 			_jumpRequested = false;
 			SetMovingState(false);
@@ -475,9 +380,9 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void ApplyTeleport(Vector3 position, Quaternion rotation)
 	{
-        _yaw = rotation.eulerAngles.y;
+		_playerCameraController.SetYaw(rotation.eulerAngles.y);
 
-        _rigidbody.linearVelocity = Vector3.zero;
+		_rigidbody.linearVelocity = Vector3.zero;
 		_rigidbody.angularVelocity = Vector3.zero;
 		_rigidbody.position = position;
 		_rigidbody.rotation = rotation;
