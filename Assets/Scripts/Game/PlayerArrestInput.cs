@@ -18,12 +18,14 @@ public class PlayerArrestInput : NetworkBehaviour
 
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
+    private PlayerHealth _health;
     private Animator _animator;
 
     private void Awake()
     {
         _actions = new CustomInputActions();
         _inventory = GetComponent<PlayerInventory>();
+        _health = GetComponent<PlayerHealth>();
         _animator = GetComponent<Animator>();
     }
 
@@ -58,6 +60,14 @@ public class PlayerArrestInput : NetworkBehaviour
     private void Update()
     {
         if (!IsOwner) return;
+
+        // HP가 0이 되어 쓰러진 동안에는 홀드를 인정하지 않고 손에 든 도구도 내린다.
+        // (AlienShotgunInput의 다운 처리와 같은 방식)
+        if (_health != null && _health.IsDowned)
+        {
+            _isHoldingArrestKey.Value = false;
+            return;
+        }
 
         // 메뉴/UI가 떠 있는 동안(GameplayUiMode.IsActive)은 홀드로 치지 않는다. (PlayerInteraction의 입력 차단 방식과 동일)
         _isHoldingArrestKey.Value = !GameplayUiMode.IsActive && IsToolSelected() && _actions.Player.ArrestTool.IsPressed();

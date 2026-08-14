@@ -193,6 +193,10 @@ public class ArrestChaseManager : NetworkBehaviour
             NetworkObject playerObject = client.PlayerObject;
             if (playerObject == null) continue;
 
+            // 쓰러진 플레이어는 검거 인원으로 세지 않는다.
+            // 홀드 값(_isHoldingArrestKey)은 Owner가 쓰는 값이라 서버에서 상태를 다시 확인한다.
+            if (playerObject.TryGetComponent(out PlayerHealth health) && health.IsDowned) continue;
+
             // 범위 판정: 단순 거리 비교. (콜라이더 겹침이 아니라 대상 기준 반경 안에 있는지만 본다)
             float distance = Vector3.Distance(playerObject.transform.position, _target.transform.position);
             if (distance > _captureRadius) continue;
