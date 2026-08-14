@@ -9,7 +9,7 @@ using UnityEngine.Localization;
 using UnityEngine.Localization.Components;
 
 // TestRoom1 씬의 나가기 버튼, 조인코드 표시 텍스트와 GameSessionManager를 연결한다.
-public class WaitingRoomUI : MonoBehaviour, IClosableUi
+public class WaitingRoomUI : MonoBehaviour
 {
 	[Header("참조")]
 	[SerializeField] private Button _leaveButton;
@@ -117,12 +117,10 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         if (isActive)
         {
-            GameplayUiMode.Instance?.RegisterUi(this);
             GameplayUiMode.Instance?.ActivateCursor();
             return;
         }
 
-        GameplayUiMode.Instance?.UnregisterUi(this);
         GameplayUiMode.Instance?.DeactivateCursor();
     }
 
@@ -135,8 +133,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         _readyButton.onClick.RemoveListener(HandleReadyButtonClicked);
 
         _nicknameConfirmButton.onClick.RemoveListener(HandleNicknameConfirmButtonClicked);
-
-        GameplayUiMode.Instance?.UnregisterUi(this);
 
         if (GameSessionManager.Instance != null)
         {
@@ -168,12 +164,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 	{
 		GameSessionManager.Instance.LeaveSession();
 	}
-
-    // ESC로 닫으면 이름 적용 없이 닉네임 패널을 취소(닫기)한다. (IClosableUi)
-    public void Close()
-    {
-        SetNicknamePanelActive(false);
-    }
 
     private void HandleNicknameConfirmButtonClicked()
     {
