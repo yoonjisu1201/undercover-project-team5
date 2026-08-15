@@ -268,6 +268,7 @@ public abstract class CartBase : InteractableBase
 		{
 			_currentHolder = NetworkManager.Singleton.ConnectedClients[newId].PlayerObject.GetComponent<Player>();
 			_currentHolder.PlayerInteraction.CarryingCart = this;
+			_currentHolder.PlayerInventory.SetCartCarrying(true);
 			_holderRigidbody = _currentHolder.GetComponent<Rigidbody>();
 
 			// 카트가 잡은 사람 바로 앞에 배치되기 때문에 서로 계속 부딫혀 못 밀리는 걸 방지.
@@ -288,6 +289,7 @@ public abstract class CartBase : InteractableBase
 			if (_currentHolder != null)
 			{
 				_currentHolder.PlayerInteraction.CarryingCart = null;
+				_currentHolder.PlayerInventory.SetCartCarrying(false);
 
 				Collider holderCollider = _currentHolder.GetComponent<Collider>();
 				if (_collider != null && holderCollider != null)

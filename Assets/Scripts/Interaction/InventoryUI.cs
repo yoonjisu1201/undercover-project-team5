@@ -3,7 +3,6 @@ using UnityEngine.UI;
 
 public class InventoryUI : MonoBehaviour
 {
-    [SerializeField] private PlayerInventory _inventory;
     [SerializeField] private Image[] _itemIcons;
     [SerializeField] private RectTransform _selectionOutline;
     [SerializeField] private ItemCatalog _itemCatalog;
@@ -33,56 +32,16 @@ public class InventoryUI : MonoBehaviour
         }
     }
 
-    private void OnEnable()
+    public void Refresh(PlayerInventory inventory)
     {
-        if (_inventory != null)
-        {
-            _inventory.OnInventoryChanged += Refresh;
-        }
-
-        Refresh();
-    }
-
-    private void OnDisable()
-    {
-        if (_inventory != null)
-        {
-            _inventory.OnInventoryChanged -= Refresh;
-        }
-    }
-
-    public void BindInventory(PlayerInventory inventory)    // 인벤토리 UI에 플레이어 인벤토리 연결
-    {
-        if (_inventory == inventory)
-        {
-            return;
-        }
-
-        if (_inventory != null)
-        {
-            _inventory.OnInventoryChanged -= Refresh;
-        }
-
-        _inventory = inventory;
-
-        if (_inventory != null && isActiveAndEnabled)
-        {
-            _inventory.OnInventoryChanged += Refresh;
-        }
-
-        Refresh();
-    }
-
-    private void Refresh()
-    {
-        if (_inventory == null)
+        if (inventory == null)
             return;
 
         for (int i = 0; i < _slots.Length; i++)
         {
             _slots[i]?.SetActive(true);
 
-            InventorySlot inventorySlot = _inventory.Slots[i];
+            InventorySlot inventorySlot = inventory.Slots[i];
             bool hasItem = !inventorySlot.IsEmpty;
 
             if (_itemIcons[i] == null)
@@ -99,8 +58,8 @@ public class InventoryUI : MonoBehaviour
             }
         }
 
-        // 아이템이 인벤토리에 하나도 없으면 선택 테두리를 숨기기 (SelectedIndex는 항상 0 이상)
-        bool showSelection = _inventory.HasAnyItem && _inventory.SelectedIndex >= 0 && _inventory.SelectedIndex < _slots.Length;
+        // 아이템이 하나도 없거나, 선택이 잠긴 상태(NoSelectionIndex, 카트 끄는 중 등)면 선택 테두리를 숨기기
+        bool showSelection = inventory.HasAnyItem && inventory.SelectedIndex >= 0 && inventory.SelectedIndex < _slots.Length;
 
         if (_selectionOutline == null)
             return;
@@ -109,7 +68,7 @@ public class InventoryUI : MonoBehaviour
 
         if (showSelection)  // 선택한 슬롯의 위치를 찾아서 선택 테두리를 그 위치로 옮기기
         {
-            RectTransform selectedSlot = (RectTransform)_slots[_inventory.SelectedIndex].transform;
+            RectTransform selectedSlot = (RectTransform)_slots[inventory.SelectedIndex].transform;
 
             _selectionOutline.anchoredPosition = selectedSlot.anchoredPosition;
         }
