@@ -86,7 +86,16 @@ public class BasicCart : CartBase {
 		}
 	}
 	
-	// 영역 안에 들어온 플레이어 
+	// 기본 카트는 라운드 전환 시 남은 회복량도 가득 채워야 해서 override
+	public override void ResetForNewRound() {
+		base.ResetForNewRound();
+
+		if (!IsServer) { return; }
+
+		RefillHealingAmount();
+	}
+
+	// 영역 안에 들어온 플레이어
 	private void HandlePlayerEnter(Player player) {
 		_playersInHealingArea.Add(player);
 	}
