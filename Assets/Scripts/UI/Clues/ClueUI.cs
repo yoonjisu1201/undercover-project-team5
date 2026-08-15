@@ -92,7 +92,8 @@ public class ClueUI : MonoBehaviour, IClosableUi
         ClueModulePreview preview = FindFirstObjectByType<ClueModulePreview>(FindObjectsInactive.Include);
         if (preview == null || !preview.TryApplyTo(clueNumber, this))
         {
-            ClearClueImage($"단서 {clueNumber}");
+            gameObject.SetActive(false);
+            return;
         }
 
         PlayOpenAnimation();
@@ -125,6 +126,7 @@ public class ClueUI : MonoBehaviour, IClosableUi
         if (_clueImage != null)
         {
             _clueImage.texture = clueTexture;
+            _clueImage.rectTransform.localScale = Vector3.one;
         }
 
         if (_magnifiedMark != null) // 단서 이미지가 없는 경우 확대 표시 마크를 활성화하고, 단서 이미지가 있는 경우 비활성화

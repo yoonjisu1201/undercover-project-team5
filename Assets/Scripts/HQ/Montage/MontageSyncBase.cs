@@ -27,9 +27,9 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 	// 모든 파츠를 순회할 때 매번 GetValues를 부르지 않도록 한 번만 만들어둔다
 	private static readonly MontageParts[] AllParts =
 		Enum.GetValues(typeof(MontageParts)).Cast<MontageParts>().ToArray();
-
 	private UniTask _initializeTask;
 	private bool _initializeStarted;
+	private MontageClueCapture _clueCapture;
 
 	// 옷 데이터 로딩과 Montage 초기화가 끝나야 조립을 시작할 수 있다
 	private bool _isReady;
@@ -38,6 +38,20 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 
 	/// 몽타주 상태가 바뀔 때마다 발동합니다. UI가 선택 표시를 갱신하는 데 사용합니다
 	public event Action<MontageState> OnMontageStateChanged;
+
+	public bool TryGetClothIdByIndex(MontageParts part, int index, out int clothId) {
+		return _catalog.TryGetIdByIndex(part, index, out clothId);
+	}
+
+	public Texture2D CaptureTemporaryState(MontageState state, MontageParts focusPart) {
+		if (!_isReady) {
+			Debug.LogError($"[{GetType().Name}] 초기화 전에 몽타주 캡쳐를 시도했습니다.", this);
+			return null;
+		}
+
+		_clueCapture ??= new MontageClueCapture(_montage, _montageCamera, ApplyPreviewState);
+		return _clueCapture.Capture(state, focusPart, _montageState.Value);
+	}
 
 	public override void OnNetworkSpawn() {
 		_montageState.OnValueChanged += HandleStateChanged;
@@ -114,6 +128,11 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 
 			ApplyPart(part, clothId);
 		}
+	}
+
+	private void ApplyPreviewState(MontageState state) {
+		_montage.RemoveAllClothes();
+		ApplyFull(state);
 	}
 
 	private void ApplyPart(MontageParts part, int clothId) {

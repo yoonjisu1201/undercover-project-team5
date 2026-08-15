@@ -85,8 +85,12 @@ public sealed class ClueToast : MonoBehaviour
         Texture2D thumbnail = null;
         string partLabel = null;
         bool hasCapture = preview != null && preview.TryGetCapture(clueNumber, out thumbnail, out partLabel);
+        if (!hasCapture)
+        {
+            return;
+        }
 
-        _label.text = hasCapture && !string.IsNullOrEmpty(partLabel)
+        _label.text = !string.IsNullOrEmpty(partLabel)
             ? $"단서 획득 — <color=#54E6D4>{partLabel}</color>"
             : $"단서 {clueNumber} 획득";
 

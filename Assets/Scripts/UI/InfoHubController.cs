@@ -511,7 +511,10 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
                 int captured = clueNumber;
                 Texture2D thumbnail = null;
                 string partLabel = null;
-                preview?.TryGetCapture(captured, out thumbnail, out partLabel);
+                if (preview == null || !preview.TryGetCapture(captured, out thumbnail, out partLabel))
+                {
+                    continue;
+                }
 
                 AddEntry($"단서 {captured}", partLabel ?? string.Empty, thumbnail, () => ShowClue(captured));
             }

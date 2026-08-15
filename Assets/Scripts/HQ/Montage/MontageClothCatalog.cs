@@ -35,19 +35,7 @@ public class MontageClothCatalog : MonoBehaviour {
 
 	private async UniTask LoadAsync() {
 		foreach (MontageParts part in Enum.GetValues(typeof(MontageParts)).Cast<MontageParts>()) {
-			List<MontageClothData> datas = Resources.LoadAll<MontageClothData>(GetLoadPath(part)).ToList();
-			Dictionary<int, MontageClothData> dataById = new Dictionary<int, MontageClothData>();
-
-			foreach (MontageClothData data in datas) {
-				// id가 겹치면 나중 것을 버린다. ToDictionary로 예외를 띄우면 로딩 자체가 멈춰버린다
-				if (!dataById.TryAdd(data.id, data)) {
-					Debug.LogError($"[MontageClothCatalog] {part} 파츠에 id {data.id}가 중복됩니다. ({data.name})");
-				}
-			}
-
-			_orderedDataByParts[part] = datas;
-			_dataByParts[part] = dataById;
-
+			LoadPartData(part);
 			await UniTask.Yield();   // 파츠 하나씩 로드하고 한 프레임 양보
 		}
 	}
@@ -86,8 +74,46 @@ public class MontageClothCatalog : MonoBehaviour {
 	
 	// 목록 UI에 표시할 순서대로 해당 파츠의 옷 데이터를 돌려줍니다.
 	public IReadOnlyList<MontageClothData> GetAll(MontageParts part) {
+		LoadPartData(part);
+
 		return _orderedDataByParts.TryGetValue(part, out List<MontageClothData> datas)
 			? datas
 			: Array.Empty<MontageClothData>();
+	}
+
+	public bool TryGetIdByIndex(MontageParts part, int index, out int clothId) {
+		clothId = MontageState.None;
+		LoadPartData(part);
+
+		if (!_orderedDataByParts.TryGetValue(part, out List<MontageClothData> datas) ||
+		    index < 0 ||
+		    index >= datas.Count ||
+		    datas[index] == null) {
+			return false;
+		}
+
+		clothId = datas[index].id;
+		return true;
+	}
+
+	private void LoadPartData(MontageParts part) {
+		if (_orderedDataByParts.ContainsKey(part)) {
+			return;
+		}
+
+		List<MontageClothData> datas = Resources.LoadAll<MontageClothData>(GetLoadPath(part))
+			.OrderBy(data => data.id)
+			.ToList();
+		Dictionary<int, MontageClothData> dataById = new Dictionary<int, MontageClothData>();
+
+		foreach (MontageClothData data in datas) {
+			// id가 겹치면 나중 것을 버린다. ToDictionary로 예외를 띄우면 로딩 자체가 멈춰버린다
+			if (!dataById.TryAdd(data.id, data)) {
+				Debug.LogError($"[MontageClothCatalog] {part} 파츠에 id {data.id}가 중복됩니다. ({data.name})");
+			}
+		}
+
+		_orderedDataByParts[part] = datas;
+		_dataByParts[part] = dataById;
 	}
 }

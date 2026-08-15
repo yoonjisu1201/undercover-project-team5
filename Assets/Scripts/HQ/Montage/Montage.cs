@@ -47,7 +47,6 @@ public class Montage : MonoBehaviour {
 	// 옷벗기기
 	public void RemoveCloth(MontageParts part) {
 		if (!_clothByParts.TryGetValue(part, out GameObject cloth)) {
-			Debug.LogError($"[Montage] 입고 있지 않은 부위를 탈착하려 함");
 			return;
 		}
 
@@ -59,6 +58,53 @@ public class Montage : MonoBehaviour {
 		// 옷을 벗으면, 그 부위의 RootObject를 활성화
 		if (_rootParts.TryGetValue(part, out GameObject rootObj)) {
 			rootObj.gameObject.SetActive(true);
+		}
+	}
+
+	public void RemoveAllClothes() {
+		foreach (MontageParts part in new List<MontageParts>(_clothByParts.Keys)) {
+			RemoveCloth(part);
+		}
+	}
+
+	public void SetRootPartsVisible(bool visible) {
+		SetActiveIfNotNull(HeadRoot, visible);
+		SetActiveIfNotNull(TorsoRoot, visible);
+		SetActiveIfNotNull(ArmRoot, visible);
+		SetActiveIfNotNull(PantsRoot, visible);
+		SetActiveIfNotNull(ShoesRoot, visible);
+	}
+
+	public bool TryGetClothBounds(MontageParts part, out Bounds bounds) {
+		bounds = default;
+
+		if (!_clothByParts.TryGetValue(part, out GameObject cloth) || cloth == null) {
+			return false;
+		}
+
+		Renderer[] renderers = cloth.GetComponentsInChildren<Renderer>(true);
+		bool hasBounds = false;
+
+		foreach (Renderer renderer in renderers) {
+			if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy) {
+				continue;
+			}
+
+			if (!hasBounds) {
+				bounds = renderer.bounds;
+				hasBounds = true;
+				continue;
+			}
+
+			bounds.Encapsulate(renderer.bounds);
+		}
+
+		return hasBounds;
+	}
+
+	private static void SetActiveIfNotNull(GameObject target, bool active) {
+		if (target != null) {
+			target.SetActive(active);
 		}
 	}
 }
