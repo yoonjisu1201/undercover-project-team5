@@ -242,11 +242,11 @@ public sealed class NpcWalkState : INpcState
         // 현재 Walk가 Phone Start를 기다리는 경우에만 실제 이동을 시작합니다.
         if (_phase != WalkPhase.PhoneStarting)
         {
-            //Debug.Log(
-            //        $"[NpcWalkState] '{_movement.name}' NPC가 Phone Start 완료 이벤트를 받았지만 " +
-            //        $"현재 단계가 Phone Start 대기 상태가 아니어서 무시합니다. (현재 단계: {_phase})",
-            //        _movement);
-            //return;
+            Debug.Log(
+                    $"[NpcWalkState] '{_movement.name}' NPC가 Phone Start 완료 이벤트를 받았지만 " +
+                    $"현재 단계가 Phone Start 대기 상태가 아니어서 무시합니다. (현재 단계: {_phase})",
+                    _movement);
+            return;
         }
 
         StartMovement();
@@ -257,11 +257,11 @@ public sealed class NpcWalkState : INpcState
         // 현재 Walk가 Phone End를 기다리는 경우에만 이동 구간 완료를 처리합니다.
         if (!IsPhoneEnding)
         {
-            //Debug.LogWarning(
-            //        $"[NpcWalkState] '{_movement.name}' NPC가 Phone End 완료 이벤트를 받았지만 " +
-            //        $"현재 단계가 Phone End 대기 상태가 아닙니다. (현재 단계: {_phase})",
-            //        _movement);
-            //return;
+            Debug.LogWarning(
+                    $"[NpcWalkState] '{_movement.name}' NPC가 Phone End 완료 이벤트를 받았지만 " +
+                    $"현재 단계가 Phone End 대기 상태가 아닙니다. (현재 단계: {_phase})",
+                    _movement);
+            return;
         }
 
         // Phone End Animation Event가 도착하면 완료 목적과 소품을 먼저 정리합니다.
