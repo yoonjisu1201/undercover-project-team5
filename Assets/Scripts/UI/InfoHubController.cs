@@ -34,6 +34,7 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 	[SerializeField, Min(0f)] private float _tabRestoreSlideDuration = 0.35f;
 	[SerializeField, Min(0f)] private float _buttonTextFadeDuration = 0.14f;
 	[SerializeField, Range(0f, 1f)] private float _buttonTextFadeStartRatio = 0.75f;
+	[SerializeField, Range(0f, 1f)] private float _autoExpandStartRatio = 0.82f;
     [SerializeField, Min(0f)] private float _expandDuration = 0.28f;
     [SerializeField, Min(0f)] private float _entryHeight = 72f;
     [SerializeField, Min(0f)] private float _entrySpacing = 8f;
@@ -52,6 +53,7 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
     private Tween _fade;
 	private Tween _buttonTextSwitch;
 	private Tween _buttonTextFade;
+	private Tween _autoExpand;
     private bool _isOpen;
     private bool _isClueExpanded;
 	private GameObject _clueIdleText;
@@ -180,6 +182,8 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 
 		EnsureMontageShareUI();
 		_montageShareUI?.ShowTabState(_montagePeekX, _montageShownX, _slideDuration);
+		_autoExpand?.Kill();
+		_autoExpand = DOVirtual.DelayedCall(_slideDuration * _autoExpandStartRatio, ExpandHubPanels);
     }
 
     // ESC(스택)와 Tab 모두 이 경로로 닫는다.
@@ -194,6 +198,7 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 		CollapseClueList();
 
 		_buttonTextSwitch?.Kill();
+		_autoExpand?.Kill();
 		float textSwitchDelay = _slideDuration * _buttonTextFadeStartRatio;
 		_buttonTextSwitch = DOVirtual.DelayedCall(textSwitchDelay, PlayButtonTextCloseFade);
 
@@ -204,30 +209,29 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
         _fade = _dimmer.DOFade(0f, 0.15f).SetEase(Ease.InQuad)
             .OnComplete(() => _dimmer.gameObject.SetActive(false));
 
-        // 열어 둔 몽타주 창도 Tab으로 같이 닫는다. 단서 목록이 접히면서 같이 빠지는 것처럼,
-        // 축소와 카드 퇴장을 동시에 돌려야 동작이 두 번으로 쪼개져 보이지 않는다.
+		// 열어 둔 몽타주 창도 Tab으로 같이 닫는다.
         if (_montageShareUI == null)
         {
             _montageShareUI = FindFirstObjectByType<MontageShareUI>(FindObjectsInactive.Include);
         }
 
-        // 단서 목록과 완전히 같은 타이밍이다. 목록이 접히는 것과 패널이 빠지는 것이 동시에 시작하듯,
-        // 몽타주도 창이 접히는 것과 카드가 빠지는 것이 동시에 시작한다. (지연을 주면 두 번 들어가 보인다)
         _montageShareUI?.Close();
 
         // 열어 둔 단서 창도 Tab으로 같이 닫는다.
         FindFirstObjectByType<ClueUI>(FindObjectsInactive.Include)?.Close();
 
-        // 완전히 숨기지 않고 다시 살짝 걸친 위치로 돌아간다.
-        _clueSlide?.Kill();
-		_clueSlide = _cluePanel.DOAnchorPosX(_cluePeekX, _slideDuration).SetEase(Ease.InCubic)
+		float buttonExitDelay = _montageShareUI?.HideTabState(_montagePeekX, _slideDuration) ?? 0f;
+
+		// 목록은 먼저 접고, 좌우 버튼은 같은 시점부터 함께 퇴장시킨다.
+		_clueSlide?.Kill();
+		_clueSlide = DOTween.Sequence()
+			.AppendInterval(buttonExitDelay)
+			.Append(_cluePanel.DOAnchorPosX(_cluePeekX, _slideDuration).SetEase(Ease.InCubic))
 			.OnComplete(() =>
 			{
 				SetBodyHeight(0f);
 				ApplyPanelX(_cluePanel, _cluePeekX);
 			});
-
-		_montageShareUI?.HideTabState(_montagePeekX, _slideDuration);
     }
 
     // 단서 목록 버튼: 버튼 아래가 길어지면서 목록이 나온다.
@@ -238,18 +242,40 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 			return;
 		}
 
-        if (_isClueExpanded)
+		if (_isClueExpanded)
         {
 			CollapseClueList();
             return;
         }
 
-		SetBodyHeight(0f);
-        RebuildEntries();
-        _isClueExpanded = true;
-        PlayExpandTo(GetExpandedHeight());
-        PlayEntriesIn();
+		ExpandClueList();
     }
+
+	private void ExpandClueList()
+	{
+		if (!_isOpen || _isClueExpanded)
+		{
+			return;
+		}
+
+		SetBodyHeight(0f);
+		RebuildEntries();
+		_isClueExpanded = true;
+		PlayExpandTo(GetExpandedHeight());
+		PlayEntriesIn();
+	}
+
+	private void ExpandHubPanels()
+	{
+		if (!_isOpen)
+		{
+			return;
+		}
+
+		ExpandClueList();
+		EnsureMontageShareUI();
+		_montageShareUI?.Expand();
+	}
 
 	private void CollapseClueList()
     {
@@ -488,9 +514,10 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
     {
         _clueSlide?.Kill();
         _expand?.Kill();
-        _fade?.Kill();
+		_fade?.Kill();
 		_buttonTextSwitch?.Kill();
 		_buttonTextFade?.Kill();
+		_autoExpand?.Kill();
     }
 
     private void RebuildEntries()
