@@ -39,6 +39,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
     private bool _isHost;
     private bool _isReady;
+    private static bool s_hasCompletedNicknameSetup;
+    private static string s_savedNickname;
 
     // 현재 구독 중인 Player들의 역할 변경. 슬롯이 바뀔 때마다 전부 해제하고 현재 슬롯 기준으로 다시 구독한다.
     private readonly List<Player> _subscribedPlayers = new();
@@ -61,10 +63,17 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         _nicknameInputField.characterLimit = Player.MaxPlayerNameLength;
         _nicknameConfirmButton.onClick.AddListener(HandleNicknameConfirmButtonClicked);
 
+        bool shouldShowNicknamePanel = !s_hasCompletedNicknameSetup;
+        _nicknameSettingPanel.SetActive(shouldShowNicknamePanel);
+
         // 닉네임 패널이 열려 있으면 ESC 닫기 스택에 등록한다. (ESC 시 설정창보다 먼저 닫히도록)
-        if (_nicknameSettingPanel.activeSelf)
+        if (shouldShowNicknamePanel)
         {
             GameplayUiMode.Instance?.RegisterUi(this);
+        }
+        else
+        {
+            TryApplySavedNickname();
         }
 
         UpdateJoinCodeText();
@@ -93,6 +102,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         // 준비돼 있으면 바로, 아니면 씬 동기화가 끝난 뒤에 구독/역할 선택 UI를 초기화한다.
         if (NetworkManager.Singleton.LocalClient?.PlayerObject != null)
         {
+            TryApplySavedNickname();
         }
         else
         {
@@ -103,6 +113,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     private void HandleInitialLoadCompleted(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
     {
         NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleInitialLoadCompleted;
+        TryApplySavedNickname();
     }
 
 	private void OnDestroy()
@@ -156,6 +167,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     // ESC로 닫으면 이름 적용 없이 닉네임 패널을 취소(닫기)한다. (IClosableUi)
     public void Close()
     {
+        s_hasCompletedNicknameSetup = true;
         _nicknameSettingPanel.SetActive(false);
         GameplayUiMode.Instance?.UnregisterUi(this);
     }
@@ -167,9 +179,32 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         if (localPlayerObject.TryGetComponent(out Player localPlayer))
         {
             localPlayer.SetPlayerName(_nicknameInputField.text);
+            SaveNicknameIfValid(_nicknameInputField.text);
+            s_hasCompletedNicknameSetup = true;
             _nicknameSettingPanel.SetActive(false);
             GameplayUiMode.Instance?.UnregisterUi(this);
         }
+    }
+
+    private void TryApplySavedNickname()
+    {
+        if (string.IsNullOrWhiteSpace(s_savedNickname)) return;
+        if (NetworkManager.Singleton?.LocalClient?.PlayerObject == null) return;
+
+        NetworkObject localPlayerObject = NetworkManager.Singleton.LocalClient.PlayerObject;
+        if (localPlayerObject.TryGetComponent(out Player localPlayer))
+        {
+            localPlayer.SetPlayerName(s_savedNickname);
+        }
+    }
+
+    private static void SaveNicknameIfValid(string nickname)
+    {
+        if (string.IsNullOrWhiteSpace(nickname)) return;
+
+        s_savedNickname = nickname.Length > Player.MaxPlayerNameLength
+            ? nickname.Substring(0, Player.MaxPlayerNameLength)
+            : nickname;
     }
 
     private void HandleMicMuteButtonClicked()
