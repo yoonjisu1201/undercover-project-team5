@@ -24,8 +24,14 @@ public class CCTVHub : MonoBehaviour {
 	public event Action<int, CCTVConnectionState> OnAnyPointStateChanged;
 	public event Action OnCctvPointsActivated;
 
+	private void Awake() {
+		ConfigureItemOutlines();
+	}
+
 	// 시작할 때 CCTV Region 찾고, 초기화
 	public void Initialize() {
+		ConfigureItemOutlines();
+
 		CCTVRegion[] regions = GetComponentsInChildren<CCTVRegion>();
 		foreach (var region in regions) {
 			_cctvRegions[region.RegionId] = region;
@@ -63,6 +69,16 @@ public class CCTVHub : MonoBehaviour {
 		_usingCctvNumber = 0;
 		SwitchCCTV(_usingCctvNumber);
 		OnCctvPointsActivated?.Invoke();
+	}
+
+	private void ConfigureItemOutlines() {
+		if (_cctvCamera == null) {
+			Debug.LogError("CCTV 카메라 참조가 없습니다.", this);
+			return;
+		}
+
+		Layers.ShowLayerToCamera(_cctvCamera, Layers.Item);
+		Layers.ShowLayerToCamera(_cctvCamera, Layers.CCTVPostProcessing);
 	}
 	
 	private void DeactivateAllPoints() {

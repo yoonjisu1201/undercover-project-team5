@@ -1,10 +1,14 @@
 using Unity.Netcode;
 using Unity.Netcode.Components;
+using EPOOutline;
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(NetworkTransform),
     typeof(ItemRigidbodySetter))]
 public class ItemBase : InteractableBase {
+	private const string CctvOutlineShaderName = "Undercover/CCTV Item Outline";
+
     [SerializeField] private ItemData _itemData;
 
     // 사용(IUsable)/투입(IInteractionApplier) 등 이 아이템을 핫바에서 쓸 때 눌러야 하는 시간(초). 0이면 누르는 즉시 처리된다.
@@ -21,6 +25,8 @@ public class ItemBase : InteractableBase {
     // 비활성화 시에 렌더링 및 Collider 모두 끄기 위해 저장할 것
     private Renderer[] _renderers;
     private Collider[] _itemColliders;
+	private readonly List<Renderer> _cctvOutlineRenderers = new();
+	private Material _cctvOutlineMaterial;
     private ItemRigidbodySetter _rigidBodySetter;
     private NetworkTransform _networkTransform;
 
@@ -46,7 +52,130 @@ public class ItemBase : InteractableBase {
         _itemColliders = GetComponentsInChildren<Collider>(true);
         _rigidBodySetter = GetComponent<ItemRigidbodySetter>();
         _networkTransform = GetComponent<NetworkTransform>();
+
+		SetLayerRecursively(transform, Layers.Item);
+
+		Outlinable[] itemOutlines = GetComponentsInChildren<Outlinable>(true);
+		foreach (Outlinable itemOutline in itemOutlines)
+		{
+			itemOutline.enabled = false;
+		}
+
+		CreateCctvOutlineRenderers();
     }
+
+	// 아이템 외곽선은 CCTV 카메라 전용이다. 플레이어의 조준 상태로 켜거나 끄지 않는다.
+	public override void SetOutline(bool isVisible) { }
+
+	private static void SetLayerRecursively(Transform target, int layer)
+	{
+		if (target == null || layer < 0)
+		{
+			return;
+		}
+
+		target.gameObject.layer = layer;
+
+		foreach (Transform child in target)
+		{
+			SetLayerRecursively(child, layer);
+		}
+	}
+
+	private void CreateCctvOutlineRenderers()
+	{
+		Shader outlineShader = Shader.Find(CctvOutlineShaderName);
+		if (outlineShader == null)
+		{
+			Debug.LogError($"[ItemBase] CCTV 아이템 외곽선 셰이더를 찾지 못했습니다: {CctvOutlineShaderName}", this);
+			return;
+		}
+
+		_cctvOutlineMaterial = new Material(outlineShader)
+		{
+			name = $"{name}_CCTVOutlineMaterial"
+		};
+		_cctvOutlineMaterial.SetColor("_OutlineColor", new Color(1f, 0.9f, 0f, 1f));
+		_cctvOutlineMaterial.SetFloat("_OutlineWidth", 0.35f);
+
+		foreach (Renderer sourceRenderer in _renderers)
+		{
+			if (sourceRenderer == null || sourceRenderer is ParticleSystemRenderer)
+			{
+				continue;
+			}
+
+			if (sourceRenderer is SkinnedMeshRenderer skinnedMeshRenderer)
+			{
+				CreateSkinnedCctvOutlineRenderer(skinnedMeshRenderer, _cctvOutlineMaterial);
+				continue;
+			}
+
+			if (sourceRenderer.TryGetComponent(out MeshFilter meshFilter) && meshFilter.sharedMesh != null)
+			{
+				CreateMeshCctvOutlineRenderer(sourceRenderer, meshFilter.sharedMesh, _cctvOutlineMaterial);
+			}
+		}
+	}
+
+	private void CreateMeshCctvOutlineRenderer(Renderer sourceRenderer, Mesh mesh, Material outlineMaterial)
+	{
+		GameObject outlineObject = CreateCctvOutlineObject(sourceRenderer.transform);
+
+		MeshFilter outlineMeshFilter = outlineObject.AddComponent<MeshFilter>();
+		outlineMeshFilter.sharedMesh = mesh;
+
+		MeshRenderer outlineRenderer = outlineObject.AddComponent<MeshRenderer>();
+		ConfigureCctvOutlineRenderer(outlineRenderer, sourceRenderer, outlineMaterial);
+	}
+
+	private void CreateSkinnedCctvOutlineRenderer(SkinnedMeshRenderer sourceRenderer, Material outlineMaterial)
+	{
+		if (sourceRenderer.sharedMesh == null)
+		{
+			return;
+		}
+
+		GameObject outlineObject = CreateCctvOutlineObject(sourceRenderer.transform);
+		SkinnedMeshRenderer outlineRenderer = outlineObject.AddComponent<SkinnedMeshRenderer>();
+		outlineRenderer.sharedMesh = sourceRenderer.sharedMesh;
+		outlineRenderer.rootBone = sourceRenderer.rootBone;
+		outlineRenderer.bones = sourceRenderer.bones;
+		outlineRenderer.localBounds = sourceRenderer.localBounds;
+
+		ConfigureCctvOutlineRenderer(outlineRenderer, sourceRenderer, outlineMaterial);
+	}
+
+	private GameObject CreateCctvOutlineObject(Transform sourceTransform)
+	{
+		GameObject outlineObject = new GameObject($"{sourceTransform.name}_CCTVOutline");
+		outlineObject.transform.SetParent(sourceTransform, false);
+		outlineObject.layer = Layers.CCTVPostProcessing;
+		return outlineObject;
+	}
+
+	private void ConfigureCctvOutlineRenderer(Renderer outlineRenderer, Renderer sourceRenderer, Material outlineMaterial)
+	{
+		outlineRenderer.sharedMaterial = outlineMaterial;
+		outlineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+		outlineRenderer.receiveShadows = false;
+		outlineRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+		outlineRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+		outlineRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+		outlineRenderer.enabled = sourceRenderer.enabled;
+		_cctvOutlineRenderers.Add(outlineRenderer);
+	}
+
+	private void SetCctvOutlineVisible(bool isVisible)
+	{
+		foreach (Renderer outlineRenderer in _cctvOutlineRenderers)
+		{
+			if (outlineRenderer != null)
+			{
+				outlineRenderer.enabled = isVisible;
+			}
+		}
+	}
 
     public override bool CanInteract(GameObject interactor)
     {
@@ -132,7 +261,19 @@ public class ItemBase : InteractableBase {
         {
             SetOutline(false);
         }
+
+        SetCctvOutlineVisible(!isStored);
     }
+
+	public override void OnDestroy()
+	{
+		if (_cctvOutlineMaterial != null)
+		{
+			Destroy(_cctvOutlineMaterial);
+		}
+
+		base.OnDestroy();
+	}
 
     public void BlockInteraction(float duration)    // duration초 동안 상호작용 차단
     {

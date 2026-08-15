@@ -113,7 +113,7 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
         return false;
     }
 
-    public void SetOutline(bool isVisible)
+    public virtual void SetOutline(bool isVisible)
     {
         if (_outlinable == null)
         {

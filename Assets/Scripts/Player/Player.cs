@@ -93,7 +93,9 @@ public class Player : NetworkBehaviour
 		PlayerHealth = GetComponent<PlayerHealth>();
 
 		// 메인 카메라는 MinimapOnly인 레이어를 보지 못하도록
-		Layers.HideLayerFromCamera(GetComponentInChildren<Camera>(), Layers.MinimapOnly);
+		Camera playerCamera = GetComponentInChildren<Camera>();
+		Layers.HideLayerFromCamera(playerCamera, Layers.MinimapOnly);
+		Layers.HideLayerFromCamera(playerCamera, Layers.CCTVPostProcessing);
 	}
 
 	public void SetPlayerName(string playerName)
