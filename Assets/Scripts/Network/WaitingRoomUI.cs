@@ -186,6 +186,38 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         }
     }
 
+    // 설정창을 다시 열어 닉네임을 바꾼다. 지금 쓰는 이름을 입력창에 미리 채워 준다.
+    // 닉네임 변경 버튼의 OnClick에 연결한다.
+    public void OnNicknameChangeButtonClicked()
+    {
+        if (_nicknameSettingPanel.activeSelf)
+        {
+            return;
+        }
+
+        _nicknameInputField.text = GetCurrentNickname();
+        _nicknameSettingPanel.SetActive(true);
+        GameplayUiMode.Instance?.RegisterUi(this);
+        _nicknameInputField.Select();
+    }
+
+    private string GetCurrentNickname()
+    {
+        if (!string.IsNullOrWhiteSpace(s_savedNickname))
+        {
+            return s_savedNickname;
+        }
+
+        NetworkObject localPlayerObject = NetworkManager.Singleton?.LocalClient?.PlayerObject;
+        Player localPlayer;
+        if (localPlayerObject != null && localPlayerObject.TryGetComponent(out localPlayer))
+        {
+            return localPlayer.PlayerName;
+        }
+
+        return string.Empty;
+    }
+
     private void TryApplySavedNickname()
     {
         if (string.IsNullOrWhiteSpace(s_savedNickname)) return;
