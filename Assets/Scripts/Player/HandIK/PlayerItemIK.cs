@@ -23,8 +23,11 @@ public class PlayerItemIK : HandIKBase {
 	private GameObject _itemOnLeftHand;
 	private GameObject _itemOnRightHand;
 
+	// 원격 손전등 광원을 네트워크로 동기화된 플레이어 시야 방향에 맞추기 위해 사용한다.
+	private PlayerCameraController _playerCameraController;
+
 	// 손전등 손 모델을 처음 만들 때 찾은 자식 광원들과 프리팹에 저장된 각 광원의 기본 활성 상태다.
-	// 두 배열은 같은 인덱스를 사용해 원래 꺼져 있던 보조 광원을 토글 과정에서 임의로 켜지 않게 한다.
+	// 두 배열은 같은 인덱스를 사용하며, 장식용 광원은 기본 상태를 유지하고 Spot Light는 원격 표현용으로 별도 제어한다.
 	private Light[] _flashLightSources;
 	private bool[] _flashLightSourceDefaultStates;
 
@@ -40,7 +43,33 @@ public class PlayerItemIK : HandIKBase {
 	protected override void Awake() {
 		base.Awake();
 
+		// 같은 플레이어 오브젝트의 동기화된 시야각을 사용한다.
+		_playerCameraController = GetComponent<PlayerCameraController>();
+
 		_lightInCamera.enabled = false;
+	}
+
+	// Animator의 손 IK가 장착 모델 회전을 확정한 뒤 원격 Spot Light만 실제 시야 방향으로 다시 맞춘다.
+	private void LateUpdate() {
+		// 소유자는 카메라 광원을 사용하고, 최초 장착 전에는 보정할 손 모델 광원이 없다.
+		if (_lightInCamera.gameObject.activeInHierarchy || _flashLightSources == null) {
+			return;
+		}
+
+		// 플레이어의 동기화된 시야각과 몸의 Y축 방향으로 원격 광원의 최종 진행 방향을 계산한다.
+		Vector3 lightDirection =
+			Quaternion.AngleAxis(_playerCameraController.ViewPitch, transform.right) * transform.forward;
+
+		for (int i = 0; i < _flashLightSources.Length; i++) {
+			Light lightSource = _flashLightSources[i];
+
+			// 현재 켜진 Spot Light만 보정해 꺼졌거나 장식용인 광원 상태는 변경하지 않는다.
+			if (lightSource.type != LightType.Spot || !lightSource.enabled) {
+				continue;
+			}
+
+			lightSource.transform.rotation = Quaternion.LookRotation(lightDirection, transform.up);
+		}
 	}
 
 	// FlashlightItem이 선택될 때 호출해 손 모델을 준비하고 동기화된 점등 상태로 장착한다.
@@ -139,9 +168,9 @@ public class PlayerItemIK : HandIKBase {
 		SetFlashlightLights(isVisible && _isFlashLightOn);
 	}
 
-	// 1인칭 카메라 광원과 손 모델 내부 광원을 같은 최종 점등 값으로 제어한다.
+	// 소유자는 1인칭 카메라 광원을 사용하고, 원격 표현은 손 모델의 Spot Light로 같은 점등 상태를 표시한다.
 	private void SetFlashlightLights(bool isEnabled) {
-		// 카메라 광원은 손 모델 생성 여부와 무관하게 항상 최종 상태를 직접 반영한다.
+		// 소유자의 활성 카메라에서는 시선 방향을 비추는 카메라 광원이 실제 빛을 담당한다.
 		_lightInCamera.enabled = isEnabled;
 
 		// 최초 장착 전에는 자식 광원 배열이 없으므로 카메라 광원 처리만 하고 끝낸다.
@@ -149,9 +178,19 @@ public class PlayerItemIK : HandIKBase {
 			return;
 		}
 
+		// 원격 플레이어의 카메라 오브젝트는 비활성화되므로 손 모델의 Spot Light가 실제 빛을 담당한다.
+		bool useHandSpotlight = !_lightInCamera.gameObject.activeInHierarchy;
+
 		for (int i = 0; i < _flashLightSources.Length; i++) {
-			// 전체 점등이 On이면서 해당 광원이 프리팹에서도 켜져 있던 경우에만 활성화한다.
-			_flashLightSources[i].enabled = isEnabled && _flashLightSourceDefaultStates[i];
+			Light lightSource = _flashLightSources[i];
+			bool isHandSpotlight = lightSource.type == LightType.Spot;
+
+			// Spot Light는 원격 표현에서만 켜 중복 조명을 막고, 장식용 광원은 프리팹 기본 상태를 유지한다.
+			bool shouldEnableSource = isHandSpotlight
+				? useHandSpotlight
+				: _flashLightSourceDefaultStates[i];
+
+			lightSource.enabled = isEnabled && shouldEnableSource;
 		}
 	}
 }
