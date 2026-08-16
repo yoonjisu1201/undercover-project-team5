@@ -35,8 +35,7 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	[Header("=== 펼침 연출 ===")]
 	// 단서 목록처럼 접힌 카드 높이에서 시작해 아래로 늘어나며 펼쳐진다. (확대/축소가 아니다)
 	[SerializeField, Min(0f)] private float _slideDuration = 0.24f;
-	// 우측 패널이므로 단서 목록과 반대로 내용물이 오른쪽에서 밀려 들어온다.
-	[SerializeField] private float _contentSlideOffset = 60f;
+	[SerializeField, Min(0f)] private float _compactRevealOffset = 120f;
 
 	[Header("=== 몽타주 갱신 알림 ===")]
 	[SerializeField] private float _notificationHiddenX = 460f;
@@ -178,22 +177,18 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 			_expandedUI.gameObject.SetActive(true);
 			SetExpandedHeight(0f);
 			_expandedContentGroup.alpha = 1f;
-			_expandedContent.anchoredPosition = _expandedContentRestPosition + Vector2.right * _contentSlideOffset;
+			_expandedContent.anchoredPosition = _expandedContentRestPosition;
 
 			Sequence open = DOTween.Sequence()
-				.Join(DOTween.To(GetExpandedHeight, SetExpandedHeight, _expandedRestHeight, _slideDuration).SetEase(Ease.OutCubic))
-				.Join(_expandedContent.DOAnchorPos(_expandedContentRestPosition, _slideDuration).SetEase(Ease.OutCubic));
+				.Join(DOTween.To(GetExpandedHeight, SetExpandedHeight, _expandedRestHeight, _slideDuration).SetEase(Ease.OutCubic));
 
 			_slide = open;
 			return;
 		}
 
-		// Body가 위로 접히고, 내부 Content는 우측 화면 밖 방향으로 빠진다.
+		// Body 높이만 줄여 버튼 아래에서 위로 접히게 한다.
 		Sequence close = DOTween.Sequence()
-			.Join(DOTween.To(GetExpandedHeight, SetExpandedHeight, 0f, _slideDuration).SetEase(Ease.InCubic))
-			.Join(_expandedContent
-				.DOAnchorPos(_expandedContentRestPosition + Vector2.right * _contentSlideOffset, _slideDuration)
-				.SetEase(Ease.InCubic));
+			.Join(DOTween.To(GetExpandedHeight, SetExpandedHeight, 0f, _slideDuration).SetEase(Ease.InCubic));
 
 		_slide = close.OnComplete(() =>
 		{
@@ -258,16 +253,45 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 		_compactSlide = tabRect.DOAnchorPosX(shownX, duration).SetEase(Ease.OutCubic);
 	}
 
-	public void HideTabState(float hiddenX, float duration)
+	public float HideTabState(float hiddenX, float duration)
 	{
 		if (_tabUI == null)
 		{
-			return;
+			return 0f;
 		}
 
 		RectTransform tabRect = _tabUI.transform as RectTransform;
 		_compactSlide?.Kill();
-		_compactSlide = tabRect.DOAnchorPosX(hiddenX, duration).SetEase(Ease.InCubic);
+
+		if (!IsExpanded || _expandedBody == null)
+		{
+			_compactSlide = tabRect.DOAnchorPosX(hiddenX, duration).SetEase(Ease.InCubic);
+			return 0f;
+		}
+
+		float currentHeight = GetExpandedHeight();
+		float revealHeight = tabRect.rect.height + _compactRevealOffset;
+		float revealDelay = GetCollapseDelayAtHeight(currentHeight, revealHeight);
+
+		_compactSlide = DOTween.Sequence()
+			.AppendInterval(revealDelay)
+			.AppendCallback(() => SetCompactCardsActive(false, true))
+			.Append(tabRect.DOAnchorPosX(hiddenX, duration).SetEase(Ease.InCubic));
+
+		return revealDelay;
+	}
+
+	private float GetCollapseDelayAtHeight(float startHeight, float targetHeight)
+	{
+		if (_slideDuration <= 0f || startHeight <= 0f || targetHeight >= startHeight)
+		{
+			return 0f;
+		}
+
+		// 접힘 트윈의 Ease.InCubic 진행률을 역산해 버튼 높이와 여유 공간이 남는 순간을 구한다.
+		float normalizedHeight = Mathf.Clamp01(targetHeight / startHeight);
+		float normalizedTime = Mathf.Pow(1f - normalizedHeight, 1f / 3f);
+		return _slideDuration * normalizedTime;
 	}
 
 	private void RefreshCompactState()
