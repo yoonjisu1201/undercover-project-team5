@@ -124,13 +124,20 @@ public class CCTVScreenController : ScreenBase
 			return;
 		}
 
-		bool shouldShow = _cctvHub.GetPoint(cameraIndex).ConnectionState == CCTVConnectionState.Disconnected;
+		CCTVConnectionState connectionState = _cctvHub.GetPoint(cameraIndex).ConnectionState;
+
+		bool shouldShow = connectionState == CCTVConnectionState.Disconnected;
 		_disconnectedOverlay.SetActive(shouldShow);
 
-		// 영상이 끊긴 화면에서는 조준 판정을 아예 돌리지 않는다.
+		// 아이템 외곽선과 조준 표시는 신호가 완전히 복구된 CCTV에서만 제공한다.
+		// 글리치가 남은 Partial 상태에서는 영상만 보여준다.
+		bool isFullyConnected = connectionState == CCTVConnectionState.Connected;
+
 		if (_itemReticle != null)
 		{
-			_itemReticle.enabled = !shouldShow;
+			_itemReticle.enabled = isFullyConnected;
 		}
+
+		_cctvHub.SetItemOutlineEnabled(isFullyConnected);
 	}
 }

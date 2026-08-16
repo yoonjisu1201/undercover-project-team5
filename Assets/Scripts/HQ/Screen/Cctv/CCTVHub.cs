@@ -138,7 +138,16 @@ public class CCTVHub : MonoBehaviour {
 			baseData.cameraStack.Add(overlayCamera);
 		}
 
+		// 신호가 완전히 복구된 CCTV에서만 켠다. 실제 On/Off는 CCTVScreenController가 연결 상태를 보고 결정한다.
+		overlayCamera.enabled = false;
 		_outlineOverlayCamera = overlayCamera;
+	}
+
+	// 아이템 외곽선을 그리는 오버레이 카메라를 켜고 끈다.
+	public void SetItemOutlineEnabled(bool isEnabled) {
+		if (_outlineOverlayCamera != null) {
+			_outlineOverlayCamera.enabled = isEnabled;
+		}
 	}
 
 	// URP의 clearDepth는 읽기 전용 프로퍼티라 직렬화 필드를 직접 건드려야 한다.
