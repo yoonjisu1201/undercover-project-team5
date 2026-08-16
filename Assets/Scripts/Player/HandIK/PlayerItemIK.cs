@@ -183,10 +183,9 @@ public class PlayerItemIK : HandIKBase {
 
 		for (int i = 0; i < _flashLightSources.Length; i++) {
 			Light lightSource = _flashLightSources[i];
-			bool isHandSpotlight = lightSource.type == LightType.Spot;
 
 			// Spot Light는 원격 표현에서만 켜 중복 조명을 막고, 장식용 광원은 프리팹 기본 상태를 유지한다.
-			bool shouldEnableSource = isHandSpotlight
+			bool shouldEnableSource = lightSource.type == LightType.Spot
 				? useHandSpotlight
 				: _flashLightSourceDefaultStates[i];
 
