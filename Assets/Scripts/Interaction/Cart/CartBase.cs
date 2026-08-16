@@ -14,6 +14,10 @@ public abstract class CartBase : InteractableBase
 	private Rigidbody _rigidbody;
 	private Collider _collider;
 
+	// 라운드 전환 시 이 위치(StartPoint 기준 로컬 오프셋)로 카트를 되돌린다.
+	private Vector3 _spawnLocalPosition;
+	private Quaternion _spawnLocalRotation;
+
 	// 현재 이 카트 잡고있는사람의 ID(네트워크 직렬화용 ID)
 	private readonly NetworkVariable<ulong> _currentHolderId = new NetworkVariable<ulong>(Empty);
 	private Player _currentHolder;
@@ -35,6 +39,9 @@ public abstract class CartBase : InteractableBase
 
 		_rigidbody = GetComponent<Rigidbody>();
 		_collider = GetComponent<Collider>();
+
+		_spawnLocalPosition = transform.localPosition;
+		_spawnLocalRotation = transform.localRotation;
 	}
 
 	public override void OnNetworkSpawn()
@@ -86,6 +93,27 @@ public abstract class CartBase : InteractableBase
 	public virtual void ReleaseCart()
 	{
 		ReleaseCartRpc();
+	}
+
+	// 서버가 라운드 전환 시점에 카트 홀더를 강제로 해제하고 스폰 위치로 되돌린다.
+	// NpcTracker.ResetForNewRound()와 같은 목적, 같은 호출 시점(RoundManager)을 따른다.
+	// 그렇지 않으면 이전 라운드에서 끌려다닌 로컬 오프셋이 그대로 남아, StartPoint가 새 구역으로
+	// 옮겨갈 때 그 오프셋만큼 엉뚱한 위치로 나타나게 된다.
+	public virtual void ResetForNewRound()
+	{
+		if (!IsServer) { return; }
+
+		if (IsHolderExists)
+		{
+			_currentHolderId.Value = Empty;
+			NetworkObject.RemoveOwnership();
+		}
+
+		transform.SetLocalPositionAndRotation(_spawnLocalPosition, _spawnLocalRotation);
+		_rigidbody.position = transform.position;
+		_rigidbody.rotation = transform.rotation;
+		_rigidbody.linearVelocity = Vector3.zero;
+		_rigidbody.angularVelocity = Vector3.zero;
 	}
 
 	[Rpc(SendTo.Server)]

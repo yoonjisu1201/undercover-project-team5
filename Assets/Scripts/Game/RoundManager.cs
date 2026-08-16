@@ -261,6 +261,7 @@ public partial class RoundManager : NetworkBehaviour
             ResetMissionsForNewRound();
             ResetNpcTrackersForNewRound();
             ResetPlayerHealthForNewRound();
+            ResetCartsForNewRound();
 
             // 이전 라운드 인벤토리와 필드 단서를 먼저 제거해 전환 중 드롭된 단서가 남지 않게 합니다.
             ClearAllPlayerInventories();
@@ -350,6 +351,23 @@ public partial class RoundManager : NetworkBehaviour
         foreach (PlayerHealth playerHealth in playerHealths)
         {
             playerHealth.ResetForNewRound();
+        }
+    }
+
+    // 서버가 라운드 전환 시점에 카트 홀더를 해제하고 스폰 위치로 되돌린 뒤 회복량도 다시 채운다.
+    // StartPoint가 새 구역으로 옮겨가기 전에 이전 라운드에서 끌려다닌 로컬 오프셋을 지워야
+    // 카트가 엉뚱한 위치로 나타나지 않는다.
+    private void ResetCartsForNewRound()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        CartBase[] carts = FindObjectsByType<CartBase>(FindObjectsSortMode.None);
+        foreach (CartBase cart in carts)
+        {
+            cart.ResetForNewRound();
         }
     }
 
