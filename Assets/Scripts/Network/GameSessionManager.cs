@@ -155,7 +155,7 @@ public class GameSessionManager : MonoBehaviour
 			Debug.LogError($"[GameSessionManager] 세션 참가 중 '{stage}' 단계에서 오류가 발생했습니다.\n" +
 						   $"오류 내용: [{DescribeError(e)}] {e.Message}");
 			await ReleaseCurrentSessionAsync();
-			OnSessionError?.Invoke(ToUserMessage(e));
+			OnSessionError?.Invoke(ToUserMessage(e, isJoinByCode: true));
 		}
 	}
 
@@ -191,11 +191,19 @@ public class GameSessionManager : MonoBehaviour
 
 	// Unity Services 예외 메시지는 영문 원문이라 그대로 띄우면 알아볼 수 없어 한글 문구로 바꿔준다.
 	// (원문은 호출부의 Debug.LogError에 그대로 남는다)
-	private static string ToUserMessage(Exception e)
+	// 참가는 방 생성과 달리 잘못된 방 코드가 압도적으로 흔해서 원인 불명일 때의 기본 문구가 다르다.
+	private static string ToUserMessage(Exception e, bool isJoinByCode = false)
 	{
-		const string defaultMessage = "네트워크 오류로 연결하지 못했습니다";
+		const string networkMessage = "네트워크 오류로 연결하지 못했습니다";
+		const string invalidCodeMessage = "방 코드를 다시 확인해주세요";
 
-		if (e is not SessionException sessionException) return defaultMessage;
+		// 로그인이나 서비스 초기화 실패는 SessionException이 아니다. 방 코드와 무관한 실패다.
+		if (e is not SessionException sessionException) return networkMessage;
+
+		// 서비스는 코드 형식 위반과 네트워크 오류를 둘 다 Unknown으로만 알려줘 구분할 수 없다.
+		// 인터넷이 아예 끊긴 상태라면 코드 문제가 아니라고 확실히 말할 수 있다.
+		bool isOffline = Application.internetReachability == NetworkReachability.NotReachable;
+		string defaultMessage = isJoinByCode && !isOffline ? invalidCodeMessage : networkMessage;
 
 		switch (sessionException.Error)
 		{
@@ -203,7 +211,7 @@ public class GameSessionManager : MonoBehaviour
 			case SessionError.SessionDeleted:
 			case SessionError.NetworkManagerStartFailed:
 			case SessionError.NetworkSetupFailed:
-				return "방 코드를 다시 확인해주세요";
+				return invalidCodeMessage;
 			case SessionError.SessionConflict:
 				return "이미 같은 플레이어가 이 방에 참가 중입니다";
 			case SessionError.RateLimitExceeded:
