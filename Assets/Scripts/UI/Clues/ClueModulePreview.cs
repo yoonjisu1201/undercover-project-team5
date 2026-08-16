@@ -7,16 +7,13 @@ using UnityEngine;
 public class ClueModulePreview : MonoBehaviour
 {
     [Header("Preview")]
-    [SerializeField] private Transform _moduleSpawnPoint;
-    [SerializeField] private Camera _clueCamera;
-    [SerializeField] private RenderTexture _renderTexture;
+    [SerializeField] private MontageSyncManager _syncManager;
     [SerializeField, Min(1)] private int _clueCount = 8;
 
-    private readonly List<GameObject> _equippedModules = new();
     private readonly List<MontageParts> _equippedParts = new();
+    private readonly List<MontageState> _equippedStates = new();
     private readonly List<Texture2D> _capturedTextures = new();
     private readonly List<string> _capturedPartLabels = new();
-    private ClueModuleCapture _moduleCapture;
 
     private CriminalNpcManager _criminalManager;
     private NetworkObject _capturedCriminal;
@@ -26,7 +23,7 @@ public class ClueModulePreview : MonoBehaviour
 
     private void Start()
     {
-        _moduleCapture = new ClueModuleCapture(this, _moduleSpawnPoint, _clueCamera, _renderTexture);
+        _syncManager ??= FindFirstObjectByType<MontageSyncManager>(FindObjectsInactive.Include);
 
         if (RoundManager.Instance != null)
         {
@@ -48,7 +45,7 @@ public class ClueModulePreview : MonoBehaviour
     {
         if (_isCapturing)
         {
-            Debug.LogWarning("[ClueModulePreview] 단서 촬영 중에는 새로고침을 수행할 수 없습니다.", this);
+            Debug.LogWarning("[ClueModulePreview] 단서 준비 중에는 새로고침을 수행할 수 없습니다.", this);
             return;
         }
 
@@ -76,28 +73,42 @@ public class ClueModulePreview : MonoBehaviour
 
     private async UniTask ShowCriminalCluesAsync(CancellationToken cancellationToken)
     {
-        if (!TryGetEquippedModules(_criminalManager))
+        if (_syncManager == null)
         {
-            Debug.LogWarning("[ClueModulePreview] 범인이 착용한 모듈을 찾지 못했습니다.", this);
+            Debug.LogError("[ClueModulePreview] MontageSyncManager를 찾지 못했습니다.", this);
             return;
         }
 
-        ShuffleEquippedModules(_criminalManager.CriminalNpc.NetworkObjectId);
+        await _syncManager.InitializeAsync().AttachExternalCancellation(cancellationToken);
 
-        // 캡처 결과는 단서 번호별로 보관하고, 단서 목록 UI가 열람 시점에 꺼내 쓴다.
-        for (int i = 0; i < _clueCount; i++)
+        if (!TryGetEquippedStates(_criminalManager))
         {
-            int moduleIndex = i % _equippedModules.Count;
-            Texture2D texture = await _moduleCapture.CaptureAsync(_equippedModules[moduleIndex], _equippedParts[moduleIndex], cancellationToken);
+            Debug.LogWarning("[ClueModulePreview] 범인이 착용한 몽타주 모듈을 찾지 못했습니다.", this);
+            return;
+        }
+
+        ShuffleEquippedParts(_criminalManager.CriminalNpc.NetworkObjectId);
+
+        int captureCount = Mathf.Min(_clueCount, _equippedParts.Count);
+
+        // 단서 번호별로 몽타주 카메라로 찍은 이미지를 보관하고, 단서 목록 UI가 열람 시점에 꺼내 쓴다.
+        for (int i = 0; i < captureCount; i++)
+        {
+            MontageParts focusPart = _equippedParts[i];
+            Texture2D texture = _syncManager.CaptureTemporaryState(_equippedStates[i], focusPart);
+            if (texture == null)
+            {
+                Debug.LogWarning($"[ClueModulePreview] {focusPart} 단서 캡쳐에 실패해서 목록에서 제외합니다.", this);
+                continue;
+            }
 
             _capturedTextures.Add(texture);
-            _capturedPartLabels.Add(GetPartLabel(_equippedParts[moduleIndex]));
+            _capturedPartLabels.Add(GetPartLabel(focusPart));
 
-            _moduleCapture.ReleasePreview();
             await UniTask.NextFrame(cancellationToken);
         }
 
-        Debug.Log($"[ClueModulePreview] 단서 촬영 완료 | 총 {_capturedTextures.Count}개", this);
+        Debug.Log($"[ClueModulePreview] 몽타주 카메라 단서 준비 완료 | 총 {_capturedTextures.Count}개", this);
     }
 
     private void ClearCapturedTextures()
@@ -121,33 +132,64 @@ public class ClueModulePreview : MonoBehaviour
         return criminalManager;
     }
 
-    private bool TryGetEquippedModules(CriminalNpcManager criminalManager)
+    private bool TryGetEquippedStates(CriminalNpcManager criminalManager)
     {
-        if (!criminalManager.CriminalNpc.TryGetComponent(out NpcOutfitController outfitController))
+        _equippedParts.Clear();
+        _equippedStates.Clear();
+
+        if (_syncManager == null)
         {
-            Debug.LogError("[ClueModulePreview] 범인 NPC에 NpcOutfitController가 없습니다.", this);
+            Debug.LogError("[ClueModulePreview] MontageSyncManager를 찾지 못했습니다.", this);
             return false;
         }
 
-        outfitController.GetEquippedModules(criminalManager.CriminalFeature.Outfit, _equippedModules, _equippedParts);
-        if (_equippedModules.Count > 0)
+        AddClueState(MontageParts.Beard, criminalManager.CriminalFeature.Outfit.BeardNumber);
+        AddClueState(MontageParts.Eyebrows, criminalManager.CriminalFeature.Outfit.EyebrowsNumber);
+        AddClueState(MontageParts.Glasses, criminalManager.CriminalFeature.Outfit.GlassesNumber);
+        AddClueState(MontageParts.Hair, criminalManager.CriminalFeature.Outfit.HairNumber);
+        AddClueState(MontageParts.Hats, criminalManager.CriminalFeature.Outfit.HatNumber);
+        AddClueState(MontageParts.Headphones, criminalManager.CriminalFeature.Outfit.HeadphoneNumber);
+        AddClueState(MontageParts.Arms, criminalManager.CriminalFeature.Outfit.ArmNumber);
+        AddClueState(MontageParts.Masks, criminalManager.CriminalFeature.Outfit.MaskNumber);
+        AddClueState(MontageParts.Pants, criminalManager.CriminalFeature.Outfit.PantsNumber);
+        AddClueState(MontageParts.Shoes, criminalManager.CriminalFeature.Outfit.ShoesNumber);
+        AddClueState(MontageParts.Torso, criminalManager.CriminalFeature.Outfit.TorsoNumber);
+
+        if (_equippedParts.Count > 0)
         {
             return true;
         }
 
-        Debug.LogWarning("[ClueModulePreview] 범인이 착용한 모듈을 찾지 못했습니다.", this);
+        Debug.LogWarning("[ClueModulePreview] 범인이 착용한 몽타주 모듈을 찾지 못했습니다.", this);
         return false;
     }
 
-    private void ShuffleEquippedModules(ulong criminalNetworkObjectId)
+    private void AddClueState(MontageParts part, int npcOutfitIndex)
+    {
+        if (npcOutfitIndex < 0)
+        {
+            return;
+        }
+
+        if (!_syncManager.TryGetClothIdByIndex(part, npcOutfitIndex, out int clothId))
+        {
+            Debug.LogWarning($"[ClueModulePreview] {part} 파츠의 NPC 인덱스({npcOutfitIndex})에 맞는 몽타주 데이터를 찾지 못했습니다.", this);
+            return;
+        }
+
+        _equippedStates.Add(MontageState.Empty.WithCloth(part, clothId));
+        _equippedParts.Add(part);
+    }
+
+    private void ShuffleEquippedParts(ulong criminalNetworkObjectId)
     {
         System.Random random = new(unchecked((int)criminalNetworkObjectId));
 
-        for (int i = _equippedModules.Count - 1; i > 0; i--)
+        for (int i = _equippedParts.Count - 1; i > 0; i--)
         {
             int randomIndex = random.Next(i + 1);
-            (_equippedModules[i], _equippedModules[randomIndex]) =
-                (_equippedModules[randomIndex], _equippedModules[i]);
+            (_equippedStates[i], _equippedStates[randomIndex]) =
+                (_equippedStates[randomIndex], _equippedStates[i]);
             (_equippedParts[i], _equippedParts[randomIndex]) =
                 (_equippedParts[randomIndex], _equippedParts[i]);
         }
@@ -182,14 +224,14 @@ public class ClueModulePreview : MonoBehaviour
 
         texture = _capturedTextures[clueIndex];
         partLabel = _capturedPartLabels[clueIndex];
-        return true;
+        return texture != null;
     }
 
     // clueNumber는 1부터 시작한다.
     public bool TryApplyTo(int clueNumber, ClueUI clueUi)
     {
         int clueIndex = clueNumber - 1;
-        if (clueUi == null || clueIndex < 0 || clueIndex >= _capturedTextures.Count)
+        if (clueUi == null || clueIndex < 0 || clueIndex >= _capturedTextures.Count || _capturedTextures[clueIndex] == null)
         {
             return false;
         }
@@ -208,7 +250,6 @@ public class ClueModulePreview : MonoBehaviour
             RoundManager.Instance.OnRoundStarted -= HandleRoundStarted;
         }
 
-        _moduleCapture?.Dispose();
         ClearCapturedTextures();
     }
 }
