@@ -61,7 +61,19 @@ public class PlayerItemUse : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     private void RequestUseItemRpc(NetworkBehaviourReference itemRef, int selectedIndex)
     {
-        if (selectedIndex < 0 || !itemRef.TryGet(out ItemBase item) || item is not IUsable usable)
+        // 클라이언트가 보낸 슬롯 번호와 아이템 참조를 그대로 신뢰하지 않고 서버의 현재 상태로 검증한다.
+        // 첫 두 조건은 슬롯 접근 범위를 보장하고, 뒤의 두 조건은 참조가 실제 사용 가능 아이템인지 확인한다.
+        if (selectedIndex < 0 ||
+            selectedIndex >= _inventory.Slots.Count ||
+            !itemRef.TryGet(out ItemBase item) ||
+            item is not IUsable usable)
+        {
+            return;
+        }
+
+        // 전달된 아이템이 서버가 같은 슬롯에 보관한 바로 그 인스턴스인지 확인한다.
+        // 슬롯 내용과 참조가 엇갈린 요청으로 전달된 슬롯과 다른 아이템을 사용하는 것을 막는다.
+        if (!_inventory.Slots[selectedIndex].TryGetItem(out ItemBase selectedItem) || selectedItem != item)
         {
             return;
         }

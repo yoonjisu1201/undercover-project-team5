@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// 핫바에서 E로 사용하는 소비형 아이템이 구현한다 (예: EnergyBar).
+// 핫바에서 E로 사용하는 아이템이 구현한다 (예: EnergyBar, 손전등).
 public interface IUsable
 {
     // 조준/선택 중일 때 보여줄 문구.
