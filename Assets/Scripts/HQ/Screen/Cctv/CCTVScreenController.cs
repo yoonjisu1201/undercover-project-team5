@@ -29,6 +29,8 @@ public class CCTVScreenController : ScreenBase
 
 		_disconnectedOverlay = overlayTransform.gameObject;
 
+		SetupItemReticle();
+
 		// 카메라 비활성화상태로 시작
 		_cctvHub.CctvCamera.enabled = false;
 		// 본부에 빈 화면 나오지 않도록 1회 렌더링
@@ -67,6 +69,20 @@ public class CCTVScreenController : ScreenBase
 
 		// 카메라 비활성화
 		_cctvHub.CctvCamera.enabled = false;
+	}
+
+	// CCTV 화면의 아이템 조준 표시에 카메라를 넘겨 동작시킵니다. UI는 프리팹에 만들어져 있습니다.
+	private void SetupItemReticle()
+	{
+		CCTVItemReticle reticle = GetComponent<CCTVItemReticle>();
+
+		if (reticle == null)
+		{
+			Debug.LogError($"'{name}'에 CCTVItemReticle 컴포넌트가 없습니다.", this);
+			return;
+		}
+
+		reticle.Initialize(_cctvHub.CctvCamera);
 	}
 
 	// 이전 CCTV 화면으로 이동합니다.

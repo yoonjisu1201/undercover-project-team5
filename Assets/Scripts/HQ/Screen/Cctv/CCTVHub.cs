@@ -1,10 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using EPOOutline;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 public class CCTVHub : MonoBehaviour {
+	private const string OutlineOverlayCameraName = "CCTVOutlineCamera";
+
 	[SerializeField] private Camera _cctvCamera;
-	
+	private Camera _outlineOverlayCamera;
+
 	private readonly List<CCTVPoint> _cctvPoints = new List<CCTVPoint>();
 	private Dictionary<RegionId, CCTVRegion> _cctvRegions = new();
 
@@ -79,8 +85,66 @@ public class CCTVHub : MonoBehaviour {
 
 		Layers.ShowLayerToCamera(_cctvCamera, Layers.Item);
 		Layers.ShowLayerToCamera(_cctvCamera, Layers.CCTVPostProcessing);
+
+		// 외곽선은 오버레이 카메라가 그린다. 본 카메라에 Outliner가 남아 있으면 야간투시 후처리에 채도가 죽어 흰색이 된다.
+		Outliner baseOutliner = _cctvCamera.GetComponent<Outliner>();
+		if (baseOutliner != null) {
+			Destroy(baseOutliner);
+		}
+
+		SetupOutlineOverlayCamera();
 	}
-	
+
+	// 야간투시 볼륨이 화면 채도를 없애서, 후처리 전에 그리면 외곽선이 무조건 흰색이 된다.
+	// 후처리를 끈 URP 오버레이 카메라를 스택에 얹어 본 화면 위에 원래 색으로 덧그린다.
+	private void SetupOutlineOverlayCamera() {
+		// Awake와 Initialize 양쪽에서 불리므로 이미 만들어 뒀으면 그대로 둔다.
+		if (_outlineOverlayCamera != null) {
+			return;
+		}
+
+		GameObject overlayObject = new GameObject(OutlineOverlayCameraName);
+		overlayObject.transform.SetParent(_cctvCamera.transform, false);
+
+		Camera overlayCamera = overlayObject.AddComponent<Camera>();
+		overlayCamera.CopyFrom(_cctvCamera);
+		overlayCamera.targetTexture = null;             // 오버레이는 베이스 카메라의 타깃에 그린다.
+		overlayCamera.cullingMask = 1 << Layers.Item;   // 아이템만 다시 그린다.
+
+		UniversalAdditionalCameraData overlayData = overlayCamera.GetUniversalAdditionalCameraData();
+		overlayData.renderType = CameraRenderType.Overlay;
+		overlayData.renderPostProcessing = false;
+		SetClearDepth(overlayData, false);              // 깊이를 유지해야 벽 뒤 아이템이 비치지 않는다.
+
+		Outliner overlayOutliner = overlayObject.AddComponent<Outliner>();
+		overlayOutliner.OutlineLayerMask = ItemBase.CctvOutlineMask;
+		overlayOutliner.PrimaryRendererScale = 1f;
+		overlayOutliner.PrimarySizeReference = 800;
+		overlayOutliner.DilateShift = 1f;
+		// 조준 괄호 표시와 겹쳐도 지저분하지 않도록 외곽선은 얇게 둔다.
+		overlayOutliner.DilateIterations = 1;
+		overlayOutliner.BlurShift = 1f;
+		overlayOutliner.BlurIterations = 1;
+
+		UniversalAdditionalCameraData baseData = _cctvCamera.GetUniversalAdditionalCameraData();
+		baseData.cameraStack.Clear();
+		baseData.cameraStack.Add(overlayCamera);
+		_outlineOverlayCamera = overlayCamera;
+	}
+
+	// URP의 clearDepth는 읽기 전용 프로퍼티라 직렬화 필드를 직접 건드려야 한다.
+	private static void SetClearDepth(UniversalAdditionalCameraData cameraData, bool clearDepth) {
+		FieldInfo field = typeof(UniversalAdditionalCameraData)
+			.GetField("m_ClearDepth", BindingFlags.NonPublic | BindingFlags.Instance);
+
+		if (field == null) {
+			Debug.LogWarning("URP의 m_ClearDepth 필드를 찾지 못했습니다. 오버레이 외곽선이 벽 뒤로 비칠 수 있습니다.");
+			return;
+		}
+
+		field.SetValue(cameraData, clearDepth);
+	}
+
 	private void DeactivateAllPoints() {
 		foreach (CCTVPoint point in _cctvPoints) {
 			point.Deactivate();

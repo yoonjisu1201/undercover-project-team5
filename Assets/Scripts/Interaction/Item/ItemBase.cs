@@ -1,13 +1,20 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using EPOOutline;
-using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(NetworkTransform),
     typeof(ItemRigidbodySetter))]
 public class ItemBase : InteractableBase {
-	private const string CctvOutlineShaderName = "Undercover/CCTV Item Outline";
+	// CCTV 전용 외곽선이 쓰는 EPO 아웃라인 레이어(Unity 레이어와 무관한 EPO 내부 0~7 값).
+	// 이 레이어는 CCTV 카메라의 Outliner에서만 켜져 있어서, 1인칭 카메라에는 그려지지 않는다.
+	public const int CctvOutlineLayer = 5;
+	public const long CctvOutlineMask = 1L << CctvOutlineLayer;
+
+	// CCTV 화면에서 커서 아래 아이템을 찾을 때 순회한다. 월드에 존재하는 아이템만 담긴다.
+	private static readonly List<ItemBase> SpawnedItems = new();
+	public static IReadOnlyList<ItemBase> SpawnedItemList => SpawnedItems;
 
     [SerializeField] private ItemData _itemData;
 
@@ -25,8 +32,7 @@ public class ItemBase : InteractableBase {
     // 비활성화 시에 렌더링 및 Collider 모두 끄기 위해 저장할 것
     private Renderer[] _renderers;
     private Collider[] _itemColliders;
-	private readonly List<Renderer> _cctvOutlineRenderers = new();
-	private Material _cctvOutlineMaterial;
+	private Outlinable _cctvOutline;
     private ItemRigidbodySetter _rigidBodySetter;
     private NetworkTransform _networkTransform;
 
@@ -54,18 +60,75 @@ public class ItemBase : InteractableBase {
         _networkTransform = GetComponent<NetworkTransform>();
 
 		SetLayerRecursively(transform, Layers.Item);
-
-		Outlinable[] itemOutlines = GetComponentsInChildren<Outlinable>(true);
-		foreach (Outlinable itemOutline in itemOutlines)
-		{
-			itemOutline.enabled = false;
-		}
-
-		CreateCctvOutlineRenderers();
+		CreateCctvOutline();
+		SpawnedItems.Add(this);
     }
 
-	// 아이템 외곽선은 CCTV 카메라 전용이다. 플레이어의 조준 상태로 켜거나 끄지 않는다.
-	public override void SetOutline(bool isVisible) { }
+	public override void OnDestroy()
+	{
+		SpawnedItems.Remove(this);
+		base.OnDestroy();
+	}
+
+	// 활성화된 렌더러들을 합친 월드 바운즈. CCTV 조준 표시가 화면 사각형을 잡을 때 쓴다.
+	public Bounds WorldBounds
+	{
+		get
+		{
+			bool hasBounds = false;
+			Bounds bounds = default;
+
+			foreach (Renderer itemRenderer in _renderers)
+			{
+				if (itemRenderer == null || !itemRenderer.enabled)
+				{
+					continue;
+				}
+
+				if (!hasBounds)
+				{
+					bounds = itemRenderer.bounds;
+					hasBounds = true;
+					continue;
+				}
+
+				bounds.Encapsulate(itemRenderer.bounds);
+			}
+
+			return hasBounds ? bounds : new Bounds(transform.position, Vector3.one * 0.1f);
+		}
+	}
+
+	// 프리팹의 Outlinable은 조준 하이라이트(InteractableBase)가 이미 쓰고 있고, 그쪽은 색 알파를 0으로
+	// 눕혀 두거나 컴포넌트를 꺼 버린다. 그래서 CCTV용은 항상 켜져 있는 별도의 Outlinable을 자식으로 따로 만든다.
+	private void CreateCctvOutline()
+	{
+		GameObject outlineObject = new GameObject("CctvOutline");
+		outlineObject.transform.SetParent(transform, false);
+		outlineObject.layer = Layers.Item;
+
+		_cctvOutline = outlineObject.AddComponent<Outlinable>();
+		_cctvOutline.OutlineLayer = CctvOutlineLayer;
+		_cctvOutline.DrawingMode = OutlinableDrawingMode.Normal;
+
+		// Single은 깊이 비교가 Always라 벽 뒤 아이템까지 비친다.
+		// FrontBack으로 앞면(보이는 부분)만 그리고 뒷면(가려진 부분)은 꺼서 가려지도록 한다.
+		_cctvOutline.RenderStyle = RenderStyle.FrontBack;
+		_cctvOutline.OutlineParameters.Enabled = false;
+		_cctvOutline.BackParameters.Enabled = false;
+		_cctvOutline.FrontParameters.Enabled = true;
+		_cctvOutline.FrontParameters.Color = Color.yellow;
+		_cctvOutline.FrontParameters.DilateShift = 1f;
+		_cctvOutline.FrontParameters.BlurShift = 1f;
+
+		foreach (Renderer itemRenderer in _renderers)
+		{
+			if (itemRenderer != null)
+			{
+				_cctvOutline.AddRenderer(itemRenderer);
+			}
+		}
+	}
 
 	private static void SetLayerRecursively(Transform target, int layer)
 	{
@@ -79,101 +142,6 @@ public class ItemBase : InteractableBase {
 		foreach (Transform child in target)
 		{
 			SetLayerRecursively(child, layer);
-		}
-	}
-
-	private void CreateCctvOutlineRenderers()
-	{
-		Shader outlineShader = Shader.Find(CctvOutlineShaderName);
-		if (outlineShader == null)
-		{
-			Debug.LogError($"[ItemBase] CCTV 아이템 외곽선 셰이더를 찾지 못했습니다: {CctvOutlineShaderName}", this);
-			return;
-		}
-
-		_cctvOutlineMaterial = new Material(outlineShader)
-		{
-			name = $"{name}_CCTVOutlineMaterial"
-		};
-		_cctvOutlineMaterial.SetColor("_OutlineColor", new Color(1f, 0.9f, 0f, 1f));
-		_cctvOutlineMaterial.SetFloat("_OutlineWidth", 0.35f);
-
-		foreach (Renderer sourceRenderer in _renderers)
-		{
-			if (sourceRenderer == null || sourceRenderer is ParticleSystemRenderer)
-			{
-				continue;
-			}
-
-			if (sourceRenderer is SkinnedMeshRenderer skinnedMeshRenderer)
-			{
-				CreateSkinnedCctvOutlineRenderer(skinnedMeshRenderer, _cctvOutlineMaterial);
-				continue;
-			}
-
-			if (sourceRenderer.TryGetComponent(out MeshFilter meshFilter) && meshFilter.sharedMesh != null)
-			{
-				CreateMeshCctvOutlineRenderer(sourceRenderer, meshFilter.sharedMesh, _cctvOutlineMaterial);
-			}
-		}
-	}
-
-	private void CreateMeshCctvOutlineRenderer(Renderer sourceRenderer, Mesh mesh, Material outlineMaterial)
-	{
-		GameObject outlineObject = CreateCctvOutlineObject(sourceRenderer.transform);
-
-		MeshFilter outlineMeshFilter = outlineObject.AddComponent<MeshFilter>();
-		outlineMeshFilter.sharedMesh = mesh;
-
-		MeshRenderer outlineRenderer = outlineObject.AddComponent<MeshRenderer>();
-		ConfigureCctvOutlineRenderer(outlineRenderer, sourceRenderer, outlineMaterial);
-	}
-
-	private void CreateSkinnedCctvOutlineRenderer(SkinnedMeshRenderer sourceRenderer, Material outlineMaterial)
-	{
-		if (sourceRenderer.sharedMesh == null)
-		{
-			return;
-		}
-
-		GameObject outlineObject = CreateCctvOutlineObject(sourceRenderer.transform);
-		SkinnedMeshRenderer outlineRenderer = outlineObject.AddComponent<SkinnedMeshRenderer>();
-		outlineRenderer.sharedMesh = sourceRenderer.sharedMesh;
-		outlineRenderer.rootBone = sourceRenderer.rootBone;
-		outlineRenderer.bones = sourceRenderer.bones;
-		outlineRenderer.localBounds = sourceRenderer.localBounds;
-
-		ConfigureCctvOutlineRenderer(outlineRenderer, sourceRenderer, outlineMaterial);
-	}
-
-	private GameObject CreateCctvOutlineObject(Transform sourceTransform)
-	{
-		GameObject outlineObject = new GameObject($"{sourceTransform.name}_CCTVOutline");
-		outlineObject.transform.SetParent(sourceTransform, false);
-		outlineObject.layer = Layers.CCTVPostProcessing;
-		return outlineObject;
-	}
-
-	private void ConfigureCctvOutlineRenderer(Renderer outlineRenderer, Renderer sourceRenderer, Material outlineMaterial)
-	{
-		outlineRenderer.sharedMaterial = outlineMaterial;
-		outlineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-		outlineRenderer.receiveShadows = false;
-		outlineRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-		outlineRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-		outlineRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
-		outlineRenderer.enabled = sourceRenderer.enabled;
-		_cctvOutlineRenderers.Add(outlineRenderer);
-	}
-
-	private void SetCctvOutlineVisible(bool isVisible)
-	{
-		foreach (Renderer outlineRenderer in _cctvOutlineRenderers)
-		{
-			if (outlineRenderer != null)
-			{
-				outlineRenderer.enabled = isVisible;
-			}
 		}
 	}
 
@@ -262,18 +230,12 @@ public class ItemBase : InteractableBase {
             SetOutline(false);
         }
 
-        SetCctvOutlineVisible(!isStored);
+        // 인벤토리에 들어가 있는 동안은 CCTV에도 외곽선이 보이면 안 된다.
+        if (_cctvOutline != null)
+        {
+            _cctvOutline.enabled = !isStored;
+        }
     }
-
-	public override void OnDestroy()
-	{
-		if (_cctvOutlineMaterial != null)
-		{
-			Destroy(_cctvOutlineMaterial);
-		}
-
-		base.OnDestroy();
-	}
 
     public void BlockInteraction(float duration)    // duration초 동안 상호작용 차단
     {

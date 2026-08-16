@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using EPOOutline;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -96,6 +97,13 @@ public class Player : NetworkBehaviour
 		Camera playerCamera = GetComponentInChildren<Camera>();
 		Layers.HideLayerFromCamera(playerCamera, Layers.MinimapOnly);
 		Layers.HideLayerFromCamera(playerCamera, Layers.CCTVPostProcessing);
+
+		// 아이템 외곽선은 CCTV 화면에서만 보여야 하므로 1인칭 카메라의 Outliner에서는 해당 EPO 레이어를 끈다.
+		Outliner playerOutliner = playerCamera != null ? playerCamera.GetComponent<Outliner>() : null;
+		if (playerOutliner != null)
+		{
+			playerOutliner.OutlineLayerMask &= ~ItemBase.CctvOutlineMask;
+		}
 	}
 
 	public void SetPlayerName(string playerName)
