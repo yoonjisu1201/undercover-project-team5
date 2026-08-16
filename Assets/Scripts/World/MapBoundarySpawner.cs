@@ -5,6 +5,10 @@ using UnityEngine;
 public sealed class MapBoundarySpawner : MonoBehaviour
 {
     private const float SameLineTolerance = 0.5f;
+
+    // 같은 줄로 묶을 수 있는 높이 차이. 2층 구조에서 위층과 아래층을 갈라 놓는 기준이다.
+    private const float SameHeightTolerance = 2f;
+
     private const float PositionKeyScale = 10f;
 
     [SerializeField] private MapRegionController _regionController;
@@ -233,11 +237,20 @@ public sealed class MapBoundarySpawner : MonoBehaviour
 
             foreach (List<MapBoundaryLayout.Placement> line in lines)
             {
-                if (Mathf.Abs(GetLineAxis(line[0].Position, groupByZ) - lineAxis) <= SameLineTolerance)
+                if (Mathf.Abs(GetLineAxis(line[0].Position, groupByZ) - lineAxis) > SameLineTolerance)
                 {
-                    matchingLine = line;
-                    break;
+                    continue;
                 }
+
+                // 높이까지 봐야 한다. 다리 위와 아래를 한 줄로 묶으면 그 사이를 보간해
+                // 공중에 뜬 바리게이트가 생기고, 정작 아래층 바리게이트는 밀려난다.
+                if (Mathf.Abs(line[0].Position.y - placement.Position.y) > SameHeightTolerance)
+                {
+                    continue;
+                }
+
+                matchingLine = line;
+                break;
             }
 
             if (matchingLine == null)
@@ -316,11 +329,14 @@ public sealed class MapBoundarySpawner : MonoBehaviour
         }
     }
 
+    // 높이를 빼면 2층 구조(E 지역의 다리 위/아래)에서 같은 XZ에 놓인 아래층 바리게이트가
+    // 중복으로 판정돼 통째로 사라진다. 실제로 E 지역에서만 21개가 이렇게 버려지고 있었다.
     private static string GetPositionKey(Vector3 position)
     {
         int x = Mathf.RoundToInt(position.x * PositionKeyScale);
+        int y = Mathf.RoundToInt(position.y * PositionKeyScale);
         int z = Mathf.RoundToInt(position.z * PositionKeyScale);
-        return $"{x}:{z}";
+        return $"{x}:{y}:{z}";
     }
 
     private static float GetLineAxis(Vector3 position, bool groupByZ) => groupByZ ? position.z : position.x;
