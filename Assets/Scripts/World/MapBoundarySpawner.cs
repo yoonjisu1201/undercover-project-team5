@@ -109,33 +109,6 @@ public sealed class MapBoundarySpawner : MonoBehaviour
         _activeRegion = region;
         SpawnBarrierPlacements(layout.Barriers, _barrierPrefab, $"BoundaryBarriers_{region.RegionId}");
         SpawnPlacements(layout.Fogs, _fogPrefab, $"BoundaryFogs_{region.RegionId}", scaleParticleShapeOnly: true);
-        SpawnInvisibleWalls(layout.InvisibleWalls, $"BoundaryWalls_{region.RegionId}");
-    }
-
-    // 보이지 않는 벽은 프리팹 없이 콜라이더만 만든다. 바리게이트 사이 틈과 모서리를 통째로 막는다.
-    private void SpawnInvisibleWalls(MapBoundaryLayout.Placement[] placements, string rootName)
-    {
-        if (placements == null || placements.Length == 0)
-        {
-            return;
-        }
-
-        GameObject root = new(rootName);
-        root.transform.SetParent(transform, false);
-        _spawnedObjects.Add(root);
-
-        foreach (MapBoundaryLayout.Placement placement in placements)
-        {
-            GameObject wall = new("BoundaryWall");
-            wall.transform.SetParent(root.transform, false);
-            wall.transform.SetPositionAndRotation(placement.Position, placement.Rotation);
-
-            // 지면 판정 레이어(Ground)에 두면 벽에 붙어서 점프할 수 있게 되므로 Default로 둔다.
-            wall.layer = 0;
-
-            BoxCollider collider = wall.AddComponent<BoxCollider>();
-            collider.size = placement.Scale;
-        }
     }
 
     private void SpawnBarrierPlacements(
