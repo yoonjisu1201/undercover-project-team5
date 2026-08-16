@@ -175,14 +175,47 @@ public sealed class NpcIdleState : INpcState
 
     private void HandleIdleAnimationCompleted()
     {
-        // 휴식이나 Phone 행동에서 발생한 일반 Idle 애니메이션 완료 이벤트는 상태 완료로 사용하지 않습니다.
-        if (_hasRestRequest || _usesPhone)
+        // 휴식 중에는 시간 기반으로 복귀하므로 애니메이션 완료 이벤트를 쓰지 않습니다.
+        if (_hasRestRequest)
         {
             return;
         }
 
+        if (_usesPhone)
+        {
+            // Animator가 실제 Phone 구간이면 Phone 이벤트 흐름이 완료를 담당하므로 여기서는 기다립니다.
+            if (IsAnimatorInPhoneState())
+            {
+                return;
+            }
+
+            // Phone 구간이 아닌데 C#만 Phone 상태로 남아 있으면 양쪽 상태가 어긋난 것입니다.
+            // 이대로 두면 Phone 이벤트는 오지 않고 이 완료 이벤트도 계속 버려져 영구 정지합니다.
+            Debug.LogWarning($"[NpcIdleState] '{_movement.name}' Phone 상태 불일치를 감지해 복구합니다.", _movement);
+            _usesPhone = false;
+            _isPhoneEnding = false;
+            _isPhoneExitRequested = false;
+        }
+
         // Standard Idle 또는 Arm Stretching의 마지막 프레임에서 현재 행동을 완료합니다.
         IsComplete = true;
+    }
+
+    // 현재 재생 중이거나 전환 후 진입할 State가 Phone 행동인지 확인합니다.
+    // Standard Idle에서 Phone Start로 넘어가는 전환 구간도 Phone 구간으로 봐야 오판하지 않습니다.
+    private bool IsAnimatorInPhoneState()
+    {
+        if (_animator.GetCurrentAnimatorStateInfo(0).IsTag(AnimatorHashes.PhoneActionTag))
+        {
+            return true;
+        }
+
+        if (!_animator.IsInTransition(0))
+        {
+            return false;
+        }
+
+        return _animator.GetNextAnimatorStateInfo(0).IsTag(AnimatorHashes.PhoneActionTag);
     }
 
     private void RequestPhoneEnding()
@@ -200,9 +233,19 @@ public sealed class NpcIdleState : INpcState
 
     private void CompletePhoneEnding()
     {
-        // 현재 Idle이 Phone End를 기다리는 중이 아니면 다른 이벤트를 무시합니다.
-        if (!_usesPhone || !_isPhoneEnding)
+        // Phone 행동을 쓰지 않는 Idle에 도착한 이벤트는 이 State와 무관하므로 무시합니다.
+        if (!_usesPhone)
         {
+            return;
+        }
+
+        // Animator는 Phone 구간을 끝냈는데 C#만 End 대기 상태가 아니면 양쪽 상태가 어긋난 것입니다.
+        // 여기서 그냥 반환하면 _usesPhone이 남아 Idle 완료 이벤트까지 계속 무시되어 영구 정지합니다.
+        if (!_isPhoneEnding)
+        {
+            Debug.LogWarning($"[NpcIdleState] '{_movement.name}' 예기치 않은 Phone End. 상태를 복구합니다.", _movement);
+            _usesPhone = false;
+            IsComplete = true;
             return;
         }
 
