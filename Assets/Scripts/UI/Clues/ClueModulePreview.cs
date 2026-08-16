@@ -88,7 +88,7 @@ public class ClueModulePreview : MonoBehaviour
         for (int i = 0; i < _clueCount; i++)
         {
             int moduleIndex = i % _equippedModules.Count;
-            Texture2D texture = await _moduleCapture.CaptureAsync(_equippedModules[moduleIndex], cancellationToken);
+            Texture2D texture = await _moduleCapture.CaptureAsync(_equippedModules[moduleIndex], _equippedParts[moduleIndex], cancellationToken);
 
             _capturedTextures.Add(texture);
             _capturedPartLabels.Add(GetPartLabel(_equippedParts[moduleIndex]));

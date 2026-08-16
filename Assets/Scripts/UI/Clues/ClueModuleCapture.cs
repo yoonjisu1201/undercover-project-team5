@@ -7,8 +7,8 @@ using UnityEngine;
 public sealed class ClueModuleCapture : IDisposable
 {
     private const float FramingMargin = 1.25f;
-    private const float MinZoom = 2f;
-    private const float MaxZoom = 3f;
+    private const float MinZoom = 1.5f;
+    private const float MaxZoom = 2f;
 
     private readonly MonoBehaviour _owner;
     private readonly Transform _moduleSpawnPoint;
@@ -16,6 +16,9 @@ public sealed class ClueModuleCapture : IDisposable
     private readonly RenderTexture _renderTexture;
     private readonly float _baseFieldOfView;
     private readonly Vector3 _frontViewDirection;
+    private readonly Light _keyLight;
+    private readonly Light _downLight;
+    private readonly Light _fillLight;
 
     private GameObject _createdModule;
     private Mesh _createdMesh;
@@ -29,12 +32,15 @@ public sealed class ClueModuleCapture : IDisposable
         _renderTexture = renderTexture;
         _baseFieldOfView = clueCamera.fieldOfView;
         _frontViewDirection = (moduleSpawnPoint.position - clueCamera.transform.position).normalized;
+        _keyLight = clueCamera.transform.Find("Key Light")?.GetComponent<Light>();
+        _downLight = clueCamera.transform.Find("DownLight")?.GetComponent<Light>();
+        _fillLight = clueCamera.transform.Find("Fill Light")?.GetComponent<Light>();
 
         InitializeCamera();
     }
 
     // Clone된 파츠를 카메라로 촬영하고 Texture2D로 복사한다.
-    public async UniTask<Texture2D> CaptureAsync(GameObject sourceModule, CancellationToken cancellationToken)
+    public async UniTask<Texture2D> CaptureAsync(GameObject sourceModule, MontageParts part, CancellationToken cancellationToken)
     {
         _createdModule = CreateSinglePartPreview(sourceModule);
         if (_createdModule == null || !_createdModule.TryGetComponent(out Renderer moduleRenderer))
@@ -47,6 +53,7 @@ public sealed class ClueModuleCapture : IDisposable
         PositionCamera(moduleRenderer.bounds);
 
         // 한 프레임만 렌더링한 뒤 결과를 독립적인 Texture2D로 저장한다.
+        LightSnapshot lightSnapshot = ApplyLightProfile(part);
         _clueCamera.enabled = true;
         try
         {
@@ -56,6 +63,7 @@ public sealed class ClueModuleCapture : IDisposable
         finally
         {
             _clueCamera.enabled = false;
+            lightSnapshot.Restore();
         }
     }
 
@@ -65,6 +73,53 @@ public sealed class ClueModuleCapture : IDisposable
         _clueCamera.targetTexture = _renderTexture;
         _clueCamera.clearFlags = CameraClearFlags.SolidColor;
         _clueCamera.backgroundColor = Color.clear;
+    }
+
+    private LightSnapshot ApplyLightProfile(MontageParts part)
+    {
+        LightSnapshot snapshot = new(_keyLight, _downLight, _fillLight);
+
+        LightProfile profile = GetLightProfile(part);
+        ApplyLight(_keyLight, profile.KeyIntensity);
+        ApplyLight(_downLight, profile.DownIntensity);
+        ApplyLight(_fillLight, profile.FillIntensity);
+
+        return snapshot;
+    }
+
+    private static LightProfile GetLightProfile(MontageParts part)
+    {
+        switch (part)
+        {
+            case MontageParts.Torso:
+            case MontageParts.Pants:
+                return new LightProfile(3f, 1.5f, 2.25f);
+            case MontageParts.Hair:
+            case MontageParts.Hats:
+            case MontageParts.Headphones:
+                return new LightProfile(2.5f, 1f, 1.5f);
+            case MontageParts.Beard:
+            case MontageParts.Eyebrows:
+            case MontageParts.Glasses:
+            case MontageParts.Masks:
+                return new LightProfile(2.25f, 0.75f, 1.25f);
+            case MontageParts.Arms:
+            case MontageParts.Shoes:
+                return new LightProfile(3f, 1.25f, 1.75f);
+            default:
+                return new LightProfile(3f, 1.5f, 2.25f);
+        }
+    }
+
+    private static void ApplyLight(Light light, float intensity)
+    {
+        if (light == null)
+        {
+            return;
+        }
+
+        light.gameObject.SetActive(intensity > 0f);
+        light.intensity = intensity;
     }
 
     private GameObject CreateSinglePartPreview(GameObject sourceModule)
@@ -166,5 +221,65 @@ public sealed class ClueModuleCapture : IDisposable
     public void Dispose()
     {
         ReleasePreview();
+    }
+
+    private readonly struct LightProfile
+    {
+        public LightProfile(float keyIntensity, float downIntensity, float fillIntensity)
+        {
+            KeyIntensity = keyIntensity;
+            DownIntensity = downIntensity;
+            FillIntensity = fillIntensity;
+        }
+
+        public readonly float KeyIntensity;
+        public readonly float DownIntensity;
+        public readonly float FillIntensity;
+    }
+
+    private readonly struct LightSnapshot
+    {
+        private readonly LightState _key;
+        private readonly LightState _down;
+        private readonly LightState _fill;
+
+        public LightSnapshot(Light keyLight, Light downLight, Light fillLight)
+        {
+            _key = new LightState(keyLight);
+            _down = new LightState(downLight);
+            _fill = new LightState(fillLight);
+        }
+
+        public void Restore()
+        {
+            _key.Restore();
+            _down.Restore();
+            _fill.Restore();
+        }
+    }
+
+    private readonly struct LightState
+    {
+        private readonly Light _light;
+        private readonly bool _active;
+        private readonly float _intensity;
+
+        public LightState(Light light)
+        {
+            _light = light;
+            _active = light != null && light.gameObject.activeSelf;
+            _intensity = light != null ? light.intensity : 0f;
+        }
+
+        public void Restore()
+        {
+            if (_light == null)
+            {
+                return;
+            }
+
+            _light.gameObject.SetActive(_active);
+            _light.intensity = _intensity;
+        }
     }
 }
