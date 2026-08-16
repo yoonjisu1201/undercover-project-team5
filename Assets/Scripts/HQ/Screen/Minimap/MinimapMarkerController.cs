@@ -17,11 +17,16 @@ public class MinimapMarkerController : MonoBehaviour {
 	[Header("=== CCTV Hub 등록 ===")]
 	[SerializeField] private CCTVHub _cctvHub;
 
+	[Header("=== 본부(StartPoint) 마커 등록 ===")]
+	[SerializeField] private Transform _startPoint;
+	[SerializeField] private GameObject _startPointMarkerPrefab;
+
 	private static readonly Color ConnectedColor = Color.green;
 	private static readonly Color PartialColor = Color.yellow;
 	private static readonly Color DisconnectedColor = Color.red;
 
 	private readonly List<MarkerInstance> _markerInstances = new List<MarkerInstance>();
+	private RectTransform _startPointMarkerRect;
 
 	// 인스턴스화한 마커 하나와, 나중에 이벤트 구독 해제·위치 갱신에 필요한 참조들을 함께 들고 다니기 위한 묶음
 	private class MarkerInstance {
@@ -53,6 +58,9 @@ public class MinimapMarkerController : MonoBehaviour {
 
 			_markerInstances.Add(instance);
 		}
+
+		GameObject startPointMarkerObject = Instantiate(_startPointMarkerPrefab, _markerParent);
+		_startPointMarkerRect = startPointMarkerObject.GetComponent<RectTransform>();
 	}
 
 	private void OnDisable() {
@@ -61,6 +69,11 @@ public class MinimapMarkerController : MonoBehaviour {
 			Destroy(instance.RectTransform.gameObject);
 		}
 		_markerInstances.Clear();
+
+		if (_startPointMarkerRect != null) {
+			Destroy(_startPointMarkerRect.gameObject);
+			_startPointMarkerRect = null;
+		}
 	}
 
 	// 미니맵은 열려 있는 동안 드래그·줌으로 카메라가 계속 움직이므로 매 프레임 위치를 다시 계산한다.
@@ -74,6 +87,13 @@ public class MinimapMarkerController : MonoBehaviour {
 		foreach (MarkerInstance instance in _markerInstances) {
 			Vector3 viewportPoint = _minimapCamera.WorldToViewportPoint(instance.Point.transform.position);
 			instance.RectTransform.anchoredPosition = new Vector2(
+				(viewportPoint.x - 0.5f) * rect.width,
+				(viewportPoint.y - 0.5f) * rect.height);
+		}
+
+		if (_startPointMarkerRect != null) {
+			Vector3 viewportPoint = _minimapCamera.WorldToViewportPoint(_startPoint.position);
+			_startPointMarkerRect.anchoredPosition = new Vector2(
 				(viewportPoint.x - 0.5f) * rect.width,
 				(viewportPoint.y - 0.5f) * rect.height);
 		}
