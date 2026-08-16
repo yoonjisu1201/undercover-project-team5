@@ -45,6 +45,7 @@ public class ArrestJudgementManager : NetworkBehaviour
         {
             ArrestVoteManager.Instance.OnVotePassed += HandleVotePassed;
             ArrestVoteManager.Instance.OnVoteStateChanged += HandleVoteStateChanged;
+            ArrestVoteManager.Instance.OnJudgementPhaseStarted += HandleJudgementPhaseStarted;
             ArrestVoteManager.Instance.OnJudgementPhaseEnded += HandleJudgementPhaseEnded;
         }
 
@@ -60,6 +61,7 @@ public class ArrestJudgementManager : NetworkBehaviour
         {
             ArrestVoteManager.Instance.OnVotePassed -= HandleVotePassed;
             ArrestVoteManager.Instance.OnVoteStateChanged -= HandleVoteStateChanged;
+            ArrestVoteManager.Instance.OnJudgementPhaseStarted -= HandleJudgementPhaseStarted;
             ArrestVoteManager.Instance.OnJudgementPhaseEnded -= HandleJudgementPhaseEnded;
         }
 
@@ -119,17 +121,24 @@ public class ArrestJudgementManager : NetworkBehaviour
 
         _arrestResult.Value = ArrestResult.Success;
 
-        if (candidate.TryGetComponent(out CriminalAlienReveal alienReveal))
+        // 위장 해제는 결과 패널이 뜰 때(OnJudgementPhaseStarted),
+        // 실제 추격전(게이지 채우기)은 그 패널까지 다 끝난 뒤(OnJudgementPhaseEnded) 시작한다.
+        _pendingChaseCandidate = candidate;
+    }
+
+    // 가결 패널에서 미리 변하면 결과가 먼저 새어 나가므로, 결과 패널이 뜨는 순간에 본모습을 드러낸다.
+    private void HandleJudgementPhaseStarted()
+    {
+        if (!IsServer || _pendingChaseCandidate == null) return;
+
+        if (_pendingChaseCandidate.TryGetComponent(out CriminalAlienReveal alienReveal))
         {
             alienReveal.Reveal();
         }
         else
         {
-            Debug.LogError("[ArrestJudgementManager] 범인 NPC에 CriminalAlienReveal이 없습니다.", candidate);
+            Debug.LogError("[ArrestJudgementManager] 범인 NPC에 CriminalAlienReveal이 없습니다.", _pendingChaseCandidate);
         }
-
-        // 실제 추격전(게이지 채우기)은 판정 결과 패널까지 다 끝난 뒤(OnJudgementPhaseEnded) 시작한다.
-        _pendingChaseCandidate = candidate;
     }
 
     // 판정 결과(범인/오검거) 패널까지 다 끝나고 Idle로 돌아왔을 때 호출된다.

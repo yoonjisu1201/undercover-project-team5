@@ -16,6 +16,12 @@ public class CriminalAlienReveal : NetworkBehaviour
     // 촬영 때 시민 외형의 포즈를 되돌리는 데 쓴다.
     private Animator _humanAnimator;
 
+    // 본모습은 드러난 뒤 계속 달리기만 하므로 파라미터를 한 번만 켠다.
+    // 이름은 분신이 쓰는 AlienAnimator 컨트롤러와 같아야 한다.
+    private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
+
+    private Animator _alienAnimator;
+
     private readonly NetworkVariable<bool> _isRevealed = new(
         false,
         NetworkVariableReadPermission.Everyone,
@@ -52,6 +58,9 @@ public class CriminalAlienReveal : NetworkBehaviour
         // 생성에 실패하면 시민 외형을 그대로 둔다.
         _alienForm = CreateAlienForm();
         if (_alienForm == null) return;
+
+        _alienAnimator = _alienForm.GetComponent<Animator>();
+        _alienAnimator.SetBool(IsRunningHash, true);
 
         if (_humanForm != null)
         {
