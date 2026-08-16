@@ -11,6 +11,9 @@ public sealed class MapBoundarySpawner : MonoBehaviour
 
     private const float PositionKeyScale = 10f;
 
+    // 바리게이트 하나의 폭보다 좁게 붙으면 서로 겹친다. 자동 생성분은 이 거리 안에 있으면 건너뛴다.
+    private const float MinBarrierSpacing = 1.5f;
+
     [SerializeField] private MapRegionController _regionController;
     [SerializeField] private MapBoundaryLayout[] _layouts;
     [SerializeField] private GameObject _barrierPrefab;
@@ -176,13 +179,14 @@ public sealed class MapBoundarySpawner : MonoBehaviour
         List<MapBoundaryLayout.Placement> completePlacements = new();
         HashSet<string> generatedPositionKeys = new();
 
-        GenerateContinuousBarrierLines(placements, completePlacements, generatedPositionKeys, groupByZ: true);
-        GenerateContinuousBarrierLines(placements, completePlacements, generatedPositionKeys, groupByZ: false);
-
+        // 손으로 잡아 둔 배치를 먼저 넣는다. 자동 생성이 앞서면 그 옆에 하나씩 더 깔려 겹쳐 보인다.
         foreach (MapBoundaryLayout.Placement placement in placements)
         {
             AddUniquePlacement(completePlacements, generatedPositionKeys, placement);
         }
+
+        GenerateContinuousBarrierLines(placements, completePlacements, generatedPositionKeys, groupByZ: true);
+        GenerateContinuousBarrierLines(placements, completePlacements, generatedPositionKeys, groupByZ: false);
 
         return completePlacements;
     }
@@ -220,6 +224,13 @@ public sealed class MapBoundarySpawner : MonoBehaviour
                 float lineT = placementCount == 1 ? 0f : index / (placementCount - 1f);
                 float targetAxis = Mathf.Lerp(lineStart, lineEnd, lineT);
                 MapBoundaryLayout.Placement generatedPlacement = EvaluateLinePlacement(line, targetAxis, groupByZ);
+
+                // 이미 놓인 것과 거의 같은 자리면 채우지 않는다. 겹쳐 놓이면 콜라이더 쐐기가 생긴다.
+                if (IsTooCloseToExisting(completePlacements, generatedPlacement.Position))
+                {
+                    continue;
+                }
+
                 AddUniquePlacement(completePlacements, generatedPositionKeys, generatedPlacement);
             }
         }
@@ -316,6 +327,19 @@ public sealed class MapBoundarySpawner : MonoBehaviour
         }
 
         return line[^1];
+    }
+
+    private static bool IsTooCloseToExisting(List<MapBoundaryLayout.Placement> placements, Vector3 position)
+    {
+        foreach (MapBoundaryLayout.Placement placement in placements)
+        {
+            if (Vector3.Distance(placement.Position, position) < MinBarrierSpacing)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void AddUniquePlacement(
