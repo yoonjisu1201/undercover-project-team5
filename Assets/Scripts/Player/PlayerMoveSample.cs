@@ -227,22 +227,39 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void FixedUpdate()
 	{
-		if (!IsOwner)
-		{
-			return;
-		}
-
-		UpdateJumpAnimation();
-
+		// #568: 기상 완료 판정은 각 피어가 로컬에서 재생 중인 이 플레이어의 Animator 상태를 기준으로 수행한다.
+		// 소유권 검사보다 먼저 판정해야 비소유자 화면의 PlayerHandIK도 완료 이벤트를 받아
+		// 다운 중 숨긴 손전등과 억제된 손 IK를 복구할 수 있다.
 		// #392: Getting Up -> Idle 전환과 블렌딩이 모두 끝난 뒤에만 이동 잠금을 해제한다.
 		if (_isGettingUp &&
 			!_animator.IsInTransition(0) &&
 			_animator.GetCurrentAnimatorStateInfo(0).IsName("Base Layer.Idle"))
 		{
+			// 각 피어의 기상 상태를 종료해 이후 FixedUpdate에서 완료 이벤트가 반복 발생하지 않게 한다.
 			_isGettingUp = false;
+
+			// PlayerHandIK는 이 이벤트에서 손 IK 억제를 해제한다.
+			// 이후 OnAnimatorIK가 실행되면 보존된 장착 여부와 점등 상태에 따라 손전등이 다시 표시된다.
 			GettingUpFinished?.Invoke();
-			_playerCameraController.TransitionToFirstPersonView();
+
+			// 카메라 전환은 대상 플레이어를 소유한 클라이언트 화면에만 필요한 로컬 처리다.
+			// 비소유자도 위의 손전등 복구 이벤트는 처리하지만 다른 플레이어의 카메라 상태는 변경하지 않는다.
+			if (IsOwner)
+			{
+				_playerCameraController.TransitionToFirstPersonView();
+			}
 		}
+
+		// #568: 모든 피어가 공통으로 필요한 기상 복구를 마친 뒤부터
+		// 입력·점프·이동·물리 처리는 기존과 동일하게 소유자에게만 제한한다.
+		if (!IsOwner)
+		{
+			// 비소유자는 손전등 표시 복구까지만 처리하고 소유자 전용 계산에는 진입하지 않는다.
+			return;
+		}
+
+		// 점프 애니메이션 상태는 소유자의 물리 상태를 사용하므로 기존 소유권 범위에서만 갱신한다.
+		UpdateJumpAnimation();
 
 		// #392: 다운 중에는 PlayerHealth, 소생 후 기상 중에는 _isGettingUp으로 이동을 차단한다.
 		if (GameplayUiMode.IsMovementBlocked ||
