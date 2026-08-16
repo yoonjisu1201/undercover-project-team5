@@ -36,9 +36,6 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 	[SerializeField, Range(0f, 1f)] private float _buttonTextFadeStartRatio = 0.75f;
 	[SerializeField, Range(0f, 1f)] private float _autoExpandStartRatio = 0.82f;
     [SerializeField, Min(0f)] private float _expandDuration = 0.28f;
-    [SerializeField, Min(0f)] private float _entryHeight = 72f;
-    [SerializeField, Min(0f)] private float _entrySpacing = 8f;
-    [SerializeField, Min(0f)] private float _bodyPadding = 16f;
     [SerializeField, Min(0f)] private float _entryStagger = 0.05f;   // 항목이 하나씩 들어오는 간격
 
     // 다른 캔버스에 있는 허브 버튼(몽타주 알림 카드)이 같은 타이밍에 Dimmer 위로 올라오도록 알린다.
@@ -314,6 +311,8 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
         _clueBody.sizeDelta = new Vector2(_clueBody.sizeDelta.x, height);
     }
 
+    // 항목 수로 높이를 직접 계산하면 레이아웃 그룹의 여백·간격 설정과 어긋나서
+    // 위아래 공간이 짝이 안 맞는다. 레이아웃이 실제로 요구하는 높이를 그대로 쓴다.
     private float GetExpandedHeight()
     {
         if (_entries.Count == 0)
@@ -321,7 +320,9 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
             return 0f;
         }
 
-        return _entries.Count * _entryHeight + (_entries.Count - 1) * _entrySpacing + _bodyPadding * 2f;
+        RectTransform entryParentRect = (RectTransform)_entryParent;
+        LayoutRebuilder.ForceRebuildLayoutImmediate(entryParentRect);
+        return LayoutUtility.GetPreferredHeight(entryParentRect);
     }
 
 	// 단서 쪽은 ExpandedState 하나가 접힌 탭과 펼친 목록을 모두 담당한다.

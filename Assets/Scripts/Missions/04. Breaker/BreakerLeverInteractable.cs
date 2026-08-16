@@ -2,7 +2,9 @@ using DG.Tweening;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-// B 역할의 레버. 상호작용 키를 누르고 있는 동안만 회로를 Off로 유지하고, 손을 떼는 순간 즉시 On으로 돌아간다.
+// B 역할의 레버. 상호작용 키를 누르고 있는 동안 회로를 Off로 유지한다.
+// 끝까지 내리면 그대로 고정되어 손을 떼도 Off가 유지되고, 그 뒤에 키를 한 번 누르면 원위치로 돌아온다.
+// 끝까지 내리기 전에 손을 떼면 고정되지 않고 즉시 On으로 되돌아간다.
 // 배터리 UI(MissionInteractable 기반)와는 별개의 상호작용이라 A가 패널을 열어둔 상태에서도 동시에 조작할 수 있다.
 public sealed class BreakerLeverInteractable : InteractableBase
 {
@@ -15,6 +17,7 @@ public sealed class BreakerLeverInteractable : InteractableBase
     private const float ArmTweenDuration = 1.5f;
 
     [SerializeField] private string _interactionText = "레버 누르고 있기";
+    [SerializeField] private string _releaseInteractionText = "레버 올리기";
 
     private BreakerCircuitState _circuitState;
     private CustomInputActions _actions;
@@ -23,8 +26,16 @@ public sealed class BreakerLeverInteractable : InteractableBase
     // 이 필드는 상호작용을 시작한 이 클라이언트에서만 true가 된다 (다른 플레이어의 화면에는 영향 없음).
     private bool _isHoldingLocally;
 
+    // 끝까지 내려서 고정된 상태. 손을 떼도 회로를 Off로 유지한다.
+    private bool _isLatched;
+    private float _holdStartTime;
+
     public override string InteractionText => _interactionText;
     public override bool CanInteract(GameObject interactor) => _circuitState != null;
+
+    // 고정돼 있을 때는 "누르고 있기"가 아니라 한 번 눌러 올리는 동작이므로 안내 문구를 바꾼다.
+    public override string GetInteractionText(GameObject interactor)
+        => _isLatched ? _releaseInteractionText : _interactionText;
 
     protected override void Awake()
     {
@@ -62,19 +73,44 @@ public sealed class BreakerLeverInteractable : InteractableBase
 
     public override void Interact(GameObject interactor)
     {
-        if (_isHoldingLocally || _circuitState == null)
+        if (_circuitState == null)
+        {
+            return;
+        }
+
+        // 고정된 상태에서는 한 번 누르는 것으로 원위치시킨다.
+        if (_isLatched)
+        {
+            _isLatched = false;
+            _circuitState.SetPower(true);
+            return;
+        }
+
+        if (_isHoldingLocally)
         {
             return;
         }
 
         _isHoldingLocally = true;
+        _holdStartTime = Time.time;
         _circuitState.SetPower(false);
     }
 
     // 상호작용 시스템은 누르는 순간(WasPressedThisFrame)만 알려주므로, 키를 계속 누르고 있는지는 여기서 직접 폴링한다.
     private void Update()
     {
-        if (_isHoldingLocally && _actions != null && !_actions.Player.Interact.IsPressed())
+        if (!_isHoldingLocally)
+        {
+            return;
+        }
+
+        // 레버가 끝까지 내려간 순간부터는 손을 떼도 그대로 고정된다.
+        if (!_isLatched && Time.time - _holdStartTime >= ArmTweenDuration)
+        {
+            _isLatched = true;
+        }
+
+        if (_actions != null && !_actions.Player.Interact.IsPressed())
         {
             ReleaseIfHolding();
         }
@@ -88,6 +124,13 @@ public sealed class BreakerLeverInteractable : InteractableBase
         }
 
         _isHoldingLocally = false;
+
+        // 끝까지 내려 고정된 경우에는 전원을 되돌리지 않는다.
+        if (_isLatched)
+        {
+            return;
+        }
+
         _circuitState?.SetPower(true);
     }
 
