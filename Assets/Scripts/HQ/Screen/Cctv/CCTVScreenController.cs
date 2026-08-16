@@ -16,6 +16,7 @@ public class CCTVScreenController : ScreenBase
 	[SerializeField] private TMP_Text _cctvText;
 
 	private GameObject _disconnectedOverlay;
+	private CCTVItemReticle _itemReticle;
 
 	// 한 번에 하나의 CCTV만 표시하므로 공용 Disconnected 오버레이 하나만 캐시합니다.
 	public override void Initialize()
@@ -28,6 +29,8 @@ public class CCTVScreenController : ScreenBase
 		}
 
 		_disconnectedOverlay = overlayTransform.gameObject;
+
+		SetupItemReticle();
 
 		// 카메라 비활성화상태로 시작
 		_cctvHub.CctvCamera.enabled = false;
@@ -69,6 +72,20 @@ public class CCTVScreenController : ScreenBase
 		_cctvHub.CctvCamera.enabled = false;
 	}
 
+	// CCTV 화면의 아이템 조준 표시에 카메라를 넘겨 동작시킵니다. UI는 프리팹에 만들어져 있습니다.
+	private void SetupItemReticle()
+	{
+		_itemReticle = GetComponent<CCTVItemReticle>();
+
+		if (_itemReticle == null)
+		{
+			Debug.LogError($"'{name}'에 CCTVItemReticle 컴포넌트가 없습니다.", this);
+			return;
+		}
+
+		_itemReticle.Initialize(_cctvHub.CctvCamera);
+	}
+
 	// 이전 CCTV 화면으로 이동합니다.
 	private void OnPreviousClicked()
 	{
@@ -107,7 +124,20 @@ public class CCTVScreenController : ScreenBase
 			return;
 		}
 
-		bool shouldShow = _cctvHub.GetPoint(cameraIndex).ConnectionState == CCTVConnectionState.Disconnected;
+		CCTVConnectionState connectionState = _cctvHub.GetPoint(cameraIndex).ConnectionState;
+
+		bool shouldShow = connectionState == CCTVConnectionState.Disconnected;
 		_disconnectedOverlay.SetActive(shouldShow);
+
+		// 아이템 외곽선과 조준 표시는 신호가 완전히 복구된 CCTV에서만 제공한다.
+		// 글리치가 남은 Partial 상태에서는 영상만 보여준다.
+		bool isFullyConnected = connectionState == CCTVConnectionState.Connected;
+
+		if (_itemReticle != null)
+		{
+			_itemReticle.enabled = isFullyConnected;
+		}
+
+		_cctvHub.SetItemOutlineEnabled(isFullyConnected);
 	}
 }
