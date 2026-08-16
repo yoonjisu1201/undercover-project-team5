@@ -44,9 +44,16 @@ public class ArrestCandidatePortrait : MonoBehaviour
             + Vector3.up * _heightOffset);
         _portraitCamera.transform.Rotate(_downwardTiltDegrees, 0f, 0f, Space.Self); // 정면 수평 시선에서 살짝 아래로 기울인다
 
-        OverrideLayer(candidateTransform);
+        // 위장이 해제된 범인은 본모습으로 찍히므로, 캡처하는 이 한 프레임만 시민 외형으로 되돌린다.
+        // (해제 전이라면 두 호출 모두 아무것도 하지 않아 투표 패널 경로는 그대로다)
+        candidate.TryGetComponent(out CriminalAlienReveal alienReveal);
+        alienReveal?.BeginHumanFormCapture();
+
+        OverrideLayer(candidateTransform); // 되살린 시민 파츠까지 포함해야 하므로 순서가 중요하다
         _portraitCamera.Render(); // 후보만 보이는 레이어로 바꾼 상태에서 한 프레임만 캡처
         RestoreLayer();
+
+        alienReveal?.EndHumanFormCapture();
     }
 
     // 후보 NPC의 활성화된 파츠 전체를 전용 레이어로 바꿔서, 캡처 순간 다른 NPC가 같이 찍히지 않게 한다.

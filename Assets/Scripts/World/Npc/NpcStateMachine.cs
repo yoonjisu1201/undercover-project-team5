@@ -89,7 +89,7 @@ public sealed class NpcStateMachine : MonoBehaviour
         // 이미 Idle이면 Sub-State Machine Entry를 다시 실행할 필요가 없습니다.
         if (CurrentState == _idleState)
         {
-            Debug.Log($"[NpcStateMachine] '{name}' NPC가 이미 Idle 상태이므로 현재 상태를 유지합니다.", this);
+            //Debug.Log($"[NpcStateMachine] '{name}' NPC가 이미 Idle 상태이므로 현재 상태를 유지합니다.", this);
             return;
         }
 
@@ -122,7 +122,7 @@ public sealed class NpcStateMachine : MonoBehaviour
         // 이미 Run 중인 추격 요청은 현재 경로와 속도를 그대로 유지합니다.
         if (CurrentState == _runState)
         {
-            Debug.Log($"[NpcStateMachine] '{name}' NPC가 이미 Run 상태이므로 현재 경로와 속도를 유지합니다.", this);
+            //Debug.Log($"[NpcStateMachine] '{name}' NPC가 이미 Run 상태이므로 현재 경로와 속도를 유지합니다.", this);
             return;
         }
 
@@ -162,10 +162,10 @@ public sealed class NpcStateMachine : MonoBehaviour
 
         if (!waitsForPhone)
         {
-            Debug.Log(
-                $"[NpcStateMachine] '{name}' NPC는 종료할 Phone 행동이 없어 Run으로 즉시 전환합니다. " +
-                $"(새 목적지 사용: {hasDestination}, 목적지: {destination})",
-                this);
+            //Debug.Log(
+            //    $"[NpcStateMachine] '{name}' NPC는 종료할 Phone 행동이 없어 Run으로 즉시 전환합니다. " +
+            //    $"(새 목적지 사용: {hasDestination}, 목적지: {destination})",
+            //    this);
             return false;
         }
 
@@ -174,10 +174,10 @@ public sealed class NpcStateMachine : MonoBehaviour
         _pendingRunHasDestination = hasDestination;
         _pendingRunDestination = destination;
 
-        Debug.Log(
-            $"[NpcStateMachine] '{name}' NPC의 Run 전환을 Phone End 완료까지 대기합니다. " +
-            $"(새 목적지 사용: {hasDestination}, 목적지: {destination})",
-            this);
+        //Debug.Log(
+        //    $"[NpcStateMachine] '{name}' NPC의 Run 전환을 Phone End 완료까지 대기합니다. " +
+        //    $"(새 목적지 사용: {hasDestination}, 목적지: {destination})",
+        //    this);
 
         return true;
     }
