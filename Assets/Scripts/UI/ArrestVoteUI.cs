@@ -61,6 +61,7 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
         ArrestVoteManager.Instance.OnRemainingVoteAttemptsChanged += HandleRemainingVoteAttemptsChanged;
         ArrestVoteManager.Instance.OnVoteStateChanged += HandleVoteStateChanged;
         ArrestVoteManager.Instance.OnSubmittedCountChanged += HandleSubmittedCountChanged;
+        RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
 
         // 구독 전에 이미 값이 세팅돼 있을 수 있으므로 현재 값 즉시 반영
         HandleRemainingVoteAttemptsChanged(ArrestVoteManager.Instance.RemainingVoteAttempts);
@@ -107,6 +108,11 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
             ArrestVoteManager.Instance.OnRemainingVoteAttemptsChanged -= HandleRemainingVoteAttemptsChanged;
             ArrestVoteManager.Instance.OnVoteStateChanged -= HandleVoteStateChanged;
             ArrestVoteManager.Instance.OnSubmittedCountChanged -= HandleSubmittedCountChanged;
+        }
+
+        if (RoundManager.Instance != null)
+        {
+            RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
         }
 
         _yesButton.onClick.RemoveListener(VoteYes);
@@ -177,17 +183,29 @@ public class ArrestVoteUI : MonoBehaviour, IClosableUi
             return;
         }
 
-        // #6: 판정 결과창(시민/외계인)은 자동 카운트다운보다 빨리 로컬에서 닫는다. (서버 상태는 그대로)
-        if (_arrestSuccessPanel.activeSelf || _wrongTargetPanel.activeSelf)
-        {
-            _arrestSuccessPanel.SetActive(false);
-            _wrongTargetPanel.SetActive(false);
-            _resultCountdownText.gameObject.SetActive(false);
-            _votePanel.SetActive(false);
-            _resultPanelLocallyOpen = false;
-            GameplayUiMode.Instance?.UnregisterUi(this);
-            UpdateCursorState();
-        }
+        CloseResultPanel();
+    }
+
+    // #6: 판정 결과창(시민/외계인)은 자동 카운트다운보다 빨리 로컬에서 닫는다. (서버 상태는 그대로)
+    private void CloseResultPanel()
+    {
+        if (!_arrestSuccessPanel.activeSelf && !_wrongTargetPanel.activeSelf) return;
+
+        _arrestSuccessPanel.SetActive(false);
+        _wrongTargetPanel.SetActive(false);
+        _resultCountdownText.gameObject.SetActive(false);
+        _votePanel.SetActive(false);
+        _resultPanelLocallyOpen = false;
+        GameplayUiMode.Instance?.UnregisterUi(this);
+        UpdateCursorState();
+    }
+
+    // 라운드가 끝나면 라운드 결과 패널이 뜨므로, 안 닫고 남겨둔 판정 결과창을 대신 정리한다.
+    private void HandleRoundStateChanged(RoundState state)
+    {
+        if (state == RoundState.InRound) return;
+
+        CloseResultPanel();
     }
 
     // 이번 라운드 검거 투표 횟수가 소진됐을 때 안내 문구를 2초간 띄운다.
