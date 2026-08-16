@@ -30,6 +30,12 @@ public class GameSessionManager : MonoBehaviour
 	// NGO가 자동으로 채우는 영문 사유("Client-1 disconnected by server." 등)와 구분하기 위함이다.
 	public const string ServerReasonPrefix = "UC|";
 
+	// 게임 중에는 방장이 나갔는지 다른 인원이 빠졌는지가 남은 사람 입장에서 다르지 않으므로 문구를 구분하지 않는다.
+	private const string InGameHostLeftReason = "다른 플레이어의 접속이 끊어졌습니다";
+
+	// 대기방은 아직 게임이 시작되지 않아 방장 퇴장이 곧 방 해산이라, 그 사실을 그대로 알린다.
+	private const string WaitingRoomHostLeftReason = "방장이 방을 나갔습니다";
+
 	public event Action<string> OnSessionCreated; // 조인코드 발급 완료
 	public event Action OnSessionJoined;          // 조인코드로 참가 완료
 	public event Action<string> OnSessionError;   // 실패 사유 전달
@@ -440,10 +446,43 @@ public class GameSessionManager : MonoBehaviour
 		_pendingLeaveReason = reason;
 		_isLeavingVoluntarily = true;
 
+		// 호스트가 그냥 Shutdown하면 끊김 통보가 전달되지 못한 클라이언트는 전송 계층
+		// 타임아웃이 다 돌 때까지 방에 남아 있게 된다. 나가기 전에 사유를 붙여 직접 내보낸다.
+		if (NetworkManager.Singleton.IsServer)
+		{
+			DisconnectRemoteClients(reason ?? DefaultRemainingClientsReason());
+		}
+
 		// LeaveAsync()의 로비 서비스 왕복을 먼저 기다리면 로비 복귀가 그만큼 늦어지고,
 		// 그 사이에 서버의 킥 백스톱이 터진다. 연결부터 끊어 서버가 즉시 알게 하고,
 		// 로비 멤버십 정리는 HandleClientDisconnected가 백그라운드로 이어서 처리한다.
 		NetworkManager.Singleton.Shutdown();
+	}
+
+	// 방장이 사유를 지정하지 않고 나갈 때, 남은 인원에게 보낼 문구를 상황에 맞게 고른다.
+	private string DefaultRemainingClientsReason()
+		=> SceneManager.GetActiveScene().name == _waitingRoomSceneName
+			? WaitingRoomHostLeftReason
+			: InGameHostLeftReason;
+
+	// DisconnectClient가 순회 중인 목록을 바꾸므로, 대상을 먼저 모아두고 나서 내보낸다.
+	private static void DisconnectRemoteClients(string reason)
+	{
+		var networkManager = NetworkManager.Singleton;
+
+		List<ulong> clientsToDisconnect = new();
+		foreach (ulong clientId in networkManager.ConnectedClientsIds)
+		{
+			if (clientId != networkManager.LocalClientId)
+			{
+				clientsToDisconnect.Add(clientId);
+			}
+		}
+
+		foreach (ulong clientId in clientsToDisconnect)
+		{
+			networkManager.DisconnectClient(clientId, ServerReasonPrefix + reason);
+		}
 	}
 
 	// 방장이 대기방에서 "게임 시작"을 눌렀을 때 호출한다.
