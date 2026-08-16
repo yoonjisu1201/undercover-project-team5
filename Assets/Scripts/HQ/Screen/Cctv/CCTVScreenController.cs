@@ -16,6 +16,7 @@ public class CCTVScreenController : ScreenBase
 	[SerializeField] private TMP_Text _cctvText;
 
 	private GameObject _disconnectedOverlay;
+	private CCTVItemReticle _itemReticle;
 
 	// 한 번에 하나의 CCTV만 표시하므로 공용 Disconnected 오버레이 하나만 캐시합니다.
 	public override void Initialize()
@@ -74,15 +75,15 @@ public class CCTVScreenController : ScreenBase
 	// CCTV 화면의 아이템 조준 표시에 카메라를 넘겨 동작시킵니다. UI는 프리팹에 만들어져 있습니다.
 	private void SetupItemReticle()
 	{
-		CCTVItemReticle reticle = GetComponent<CCTVItemReticle>();
+		_itemReticle = GetComponent<CCTVItemReticle>();
 
-		if (reticle == null)
+		if (_itemReticle == null)
 		{
 			Debug.LogError($"'{name}'에 CCTVItemReticle 컴포넌트가 없습니다.", this);
 			return;
 		}
 
-		reticle.Initialize(_cctvHub.CctvCamera);
+		_itemReticle.Initialize(_cctvHub.CctvCamera);
 	}
 
 	// 이전 CCTV 화면으로 이동합니다.
@@ -125,5 +126,11 @@ public class CCTVScreenController : ScreenBase
 
 		bool shouldShow = _cctvHub.GetPoint(cameraIndex).ConnectionState == CCTVConnectionState.Disconnected;
 		_disconnectedOverlay.SetActive(shouldShow);
+
+		// 영상이 끊긴 화면에서는 조준 판정을 아예 돌리지 않는다.
+		if (_itemReticle != null)
+		{
+			_itemReticle.enabled = !shouldShow;
+		}
 	}
 }

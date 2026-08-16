@@ -51,6 +51,20 @@ public class CCTVItemReticle : MonoBehaviour
 		_tooltip.gameObject.SetActive(false);
 	}
 
+	// 컴포넌트가 꺼지면(예: CCTV 영상 끊김) 표시가 그대로 남지 않도록 정리한다.
+	private void OnDisable()
+	{
+		if (_reticle != null)
+		{
+			_reticle.gameObject.SetActive(false);
+		}
+
+		if (_tooltip != null)
+		{
+			_tooltip.gameObject.SetActive(false);
+		}
+	}
+
 	private void LateUpdate()
 	{
 		if (_cctvCamera == null)

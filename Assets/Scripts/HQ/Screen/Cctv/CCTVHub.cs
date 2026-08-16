@@ -83,14 +83,14 @@ public class CCTVHub : MonoBehaviour {
 			return;
 		}
 
+		// NameToLayer는 레이어가 없으면 -1을 돌려준다. 그대로 두면 컬링 마스크가 엉뚱한 비트로 조용히 깨진다.
+		if (Layers.Item < 0) {
+			Debug.LogError("프로젝트 설정에 'Item' 레이어가 없어 CCTV 아이템 외곽선을 설정할 수 없습니다.", this);
+			return;
+		}
+
 		Layers.ShowLayerToCamera(_cctvCamera, Layers.Item);
 		Layers.ShowLayerToCamera(_cctvCamera, Layers.CCTVPostProcessing);
-
-		// 외곽선은 오버레이 카메라가 그린다. 본 카메라에 Outliner가 남아 있으면 야간투시 후처리에 채도가 죽어 흰색이 된다.
-		Outliner baseOutliner = _cctvCamera.GetComponent<Outliner>();
-		if (baseOutliner != null) {
-			Destroy(baseOutliner);
-		}
 
 		SetupOutlineOverlayCamera();
 	}
@@ -101,6 +101,12 @@ public class CCTVHub : MonoBehaviour {
 		// Awake와 Initialize 양쪽에서 불리므로 이미 만들어 뒀으면 그대로 둔다.
 		if (_outlineOverlayCamera != null) {
 			return;
+		}
+
+		// 본 카메라에 Outliner가 남아 있으면 야간투시 후처리에 채도가 죽어 외곽선이 흰색이 된다.
+		Outliner baseOutliner = _cctvCamera.GetComponent<Outliner>();
+		if (baseOutliner != null) {
+			Destroy(baseOutliner);
 		}
 
 		GameObject overlayObject = new GameObject(OutlineOverlayCameraName);
@@ -126,9 +132,12 @@ public class CCTVHub : MonoBehaviour {
 		overlayOutliner.BlurShift = 1f;
 		overlayOutliner.BlurIterations = 1;
 
+		// 스택을 비우지 않는다. 다른 곳에서 이 카메라에 붙여 둔 오버레이가 있으면 그대로 둬야 한다.
 		UniversalAdditionalCameraData baseData = _cctvCamera.GetUniversalAdditionalCameraData();
-		baseData.cameraStack.Clear();
-		baseData.cameraStack.Add(overlayCamera);
+		if (!baseData.cameraStack.Contains(overlayCamera)) {
+			baseData.cameraStack.Add(overlayCamera);
+		}
+
 		_outlineOverlayCamera = overlayCamera;
 	}
 
