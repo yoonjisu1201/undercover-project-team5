@@ -25,7 +25,16 @@ public class PlayerInventory : NetworkBehaviour
 
     private readonly NetworkVariable<int> _selectedIndex =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    // 라운드 시작에 지급할 손전등 데이터. Inspector 참조를 비우는 것만으로 기본 지급을 끌 수 있다.
+    [Tooltip("비워 두면 시작 손전등을 지급하지 않습니다.")]
+    [SerializeField] private ItemData _startingFlashlight;
+
     private int _preCartSelectedIndex;
+
+    // 현재 OnEquipped가 적용된 실제 아이템 인스턴스.
+    // 선택 갱신 때 같은 아이템을 중복 장착하지 않고, 교체 전에 정확한 이전 아이템을 해제하는 데 사용한다.
+    private ItemBase _equippedItem;
 
     public NetworkList<InventorySlot> Slots => _slots;
     public IReadOnlyList<ItemBase> MissionItems => _missionItems;
@@ -101,6 +110,9 @@ public class PlayerInventory : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _slots.OnListChanged += HandleSlotsChanged;
+
+        // 선택 번호는 Owner가 바꾸고 전원에게 동기화되므로 각 피어가 같은 장착 표시를 갱신한다.
+        _selectedIndex.OnValueChanged += HandleSelectedIndexChanged;
         
         // 슬롯 초기 구성은 서버만 한다. NetworkList는 스폰 이후에만 쓸 수 있어 여기서 채운다.
         if (IsServer)
@@ -110,6 +122,9 @@ public class PlayerInventory : NetworkBehaviour
                 _slots.Add(InventorySlot.Empty);
             }
         }
+
+        // 초기 NetworkList를 받은 시점에도 현재 선택 슬롯을 한 번 평가해 장착 상태를 맞춘다.
+        RefreshEquippedItem();
     }
     
     // 이 인벤토리를 조작하는 클라이언트에서만 씬의 인벤토리 UI를 나 자신에게 연결한다.
@@ -140,7 +155,13 @@ public class PlayerInventory : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        // 플레이어가 사라진 뒤 손전등 모델이나 광원이 남지 않도록 현재 장착 효과부터 해제한다.
+        UnequipCurrentItem();
+
         _slots.OnListChanged -= HandleSlotsChanged;
+
+        // 디스폰된 인벤토리로 선택 변경 콜백이 들어오지 않게 스폰 때 등록한 구독을 해제한다.
+        _selectedIndex.OnValueChanged -= HandleSelectedIndexChanged;
     }
     
     // 슬롯 변경을 감지하고 필요한 이벤트를 호출한다.
@@ -149,6 +170,9 @@ public class PlayerInventory : NetworkBehaviour
     private void HandleSlotsChanged(NetworkListEvent<InventorySlot> changeEvent)
     {
         NotifyInventoryChanged();
+
+        // 선택 번호가 같아도 해당 슬롯의 아이템이 추가·제거될 수 있으므로 장착 대상을 다시 확인한다.
+        RefreshEquippedItem();
 
         if (!IsOwner || changeEvent.Index < 0 || changeEvent.Index >= _slots.Count)
         {
@@ -160,6 +184,55 @@ public class PlayerInventory : NetworkBehaviour
             _interaction?.RemoveNearbyInteractable(item);
             item.NotifyAddedToLocalInventory();
         }
+    }
+
+    // 동기화된 선택 번호가 바뀌면 새 슬롯을 기준으로 장착 대상을 다시 계산한다.
+    private void HandleSelectedIndexChanged(int previousValue, int currentValue)
+    {
+        RefreshEquippedItem();
+    }
+
+    // 선택 슬롯의 IEquippable을 이전 장착 아이템과 비교해 필요한 해제·장착만 한 번씩 호출한다.
+    private void RefreshEquippedItem()
+    {
+        // 선택이 없거나 선택 아이템이 장착형이 아니면 다음 장착 대상은 null이다.
+        ItemBase nextEquippedItem = null;
+
+        if (TryGetSelectedItemBase(out ItemBase selectedItem) && selectedItem is IEquippable)
+        {
+            // 인터페이스만 저장하지 않고 ItemBase 인스턴스를 보관해 동일 네트워크 아이템인지 비교한다.
+            nextEquippedItem = selectedItem;
+        }
+
+        // 슬롯 목록과 선택 번호 알림이 연달아 와도 같은 아이템의 장착 콜백을 중복 실행하지 않는다.
+        if (ReferenceEquals(_equippedItem, nextEquippedItem))
+        {
+            return;
+        }
+
+        // 새 대상을 덮어쓰기 전에 이전 아이템이 만든 모델과 효과를 먼저 정리한다.
+        UnequipCurrentItem();
+
+        // 현재 장착 대상을 먼저 기록해 이후 슬롯 변경에서도 같은 인스턴스를 식별할 수 있게 한다.
+        _equippedItem = nextEquippedItem;
+
+        if (_equippedItem is IEquippable equippable)
+        {
+            // 이 PlayerInventory의 GameObject를 전달해 아이템이 해당 플레이어의 표시 컴포넌트를 찾게 한다.
+            equippable.OnEquipped(gameObject);
+        }
+    }
+
+    // 현재 아이템의 장착 효과를 해제하고 추적 참조를 비운다.
+    private void UnequipCurrentItem()
+    {
+        if (_equippedItem is IEquippable equippable)
+        {
+            equippable.OnUnequipped(gameObject);
+        }
+
+        // 이미 해제한 아이템에 OnUnequipped를 다시 보내지 않도록 항상 null로 마무리한다.
+        _equippedItem = null;
     }
 
     // item은 이미 스폰된 상태여야 한다 (월드에 있던 것을 줍거나, 방금 스폰해서 바로 넣는 경우 모두).
@@ -480,6 +553,20 @@ public class PlayerInventory : NetworkBehaviour
                 return i;
         }
         return -1;
+    }
+
+    // RoundManager가 라운드 인벤토리를 비운 뒤 호출해 설정된 손전등을 실제 네트워크 아이템으로 지급한다.
+    public void GrantStartingFlashlightOnServer()
+    {
+        // 네트워크 스폰과 서버 쓰기 NetworkList 변경은 서버만 수행한다.
+        // ItemData가 비어 있으면 기본 지급을 사용하지 않는 설정이므로 그대로 종료한다.
+        if (!IsServer || _startingFlashlight == null)
+        {
+            return;
+        }
+
+        // 기존 아이템 생성·보관 경로를 사용해 빈 슬롯 탐색, 네트워크 스폰, 선택 슬롯 이동까지 동일하게 처리한다.
+        ItemBase.TrySpawnAndAddToInventory(_startingFlashlight, this);
     }
 
     public void ClearAllItemsOnServer()

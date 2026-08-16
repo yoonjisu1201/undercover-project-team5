@@ -18,4 +18,5 @@ public enum ItemType
     EnergyBar = 12,
     RefillPack = 13,
     ContaminatedSample = 14,
+    Flashlight = 15,
 }

@@ -265,6 +265,12 @@ public partial class RoundManager : NetworkBehaviour
 
             // 이전 라운드 인벤토리와 필드 단서를 먼저 제거해 전환 중 드롭된 단서가 남지 않게 합니다.
             ClearAllPlayerInventories();
+
+            // 인벤토리 밖에 드롭된 이전 라운드 손전등까지 제거해 새 라운드로 넘어가지 않게 한다.
+            ClearDroppedFlashlights();
+
+            // 정리가 끝난 인벤토리에 새 라운드의 기본 손전등 인스턴스를 지급한다.
+            GiveStartingFlashlights();
             _clueSpawner?.PrepareForNextRound();
             _playerSpawner?.RespawnAllPlayers();
 
@@ -301,6 +307,12 @@ public partial class RoundManager : NetworkBehaviour
         ResetMissionsForNewRound();
         ResetNpcTrackersForNewRound();
         ClearAllPlayerInventories();
+
+        // 게임 시작 전에 남아 있을 수 있는 월드 손전등을 제거해 시작 지급분과 중복되지 않게 한다.
+        ClearDroppedFlashlights();
+
+        // 각 플레이어의 설정에 따라 첫 라운드 기본 손전등을 실제 인벤토리 아이템으로 지급한다.
+        GiveStartingFlashlights();
         _roundEndTime.Value = NetworkManager.ServerTime.Time + _rounds[0].Duration;
         _currentState.Value = RoundState.InRound;
         AnnounceRoundStartRpc(0);
@@ -484,6 +496,46 @@ public partial class RoundManager : NetworkBehaviour
         foreach (PlayerClueBook clueBook in clueBooks)
         {
             clueBook.ClearOnServer();
+        }
+    }
+
+    // 현재 스폰된 모든 플레이어에게 각 인벤토리에 설정된 시작 손전등을 지급한다.
+    // 호출부가 서버 전용 라운드 흐름이고, 실제 생성 메서드도 서버 권한과 설정 유무를 다시 확인한다.
+    private void GiveStartingFlashlights()
+    {
+        // 라운드 시작 시점에 존재하는 PlayerInventory를 한 번만 수집한다.
+        PlayerInventory[] inventories = FindObjectsByType<PlayerInventory>(FindObjectsSortMode.None);
+
+        foreach (PlayerInventory inventory in inventories)
+        {
+            // 인벤토리별 ItemData가 비어 있으면 그 플레이어의 기본 지급은 생략된다.
+            inventory.GrantStartingFlashlightOnServer();
+        }
+    }
+
+    // 인벤토리에 보관되지 않고 월드에 남은 손전등 네트워크 오브젝트만 제거한다.
+    // 인벤토리 아이템은 ClearAllPlayerInventories가 먼저 정리하므로 여기서는 드롭 상태만 담당한다.
+    private void ClearDroppedFlashlights()
+    {
+        // 비활성 오브젝트도 포함해 라운드에 존재하는 모든 ItemBase를 정리 후보로 수집한다.
+        ItemBase[] fieldItems = FindObjectsByType<ItemBase>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+        foreach (ItemBase fieldItem in fieldItems)
+        {
+            // 다른 아이템과 플레이어 인벤토리 안에 보관 중인 손전등은 이 정리 대상이 아니다.
+            if (fieldItem.ItemId != ItemType.Flashlight || fieldItem.IsStored)
+            {
+                continue;
+            }
+
+            // 실제 NGO 스폰 상태인 오브젝트만 서버에서 디스폰해야 유효하지 않은 참조를 건드리지 않는다.
+            NetworkObject networkObject = fieldItem.NetworkObject;
+
+            if (networkObject != null && networkObject.IsSpawned)
+            {
+                // destroy: true로 모든 피어에서 제거하고 서버의 인스턴스도 함께 파괴한다.
+                networkObject.Despawn(destroy: true);
+            }
         }
     }
 
