@@ -208,25 +208,9 @@ public partial class RoundManager
     }
 
     // 남은 인원으로는 게임을 시작할 수 없으므로 방을 정리하고 전원을 로비로 돌려보낸다.
+    // 호스트 퇴장은 남은 인원에게 사유를 보낸 뒤 나가는 것까지 LeaveSessionWithReason이 처리한다.
     private void SendEveryoneToLobby(string reason)
-    {
-        List<ulong> clientsToDisconnect = new();
-        foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
-        {
-            if (clientId != NetworkManager.LocalClientId)
-            {
-                clientsToDisconnect.Add(clientId);
-            }
-        }
-
-        foreach (ulong clientId in clientsToDisconnect)
-        {
-            DisconnectWithReason(clientId, reason);
-        }
-
-        // 호스트가 나가는 순간 방이 사라지므로, 클라이언트에게 사유를 보낸 뒤 마지막에 나간다.
-        GameSessionManager.Instance.LeaveSessionWithReason(reason);
-    }
+        => GameSessionManager.Instance.LeaveSessionWithReason(reason);
 
     // NGO가 자동으로 채우는 영문 사유와 구분되도록 표식을 붙여 내보낸다.
     private void DisconnectWithReason(ulong clientId, string reason)

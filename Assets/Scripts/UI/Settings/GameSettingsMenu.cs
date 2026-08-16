@@ -441,6 +441,10 @@ public sealed class GameSettingsMenu : MonoBehaviour
     {
         PlayerPrefs.Save();
 
+        // 방에 들어와 있는 상태로 그냥 종료하면 남은 인원이 전송 계층 타임아웃을 다 기다리게 된다.
+        // 세션부터 정리해 끊김 통보가 나가도록 한다.
+        GameSessionManager.Instance?.LeaveSession();
+
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #else
