@@ -7,6 +7,10 @@ public class PlayerInventory : NetworkBehaviour
 {
     private const int InventorySize = 4;
 
+    // SelectedIndex가 이 값이면 아이템 선택이 잠긴 상태(카트 끄는 중 등)라는 뜻.
+    // 그 어떤 슬롯도 가리키지 않으므로 TryGetSelectedItem...류가 전부 자동으로 "선택 없음"을 반환한다.
+    public const int NoSelectionIndex = -1;
+
     [SerializeField, Min(0f)] private float _dropInteractionDelay = 1.5f;   // 드롭 후 상호작용 차단 시간
 
     // 슬롯 내용은 서버만 쓰고 전원이 읽는다
@@ -21,6 +25,7 @@ public class PlayerInventory : NetworkBehaviour
 
     private readonly NetworkVariable<int> _selectedIndex =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    private int _preCartSelectedIndex;
 
     public NetworkList<InventorySlot> Slots => _slots;
     public IReadOnlyList<ItemBase> MissionItems => _missionItems;
@@ -35,6 +40,7 @@ public class PlayerInventory : NetworkBehaviour
     private Camera _playerCamera;
     private PlayerHealth _health;
     private PlayerInteraction _interaction;
+    private InventoryUI _inventoryUI;
 
     private void Awake()
     {
@@ -56,7 +62,8 @@ public class PlayerInventory : NetworkBehaviour
     // 1, 2, 3, 4번 누르면 각 슬롯 선택하도록
     private void Update()
     {
-        if (!IsOwner)
+        // SelectedIndex가 잠긴 상태(카트 끄는 중 등)면 입력을 받지 않는다.
+        if (!IsOwner || _selectedIndex.Value == NoSelectionIndex)
         {
             return;
         }
@@ -107,7 +114,28 @@ public class PlayerInventory : NetworkBehaviour
     
     // 이 인벤토리를 조작하는 클라이언트에서만 씬의 인벤토리 UI를 나 자신에게 연결한다.
     public void InitializeOnGameScene() {
-        if (IsOwner) { FindFirstObjectByType<InventoryUI>(FindObjectsInactive.Include)?.BindInventory(this); }
+        if (!IsOwner) return;
+
+        _inventoryUI = FindFirstObjectByType<InventoryUI>(FindObjectsInactive.Include);
+        _inventoryUI?.Refresh(this);
+    }
+
+    // CartBase가 카트를 잡거나 놓을 때 호출한다. 카트 사용 중엔 선택을 -1로 잠그고, 놓으면 이전 선택으로 복원한다.
+    public void SetCartCarrying(bool isCarrying)
+    {
+        if (!IsOwner) return;
+
+        if (isCarrying)
+        {
+            _preCartSelectedIndex = _selectedIndex.Value;
+            _selectedIndex.Value = NoSelectionIndex;
+        }
+        else
+        {
+            _selectedIndex.Value = _preCartSelectedIndex;
+        }
+
+        NotifyInventoryChanged();
     }
 
     public override void OnNetworkDespawn()
@@ -120,7 +148,7 @@ public class PlayerInventory : NetworkBehaviour
     // 변화(IsStored)로 직접 감지하므로 여기서는 신경 쓰지 않는다.
     private void HandleSlotsChanged(NetworkListEvent<InventorySlot> changeEvent)
     {
-        OnInventoryChanged?.Invoke();
+        NotifyInventoryChanged();
 
         if (!IsOwner || changeEvent.Index < 0 || changeEvent.Index >= _slots.Count)
         {
@@ -178,7 +206,7 @@ public class PlayerInventory : NetworkBehaviour
     private void ChangeSelectedNumberRpc(int index, RpcParams rpcParams = default)
     {
         _selectedIndex.Value = index;
-        OnInventoryChanged?.Invoke();
+        NotifyInventoryChanged();
         NotifySelectedItem();
     }
 
@@ -232,9 +260,15 @@ public class PlayerInventory : NetworkBehaviour
             return;
 
         _selectedIndex.Value = index;
-        OnInventoryChanged?.Invoke();
+        NotifyInventoryChanged();
         OnSlotSelected?.Invoke(index);
         NotifySelectedItem();
+    }
+
+    private void NotifyInventoryChanged()
+    {
+        OnInventoryChanged?.Invoke();
+        _inventoryUI?.Refresh(this);
     }
 
     public bool TryGetSelectedItemId(out ItemType itemId)
