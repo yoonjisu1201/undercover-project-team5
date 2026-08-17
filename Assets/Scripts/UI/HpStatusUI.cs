@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 // 좌하단에 전체 플레이어의 체력바를 표시하는 UI 스크립트.
@@ -24,6 +25,9 @@ public sealed class HpStatusUI : MonoBehaviour
         }
 
         Render();
+
+        // 도중에 나간 플레이어를 목록에서 빼기 위해 접속 이벤트를 구독한다.
+        NetworkManager.Singleton.OnConnectionEvent += HandleConnectionEvent;
     }
 
     private void OnDestroy()
@@ -33,6 +37,38 @@ public sealed class HpStatusUI : MonoBehaviour
             player.PlayerHealth.HpChanged -= HandleHpChanged;
             player.PlayerHealth.DownedStateChanged -= HandleDownedStateChanged;
         }
+
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnConnectionEvent -= HandleConnectionEvent;
+        }
+    }
+
+    // 같은 퇴장이라도 호스트에는 ClientDisconnected로, 남은 참가자에게는 PeerDisconnected로 들어온다.
+    private void HandleConnectionEvent(NetworkManager networkManager, ConnectionEventData data)
+    {
+        if (data.EventType != ConnectionEvent.ClientDisconnected &&
+            data.EventType != ConnectionEvent.PeerDisconnected) return;
+
+        RemovePlayer(data.ClientId);
+    }
+
+    // 나간 플레이어의 체력바가 그대로 남지 않도록 목록에서 빼고 다시 그린다.
+    private void RemovePlayer(ulong clientId)
+    {
+        int index = _players.FindIndex(candidate => candidate != null && candidate.OwnerClientId == clientId);
+        if (index < 0) return;
+
+        Player player = _players[index];
+        // 이 시점엔 플레이어 오브젝트가 이미 파괴됐을 수 있어 구독 해제 전에 확인한다.
+        if (player != null && player.PlayerHealth != null)
+        {
+            player.PlayerHealth.HpChanged -= HandleHpChanged;
+            player.PlayerHealth.DownedStateChanged -= HandleDownedStateChanged;
+        }
+
+        _players.RemoveAt(index);
+        Render();
     }
 
     private void HandleHpChanged(float previousValue, float newValue) => Render();
