@@ -25,6 +25,11 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     [SerializeField] private Button _nicknameConfirmButton;
     [SerializeField] private GameObject _nicknameSettingPanel;
 
+    [Header("=== 조인코드 복사 ===")]
+    [SerializeField] private TextMeshProUGUI _copyNoticeText; // "복사되었습니다" 안내, 잠깐 표시
+
+    private const float CopyNoticeSeconds = 1.5f;
+
     [Header("=== 사용될 LocalizedString ===")]
     [SerializeField] private LocalizedString _startInfoAllReady;
     [SerializeField] private LocalizedString _startInfoNeedsMorePlayer;
@@ -75,6 +80,11 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         UpdateJoinCodeText();
         GameSessionManager.Instance.OnSessionJoined += UpdateJoinCodeText; // 조인 완료가 씬 로드보다 늦을 때를 대비한 재확인용
+
+        if (_copyNoticeText != null)
+        {
+            _copyNoticeText.gameObject.SetActive(false);
+        }
 
         _isHost = NetworkManager.Singleton.IsHost;
         _startGameButton.gameObject.SetActive(_isHost); //방장만 스타트 버튼이 보임
@@ -151,6 +161,31 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     private void UpdateJoinCodeText()
     {
         _joinCodeText.text = GameSessionManager.Instance.JoinCode;
+    }
+
+    // 조인코드를 클립보드에 복사하고 잠깐 안내를 띄운다.
+    // 조인코드 복사 버튼의 OnClick에 연결한다.
+    public void OnCopyJoinCodeButtonClicked()
+    {
+        string joinCode = GameSessionManager.Instance.JoinCode;
+        if (string.IsNullOrEmpty(joinCode)) return; // 아직 발급 전이면 복사할 게 없다
+
+        GUIUtility.systemCopyBuffer = joinCode;
+        ShowCopyNotice();
+    }
+
+    private void ShowCopyNotice()
+    {
+        if (_copyNoticeText == null) return;
+
+        CancelInvoke(nameof(HideCopyNotice)); // 연속으로 눌러도 마지막 클릭 기준으로 유지된다
+        _copyNoticeText.gameObject.SetActive(true);
+        Invoke(nameof(HideCopyNotice), CopyNoticeSeconds);
+    }
+
+    private void HideCopyNotice()
+    {
+        _copyNoticeText.gameObject.SetActive(false);
     }
 
     private LocalizeStringEvent GetRequiredLocalizeStringEvent(TextMeshProUGUI text)
