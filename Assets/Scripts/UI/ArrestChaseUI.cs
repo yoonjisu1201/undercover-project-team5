@@ -177,10 +177,11 @@ public class ArrestChaseUI : MonoBehaviour
             _targetingMaxScale);
     }
 
-    // 추격 대상은 위장이 풀린 범인이라 시민 파츠는 전부 꺼져 있다. 켜져 있는 렌더러가 곧 외계인 몸이다.
+    // 추격 대상은 위장이 풀린 범인이라 시민 파츠는 전부 꺼져 있다. 켜져 있는 스킨 메시가 곧 외계인 몸이다.
+    // (디버그 라벨이나 소품 같은 MeshRenderer가 먼저 잡히지 않도록 스킨 메시만 본다)
     private static Renderer FindVisibleRenderer(NetworkObject target)
     {
-        foreach (Renderer renderer in target.GetComponentsInChildren<Renderer>())
+        foreach (SkinnedMeshRenderer renderer in target.GetComponentsInChildren<SkinnedMeshRenderer>())
         {
             if (renderer.enabled && renderer.gameObject.activeInHierarchy) return renderer;
         }

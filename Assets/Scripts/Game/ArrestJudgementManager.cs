@@ -139,6 +139,9 @@ public class ArrestJudgementManager : NetworkBehaviour
         {
             Debug.LogError("[ArrestJudgementManager] 범인 NPC에 CriminalAlienReveal이 없습니다.", _pendingChaseCandidate);
         }
+
+        // 정체가 드러난 뒤에는 분신을 더 내보내지 않는다. 다음 라운드 시작 때 다시 켜진다.
+        FindFirstObjectByType<AlienCloneManager>()?.StopSpawningForRevealedCriminal();
     }
 
     // 판정 결과(범인/오검거) 패널까지 다 끝나고 Idle로 돌아왔을 때 호출된다.

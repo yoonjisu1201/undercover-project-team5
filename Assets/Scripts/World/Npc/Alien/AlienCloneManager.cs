@@ -25,6 +25,10 @@ public class AlienCloneManager : MonoBehaviour
 
     // 디버그 메뉴에서 주기적인 스폰을 끄거나, 범인과 함께 분신도 정지시킬 때 사용한다. 서버에서만 의미가 있다.
     public bool SpawningEnabled { get; private set; } = true;
+
+    // 범인이 정체를 드러내 이번 라운드 동안만 스폰을 멈춘 상태.
+    // 디버그 메뉴 설정(SpawningEnabled)과 분리해야, 디버그로 꺼둔 것은 라운드가 바뀌어도 유지된다.
+    private bool _spawnStoppedByReveal;
     public bool ClonesFrozen { get; private set; }
 
     // 지난 프레임에 읽은 라운드 잔여시간. 이번 프레임과의 차이로 "실제로 흐른 라운드 시간"을 계산하는 기준값.
@@ -67,7 +71,7 @@ public class AlienCloneManager : MonoBehaviour
         _lastRoundRemainingTime = currentRemaining;
 
         // 스폰을 막아둔 동안에는 경과 시간도 쌓지 않는다. 다시 허용한 순간 한꺼번에 몰려 나오는 것을 막기 위함.
-        if (!SpawningEnabled || _spawnFailedThisCycle) return;
+        if (!SpawningEnabled || _spawnStoppedByReveal || _spawnFailedThisCycle) return;
 
         _elapsedSinceLastSpawn += elapsed;
         if (_elapsedSinceLastSpawn < _spawnInterval) return;
@@ -216,6 +220,12 @@ public class AlienCloneManager : MonoBehaviour
         SpawningEnabled = enabled;
     }
 
+    // 범인이 정체를 드러내면 이번 라운드 동안 분신을 더 내보내지 않는다.
+    public void StopSpawningForRevealedCriminal()
+    {
+        _spawnStoppedByReveal = true;
+    }
+
     // 살아있는 분신 전체의 이동을 멈추거나 다시 풀어준다. 이후 새로 스폰되는 분신도 같은 상태를 따른다.
     public void SetClonesFrozen(bool frozen)
     {
@@ -259,6 +269,7 @@ public class AlienCloneManager : MonoBehaviour
         {
             _elapsedSinceLastSpawn = 0f;
             _spawnFailedThisCycle = false;
+            _spawnStoppedByReveal = false; // 범인 노출로 멈춘 것만 푼다. 디버그로 꺼둔 설정은 그대로 유지한다.
             // 기준값도 새 라운드의 남은 시간으로 맞춘다. 라운드마다 지속시간이 달라서(900→750→600)
             // 이전 라운드 잔여시간을 그대로 두면 그 차이가 "흐른 시간"으로 잡혀 시작 즉시 스폰된다.
             _lastRoundRemainingTime = RoundManager.Instance.GetRemainingTime();
