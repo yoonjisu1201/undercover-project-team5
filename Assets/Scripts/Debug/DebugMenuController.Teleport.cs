@@ -27,6 +27,43 @@ public sealed partial class DebugMenuController
         ShowStatus("범인 위치로 이동했습니다.");
     }
 
+    // CCTV 수리 기계는 지역 CCTV 수만큼 깔리므로, 누를 때마다 1번부터 차례로 돌아간다.
+    private int _cctvMissionCursor;
+
+    // 미션 종류별 기기로 이동합니다. 기기 종류는 UI 프리팹 이름으로 가린다.
+    // 전력·통신은 본부에도 같은 미션 기기가 있어서 필드용(_Field)만 골라야 한다.
+    public void OnTeleportCctvMissionClick() => TeleportToNextMissionOfKind("MissionUI1", "CCTV 복구", true);
+    public void OnTeleportPowerMissionClick() => TeleportToNextMissionOfKind("MissionUI4_Battery_Field", "전력 복구", false);
+    public void OnTeleportCommsMissionClick() => TeleportToNextMissionOfKind("MissionUI7_Knob_Field", "통신 복구", false);
+    public void OnTeleportAnalysisMissionClick() => TeleportToNextMissionOfKind("MissionUI10_SampleAnalysis", "데이터 분석", false);
+
+    // 해당 종류의 기기들을 찾아 순서대로 이동합니다. 여러 대면 누를 때마다 다음 기기로 넘어간다.
+    private void TeleportToNextMissionOfKind(string uiPrefabName, string label, bool cycle)
+    {
+        MissionInteractable[] targets = GetOrderedMissions()
+            .Where(mission => mission.UiPrefabName == uiPrefabName)
+            .ToArray();
+
+        if (targets.Length == 0)
+        {
+            ShowStatus($"{label} 기기를 찾지 못했습니다. 미션 기계가 스폰된 뒤에 사용하세요.");
+            return;
+        }
+
+        int index = 0;
+        if (cycle)
+        {
+            index = _cctvMissionCursor % targets.Length;
+            _cctvMissionCursor = (_cctvMissionCursor + 1) % targets.Length;
+        }
+
+        Transform target = targets[index].transform;
+        TeleportLocalPlayer(target.position - target.forward * 2f, target.rotation);
+        ShowStatus(targets.Length > 1
+            ? $"{label} {index + 1}/{targets.Length} 위치로 이동했습니다."
+            : $"{label} 위치로 이동했습니다.");
+    }
+
     // 정렬된 미션 목록의 위치로 이동합니다.
     public void OnTeleportMission1Click() => TeleportToMission(0);
     public void OnTeleportMission2Click() => TeleportToMission(1);

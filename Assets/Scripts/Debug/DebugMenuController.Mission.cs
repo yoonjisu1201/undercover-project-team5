@@ -29,6 +29,33 @@ public sealed partial class DebugMenuController
         RefreshBreakerPowerButton();
     }
 
+    // 지금 열어 두고 보고 있는 미션 패널의 미션을 완료 처리합니다.
+    public void OnCompleteCurrentMissionClick()
+    {
+        MissionInteractable target = MissionInteractable.ActiveInteractable;
+        if (target == null)
+        {
+            ShowStatus("열려 있는 미션 패널이 없습니다. 미션 기기를 먼저 여세요.");
+            return;
+        }
+
+        if (target.IsCompleted)
+        {
+            ShowStatus($"'{target.name}'은 이미 완료된 미션입니다.");
+            return;
+        }
+
+        int index = Array.IndexOf(GetOrderedMissions(), target);
+        if (index < 0)
+        {
+            ShowStatus("현재 미션을 목록에서 찾지 못했습니다.");
+            return;
+        }
+
+        CompleteMission(index);
+        ShowStatus($"'{target.name}' 미션을 완료 처리했습니다.");
+    }
+
     // 텔레포트 메뉴의 미션 번호와 같은 순서로 완료 처리합니다.
     public void OnCompleteMission1Click() => CompleteMission(0);
     public void OnCompleteMission2Click() => CompleteMission(1);
