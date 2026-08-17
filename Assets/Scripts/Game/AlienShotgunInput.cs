@@ -12,6 +12,7 @@ public class AlienShotgunInput : NetworkBehaviour
     [SerializeField] private Transform _muzzlePoint;
     [SerializeField] private GameObject _bulletProjectilePrefab;
     [SerializeField] private GameObject _handToolVisual;
+    [SerializeField] private GameObject _crosshair;     // 조준용 크로스헤어
     [SerializeField, Min(0f)] private float _range = 30f;
     [SerializeField, Min(0f)] private float _damage = 10f;
 
@@ -99,7 +100,7 @@ public class AlienShotgunInput : NetworkBehaviour
         ApplyVisual(currentValue);
     }
 
-    // 도구 선택 상태에 따라 손에 든 비주얼 오브젝트를 켜고 끈다.
+    // 도구 선택 상태에 따라 손에 든 비주얼 오브젝트와 조준점을 켜고 끈다.
     private void ApplyVisual(bool isSelected)
     {
         _animator?.SetBool(IsUsingArrestToolHash, isSelected);
@@ -107,6 +108,13 @@ public class AlienShotgunInput : NetworkBehaviour
         if (_handToolVisual != null)
         {
             _handToolVisual.SetActive(isSelected);
+        }
+
+        // 조준점은 내 화면에만 떠야 한다. 이 스크립트는 다른 플레이어 인스턴스에서도 돌기 때문에,
+        // IsOwner를 걸지 않으면 남의 조준점까지 화면에 겹쳐 보인다.
+        if (_crosshair != null)
+        {
+            _crosshair.SetActive(isSelected && IsOwner);
         }
     }
 
