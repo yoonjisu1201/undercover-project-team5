@@ -12,7 +12,9 @@ public class ClothRoundPoolConfig : ScriptableObject {
 	[SerializeField] private int _hairCount = 10;
 	[SerializeField] private int _hatCount = 10;
 	[SerializeField] private int _headphoneCount = 10;
-	[SerializeField] private int _armCount = 10;
+	// 왼손/오른손 프리팹 짝이 가끔 안 맞는 문제가 있어(#600), 로테이션으로 좁히면 잘못 짝지어진
+	// 조합이 반복해서 자주 보일 위험이 있다. 원인 정리되기 전까지는 전체 목록을 그대로 쓴다.
+	[SerializeField] private int _armCount = 999;
 	[SerializeField] private int _maskCount = 10;
 	[SerializeField] private int _pantsCount = 10;
 	[SerializeField] private int _shoesCount = 10;
