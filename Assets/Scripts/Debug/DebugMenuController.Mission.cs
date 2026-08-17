@@ -4,28 +4,16 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
-// [미션 완료] 하위의 미션별 완료와 [미션 혼자하기] 하위의 단독 진행 명령을 처리합니다.
+// [미션] 메뉴의 현재 미션 완료와 전력 레버 조작을 처리합니다.
 public sealed partial class DebugMenuController
 {
     [Header("Mission")]
     [SerializeField] private GameObject _missionPanel;
-    [SerializeField] private GameObject _missionCompletePanel;
-    [SerializeField] private GameObject _missionSoloPanel;
     [SerializeField] private Button _breakerPowerButton;
 
-    // 미션 루트 메뉴를 열 때는 하위 메뉴를 접은 상태에서 시작합니다.
     public void OnMissionMenuClick()
     {
         ToggleRootSubMenu(_missionPanel);
-        _missionCompletePanel?.SetActive(false);
-        _missionSoloPanel?.SetActive(false);
-    }
-
-    public void OnMissionCompleteMenuClick() => ToggleNestedSubMenu(_missionCompletePanel, _missionSoloPanel);
-
-    public void OnMissionSoloMenuClick()
-    {
-        ToggleNestedSubMenu(_missionSoloPanel, _missionCompletePanel);
         RefreshBreakerPowerButton();
     }
 
@@ -55,16 +43,6 @@ public sealed partial class DebugMenuController
         CompleteMission(index);
         ShowStatus($"'{target.name}' 미션을 완료 처리했습니다.");
     }
-
-    // 텔레포트 메뉴의 미션 번호와 같은 순서로 완료 처리합니다.
-    public void OnCompleteMission1Click() => CompleteMission(0);
-    public void OnCompleteMission2Click() => CompleteMission(1);
-    public void OnCompleteMission3Click() => CompleteMission(2);
-    public void OnCompleteMission4Click() => CompleteMission(3);
-    public void OnCompleteMission5Click() => CompleteMission(4);
-    public void OnCompleteMission6Click() => CompleteMission(5);
-    public void OnCompleteMission7Click() => CompleteMission(6);
-    public void OnCompleteMission8Click() => CompleteMission(7);
 
     // B 역할의 전력 레버를 대신 올리고 내려, 혼자서도 배터리 미션 흐름을 확인할 수 있게 합니다.
     public void OnToggleBreakerPowerClick()

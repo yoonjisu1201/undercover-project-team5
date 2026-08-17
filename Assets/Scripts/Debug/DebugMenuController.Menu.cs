@@ -115,7 +115,7 @@ public sealed partial class DebugMenuController
         {
             _teleportPanel, _playerPanel, _missionTeleportPanel, _itemPanel,
             _criminalPanel, _interferencePanel, _cctvPanel, _cctvPowerPanel, _regionPanel,
-            _roundPanel, _hpPanel, _missionPanel, _missionCompletePanel, _missionSoloPanel,
+            _roundPanel, _hpPanel, _missionPanel,
             _alienPanel
         };
 

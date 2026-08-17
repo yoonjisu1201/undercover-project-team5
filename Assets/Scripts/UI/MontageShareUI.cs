@@ -351,6 +351,16 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 		_isNotificationPlaying = false;
 	}
 
+	// 미니게임 화면 위에 Tab 안내가 겹치지 않도록 밖에서 숨긴다.
+	// 알림(NotificationState)은 건드리지 않아 미션 중에도 새 몽타주는 알려준다.
+	public void SetTabCardVisible(bool visible)
+	{
+		if (_tabUI != null)
+		{
+			_tabUI.SetActive(visible);
+		}
+	}
+
 	private void SetCompactCardsActive(bool notificationActive, bool tabActive)
 	{
 		if (_notificationUI != null)

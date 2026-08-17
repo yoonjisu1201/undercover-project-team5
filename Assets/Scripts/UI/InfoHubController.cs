@@ -44,6 +44,10 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 
     private readonly List<ClueBookEntry> _entries = new();
     private CustomInputActions _actions;
+
+    // 미션 패널과 겹치지 않도록 Tab 안내를 감춰 둔 상태인지.
+    private bool _isHiddenForMission;
+    private GameObject _guideBookRoot;
     private PlayerClueBook _boundClueBook;
     private Tween _clueSlide;
     private Tween _expand;
@@ -105,6 +109,13 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
     {
         // 내 플레이어는 접속 이후에 스폰되므로 매번 최신 것을 확인해 연결한다.
         BindClueBookIfNeeded();
+        RefreshMissionOverlapState();
+
+        // 미니게임을 보고 있는 동안에는 허브를 열지 않는다. 화면이 겹치고 조작이 섞인다.
+        if (_isHiddenForMission)
+        {
+            return;
+        }
 
         if (_actions.UI.Montage.WasPressedThisFrame())
         {
@@ -488,6 +499,56 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 		{
 			_clueButton.targetGraphic.raycastTarget = clickable;
 		}
+	}
+
+	// 미션 패널을 열고 있는 동안 단서·몽타주 Tab 안내와 가이드북 손잡이를 감춘다.
+	// 알림은 그대로 둬서 미니게임 중에도 새 단서·몽타주가 오면 알 수 있게 한다.
+	// 여기서 Close()를 부르면 안 된다. 그 안에서 커서를 꺼버려 미션 패널이 커서를 잃는다.
+	private void RefreshMissionOverlapState()
+	{
+		bool missionOpen = MissionInteractable.ActiveInteractable != null;
+		if (missionOpen == _isHiddenForMission)
+		{
+			return;
+		}
+
+		_isHiddenForMission = missionOpen;
+		EnsureMontageShareUI();
+		GameObject guideBookRoot = ResolveGuideBookRoot();
+
+		_cluePanel.gameObject.SetActive(!missionOpen);
+		_montageShareUI?.SetTabCardVisible(!missionOpen);
+		guideBookRoot?.SetActive(!missionOpen);
+
+		if (!missionOpen)
+		{
+			ApplyPanelX(_cluePanel, _cluePeekX);
+		}
+	}
+
+	// 우측 하단 가이드북 손잡이(HUD/GuideBook). 손잡이를 직접 끄면 되살릴 주체가 없어 부모를 끈다.
+	private GameObject ResolveGuideBookRoot()
+	{
+		if (_guideBookRoot != null)
+		{
+			return _guideBookRoot;
+		}
+
+		foreach (MissionGuideBookTab tab in FindObjectsByType<MissionGuideBookTab>(
+			         FindObjectsInactive.Include, FindObjectsSortMode.None))
+		{
+			if (!tab.IsGuideBookHandle)
+			{
+				continue;
+			}
+
+			_guideBookRoot = tab.transform.parent != null
+				? tab.transform.parent.gameObject
+				: tab.gameObject;
+			break;
+		}
+
+		return _guideBookRoot;
 	}
 
 	private void ResetClosedTabState()

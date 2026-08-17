@@ -14,6 +14,9 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
     // 이 경우 Tab으로 정보 허브를 열었을 때 살짝 올라오고, 누르면 가이드북이 열린다.
     [SerializeField] private bool _isGuideBook;
 
+    // 공용 가이드북 손잡이인지. 미션 화면과 겹칠 때 숨길 대상을 밖에서 가려내는 데 쓴다.
+    public bool IsGuideBookHandle => _isGuideBook;
+
     [Header("올라오는 연출")]
     // 커서를 올렸을 때 위로 올라오는 높이다.
     [SerializeField] private float _hoverRise = 42f;
