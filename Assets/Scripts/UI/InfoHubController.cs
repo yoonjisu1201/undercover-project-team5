@@ -525,6 +525,9 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
     {
         foreach (ClueBookEntry entry in _entries)
         {
+            // Destroy는 프레임 끝에 처리되므로, 지금 부모에서 떼어내지 않으면
+            // 바로 뒤에서 높이를 잴 때 이미 지운 항목까지 함께 계산된다.
+            entry.transform.SetParent(null, false);
             Destroy(entry.gameObject);
         }
 
