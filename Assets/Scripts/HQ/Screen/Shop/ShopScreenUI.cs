@@ -261,12 +261,18 @@ public sealed class ShopScreenUI : ScreenBase, IClosableUi
 
 		string itemName = itemId.ToString();
 		ShopItemData purchasedItem = FindShopItem(itemId);
+		string purchaseMessage =
+			string.Format(PurchaseCompleteMessageFormat, itemName, remainingCredits.ToString("N0"));
+
 		if (purchasedItem != null)
 		{
 			itemName = purchasedItem.DisplayName.GetLocalizedString();
+			purchaseMessage =
+				string.Format(PurchaseCompleteMessageFormat, itemName, remainingCredits.ToString("N0"));
+			purchaseMessage += $"\n{purchasedItem.PickupLocationMessage.GetLocalizedString()}";
 		}
 
-		ShowPurchaseResultPopup(string.Format(PurchaseCompleteMessageFormat, itemName, remainingCredits.ToString("N0")));
+		ShowPurchaseResultPopup(purchaseMessage);
 	}
 
 	private void HandlePurchaseFailed(string reason)
