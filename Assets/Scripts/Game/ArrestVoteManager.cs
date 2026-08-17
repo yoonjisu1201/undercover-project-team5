@@ -26,6 +26,17 @@ public class ArrestVoteManager : NetworkBehaviour
     // 가결에 필요한 최소 O표 수
     private const int PassThreshold = 2;
 
+    // 디버그: 혼자서도 투표를 가결시켜 이후 흐름을 확인한다. 서버에서만 바꾼다.
+    private bool _isDebugSoloVote;
+
+    public void SetDebugSoloVoteEnabled(bool enabled)
+    {
+        if (IsServer)
+        {
+            _isDebugSoloVote = enabled;
+        }
+    }
+
     // 결과(가결/부결) 표시 후 Idle로 돌아가기까지 대기 시간 (초 단위)
     private const float ResultHoldSeconds = 3f;
 
@@ -295,7 +306,8 @@ public class ArrestVoteManager : NetworkBehaviour
             if (isYes) yesCount++;
         }
 
-        bool passed = yesCount >= PassThreshold;
+        int requiredYesCount = _isDebugSoloVote ? 1 : PassThreshold;
+        bool passed = yesCount >= requiredYesCount;
         _currentVoteState.Value = passed ? ArrestVoteState.Passed : ArrestVoteState.Rejected;
         _returnToIdleTime.Value = NetworkManager.ServerTime.Time + ResultHoldSeconds;
 

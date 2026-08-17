@@ -2,7 +2,7 @@ using System.Reflection;
 using Unity.Netcode;
 using UnityEngine;
 
-// 범인 표시, 특정, 단독 검거와 몽타주 전송을 처리합니다.
+// 범인 표시, 단독 검거·투표, 범인 정지, 몽타주 전송을 처리합니다.
 public sealed partial class DebugMenuController
 {
     private static readonly FieldInfo MontageStateField =
@@ -10,9 +10,11 @@ public sealed partial class DebugMenuController
 
     private bool _criminalMarkerVisible;
     private bool _soloCaptureEnabled;
+    private bool _soloVoteEnabled;
     private bool _criminalFrozen;
 
-    public void OnFindCriminalClick()
+    // 혼자서도 검거 투표가 가결되도록 가결 기준을 1표로 낮춥니다.
+    public void OnToggleSoloVoteClick()
     {
         if (!IsSpawned)
         {
@@ -20,8 +22,8 @@ public sealed partial class DebugMenuController
             return;
         }
 
-        RequestIdentifyCriminalRpc();
-        ShowStatus("범인을 특정하고 추격 단계를 시작했습니다.");
+        RequestToggleSoloVoteRpc();
+        ShowStatus("나혼자 투표 상태를 전환했습니다.");
     }
 
     public void OnToggleCriminalMarkerClick()
@@ -47,20 +49,6 @@ public sealed partial class DebugMenuController
     {
         RequestShareCriminalMontageRpc();
         ShowStatus("범인 몽타주를 완성해 전송했습니다.");
-    }
-
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestIdentifyCriminalRpc()
-    {
-        CriminalNpcManager criminalManager = FindFirstObjectByType<CriminalNpcManager>();
-        ArrestChaseManager chaseManager = ArrestChaseManager.Instance;
-        if (criminalManager?.CriminalNpc == null || chaseManager == null)
-        {
-            Debug.LogWarning("[DebugMenu] 범인 NPC 또는 ArrestChaseManager를 찾지 못했습니다.");
-            return;
-        }
-
-        chaseManager.StartChase(criminalManager.CriminalNpc);
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
@@ -96,6 +84,20 @@ public sealed partial class DebugMenuController
     private void ApplySoloCaptureStateRpc(bool enabled)
     {
         SetToggleButtonState(_soloCaptureButton, enabled);
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestToggleSoloVoteRpc()
+    {
+        _soloVoteEnabled = !_soloVoteEnabled;
+        FindFirstObjectByType<ArrestVoteManager>()?.SetDebugSoloVoteEnabled(_soloVoteEnabled);
+        ApplySoloVoteStateRpc(_soloVoteEnabled);
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void ApplySoloVoteStateRpc(bool enabled)
+    {
+        SetToggleButtonState(_soloVoteButton, enabled);
     }
 
     // 서버가 범인과 외계인 분신의 이동을 함께 정지하거나 다시 풀어줍니다.
