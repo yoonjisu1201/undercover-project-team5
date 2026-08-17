@@ -104,7 +104,7 @@ public static class ClothCatalog {
 		}
 
 		int targetCount = GetRoundPoolConfig()?.GetCount(part) ?? int.MaxValue;
-		int seed = HashCode.Combine(sessionSeed, roundIndex, part);
+		int seed = CombineSeed(sessionSeed, roundIndex, (int)part);
 		List<ClothData> pool = SampleForRound(enabled, targetCount, seed);
 
 		RoundPoolCache[cacheKey] = pool;
@@ -124,6 +124,19 @@ public static class ClothCatalog {
 		sessionSeed = roundManager.ClothPoolSessionSeed;
 		roundIndex = roundManager.CurrentRoundIndex;
 		return true;
+	}
+
+	// System.HashCode.Combine은 프로세스마다 다른 내부 솔트를 섞어 넣어 같은 입력에도 서버/클라이언트가
+	// 서로 다른 값을 얻는다 (보안 목적의 의도된 동작). 여기서는 모든 클라이언트가 반드시 같은 시드를
+	// 얻어야 하므로 프로세스와 무관하게 항상 같은 결과를 내는 방식으로 직접 합성한다.
+	private static int CombineSeed(int a, int b, int c) {
+		unchecked {
+			int hash = 17;
+			hash = hash * 31 + a;
+			hash = hash * 31 + b;
+			hash = hash * 31 + c;
+			return hash;
+		}
 	}
 
 	// 시드 기반 부분 Fisher-Yates로 targetCount개를 뽑는다. 모든 클라이언트가 같은 seed로 같은 결과를 얻어야 한다.
