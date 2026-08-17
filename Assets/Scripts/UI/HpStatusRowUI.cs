@@ -5,6 +5,8 @@ using UnityEngine.UI;
 // HpStatusUI가 플레이어 한 명당 하나씩 갱신하는 체력바 행(row) 프리팹 스크립트.
 public sealed class HpStatusRowUI : MonoBehaviour
 {
+    [SerializeField] private Image _localPlayerBackground;
+    [SerializeField] private Image _localPlayerAccent;
     [SerializeField] private Image _colorDotImage;
     [SerializeField] private TMP_Text _nameText;
     [SerializeField] private Slider _hpSlider;
@@ -18,6 +20,8 @@ public sealed class HpStatusRowUI : MonoBehaviour
 
         PlayerHealth health = player.PlayerHealth;
 
+        _localPlayerBackground.enabled = player.IsOwner;
+        _localPlayerAccent.enabled = player.IsOwner;
         _colorDotImage.color = player.PlayerColor;
         _nameText.text = player.PlayerName;
         _hpSlider.maxValue = health.MaxHp;
@@ -31,6 +35,9 @@ public sealed class HpStatusRowUI : MonoBehaviour
 
     public void Hide()
     {
+        _localPlayerBackground.enabled = false;
+        _localPlayerAccent.enabled = false;
+
         if (_statusIcon != null)
         {
             _statusIcon.Clear();
