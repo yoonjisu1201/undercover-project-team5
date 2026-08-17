@@ -1765,6 +1765,7 @@ RectTransform:
   m_Children:
   - {fileID: 8527903958741459288}
   - {fileID: 7413037309360603347}
+  - {fileID: 5273534947505582756}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -1847,15 +1848,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12c8f2714799ab342972c5dcb2d0c63f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InventoryUI
-  _inventory: {fileID: 0}
   _itemIcons:
   - {fileID: 2680798023984109516}
   - {fileID: 8425122966852741071}
   - {fileID: 2404477986392982948}
   - {fileID: 6003256034318646309}
   _selectionOutline: {fileID: 4261724886581815510}
+  _shotgunCrosshair: {fileID: 5273534947505582759}
   _itemCatalog: {fileID: 0}
-  _interactionPromptText: {fileID: 6948077601196424578}
 --- !u!1 &9205330015936181326
 GameObject:
   m_ObjectHideFlags: 0
@@ -1931,3 +1931,34 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1001 &4813827323320857254
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 7514348910333129600}
+    m_Modifications:
+    - target: {fileID: 856100000000000001, guid: b9f2e7c3d5a14a6f8c0e21b437659a10, type: 3}
+      propertyPath: m_Name
+      value: ShotgunCrosshair
+      objectReference: {fileID: 0}
+    - target: {fileID: 856100000000000002, guid: b9f2e7c3d5a14a6f8c0e21b437659a10, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -46
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: b9f2e7c3d5a14a6f8c0e21b437659a10, type: 3}
+--- !u!224 &5273534947505582756 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 856100000000000002, guid: b9f2e7c3d5a14a6f8c0e21b437659a10, type: 3}
+  m_PrefabInstance: {fileID: 4813827323320857254}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &5273534947505582759 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 856100000000000001, guid: b9f2e7c3d5a14a6f8c0e21b437659a10, type: 3}
+  m_PrefabInstance: {fileID: 4813827323320857254}
+  m_PrefabAsset: {fileID: 0}
