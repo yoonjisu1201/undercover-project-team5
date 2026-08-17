@@ -5,6 +5,7 @@ public class InventoryUI : MonoBehaviour
 {
     [SerializeField] private Image[] _itemIcons;
     [SerializeField] private RectTransform _selectionOutline;
+    [SerializeField] private GameObject _shotgunCrosshair;
     [SerializeField] private ItemCatalog _itemCatalog;
     private GameObject[] _slots;    // 인벤토리 슬롯 UI 오브젝트 배열
 
@@ -36,6 +37,11 @@ public class InventoryUI : MonoBehaviour
     {
         if (inventory == null)
             return;
+
+        bool showShotgunCrosshair =
+            inventory.TryGetSelectedItemId(out ItemType selectedItemId) &&
+            selectedItemId == ItemType.AlienShotgun;
+        _shotgunCrosshair.SetActive(showShotgunCrosshair);
 
         for (int i = 0; i < _slots.Length; i++)
         {
