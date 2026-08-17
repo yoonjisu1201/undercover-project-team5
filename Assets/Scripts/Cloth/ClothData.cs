@@ -7,6 +7,9 @@ public class ClothData : ScriptableObject {
 	public int Id;
 	public ClothPart Part;
 
+	// 꺼두면 라운드 로테이션 대상에서 완전히 제외된다 (깨졌거나 못 쓰게 된 항목 영구 차단용).
+	public bool IsEnabled = true;
+
 	[Header("=== NPC 착용용 (스켈레톤 본 바인딩) ===")]
 	public GameObject NpcPrefab;
 

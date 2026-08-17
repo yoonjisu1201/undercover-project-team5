@@ -69,6 +69,11 @@ public partial class RoundManager : NetworkBehaviour
     private readonly NetworkVariable<int> _currentRoundIndex =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    // 게임 세션 하나당 한 번만 뽑는 시드. ClothCatalog가 이 값과 라운드 번호를 조합해
+    // "이번 라운드에 쓸 옷 목록"을 서버/클라이언트 모두 동일하게 계산하는 데 사용한다.
+    private readonly NetworkVariable<int> _clothPoolSessionSeed =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     private readonly NetworkVariable<double> _roundEndTime =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -102,6 +107,7 @@ public partial class RoundManager : NetworkBehaviour
 
     public RoundState CurrentState => _currentState.Value;
     public int CurrentRoundIndex => _currentRoundIndex.Value;
+    public int ClothPoolSessionSeed => _clothPoolSessionSeed.Value;
 
     // HQ 타이머 UI가 남은 시간 비율(색상 변화 등)을 계산하려면 현재 라운드의 총 시간이 필요해서 노출
     public float RoundDuration => CurrentState == RoundState.InRound ?
@@ -296,6 +302,7 @@ public partial class RoundManager : NetworkBehaviour
 
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _currentRoundIndex.Value = 0;
+        _clothPoolSessionSeed.Value = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
         _debugTimeStopped.Value = false;
         _debugStoppedRemainingTime.Value = 0f;
         ResetMissionsForNewRound();
