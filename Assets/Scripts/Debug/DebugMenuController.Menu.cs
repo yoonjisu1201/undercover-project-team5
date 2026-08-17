@@ -115,7 +115,7 @@ public sealed partial class DebugMenuController
         {
             _teleportPanel, _playerPanel, _missionTeleportPanel, _itemPanel,
             _criminalPanel, _interferencePanel, _cctvPanel, _cctvPowerPanel, _regionPanel,
-            _roundPanel, _hpPanel, _missionPanel, _missionCompletePanel, _missionSoloPanel,
+            _roundPanel, _hpPanel, _missionPanel,
             _alienPanel
         };
 
@@ -155,11 +155,8 @@ public sealed partial class DebugMenuController
     }
 
     // ON/OFF 디버그 버튼의 강조 상태를 갱신합니다.
-    private static void SetToggleButtonState(Button button, bool enabled)
-    {
-        if (button == null) return;
-        SetButtonStateColor(button, enabled ? UnlockedRegionButtonColor : LockedRegionButtonColor);
-    }
+    // 지역 잠금 색이 아니라 켜짐(초록)/꺼짐(빨강)으로 통일해, 토글 버튼끼리 표시가 어긋나지 않게 한다.
+    private static void SetToggleButtonState(Button button, bool enabled) => SetOnOffButtonColor(button, enabled);
 
     // 버튼의 기본·선택 색상과 실제 그래픽 색상을 함께 변경합니다.
     private static void SetButtonStateColor(Button button, Color color)

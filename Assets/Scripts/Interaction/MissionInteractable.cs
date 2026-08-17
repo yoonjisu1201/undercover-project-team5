@@ -34,6 +34,12 @@ public sealed class MissionInteractable : InteractableBase
     private Transform _interactingPlayer;
     private static MissionInteractable _activeInteractable;
 
+    // 이 클라이언트가 지금 열어 두고 보고 있는 미션. 디버그 메뉴가 대상으로 삼는다.
+    public static MissionInteractable ActiveInteractable => _activeInteractable;
+
+    // 같은 미션이라도 본부용과 필드용 기기가 따로 있어서, 기기 종류는 UI 프리팹 이름으로 구분한다.
+    public string UiPrefabName => _uiPrefab != null ? _uiPrefab.name : string.Empty;
+
     public bool IsCompleted => _isCompleted.Value;
     public int TargetNumber => _targetNumber.Value;
 

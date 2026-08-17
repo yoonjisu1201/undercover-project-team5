@@ -11,12 +11,21 @@ public sealed class BatteryDragItem : UIDraggableItem
     // 슬롯에서 빠졌을 때 돌아갈 원래 인벤토리 셀이다.
     public RectTransform SourceCell { get; private set; }
 
-    public void Initialize(BreakerBatteryMission owner, int watt, ItemType itemId, RectTransform sourceCell)
+    // 서버가 들고 있는 배터리 목록에서 이 항목이 가리키는 배터리 번호다.
+    public int EntryId { get; private set; }
+
+    // 내가 넣은 배터리만 옮길 수 있다. 남의 것은 보이기만 한다.
+    public bool IsMine { get; private set; }
+
+    public void Initialize(
+        BreakerBatteryMission owner, int watt, ItemType itemId, RectTransform sourceCell, int entryId, bool isMine)
     {
         // 배터리 고유 정보와 반환 위치를 저장한 뒤 공용 드래그 동작을 초기화한다.
         Watt = watt;
         ItemId = itemId;
         SourceCell = sourceCell;
+        EntryId = entryId;
+        IsMine = isMine;
         InitializeDrag(owner, itemId);
     }
 }

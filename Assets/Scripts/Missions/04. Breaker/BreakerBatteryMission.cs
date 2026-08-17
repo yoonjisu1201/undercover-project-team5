@@ -20,6 +20,10 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
 
     private readonly List<ItemType> _stagedBatteryItemIds = new();
 
+    // 서버에 보낸 뒤 아직 복제가 돌아오지 않은 이동. 배터리 번호 → 목표 칸(-1이면 보관함).
+    // 이게 없으면 왕복 시간 동안 화면이 옛 상태로 한 번 그려져 원래 자리로 튕겼다 돌아온다.
+    private readonly Dictionary<int, int> _pendingPlacements = new();
+
     private Transform _inventoryPanel;
     private RectTransform _inventoryContent;
     private ScrollRect _inventoryScroll;
@@ -46,13 +50,20 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
     // C 화면의 바늘 연출이 끝나는 시점에 맞춰 이 화면의 결과 창을 띄우기 위한 대기 트윈이다.
     private Tween _resultTween;
 
+    // 확인을 눌러 측정이 끝났는지, 그때 측정된 값이 얼마였는지. 배치를 바꾸면 다시 재야 한다.
+    private bool _hasMeasurementResult;
+    private int _measuredWatt;
+
+    // 확인을 누른 뒤 계기판 바늘이 움직이는 동안. 이때는 결과 대신 측정 중이라고 알린다.
+    private bool _isMeasuring;
+
     private void Awake()
     {
         CacheReferences();
         SetupScrollableInventory();
         SetupSlots(FindChild(transform, "PowerBoard"));
-        StageInventoryBatteries();
-        RebuildInventoryGrid();
+
+        // 배터리 등록은 Initialize에서 한다. 여기서는 아직 _circuitState가 없어서 공유 목록에 올릴 수 없다.
     }
 
     // 닫혀 있는 동안 새로 주운 건전지를 다시 열 때 보관함에 반영한다.
@@ -84,6 +95,11 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
 
         _circuitState.OnCircuitChanged += HandleCircuitChanged;
         _circuitState.OnMeasurementRequested += ScheduleResultOverlay;
+
+        // 공유 상태가 붙은 지금에서야 내 배터리를 기계 보관함에 올릴 수 있다.
+        StageInventoryBatteries();
+        RebuildInventoryGrid();
+
         SelectRandomTargetWatt();
         HandleCircuitChanged();
     }
@@ -91,12 +107,28 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
     // 확인을 누르면 C 화면에서 바늘이 올라가는 동안 기다렸다가, 완료된 경우에만 같은 시점에 결과 창을 띄운다.
     private void ScheduleResultOverlay()
     {
+        // 확인을 누른 시점부터 계기판 바늘이 다 올라갈 때까지는 측정 중으로 표시한다.
+        _hasMeasurementResult = false;
+        _isMeasuring = true;
+        UpdateStatusText();
+
         _resultTween?.Kill();
         _resultTween = DOVirtual.DelayedCall(
             BreakerCircuitState.MeasurementSweepSeconds + BreakerCircuitState.ResultDelaySeconds,
             () =>
             {
-                if (_circuitState != null && _circuitState.IsCompleted)
+                _isMeasuring = false;
+
+                if (_circuitState == null)
+                {
+                    return;
+                }
+
+                _measuredWatt = _circuitState.CurrentWatt;
+                _hasMeasurementResult = true;
+                UpdateStatusText();
+
+                if (_circuitState.IsCompleted)
                 {
                     GetComponent<MissionUIController>()?.ShowCompletedState();
                 }
@@ -124,6 +156,7 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
         SetButtonUsable(_confirmButton, powerOn);
 
         UpdateStatusText();
+        RebuildInventoryGridIfChanged();
         RefreshItemPositions();
     }
 
@@ -147,10 +180,9 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
 
         foreach (BatteryDragItem battery in _slots.Where(item => item != null))
         {
-            battery.CurrentSlotIndex = -1;
+            _circuitState?.RequestStoreBattery(battery.EntryId);
         }
 
-        Array.Clear(_slots, 0, _slots.Length);
         RefreshItemPositions();
     }
 
@@ -170,27 +202,15 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
             return;
         }
 
-        // sourceIndex가 -1이면 인벤토리에서 왔고, 0 이상이면 다른 전원 슬롯에서 왔다.
-        int sourceIndex = battery.CurrentSlotIndex;
-        BatteryDragItem displaced = _slots[slotIndex];
+        // 배치는 서버가 정한다. 여기서는 요청만 보내고, 복제된 결과로 화면을 맞춘다.
+        // 로컬에서 먼저 꽂아 두면 서버가 거절했을 때 두 화면이 어긋난다.
+        // 배치가 바뀌면 앞선 측정 결과도, 진행 중이던 측정도 무효다.
+        _hasMeasurementResult = false;
+        _isMeasuring = false;
+        _resultTween?.Kill();
 
-        if (sourceIndex >= 0)
-        {
-            // 슬롯끼리 옮길 때 목적지 배터리가 있으면 두 배터리의 위치를 서로 교환한다.
-            _slots[sourceIndex] = displaced;
-            if (displaced != null)
-            {
-                displaced.CurrentSlotIndex = sourceIndex;
-            }
-        }
-        else if (displaced != null)
-        {
-            // 인벤토리 배터리가 차 있는 슬롯에 들어오면 기존 배터리를 인벤토리로 돌려보낸다.
-            displaced.CurrentSlotIndex = -1;
-        }
-
-        _slots[slotIndex] = battery;
-        battery.CurrentSlotIndex = slotIndex;
+        _pendingPlacements[battery.EntryId] = slotIndex;
+        _circuitState?.RequestPlaceBattery(battery.EntryId, slotIndex);
         RefreshItemPositions();
     }
 
@@ -231,15 +251,96 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
 
         if (battery.CurrentSlotIndex >= 0)
         {
-            _slots[battery.CurrentSlotIndex] = null;
+            _hasMeasurementResult = false;
+            _isMeasuring = false;
+            _resultTween?.Kill();
+            _pendingPlacements[battery.EntryId] = -1;
+            _circuitState?.RequestStoreBattery(battery.EntryId);
         }
 
-        battery.CurrentSlotIndex = -1;
         RefreshItemPositions();
+    }
+
+    // 화면 배치는 전적으로 서버 목록을 따른다. 내 조작이든 남의 조작이든 같은 결과가 된다.
+    private void SyncSlotsFromShared()
+    {
+        if (_circuitState == null)
+        {
+            return;
+        }
+
+        Array.Clear(_slots, 0, _slots.Length);
+        foreach (BatteryDragItem item in _batteries)
+        {
+            item.CurrentSlotIndex = -1;
+        }
+
+        foreach (BreakerBatteryEntry entry in _circuitState.Batteries)
+        {
+            // 서버 응답이 도착해 내 요청과 같아졌으면 더 이상 덮어쓸 필요가 없다.
+            if (_pendingPlacements.TryGetValue(entry.Id, out int requested) && requested == entry.SlotIndex)
+            {
+                _pendingPlacements.Remove(entry.Id);
+            }
+
+            if (entry.IsStored || entry.SlotIndex >= _slots.Length)
+            {
+                continue;
+            }
+
+            BatteryDragItem item = _batteries.FirstOrDefault(candidate => candidate.EntryId == entry.Id);
+            if (item == null)
+            {
+                continue;
+            }
+
+            _slots[entry.SlotIndex] = item;
+            item.CurrentSlotIndex = entry.SlotIndex;
+        }
+
+        ApplyPendingPlacements();
+    }
+
+    // 아직 복제가 안 온 내 조작을 화면에 먼저 반영한다. 서버가 거절하면 다음 복제 때 되돌아간다.
+    private void ApplyPendingPlacements()
+    {
+        if (_pendingPlacements.Count == 0)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<int, int> pending in _pendingPlacements)
+        {
+            BatteryDragItem item = _batteries.FirstOrDefault(candidate => candidate.EntryId == pending.Key);
+            if (item == null)
+            {
+                continue;
+            }
+
+            // 이 배터리가 지금 차지하고 있는 칸을 먼저 비운다.
+            if (item.CurrentSlotIndex >= 0 && item.CurrentSlotIndex < _slots.Length
+                && _slots[item.CurrentSlotIndex] == item)
+            {
+                _slots[item.CurrentSlotIndex] = null;
+            }
+
+            int target = pending.Value;
+            if (target < 0 || target >= _slots.Length || _slots[target] != null)
+            {
+                // 보관함으로 되돌리는 요청이거나, 그 사이 남이 먼저 차지한 칸이다.
+                item.CurrentSlotIndex = -1;
+                continue;
+            }
+
+            _slots[target] = item;
+            item.CurrentSlotIndex = target;
+        }
     }
 
     public void RefreshItemPositions()
     {
+        SyncSlotsFromShared();
+
         // 슬롯 번호가 없는 배터리는 원래 인벤토리 셀로 되돌린다.
         foreach (BatteryDragItem battery in _batteries.Where(item => item.CurrentSlotIndex < 0))
         {
@@ -256,12 +357,13 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
             }
         }
 
-        int current = _slots.Where(item => item != null).Sum(item => item.Watt);
+        // 합계는 내 배치만이 아니라 기계에 꽂힌 전부다. 서버가 들고 있는 값을 그대로 쓴다.
+        int current = _circuitState != null
+            ? _circuitState.GetArrangedWatt()
+            : _slots.Where(item => item != null).Sum(item => item.Watt);
+
         _currentValueText.text = $"{current:000} W";
         UpdateWattGauge(current);
         _currentValueText.color = Color.white;
-
-        // 전원이 꺼져 있을 때 A가 바꾼 배치만 공유 상태에 보고한다 (On일 때는 서버가 어차피 무시한다).
-        _circuitState?.ReportCurrentWatt(current);
     }
 }
