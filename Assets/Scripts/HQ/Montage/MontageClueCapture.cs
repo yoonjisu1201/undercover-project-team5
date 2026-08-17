@@ -50,6 +50,9 @@ public sealed class MontageClueCapture {
 			_camera.transform.SetPositionAndRotation(previousPosition, previousRotation);
 			_camera.fieldOfView = previousFieldOfView;
 			_camera.orthographicSize = previousOrthographicSize;
+			// SetRootPartsVisible(false)는 착용 여부와 무관하게 기본 파츠를 전부 껐으므로,
+			// 여기서 먼저 전부 되돌린 뒤 _applyPreviewState가 실제로 입고 있는 파츠만 다시 숨기게 한다.
+			_montage.SetRootPartsVisible(true);
 			_applyPreviewState(previousState);
 			_camera.Render();
 		}
