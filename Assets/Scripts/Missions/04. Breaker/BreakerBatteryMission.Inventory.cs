@@ -10,6 +10,19 @@ public sealed partial class BreakerBatteryMission
     private const int MinimumTargetWatt = 100;
     private const int MaximumTargetWatt = 200;
 
+    // 공유 목록은 와트만 들고 있으므로 아이콘을 찾을 때 다시 아이템 종류로 되돌린다.
+    private static ItemType GetBatteryItemId(int watt)
+    {
+        switch (watt)
+        {
+            case 20: return ItemType.Battery_20;
+            case 30: return ItemType.Battery_30;
+            case 40: return ItemType.Battery_40;
+            case 50: return ItemType.Battery_50;
+            default: return ItemType.None;
+        }
+    }
+
     private static bool TryGetBatteryWatt(ItemType itemId, out int watt)
     {
         switch (itemId)
@@ -33,16 +46,15 @@ public sealed partial class BreakerBatteryMission
         return FindObjectsByType<PlayerInventory>(FindObjectsSortMode.None).FirstOrDefault(candidate => candidate.IsOwner) ?? FindFirstObjectByType<PlayerInventory>();
     }
 
-    // 실제 인벤토리에서 꺼낸 배터리들을 미션 보관함으로 이동시킨다.
+    // 들고 있던 배터리를 기계 보관함으로 옮긴다.
+    // MissionItems(이미 기계에 맡겨 둔 것)는 여기서 다시 세지 않는다. 그건 이미 공유 목록에 올라가 있어서,
+    // 다시 세면 패널을 열 때마다 같은 배터리가 늘어난다.
     private void StageInventoryBatteries()
     {
-        if (_playerInventory == null)
+        if (_playerInventory == null || _circuitState == null)
         {
             return;
         }
-
-        // 실제 인벤토리에서 꺼낸 배터리들을 모두 미션 보관함으로 이동시킨다.
-        _stagedBatteryItemIds.AddRange(_playerInventory.MissionItems.Select(item => item.ItemId).Where(itemId => TryGetBatteryWatt(itemId, out _)));
 
         MoveCarriedBatteriesToMission();
     }
@@ -52,18 +64,13 @@ public sealed partial class BreakerBatteryMission
     private void StageNewBatteries()
     {
         _playerInventory ??= FindLocalInventory();
-        if (_playerInventory == null)
+        if (_playerInventory == null || _circuitState == null)
         {
             return;
         }
 
-        int previousCount = _stagedBatteryItemIds.Count;
+        // 등록되면 공유 목록 복제가 돌아오면서 보관함 그리드가 다시 만들어진다.
         MoveCarriedBatteriesToMission();
-
-        if (_stagedBatteryItemIds.Count > previousCount)
-        {
-            AppendInventoryCells(previousCount);
-        }
     }
 
     // 플레이어가 들고 있는 건전지를 미션 보관함으로 옮기고, 옮긴 것만 보관 목록에 기록한다.
@@ -81,9 +88,18 @@ public sealed partial class BreakerBatteryMission
 
         foreach (ItemType itemId in carriedBatteries)
         {
-            if (_playerInventory.MoveItemToMission(itemId))
+            // 실제로 인벤토리에서 빠져나간 것만 등록한다. 실패한 것을 세면 개수가 부풀고 아이템이 남는다.
+            if (!_playerInventory.MoveItemToMission(itemId))
             {
-                _stagedBatteryItemIds.Add(itemId);
+                continue;
+            }
+
+            _stagedBatteryItemIds.Add(itemId);
+
+            // 기계 보관함은 모두가 함께 보는 목록이다. 옮겨진 그 순간 한 번만 올린다.
+            if (TryGetBatteryWatt(itemId, out int watt))
+            {
+                _circuitState.ContributeBattery(watt);
             }
         }
     }

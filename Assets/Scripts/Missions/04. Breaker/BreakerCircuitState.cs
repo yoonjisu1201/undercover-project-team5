@@ -1,11 +1,43 @@
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
+// 기계에 들어온 배터리 하나. 누가 넣었는지와 지금 어디에 있는지를 서버가 들고 있다.
+// NetworkList에 담으려면 참조 타입 필드가 없어야 하고, INetworkSerializeByMemcpy를 붙여
+// 직렬화 코드가 생성되도록 해야 한다. 이게 없으면 서버가 델타를 못 보내 클라이언트 목록이 계속 빈다.
+public struct BreakerBatteryEntry : INetworkSerializeByMemcpy, IEquatable<BreakerBatteryEntry>
+{
+    public int Id;
+    public int Watt;
+
+    // 넣은 사람. 자기가 넣은 배터리만 옮기거나 뺄 수 있다.
+    public ulong Owner;
+
+    // -1이면 보관함, 0 이상이면 그 번호의 전원 슬롯이다.
+    public int SlotIndex;
+
+    public bool IsStored => SlotIndex < 0;
+
+    public bool Equals(BreakerBatteryEntry other)
+        => Id == other.Id && Watt == other.Watt && Owner == other.Owner && SlotIndex == other.SlotIndex;
+
+    public override bool Equals(object obj) => obj is BreakerBatteryEntry other && Equals(other);
+
+    public override int GetHashCode() => Id;
+}
+
 // 브레이커 배터리 미션에서 B(레버)·C(계기판)가 A와 공유해야 하는 전원·전력 상태를 서버 권한으로 관리한다.
-// 배터리를 어느 슬롯에 놓았는지는 A만 보는 로컬 UI 상태로 남기고, 여기서는 공유가 필요한 값만 다룬다.
+// 배터리 보관함과 전원판 슬롯도 여기서 소유한다. 여러 명이 각자 가져온 배터리를 같은 기계에 모아 쓰기 때문에,
+// 누가 무엇을 어디에 뒀는지를 모든 클라이언트가 같은 값으로 봐야 한다.
 public sealed class BreakerCircuitState : NetworkBehaviour
 {
+    public const int SlotCount = 4;
+
+    private readonly NetworkList<BreakerBatteryEntry> _batteries = new();
+    private readonly List<BreakerBatteryEntry> _batteryCache = new();
+    private int _nextBatteryId = 1;
+
     // A(배터리 패널)와 C(계기판)가 같은 시점에 결과 창을 띄우도록 연출 시간을 공유한다.
     // 계기판 바늘이 0에서 측정값까지 올라가는 시간이다.
     public const float MeasurementSweepSeconds = 0.9f;
@@ -42,6 +74,7 @@ public sealed class BreakerCircuitState : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        _batteries.OnListChanged += HandleBatteryListChanged;
         _powerOn.OnValueChanged += HandlePowerChanged;
         _currentWatt.OnValueChanged += HandleValueChanged;
         _targetWatt.OnValueChanged += HandleValueChanged;
@@ -54,6 +87,7 @@ public sealed class BreakerCircuitState : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        _batteries.OnListChanged -= HandleBatteryListChanged;
         _powerOn.OnValueChanged -= HandlePowerChanged;
         _currentWatt.OnValueChanged -= HandleValueChanged;
         _targetWatt.OnValueChanged -= HandleValueChanged;
@@ -91,14 +125,128 @@ public sealed class BreakerCircuitState : NetworkBehaviour
         }
     }
 
-    // A의 슬롯 구성이 바뀔 때마다 합계를 보고한다.
-    public void ReportCurrentWatt(int watt)
+    // 기계에 들어온 배터리 전부. 보관함과 슬롯을 모두 포함한다.
+    // NetworkList는 IEnumerable<T>를 구현하지 않아 LINQ가 안 먹으므로 복사해 넘긴다.
+    public IReadOnlyList<BreakerBatteryEntry> Batteries
+    {
+        get
+        {
+            _batteryCache.Clear();
+            foreach (BreakerBatteryEntry entry in _batteries)
+            {
+                _batteryCache.Add(entry);
+            }
+
+            return _batteryCache;
+        }
+    }
+
+    public int GetArrangedWatt()
+    {
+        int sum = 0;
+        foreach (BreakerBatteryEntry entry in _batteries)
+        {
+            if (!entry.IsStored)
+            {
+                sum += entry.Watt;
+            }
+        }
+
+        return sum;
+    }
+
+    // 인벤토리에서 실제로 꺼내진 배터리만 등록한다. 한 개당 정확히 한 번 호출해야 한다.
+    public void ContributeBattery(int watt)
     {
         if (IsSpawned)
         {
-            ReportCurrentWattRpc(watt);
+            ContributeBatteryRpc(watt, NetworkManager.Singleton.LocalClientId);
         }
     }
+
+    public void RequestPlaceBattery(int batteryId, int slotIndex)
+    {
+        if (IsSpawned)
+        {
+            PlaceBatteryRpc(batteryId, slotIndex, NetworkManager.Singleton.LocalClientId);
+        }
+    }
+
+    public void RequestStoreBattery(int batteryId)
+    {
+        if (IsSpawned)
+        {
+            PlaceBatteryRpc(batteryId, -1, NetworkManager.Singleton.LocalClientId);
+        }
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void ContributeBatteryRpc(int watt, ulong requesterId)
+    {
+        if (watt <= 0)
+        {
+            return;
+        }
+
+        _batteries.Add(new BreakerBatteryEntry
+        {
+            Id = _nextBatteryId++,
+            Watt = watt,
+            Owner = requesterId,
+            SlotIndex = -1
+        });
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void PlaceBatteryRpc(int batteryId, int slotIndex, ulong requesterId)
+    {
+        if (_powerOn.Value || slotIndex >= SlotCount)
+        {
+            return;
+        }
+
+        int targetIndex = -1;
+        for (int index = 0; index < _batteries.Count; index++)
+        {
+            if (_batteries[index].Id == batteryId)
+            {
+                targetIndex = index;
+                break;
+            }
+        }
+
+        if (targetIndex < 0)
+        {
+            return;
+        }
+
+        // 함께 쓰는 기계이므로 누가 넣은 배터리든 서로 옮길 수 있다.
+        // Owner는 미션이 끝났을 때 누구 아이템이었는지 정산하는 용도로만 남긴다.
+        BreakerBatteryEntry entry = _batteries[targetIndex];
+
+        // 이미 다른 배터리가 차지한 칸에는 꽂지 않는다.
+        if (slotIndex >= 0)
+        {
+            foreach (BreakerBatteryEntry other in _batteries)
+            {
+                if (other.Id != batteryId && other.SlotIndex == slotIndex)
+                {
+                    return;
+                }
+            }
+        }
+
+        entry.SlotIndex = slotIndex;
+        _batteries[targetIndex] = entry;
+
+        _arrangedWatt = GetArrangedWatt();
+        if (_powerOn.Value)
+        {
+            _currentWatt.Value = _arrangedWatt;
+        }
+    }
+
+    private void HandleBatteryListChanged(NetworkListEvent<BreakerBatteryEntry> changeEvent) => OnCircuitChanged?.Invoke();
 
     // 이 기계는 서버 소유이지만 RPC를 호출하는 건 레버/배터리 패널을 조작하는 클라이언트들이다.
     // 기본값(소유자만 호출 가능)으로는 막히므로 Everyone으로 열어둔다.
@@ -124,6 +272,14 @@ public sealed class BreakerCircuitState : NetworkBehaviour
     private void RequestMeasurementRpc()
     {
         NotifyMeasurementRpc();
+
+        // 측정은 확인을 눌렀을 때만 한다. 전원이 들어와 있어야 전류가 흐르므로 그때만 판정한다.
+        if (!_powerOn.Value || _targetWatt.Value == 0 || _currentWatt.Value != _targetWatt.Value)
+        {
+            return;
+        }
+
+        _interactable?.ServerCompleteFromGameplay(transform.position + transform.forward * 3f);
     }
 
     [Rpc(SendTo.ClientsAndHost)]
@@ -132,20 +288,8 @@ public sealed class BreakerCircuitState : NetworkBehaviour
         OnMeasurementRequested?.Invoke();
     }
 
-    // 레버를 내리고 있는 동안(전원 Off)에는 아직 측정하지 않고 배치만 기록해 둔다.
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void ReportCurrentWattRpc(int watt)
-    {
-        _arrangedWatt = watt;
-
-        // 전원이 들어와 있는 동안에는 배치를 바꿀 수 없으므로, 들어온 값은 그대로 측정값에 반영한다.
-        if (_powerOn.Value)
-        {
-            _currentWatt.Value = watt;
-        }
-    }
-
-    // 레버를 올려 전원이 들어온 순간에만 배치를 측정하고, 목표 전력과 일치하면 완료 처리한다.
+    // 전원이 들어오면 전류가 흘러 계기판에 값이 나타난다. 다만 여기서 완료 판정은 하지 않는다.
+    // 합격 여부는 A가 '확인'을 눌러 측정을 요청했을 때만 따진다.
     private void HandlePowerChanged(bool previousValue, bool currentValue)
     {
         if (IsServer)
@@ -155,13 +299,6 @@ public sealed class BreakerCircuitState : NetworkBehaviour
         }
 
         OnCircuitChanged?.Invoke();
-
-        if (!IsServer || !currentValue || _targetWatt.Value == 0 || _currentWatt.Value != _targetWatt.Value)
-        {
-            return;
-        }
-
-        _interactable?.ServerCompleteFromGameplay(transform.position + transform.forward * 3f);
     }
 
     private void HandleValueChanged(int previousValue, int currentValue) => OnCircuitChanged?.Invoke();

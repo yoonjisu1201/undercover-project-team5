@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using TMPro;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -43,10 +45,17 @@ public sealed partial class BreakerBatteryMission
         pool.Initialize(this);
     }
 
+    // 셀은 기계에 들어온 배터리 전부(내 것 + 남의 것)에 대해 하나씩 만든다.
+    // 슬롯에 꽂힌 배터리도 셀을 가지고 있어야 빼냈을 때 돌아갈 자리가 있다.
     private void RebuildInventoryGrid()
     {
         ClearInventoryItems();
-        int requiredCellCount = Mathf.Max(MinimumVisibleCellCount, _stagedBatteryItemIds.Count);
+
+        IReadOnlyList<BreakerBatteryEntry> entries = _circuitState != null
+            ? _circuitState.Batteries
+            : Array.Empty<BreakerBatteryEntry>();
+
+        int requiredCellCount = Mathf.Max(MinimumVisibleCellCount, entries.Count);
         EnsureInventoryCellCount(requiredCellCount);
 
         for (int index = 0; index < _inventoryCells.Count; index++)
@@ -54,9 +63,9 @@ public sealed partial class BreakerBatteryMission
             RectTransform cell = _inventoryCells[index];
             cell.gameObject.SetActive(index < requiredCellCount);
 
-            if (index < _stagedBatteryItemIds.Count)
+            if (index < entries.Count)
             {
-                BindInventoryItem(cell, _stagedBatteryItemIds[index]);
+                BindInventoryItem(cell, entries[index]);
             }
         }
 
@@ -68,20 +77,6 @@ public sealed partial class BreakerBatteryMission
     }
 
     // 기존 셀은 그대로 두고 새로 보관된 건전지만 빈 셀에 채운다.
-    private void AppendInventoryCells(int startIndex)
-    {
-        EnsureInventoryCellCount(Mathf.Max(MinimumVisibleCellCount, _stagedBatteryItemIds.Count));
-
-        for (int index = startIndex; index < _stagedBatteryItemIds.Count; index++)
-        {
-            RectTransform cell = _inventoryCells[index];
-            cell.gameObject.SetActive(true);
-            BindInventoryItem(cell, _stagedBatteryItemIds[index]);
-        }
-
-        LayoutRebuilder.ForceRebuildLayoutImmediate(_inventoryContent);
-        RefreshItemPositions();
-    }
 
     // 프리팹의 8칸을 우선 사용하고, 초과 수량만 첫 셀 템플릿을 복제한다.
     private void EnsureInventoryCellCount(int requiredCount)
@@ -103,26 +98,68 @@ public sealed partial class BreakerBatteryMission
         }
     }
 
-    private void BindInventoryItem(RectTransform cell, ItemType itemId)
+    private void BindInventoryItem(RectTransform cell, BreakerBatteryEntry entry)
     {
         // 복제된 셀은 원본 배터리가 전원 슬롯으로 옮겨간 상태였으면 배터리 자식이 없다.
+        // 그냥 건너뛰면 그 배터리가 화면에서 통째로 사라지므로, 다른 셀에서 하나 복제해 채운다.
         BatteryDragItem battery = cell.GetComponentInChildren<BatteryDragItem>(true);
+        if (battery == null)
+        {
+            battery = CreateBatteryItemIn(cell);
+        }
+
         if (battery == null)
         {
             return;
         }
 
-        Image image = battery.GetComponent<Image>();
-
-        if (!TryGetBatteryWatt(itemId, out int watt))
+        ItemType itemId = GetBatteryItemId(entry.Watt);
+        if (itemId == ItemType.None)
         {
             return;
         }
 
+        Image image = battery.GetComponent<Image>();
         image.sprite = GetItemIcon(itemId);
         battery.gameObject.SetActive(true);
-        battery.Initialize(this, watt, itemId, cell);
+
+        bool isMine = NetworkManager.Singleton != null && entry.Owner == NetworkManager.Singleton.LocalClientId;
+        battery.Initialize(this, entry.Watt, itemId, cell, entry.Id, isMine);
         _batteries.Add(battery);
+    }
+
+    // 배터리 자식이 없는 셀을 채우기 위해, 아직 자식이 남아 있는 셀에서 하나 복제한다.
+    private BatteryDragItem CreateBatteryItemIn(RectTransform cell)
+    {
+        foreach (RectTransform other in _inventoryCells)
+        {
+            if (other == cell)
+            {
+                continue;
+            }
+
+            BatteryDragItem source = other.GetComponentInChildren<BatteryDragItem>(true);
+            if (source == null)
+            {
+                continue;
+            }
+
+            BatteryDragItem copy = Instantiate(source, cell);
+            StretchToParent((RectTransform)copy.transform);
+            return copy;
+        }
+
+        return null;
+    }
+
+    // 보관함 목록이 바뀌었을 때만 셀을 다시 만든다. 드래그 중에 매번 새로 만들면 잡고 있던 항목이 사라진다.
+    private void RebuildInventoryGridIfChanged()
+    {
+        int sharedCount = _circuitState != null ? _circuitState.Batteries.Count : 0;
+        if (sharedCount != _batteries.Count)
+        {
+            RebuildInventoryGrid();
+        }
     }
 
     private Sprite GetItemIcon(ItemType itemId)
@@ -143,11 +180,21 @@ public sealed partial class BreakerBatteryMission
     {
         foreach (BatteryDragItem battery in _batteries)
         {
-            if (battery != null)
+            if (battery == null)
             {
-                battery.CurrentSlotIndex = -1;
-                battery.gameObject.SetActive(false);
+                continue;
             }
+
+            // 전원 슬롯에 가 있는 배터리는 원래 셀로 돌려놓는다.
+            // 셀을 복제할 때 첫 셀을 템플릿으로 쓰는데, 그 셀에 배터리 자식이 없으면
+            // 복제본도 비어 나오고 해당 배터리는 화면에서 통째로 빠진다.
+            if (battery.SourceCell != null && battery.transform.parent != battery.SourceCell)
+            {
+                MoveToInventoryCell(battery);
+            }
+
+            battery.CurrentSlotIndex = -1;
+            battery.gameObject.SetActive(false);
         }
 
         _batteries.Clear();
@@ -206,9 +253,32 @@ public sealed partial class BreakerBatteryMission
         }
 
         UpdateProgressText(false);
-        _statusText.text = _circuitState.PowerOn
-            ? "측정 중 — 목표 전력과 맞지 않습니다"
-            : "전원 차단 중 — 건전지를 배치하세요";
+
+        if (!_circuitState.PowerOn)
+        {
+            // 레버가 내려가 있으면 전류가 흐르지 않아 측정 자체를 할 수 없다.
+            _statusText.text = "측정 불가 — 레버를 올려서 전력을 측정하세요";
+            return;
+        }
+
+        // 확인을 누른 뒤 계기판 바늘이 올라가는 동안이다.
+        if (_isMeasuring)
+        {
+            _statusText.text = "측정 중 — 전력을 측정하고 있습니다";
+            return;
+        }
+
+        // 바늘이 다 움직인 뒤에야 결과를 알려준다.
+        // 모자란지 넘쳤는지는 밝히지 않는다. 그 방향은 C(계기판)만 알 수 있어야 한다.
+        if (_hasMeasurementResult)
+        {
+            _statusText.text = _measuredWatt == _circuitState.TargetWatt
+                ? "측정 완료 — 목표 전력에 도달했습니다"
+                : "측정 완료 — 목표 전력과 맞지 않습니다";
+            return;
+        }
+
+        _statusText.text = "측정 가능 — 확인 버튼을 눌러서 전력을 측정하세요";
     }
 
     private void UpdateProgressText(bool completed)
