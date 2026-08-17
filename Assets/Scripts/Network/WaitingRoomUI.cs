@@ -42,6 +42,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     private static bool s_hasCompletedNicknameSetup;
     private static string s_savedNickname;
 
+    private bool _isNicknamePanelOpen;
+
     // 현재 구독 중인 Player들의 역할 변경. 슬롯이 바뀔 때마다 전부 해제하고 현재 슬롯 기준으로 다시 구독한다.
     private readonly List<Player> _subscribedPlayers = new();
 
@@ -64,14 +66,9 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         _nicknameConfirmButton.onClick.AddListener(HandleNicknameConfirmButtonClicked);
 
         bool shouldShowNicknamePanel = !s_hasCompletedNicknameSetup;
-        _nicknameSettingPanel.SetActive(shouldShowNicknamePanel);
+        SetNicknamePanelOpen(shouldShowNicknamePanel);
 
-        // 닉네임 패널이 열려 있으면 ESC 닫기 스택에 등록한다. (ESC 시 설정창보다 먼저 닫히도록)
-        if (shouldShowNicknamePanel)
-        {
-            GameplayUiMode.Instance?.RegisterUi(this);
-        }
-        else
+        if (!shouldShowNicknamePanel)
         {
             TryApplySavedNickname();
         }
@@ -128,6 +125,13 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         GameplayUiMode.Instance?.UnregisterUi(this);
 
+        // 설정창을 연 채로 씬이 바뀌면 차단 카운트가 남아 다음 씬에서 이동이 계속 막힌다.
+        if (_isNicknamePanelOpen)
+        {
+            _isNicknamePanelOpen = false;
+            GameplayUiMode.Instance?.PopMovementBlock();
+        }
+
         if (GameSessionManager.Instance != null)
         {
             GameSessionManager.Instance.OnSessionJoined -= UpdateJoinCodeText;
@@ -168,8 +172,33 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     public void Close()
     {
         s_hasCompletedNicknameSetup = true;
-        _nicknameSettingPanel.SetActive(false);
+        SetNicknamePanelOpen(false);
+    }
+
+    // 설정창을 여닫을 때 ESC 스택 등록과 이동 차단을 한 번에 처리한다.
+    // 이동 차단은 참조 카운트 방식이라 열고 닫는 짝이 어긋나면 이동이 계속 막힌다.
+    private void SetNicknamePanelOpen(bool open)
+    {
+        _nicknameSettingPanel.SetActive(open);
+
+        if (_isNicknamePanelOpen == open)
+        {
+            return;
+        }
+
+        _isNicknamePanelOpen = open;
+
+        if (open)
+        {
+            // ESC 닫기 스택에 등록한다. (ESC 시 설정창보다 먼저 닫히도록)
+            GameplayUiMode.Instance?.RegisterUi(this);
+            // 대기방은 커서가 계속 보여야 하므로 커서는 건드리지 않고 이동만 막는다.
+            GameplayUiMode.Instance?.PushMovementBlock();
+            return;
+        }
+
         GameplayUiMode.Instance?.UnregisterUi(this);
+        GameplayUiMode.Instance?.PopMovementBlock();
     }
 
     private void HandleNicknameConfirmButtonClicked()
@@ -181,8 +210,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
             localPlayer.SetPlayerName(_nicknameInputField.text);
             SaveNicknameIfValid(_nicknameInputField.text);
             s_hasCompletedNicknameSetup = true;
-            _nicknameSettingPanel.SetActive(false);
-            GameplayUiMode.Instance?.UnregisterUi(this);
+            SetNicknamePanelOpen(false);
         }
     }
 
@@ -196,8 +224,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         }
 
         _nicknameInputField.text = GetCurrentNickname();
-        _nicknameSettingPanel.SetActive(true);
-        GameplayUiMode.Instance?.RegisterUi(this);
+        SetNicknamePanelOpen(true);
         _nicknameInputField.Select();
     }
 
