@@ -12,34 +12,34 @@ using UnityEngine.UI;
 public class MontageDressUpUI : ScreenBase {
 	
 	// 항상 탭에 같은 순서로 등장하도록 하기 위해 순서 지정
-	private readonly List<MontageParts> _partOrder = new()
+	private readonly List<ClothPart> _partOrder = new()
 	{
-		MontageParts.Hair,
-		MontageParts.Eyebrows,
-		MontageParts.Beard,
-		MontageParts.Hats,
-		MontageParts.Headphones,
-		MontageParts.Glasses,
-		MontageParts.Masks,
-		MontageParts.Torso,
-		MontageParts.Pants,
-		MontageParts.Arms,
-		MontageParts.Shoes
+		ClothPart.Hair,
+		ClothPart.Eyebrow,
+		ClothPart.Beard,
+		ClothPart.Hat,
+		ClothPart.Headphone,
+		ClothPart.Glasses,
+		ClothPart.Mask,
+		ClothPart.Torso,
+		ClothPart.Pants,
+		ClothPart.Arm,
+		ClothPart.Shoes
 	};
 
 	// 탭/레코드 UI에 표시할 파츠별 한글 라벨
-	private static readonly Dictionary<MontageParts, string> PartLabels = new Dictionary<MontageParts, string> {
-	   { MontageParts.Torso, "상의" },
-	   { MontageParts.Arms, "팔" },
-	   { MontageParts.Pants, "바지" },
-	   { MontageParts.Shoes, "신발" },
-	   { MontageParts.Hair, "헤어" },
-	   { MontageParts.Hats, "모자" },
-	   { MontageParts.Glasses, "안경" },
-	   { MontageParts.Eyebrows, "눈썹" },
-	   { MontageParts.Beard, "수염" },
-	   { MontageParts.Masks, "마스크" },
-	   { MontageParts.Headphones, "헤드폰" },
+	private static readonly Dictionary<ClothPart, string> PartLabels = new Dictionary<ClothPart, string> {
+	   { ClothPart.Torso, "상의" },
+	   { ClothPart.Arm, "팔" },
+	   { ClothPart.Pants, "바지" },
+	   { ClothPart.Shoes, "신발" },
+	   { ClothPart.Hair, "헤어" },
+	   { ClothPart.Hat, "모자" },
+	   { ClothPart.Glasses, "안경" },
+	   { ClothPart.Eyebrow, "눈썹" },
+	   { ClothPart.Beard, "수염" },
+	   { ClothPart.Mask, "마스크" },
+	   { ClothPart.Headphone, "헤드폰" },
 	};
 
 	[Header("=== 상단 ===")]
@@ -58,7 +58,6 @@ public class MontageDressUpUI : ScreenBase {
 	[SerializeField] private Color _tabInactiveColor = new Color(0f, 0f, 0f, 0f);
 
 	[Header("=== 몽타주 동기화에 필요한 오브젝트 등록 ===")]
-	[SerializeField] private MontageClothCatalog _catalog;
 	[SerializeField] private MontageSyncManager _syncManager;
 	[SerializeField] private MontageShareManager _shareManager;
 
@@ -76,12 +75,12 @@ public class MontageDressUpUI : ScreenBase {
 	[SerializeField] private LocalizedString _sendCoolDown;
 
 	// 파츠별 탭 버튼의 배경 이미지 (활성/비활성 색상 전환용)
-	private readonly Dictionary<MontageParts, Image> _tabBackgrounds = new Dictionary<MontageParts, Image>();
+	private readonly Dictionary<ClothPart, Image> _tabBackgrounds = new Dictionary<ClothPart, Image>();
 	// 현재 활성 탭에서 생성된 레코드 행 목록 (탭 전환 시 파괴 후 재생성)
 	private readonly List<MontageRecordRow> _spawnedRows = new List<MontageRecordRow>();
 
 	[Header("=== 디 버 그 용 ===")]
-	[SerializeField] private MontageParts _activePart = MontageParts.Hair;
+	[SerializeField] private ClothPart _activePart = ClothPart.Hair;
 
 	// 탭 버튼은 한 번만 생성하면 되므로 중복 생성을 막기 위한 플래그
 	private bool _initialized;
@@ -148,7 +147,7 @@ public class MontageDressUpUI : ScreenBase {
 	   if (_initialized) { return; }
 
 	   // 순서 맞춰서 기반으로 탭 생성
-	   foreach (MontageParts part in _partOrder) {
+	   foreach (ClothPart part in _partOrder) {
 	      GameObject tabObj = Instantiate(_tabButtonPrefab, _tabContainer);
 	      tabObj.name = $"Tab_{part}";
 	      tabObj.SetActive(true);
@@ -168,11 +167,11 @@ public class MontageDressUpUI : ScreenBase {
 	   _initialized = true;
 	}
 
-	private void SetActiveTab(MontageParts part) {
+	private void SetActiveTab(ClothPart part) {
 	   _activePart = part;
 
 	   // 선택된 탭만 활성 색상으로, 나머지는 비활성 색상으로 표시
-	   foreach (KeyValuePair<MontageParts, Image> pair in _tabBackgrounds) {
+	   foreach (KeyValuePair<ClothPart, Image> pair in _tabBackgrounds) {
 	      pair.Value.color = pair.Key == part ? _tabActiveColor : _tabInactiveColor;
 	   }
 
@@ -190,15 +189,15 @@ public class MontageDressUpUI : ScreenBase {
 	   int assignedId = _syncManager.State.Get(_activePart);
 
 	   // 현재 활성 파츠에 해당하는 데이터만 필터링해 행으로 생성
-	   foreach (MontageClothData data in _catalog.GetAll(_activePart)) {
-	      string recordId = $"{_activePart.ToString()}\n{data.id:00}";
+	   foreach (ClothData data in ClothCatalog.GetAll(_activePart)) {
+	      string recordId = $"{_activePart.ToString()}\n{data.Id:00}";
 
 	      MontageRecordRow row = Instantiate(_recordRowPrefab, _recordContainer);
 
 	      row.Setup(
 		      data,
 		      recordId,
-		      assignedId == data.id,
+		      assignedId == data.Id,
 		      HandleRecordClicked);
 
 	      row.gameObject.SetActive(true);
@@ -210,8 +209,8 @@ public class MontageDressUpUI : ScreenBase {
 	private void HandleRecordClicked(MontageRecordRow selectedRow)
 	{
 		// 이미 선택된 옷을 한 번 더 눌렀다면 벗는다
-		bool isSelectedAgain = _syncManager.State.Get(_activePart) == selectedRow.Data.id;
-		int requestedId = isSelectedAgain ? MontageState.None : selectedRow.Data.id;
+		bool isSelectedAgain = _syncManager.State.Get(_activePart) == selectedRow.Data.Id;
+		int requestedId = isSelectedAgain ? MontageState.None : selectedRow.Data.Id;
 
 		_syncManager.RequestSetCloth(_activePart, requestedId);
 	}
@@ -221,7 +220,7 @@ public class MontageDressUpUI : ScreenBase {
 		int assignedId = state.Get(_activePart);
 
 		foreach (MontageRecordRow row in _spawnedRows) {
-			row.SetOn(row.Data.id == assignedId);
+			row.SetOn(row.Data.Id == assignedId);
 		}
 	}
 	

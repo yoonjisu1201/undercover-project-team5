@@ -2,8 +2,8 @@
 using UnityEngine;
 
 public class Montage : MonoBehaviour {
-	private Dictionary<MontageParts, GameObject> _clothByParts;
-	private Dictionary<MontageParts, GameObject> _rootParts;
+	private Dictionary<ClothPart, GameObject> _clothByParts;
+	private Dictionary<ClothPart, GameObject> _rootParts;
 
 	[Header("=== 각 위치의 루트 아이템들 ===")]
 	[SerializeField] private GameObject HeadRoot;
@@ -16,20 +16,20 @@ public class Montage : MonoBehaviour {
 	[SerializeField] private Transform _clothParent;
 	
 	public void Initialize() {
-		_clothByParts = new Dictionary<MontageParts, GameObject>();
+		_clothByParts = new Dictionary<ClothPart, GameObject>();
 		
 		// 옷을 입히면 사라져야 하는 부위들 (루트파츠)
 		// 이게 사라지지 않으면, 두 개의 파츠가 겹치면서 노란 반점 생김
-		_rootParts = new Dictionary<MontageParts, GameObject> {
-			{ MontageParts.Torso, TorsoRoot },
-			{ MontageParts.Arms, ArmRoot },
-			{ MontageParts.Pants, PantsRoot },
-			{ MontageParts.Shoes, ShoesRoot }
+		_rootParts = new Dictionary<ClothPart, GameObject> {
+			{ ClothPart.Torso, TorsoRoot },
+			{ ClothPart.Arm, ArmRoot },
+			{ ClothPart.Pants, PantsRoot },
+			{ ClothPart.Shoes, ShoesRoot }
 		};
 	}
 	
 	// 옷입히기
-	public void WearCloth(MontageParts part, GameObject cloth) {
+	public void WearCloth(ClothPart part, GameObject cloth) {
 		// 이미 존재하면 갈아입혀야 함.
 		if (_clothByParts.TryGetValue(part, out _)) { RemoveCloth(part); }
 		
@@ -45,7 +45,7 @@ public class Montage : MonoBehaviour {
 	}
 	
 	// 옷벗기기
-	public void RemoveCloth(MontageParts part) {
+	public void RemoveCloth(ClothPart part) {
 		if (!_clothByParts.TryGetValue(part, out GameObject cloth)) {
 			return;
 		}
@@ -62,7 +62,7 @@ public class Montage : MonoBehaviour {
 	}
 
 	public void RemoveAllClothes() {
-		foreach (MontageParts part in new List<MontageParts>(_clothByParts.Keys)) {
+		foreach (ClothPart part in new List<ClothPart>(_clothByParts.Keys)) {
 			RemoveCloth(part);
 		}
 	}
@@ -75,7 +75,7 @@ public class Montage : MonoBehaviour {
 		SetActiveIfNotNull(ShoesRoot, visible);
 	}
 
-	public bool TryGetClothBounds(MontageParts part, out Bounds bounds) {
+	public bool TryGetClothBounds(ClothPart part, out Bounds bounds) {
 		bounds = default;
 
 		if (!_clothByParts.TryGetValue(part, out GameObject cloth) || cloth == null) {
