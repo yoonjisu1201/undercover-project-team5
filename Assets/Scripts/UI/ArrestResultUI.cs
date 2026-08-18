@@ -2,6 +2,7 @@ using System;
 using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UI;
 
 // 검거 판정 결과(범인/오검거) 패널을 표시한다.
 public class ArrestResultUI : MonoBehaviour, IClosableUi
@@ -14,6 +15,14 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
 
     [SerializeField] private ArrestCandidatePortrait _candidatePortrait; //검거 대상 NPC 실시간 이미지
 
+    [Header("=== 검거 확인 패널 ===")]
+    [SerializeField] private GameObject _confirmPanel;   //"외계인으로 지정하시겠습니까?" 확인 패널
+    [SerializeField] private Button _confirmYesButton;
+    [SerializeField] private Button _confirmNoButton;
+
+    // 확인 패널에서 [예]를 눌렀을 때 검거를 요청할 대상.
+    private ArrestCandidateInteractable _pendingCandidate;
+
     // 커서를 풀어준 상태인지. GameplayUiMode의 Activate/Deactivate를 정확히 짝 맞춰 호출하기 위해 기록해둔다.
     private bool _cursorActivated;
 
@@ -22,6 +31,10 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
         _wrongTargetPanel.SetActive(false);
         _arrestSuccessPanel.SetActive(false);
         _revealedPanel.SetActive(false);
+        _confirmPanel.SetActive(false);
+
+        _confirmYesButton.onClick.AddListener(HandleConfirmYesClicked);
+        _confirmNoButton.onClick.AddListener(HandleConfirmNoClicked);
 
         ArrestJudgementManager.Instance.OnJudged += HandleJudged;
         RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
@@ -29,6 +42,9 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
 
     private void OnDestroy()
     {
+        _confirmYesButton.onClick.RemoveListener(HandleConfirmYesClicked);
+        _confirmNoButton.onClick.RemoveListener(HandleConfirmNoClicked);
+
         if (ArrestJudgementManager.Instance != null)
         {
             ArrestJudgementManager.Instance.OnJudged -= HandleJudged;
@@ -46,6 +62,70 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
         }
 
         GameplayUiMode.Instance?.UnregisterUi(this);
+    }
+
+    // 다른 UI가 커서를 다시 잠그더라도 이 패널들이 열려 있는 동안은 커서가 보여야 한다.
+    // GameplayUiMode의 카운터만 믿으면 짝이 어긋났을 때 커서가 잠긴 채로 남는다.
+    private void LateUpdate()
+    {
+        if (!_confirmPanel.activeSelf && !_arrestSuccessPanel.activeSelf && !_wrongTargetPanel.activeSelf)
+        {
+            return;
+        }
+
+        if (!Cursor.visible || Cursor.lockState != CursorLockMode.None)
+        {
+            // 값만 다시 써도 화면에는 안 나오는 경우가 있어 Locked를 한 번 거친다.
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+    }
+
+    // NPC에 E를 눌렀을 때 ArrestCandidateInteractable이 호출하는 진입점.
+    // 바로 판정하지 않고 "외계인으로 지정하시겠습니까?" 확인 패널을 먼저 띄운다.
+    public void RequestOpenConfirmPanel(ArrestCandidateInteractable candidate)
+    {
+        if (candidate == null || _confirmPanel.activeSelf) return;
+
+        _pendingCandidate = candidate;
+        _candidatePortrait.ShowCandidate(candidate.NetworkObject);
+        _confirmPanel.SetActive(true);
+
+        UpdateCursorState();
+        GameplayUiMode.Instance?.RegisterUi(this);
+    }
+
+    private void HandleConfirmYesClicked()
+    {
+        ArrestCandidateInteractable candidate = _pendingCandidate;
+        CloseConfirmPanel(false);
+        candidate?.ConfirmArrest();
+    }
+
+    private void HandleConfirmNoClicked()
+    {
+        CloseConfirmPanel(true);
+    }
+
+    // resumeCandidate가 true면 붙잡아 둔 NPC를 다시 움직이게 한다.
+    // [예]로 닫을 때는 판정 흐름이 이어지므로 풀지 않는다.
+    private void CloseConfirmPanel(bool resumeCandidate)
+    {
+        if (!_confirmPanel.activeSelf) return;
+
+        _confirmPanel.SetActive(false);
+
+        if (resumeCandidate)
+        {
+            _pendingCandidate?.CancelPendingConfirmation();
+            // 취소했는데 캡처해둔 초상이 남아 있으면 다음에 열 때 이전 대상이 잠깐 보인다.
+            _candidatePortrait.Clear();
+        }
+
+        _pendingCandidate = null;
+        GameplayUiMode.Instance?.UnregisterUi(this);
+        UpdateCursorState();
     }
 
     // 검거 판정 결과가 나오면 결과 패널을 띄운다. 범인이 아니어도(오검거) 패널은 표시한다.
@@ -69,9 +149,10 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
         }
     }
 
-    // ESC(스택)로 닫을 때 판정 결과창을 로컬에서 감춘다.
+    // ESC(스택)로 닫을 때 열려 있는 창을 로컬에서 감춘다.
     public void Close()
     {
+        CloseConfirmPanel(true);
         CloseResultPanel();
     }
 
@@ -91,6 +172,7 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
     {
         if (state == RoundState.InRound) return;
 
+        CloseConfirmPanel(true);
         CloseResultPanel();
     }
 
@@ -105,7 +187,7 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
     // 판정 결과 패널이 열려 있으면 커서를 풀어준다.
     private void UpdateCursorState()
     {
-        bool anyPanelOpen = _arrestSuccessPanel.activeSelf || _wrongTargetPanel.activeSelf;
+        bool anyPanelOpen = _arrestSuccessPanel.activeSelf || _wrongTargetPanel.activeSelf || _confirmPanel.activeSelf;
 
         if (anyPanelOpen && !_cursorActivated)
         {

@@ -54,10 +54,52 @@ public class ArrestCandidateInteractable : InteractableBase
             return;
         }
 
+        // 바로 판정하지 않고 확인 패널을 먼저 띄운다.
+        // 패널을 보는 동안 NPC가 멀어져 서버 재검증에 실패하지 않도록 이 시점에 붙잡아 둔다.
+        RequestPauseForConfirmationRpc();
+        FindFirstObjectByType<ArrestResultUI>()?.RequestOpenConfirmPanel(this);
+    }
+
+    // 확인 패널에서 [예]를 눌렀을 때 ArrestResultUI가 호출하는 진입점.
+    public void ConfirmArrest()
+    {
         RequestArrestRpc();
     }
 
+    // 확인 패널에서 [아니요]를 누르거나 패널을 닫았을 때 ArrestResultUI가 호출하는 진입점.
+    public void CancelPendingConfirmation()
+    {
+        RequestResumeAfterCancelRpc();
+    }
+
     //--- 서버에서 검거 요청을 재검증하는 Rpc ---//
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestPauseForConfirmationRpc(RpcParams rpcParams = default)
+    {
+        if (!IsSpawned || !CanInteract(gameObject)) {
+            return;
+        }
+
+        if (!NpcInteractionValidation.TryGetInteractionCollider(NetworkManager, rpcParams.Receive.SenderClientId, out SphereCollider interactionCollider) ||
+            !NpcInteractionValidation.IsWithinInteractionRange(transform.position, interactionCollider, _rangeTolerance))
+        {
+            return;
+        }
+
+        GetComponent<NpcMovement>()?.HoldExternally();
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestResumeAfterCancelRpc(RpcParams rpcParams = default)
+    {
+        if (!IsSpawned)
+        {
+            return;
+        }
+
+        GetComponent<NpcMovement>()?.ReleaseExternalHold();
+    }
+
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestArrestRpc(RpcParams rpcParams = default)
     {

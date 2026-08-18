@@ -122,13 +122,13 @@ public class ArrestJudgementManager : NetworkBehaviour
 
     // 오검거 시 방해 효과 2종(시야 방해/글리치) 중 하나를 랜덤으로 발동한다.
     // 발동 시점은 검거 방식이 확정된 뒤에 붙인다. 효과 자체는 그대로 둔다.
-    private void TriggerRandomInterferenceEffect()
-    {
-        InterferenceEffectType[] effectOptions = { InterferenceEffectType.FieldVision, InterferenceEffectType.Glitch };
-        InterferenceEffectType chosen = effectOptions[UnityEngine.Random.Range(0, effectOptions.Length)];
+    // private void TriggerRandomInterferenceEffect()
+    // {
+    //     InterferenceEffectType[] effectOptions = { InterferenceEffectType.FieldVision, InterferenceEffectType.Glitch };
+    //     InterferenceEffectType chosen = effectOptions[UnityEngine.Random.Range(0, effectOptions.Length)];
 
-        InterferenceEffectManager.Instance?.TryStartEffect(chosen);
-    }
+    //     InterferenceEffectManager.Instance?.TryStartEffect(chosen);
+    // }
 
     public override void OnDestroy()
     {
