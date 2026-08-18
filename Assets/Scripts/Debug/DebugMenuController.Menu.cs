@@ -24,7 +24,6 @@ public sealed partial class DebugMenuController
     [SerializeField] private Button[] _regionButtons;
     [SerializeField] private Button _criminalMarkerButton;
     [SerializeField] private Button _soloCaptureButton;
-    [SerializeField] private Button _soloVoteButton;
     [SerializeField] private Button _criminalFreezeButton;
     [SerializeField] private Button _timeStopButton;
 

@@ -2,7 +2,7 @@ using System.Reflection;
 using Unity.Netcode;
 using UnityEngine;
 
-// 범인 표시, 단독 검거·투표, 범인 정지, 몽타주 전송을 처리합니다.
+// 범인 표시, 단독 검거, 범인 정지, 몽타주 전송을 처리합니다.
 public sealed partial class DebugMenuController
 {
     private static readonly FieldInfo MontageStateField =
@@ -10,21 +10,7 @@ public sealed partial class DebugMenuController
 
     private bool _criminalMarkerVisible;
     private bool _soloCaptureEnabled;
-    private bool _soloVoteEnabled;
     private bool _criminalFrozen;
-
-    // 혼자서도 검거 투표가 가결되도록 가결 기준을 1표로 낮춥니다.
-    public void OnToggleSoloVoteClick()
-    {
-        if (!IsSpawned)
-        {
-            ShowStatus("네트워크 연결 후 사용할 수 있습니다.");
-            return;
-        }
-
-        RequestToggleSoloVoteRpc();
-        ShowStatus("나혼자 투표 상태를 전환했습니다.");
-    }
 
     public void OnToggleCriminalMarkerClick()
     {
@@ -84,20 +70,6 @@ public sealed partial class DebugMenuController
     private void ApplySoloCaptureStateRpc(bool enabled)
     {
         SetToggleButtonState(_soloCaptureButton, enabled);
-    }
-
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestToggleSoloVoteRpc()
-    {
-        _soloVoteEnabled = !_soloVoteEnabled;
-        FindFirstObjectByType<ArrestVoteManager>()?.SetDebugSoloVoteEnabled(_soloVoteEnabled);
-        ApplySoloVoteStateRpc(_soloVoteEnabled);
-    }
-
-    [Rpc(SendTo.Everyone)]
-    private void ApplySoloVoteStateRpc(bool enabled)
-    {
-        SetToggleButtonState(_soloVoteButton, enabled);
     }
 
     // 서버가 범인과 외계인 분신의 이동을 함께 정지하거나 다시 풀어줍니다.
