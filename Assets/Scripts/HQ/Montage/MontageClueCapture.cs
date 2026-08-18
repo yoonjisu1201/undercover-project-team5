@@ -261,6 +261,12 @@ public sealed class MontageClueCapture {
 				return 0.8f;
 			case ClothPart.Mask:
 				return 0.8f;
+			case ClothPart.Beard:
+				return 0.8f;
+			case ClothPart.Torso:
+				return 0.8f;
+			case ClothPart.Glasses:
+				return 0.8f;
 			default:
 				return 1f;
 		}
@@ -284,15 +290,16 @@ public sealed class MontageClueCapture {
 			case ClothPart.Headphone:
 			case ClothPart.Eyebrow:
 			case ClothPart.Beard:
-			case ClothPart.Glasses:
 			case ClothPart.Mask:
 				return FillLightIntensity * 0.6f;
+			case ClothPart.Glasses:
+				return FillLightIntensity * 0.45f;
 			case ClothPart.Arm:
 				return FillLightIntensity * 1.15f;
 			case ClothPart.Pants:
-				return FillLightIntensity * 0.75f;
-			case ClothPart.Torso:
 				return FillLightIntensity * 0.45f;
+			case ClothPart.Torso:
+				return FillLightIntensity * 0.35f;
 			case ClothPart.Shoes:
 				return FillLightIntensity * 0.35f;
 			default:
@@ -305,17 +312,18 @@ public sealed class MontageClueCapture {
 			case ClothPart.Shoes:
 				return 1.15f;
 			case ClothPart.Torso:
-				return 1.25f;
+				return 1.1f;
 			case ClothPart.Pants:
-				return 1.6f;
+				return 1.3f;
 			case ClothPart.Hair:
 			case ClothPart.Hat:
 			case ClothPart.Headphone:
 			case ClothPart.Eyebrow:
 			case ClothPart.Beard:
-			case ClothPart.Glasses:
 			case ClothPart.Mask:
 				return 1.45f;
+			case ClothPart.Glasses:
+				return 1.3f;
 			default:
 				return LightIntensityMultiplier;
 		}
