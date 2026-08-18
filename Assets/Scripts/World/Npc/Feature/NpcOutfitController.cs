@@ -4,20 +4,6 @@ using UnityEngine;
 using Random = UnityEngine.Random;
 
 public class NpcOutfitController : MonoBehaviour {
-	[Header("=== 사용 가능한 Outfit List 모두 등록하기 (본체와 같은 스켈레톤을 공유하는 자식들) ===")]
-	[SerializeField] private GameObject[] _beardList;
-	[SerializeField] private GameObject[] _eyebrowList;
-	[SerializeField] private GameObject[] _glassesList;
-	[SerializeField] private GameObject[] _hairList;
-	[SerializeField] private GameObject[] _hatList;
-	[SerializeField] private GameObject[] _headPhoneList;
-	[SerializeField] private GameObject[] _leftArmList;
-	[SerializeField] private GameObject[] _rightArmList;
-	[SerializeField] private GameObject[] _maskList;
-	[SerializeField] private GameObject[] _pantsList;
-	[SerializeField] private GameObject[] _shoesList;
-	[SerializeField] private GameObject[] _torsoList;
-
 	[Header("=== 외형 생성 시에 사용할 각종 변수들 ===")]
 	[Range(0.0f, 1.0f)] [SerializeField] private float _beardPossibility = 0.5f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _eyebrowPossibility = 1.0f;
@@ -34,15 +20,13 @@ public class NpcOutfitController : MonoBehaviour {
 	[Header("=== 헤드폰과 모자 동시 스폰 가능 여부 ===")]
 	[SerializeField] private bool _headPhoneAndHatAtTheSameTime = false;
 
-	[Header("=== 모듈러 파츠 (지정하면 위 리스트 대신 공용 ClothCatalog에서 뽑힌 파츠만 런타임 생성) ===")]
+	[Header("=== 모듈러 파츠 (공용 ClothCatalog에서 뽑힌 파츠만 런타임 생성) ===")]
 	[SerializeField] private NpcPartCatalog _partCatalog;
 	[SerializeField] private Transform _partRoot;
 	[SerializeField] private Transform _skeletonRoot;
 
 	private Transform[] _bones;
 	private Transform _rootBone;
-
-	private bool UseCatalog => _partCatalog != null;
 
 	public OutfitFeature CreateRandomOutfitFeature() {
 		OutfitFeature feature = new OutfitFeature();
@@ -63,19 +47,16 @@ public class NpcOutfitController : MonoBehaviour {
 
 		return feature;
 	}
-
-	// 카탈로그를 쓰면 ClothCatalog에서 뽑은 ClothData.Id를, 아니면 기존 프리팹 자식 배열의 인덱스를 돌려준다.
-	// 어느 쪽이든 OutfitFeature에는 그대로 저장할 수 있다(카탈로그 쪽은 Id가, 레거시 쪽은 배열 인덱스가 곧 값).
-	private int GetRandomPartNumber(ClothPart part, float possibility) {
-		if (UseCatalog) {
-			if (!ShouldEquip(possibility)) {
-				return -1;
-			}
-
-			return GetRandomNpcClothId(part);
+	
+	private static int GetRandomPartNumber(ClothPart part, float possibility) {
+		// 해당 NPC가 이 부위 장비 입을지 말지 Possibility기반으로 먼저 결정.
+		// 입지 않기로 했다면, -1 반환
+		if (!ShouldEquip(possibility)) {
+			return -1;
 		}
 
-		return GetRandomPartIndex(GetLegacyPartList(part), possibility);
+		// 입기로 했다면, Index골라서 반환
+		return GetRandomNpcClothId(part);
 	}
 
 	// 카탈로그에는 몽타주 전용 항목(NpcPrefab 없음)도 섞여 있을 수 있으므로, NPC가 실제로
@@ -84,70 +65,24 @@ public class NpcOutfitController : MonoBehaviour {
 		IReadOnlyList<ClothData> options = ClothCatalog.GetAll(part);
 		List<ClothData> usable = new List<ClothData>(options.Count);
 
+		// NpcPrefab 없는 데이터는 거르는 부분.
+		// 사실 이런 데이터 자체가 없어야 하긴 한다. 당장 수정하기 시간이 없어 놔둠
 		foreach (ClothData data in options) {
 			if (data.NpcPrefab != null) {
 				usable.Add(data);
 			}
 		}
 
-		if (usable.Count == 0) {
-			return -1;
-		}
+		if (usable.Count == 0) { return -1; }
 
 		return usable[Random.Range(0, usable.Count)].Id;
 	}
-
-	// 카탈로그를 쓰지 않을 때만 참조하는, 프리팹 자식으로 들고 있는 파츠 목록.
-	private GameObject[] GetLegacyPartList(ClothPart part) {
-		return part switch {
-			ClothPart.Beard => _beardList,
-			ClothPart.Eyebrow => _eyebrowList,
-			ClothPart.Glasses => _glassesList,
-			ClothPart.Hair => _hairList,
-			ClothPart.Hat => _hatList,
-			ClothPart.Headphone => _headPhoneList,
-			ClothPart.Arm => _leftArmList,
-			ClothPart.Mask => _maskList,
-			ClothPart.Pants => _pantsList,
-			ClothPart.Shoes => _shoesList,
-			ClothPart.Torso => _torsoList,
-			_ => null
-		};
-	}
-
-	private static void SetActivePart(GameObject[] partList, int activeIndex) {
-		for (int index = 0; index < partList.Length; index++) {
-			GameObject part = partList[index];
-
-			// 파츠 미사용시 그냥 삭제
-			if (part != null) {
-				if (index == activeIndex) {
-					part.SetActive(index == activeIndex);
-				} else {
-					Destroy(part);
-				}
-			}
-		}
-	}
-
 
 	// Possibility 기반으로 그 부위 입을지 말지
 	private static bool ShouldEquip(float possibility) {
 		return possibility >= 1f ||
 		       possibility > 0f && Random.value < possibility;
 	}
-
-	// 특정 파트에 무언가를 입을지 말지, 입는다면 뭘 입을지 결정한다.
-	private static int GetRandomPartIndex(GameObject[] partList, float possibility) {
-		int partCount = partList?.Length ?? 0;
-
-		if (partCount == 0 || !ShouldEquip(possibility)) {
-			return -1;
-		}
-
-		return Random.Range(0, partCount);
-	}
-
 
 	// 헤드폰, 모자 동시에 낄 수 없으니 확률로 둘 중 하나만 남기기
 	private void ResolveHatAndHeadPhoneConflict(OutfitFeature feature) {
@@ -165,34 +100,13 @@ public class NpcOutfitController : MonoBehaviour {
 		feature.HeadphoneNumber = -1;
 	}
 
-
+	// 뽑힌 파츠만 생성해서 본체 스켈레톤에 다시 바인딩한다.
 	public void ApplyOutfit(OutfitFeature feature) {
 		if (feature == null) {
 			Debug.LogError("[NPC] 적용할 NpcFeature가 없습니다.", this);
 			return;
 		}
 
-		if (UseCatalog) {
-			ApplyOutfitFromCatalog(feature);
-			return;
-		}
-
-		SetActivePart(_beardList, feature.BeardNumber);
-		SetActivePart(_eyebrowList, feature.EyebrowsNumber);
-		SetActivePart(_glassesList, feature.GlassesNumber);
-		SetActivePart(_hairList, feature.HairNumber);
-		SetActivePart(_hatList, feature.HatNumber);
-		SetActivePart(_headPhoneList, feature.HeadphoneNumber);
-		SetActivePart(_leftArmList, feature.ArmNumber);
-		SetActivePart(_rightArmList, feature.ArmNumber);
-		SetActivePart(_maskList, feature.MaskNumber);
-		SetActivePart(_pantsList, feature.PantsNumber);
-		SetActivePart(_shoesList, feature.ShoesNumber);
-		SetActivePart(_torsoList, feature.TorsoNumber);
-	}
-
-	// 뽑힌 파츠만 생성해서 본체 스켈레톤에 다시 바인딩한다.
-	private void ApplyOutfitFromCatalog(OutfitFeature feature) {
 		if (!TryCacheBones()) {
 			return;
 		}

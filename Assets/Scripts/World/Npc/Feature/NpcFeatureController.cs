@@ -17,8 +17,6 @@ public class NpcFeatureController : NetworkBehaviour {
 		NetworkVariableWritePermission.Server
 	);
 
-	public NpcFeature NpcFeature => _feature.Value;
-
 	private void Awake() {
 		_outfitController = GetComponent<NpcOutfitController>();
 		EnsureIdentificationLights();

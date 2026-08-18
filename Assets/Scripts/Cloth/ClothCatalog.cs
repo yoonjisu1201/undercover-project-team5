@@ -12,6 +12,9 @@ using UnityEngine;
 public static class ClothCatalog {
 	private static string GetLoadPath(ClothPart part) => Path.Combine("ClothData", part.ToString());
 
+	// 같은 데이터를 두 가지 모양으로 인덱싱해둔다. 한쪽만으로는 두 접근 패턴을 다 못 만족한다.
+	// - DataByParts: Find(part, id)용. "id로 바로 찾기"는 Dictionary가 O(1)이라 빠르다.
+	// - OrderedDataByParts: GetAll(part)용. 몽타주 UI가 id 순서대로 나열하거나 NPC가 Random.Range(0, count)로 인덱스를 뽑아 접근하려면 순서가 있는 List가 필요하다.
 	private static readonly Dictionary<ClothPart, Dictionary<int, ClothData>> DataByParts = new();
 	private static readonly Dictionary<ClothPart, List<ClothData>> OrderedDataByParts = new();
 
