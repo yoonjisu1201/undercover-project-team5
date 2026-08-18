@@ -9,7 +9,7 @@ public enum ArrestChaseState
     Completed  // 게이지가 다 차서 검거가 완료됨
 }
 
-// 검거 투표가 가결되고 대상이 실제 범인으로 판정된 뒤의 "추격전" 단계를 관리한다.
+// 대상이 실제 범인으로 판정된 뒤의 "추격전" 단계를 관리한다.
 // 흐름: ArrestJudgementManager가 범인 판정을 내리면 StartChase()를 호출해 이 매니저가 추격을 시작한다.
 public class ArrestChaseManager : NetworkBehaviour
 {
@@ -33,8 +33,7 @@ public class ArrestChaseManager : NetworkBehaviour
     private NetworkObject _target;
 
     // _target을 클라이언트도 읽을 수 있게 동기화한 참조.
-    // ArrestVoteManager.ArrestCandidate는 투표 결과 화면이 끝나면(가결 3초 후) 지워지므로,
-    // 추격이 끝날 때까지 유지되는 별도의 스냅샷이 필요해서 여기 따로 둔다.
+    // 추격이 끝날 때까지 유지되는 스냅샷이 필요해서 여기 따로 둔다.
     private readonly NetworkVariable<NetworkObjectReference> _targetReference =
         new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -67,7 +66,7 @@ public class ArrestChaseManager : NetworkBehaviour
         _debugSoloCaptureEnabled = enabled;
     }
 
-    // UI가 구독해서 게이지 바/안내 문구를 갱신하는 데 쓰는 이벤트. ArrestVoteManager의 이벤트 패턴과 동일하다.
+    // UI가 구독해서 게이지 바/안내 문구를 갱신하는 데 쓰는 이벤트.
     public event Action<ArrestChaseState> OnStateChanged;
     public event Action<float> OnGaugeChanged;
 

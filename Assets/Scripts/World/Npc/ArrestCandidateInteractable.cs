@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class ArrestCandidateInteractable : InteractableBase
 {
-    public override string InteractionText => "검거 후보로 지정?";
+    public override string InteractionText => "검거하기";
 
     // 추적기를 선택 중일 때는 검거 후보 지정 문구 대신 부착 안내/이미 부착됨 안내를 보여준다.
     public override string GetInteractionText(GameObject interactor)
@@ -22,12 +22,10 @@ public class ArrestCandidateInteractable : InteractableBase
         return !TryGetComponent(out NpcTracker tracker) || !tracker.IsTrackerItemSelected(interactor) || !tracker.IsTracked;
     }
 
-    // 이미 다른 대상으로 투표가 진행 중이거나 추격전이 진행 중이면 새 후보를 지정할 수 없다.
+    // 추격전이 진행 중이면 다른 NPC를 새로 검거할 수 없다.
     public override bool CanInteract(GameObject interactor)
     {
-        return ArrestVoteManager.Instance != null
-            && ArrestVoteManager.Instance.CurrentVoteState == ArrestVoteState.Idle
-            && (ArrestChaseManager.Instance == null || ArrestChaseManager.Instance.CurrentState == ArrestChaseState.Idle);
+        return ArrestChaseManager.Instance == null || ArrestChaseManager.Instance.CurrentState == ArrestChaseState.Idle;
     }
 
     // NPC는 계속 움직이므로 조준 판정 반경을 넉넉하게 잡는다.
@@ -56,33 +54,32 @@ public class ArrestCandidateInteractable : InteractableBase
             return;
         }
 
-        // 확인 패널을 여는 동안 NPC가 멀어져서 재검사에 실패하지 않도록, 상호작용 시점에 바로 멈춰둔다.
+        // 바로 판정하지 않고 확인 패널을 먼저 띄운다.
+        // 패널을 보는 동안 NPC가 멀어져 서버 재검증에 실패하지 않도록 이 시점에 붙잡아 둔다.
         RequestPauseForConfirmationRpc();
-        FindFirstObjectByType<ArrestVoteUI>()?.RequestOpenStartVotePanel(this);
+        FindFirstObjectByType<ArrestResultUI>()?.RequestOpenConfirmPanel(this);
     }
 
-    // 확인 패널에서 [아니요]를 누르거나 패널을 닫았을 때 ArrestVoteUI가 호출하는 진입점.
+    // 확인 패널에서 [예]를 눌렀을 때 ArrestResultUI가 호출하는 진입점.
+    public void ConfirmArrest()
+    {
+        RequestArrestRpc();
+    }
+
+    // 확인 패널에서 [아니요]를 누르거나 패널을 닫았을 때 ArrestResultUI가 호출하는 진입점.
     public void CancelPendingConfirmation()
     {
         RequestResumeAfterCancelRpc();
     }
 
-    // 확인 패널에서 [네]를 눌렀을 때 ArrestVoteUI가 호출하는 진입점.
-    public void ConfirmArrestCandidate()
-    {
-        RequestSelectArrestCandidateRpc();
-    }
-
-    //--- 서버에서 검거 후보 지정 요청을 재검증하는 Rpc 관련 코드 ---//
+    //--- 서버에서 검거 요청을 재검증하는 Rpc ---//
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestPauseForConfirmationRpc(RpcParams rpcParams = default)
     {
-        // 확인 패널이 실제로 열릴 수 없는 상황(투표 진행 중, 횟수 소진)이면 멈추지도 않는다.
-        if (!IsSpawned || !CanInteract(gameObject) || ArrestVoteManager.Instance.RemainingVoteAttempts <= 0) {
+        if (!IsSpawned || !CanInteract(gameObject)) {
             return;
         }
 
-        // 거리 재검증 로직은 NpcTracker(위치추적기 부착)와 공유하기 위해 NpcInteractionValidation으로 옮겼다. 동작은 기존과 동일.
         if (!NpcInteractionValidation.TryGetInteractionCollider(NetworkManager, rpcParams.Receive.SenderClientId, out SphereCollider interactionCollider) ||
             !NpcInteractionValidation.IsWithinInteractionRange(transform.position, interactionCollider, _rangeTolerance))
         {
@@ -104,24 +101,19 @@ public class ArrestCandidateInteractable : InteractableBase
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestSelectArrestCandidateRpc(RpcParams rpcParams = default)
+    private void RequestArrestRpc(RpcParams rpcParams = default)
     {
-        if (!IsSpawned)
-        {
+        if (!IsSpawned || !CanInteract(gameObject)) {
             return;
         }
 
+        // 거리 재검증 로직은 NpcTracker(위치추적기 부착)와 공유하기 위해 NpcInteractionValidation으로 옮겼다. 동작은 기존과 동일.
         if (!NpcInteractionValidation.TryGetInteractionCollider(NetworkManager, rpcParams.Receive.SenderClientId, out SphereCollider interactionCollider) ||
             !NpcInteractionValidation.IsWithinInteractionRange(transform.position, interactionCollider, _rangeTolerance))
         {
             return;
         }
 
-        // 후보 지정이 성공했을 때만 같은 흐름에서 바로 투표를 시작해서, 후보 미지정 상태로 투표가 시작되는 경쟁 상태를 막는다.
-        // 투표 시작패널에서 [네] 클릭후 바로 부결처리가 되는 원인
-        if (ArrestVoteManager.Instance != null && ArrestVoteManager.Instance.TrySetArrestCandidate(NetworkObject))
-        {
-            ArrestVoteManager.Instance.RequestStartVoteServerRpc();
-        }
+        ArrestJudgementManager.Instance?.TryJudgeArrest(NetworkObject);
     }
 }

@@ -26,7 +26,8 @@ public sealed class SceneCursorSettings : MonoBehaviour
 
     public void ApplyDefaultCursorState()
     {
-        Cursor.visible = _cursorVisibleByDefault;
+        // lockState를 먼저 적용해야 한다. 뒤에 두면 잠금 해제 과정에서 visible이 덮어써진다.
         Cursor.lockState = _cursorVisibleByDefault ? CursorLockMode.None : CursorLockMode.Locked;
+        Cursor.visible = _cursorVisibleByDefault;
     }
 }

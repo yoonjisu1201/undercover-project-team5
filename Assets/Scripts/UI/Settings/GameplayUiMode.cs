@@ -57,13 +57,36 @@ public class GameplayUiMode : MonoBehaviour
         _sceneCursorSettings.ApplyDefaultCursorState();
     }
 
+    // 커서를 켜기로 한 동안에는 매 프레임 상태를 지킨다.
+    // 다른 UI가 짝 없이 DeactivateCursor를 불러 커서가 다시 잠기는 일을 여기서 막는다.
+    private void LateUpdate()
+    {
+        if (_cursorActivationCount <= 0)
+        {
+            return;
+        }
+
+        if (!Cursor.visible || Cursor.lockState != CursorLockMode.None)
+        {
+            ForceUnlockCursor();
+        }
+    }
+
+    // 값이 이미 None/true여도 화면에는 커서가 안 나오는 경우가 있다.
+    // Locked를 한 번 거쳐 상태 전이를 만들어야 실제로 커서를 놓아준다.
+    private static void ForceUnlockCursor()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
     public void ActivateCursor()
     {
         _cursorActivationCount++;
         IsActive = true;
         IsMovementBlocked = true;
-        Cursor.visible = true;
-        Cursor.lockState = CursorLockMode.None;
+        ForceUnlockCursor();
     }
 
     // 커서 상태는 그대로 두고 이동만 막는다.
@@ -89,8 +112,7 @@ public class GameplayUiMode : MonoBehaviour
         {
             IsActive = true;
             IsMovementBlocked = true;
-            Cursor.visible = true;
-            Cursor.lockState = CursorLockMode.None;
+            ForceUnlockCursor();
             return;
         }
 

@@ -15,13 +15,6 @@ public enum RoundState
     Success      // 게임 성공 (마지막 라운드 검거 성공)
 }
 
-public enum RoundFailReason
-{
-    TimeOver,          // 라운드 제한 시간 초과
-    AllPlayersDowned,  // 플레이어 전원 체력 소진
-    VoteExhausted      // 검거 투표 횟수 소진
-}
-
 [System.Serializable]
 public class RoundConfig
 {
@@ -100,9 +93,6 @@ public partial class RoundManager : NetworkBehaviour
     // GetRemainingTime()이 Fail/Success 이후에도 재계산 없이 반환할 마지막 남은 시간 (최종성공/실패 시점 값 고정용)
     private float _cachedRemainingTime;
 
-    // 검거 투표가 진행되는 동안 라운드 타이머를 멈추기 위한 상태 (서버만 사용)
-    private bool _isPausedForVote;
-    private double _votePauseStartTime;
     private bool _isStartingNextRound;
 
     public RoundState CurrentState => _currentState.Value;
@@ -116,8 +106,7 @@ public partial class RoundManager : NetworkBehaviour
         _rounds[_currentRoundIndex.Value].MontageShareCooldown : 0f;
     public int NpcSpawnCount => _rounds[_currentRoundIndex.Value].NpcSpawnCount;
 
-    // 투표/검거 시스템이 아직 없어 임시로 노출 — 각 시스템이 만들어지면 이 프로퍼티를 참조해 입력을 막는다.
-    public bool CanVote => _currentState.Value == RoundState.InRound;
+    // 검거 입력을 라운드 진행 중에만 허용하기 위해 노출
     public bool CanArrest => _currentState.Value == RoundState.InRound;
 
     // 결과 패널에 "확인한 인원/총 인원"을 표시하기 위한 값
@@ -130,9 +119,6 @@ public partial class RoundManager : NetworkBehaviour
     // 결과 패널에서 "Round 클리어 시점의 Round 남은 시간"을 표시하기 위한 값
     public float RoundRemainingTimeAtClear => _roundRemainingTimeAtClear.Value;
     public bool IsDebugTimeStopped => _debugTimeStopped.Value;
-
-    // 결과 패널이 사유별 문구를 고를 때 읽는다. 상태 전환 직전에 RPC로 갱신된다.
-    public RoundFailReason LastFailReason { get; private set; }
 
     public event Action<RoundState> OnRoundStateChanged; // 라운드 상태가 바뀔 때마다 전달 (늦참 클라이언트는 스폰 시 현재 상태로 1회 발동)
     public event Action<RoundState> OnRoundResult; // 결과 패널을 띄워야 하는 상태(RoundClear/Fail/Success) 진입 시 발동
@@ -177,11 +163,6 @@ public partial class RoundManager : NetworkBehaviour
         // 서버/클라이언트(호스트 포함) 모두 자기 화면에 NPC/단서가 다 왔는지 직접 확인한 뒤 서버에 보고한다.
         BeginSpawnReadyFlow();
 
-        if (IsServer && ArrestVoteManager.Instance != null)
-        {
-            ArrestVoteManager.Instance.OnVoteStateChanged += HandleArrestVoteStateChanged;
-        }
-
         if (IsServer && _shopManager == null)
         {
             Debug.LogError("[RoundManager] ShopManager 참조가 비어 있어 라운드 클리어 보상을 지급할 수 없습니다.", this);
@@ -193,40 +174,6 @@ public partial class RoundManager : NetworkBehaviour
         _currentState.OnValueChanged -= HandleStateChanged;
         EndSpawnReadyFlow();
         EndRegionFlow();
-
-        if (IsServer && ArrestVoteManager.Instance != null)
-        {
-            ArrestVoteManager.Instance.OnVoteStateChanged -= HandleArrestVoteStateChanged;
-        }
-    }
-
-    // 검거 투표 시작부터 결과(가결/부결) 표시가 끝날 때까지 라운드 타이머를 멈추고,
-    // Idle로 돌아가는 순간 멈춰있던 만큼 종료 시각을 뒤로 밀어서 재개한다.
-    private void HandleArrestVoteStateChanged(ArrestVoteState state)
-    {
-        if (!IsServer) return;
-
-        bool shouldBePaused = state == ArrestVoteState.Voting
-            || state == ArrestVoteState.Passed
-            || state == ArrestVoteState.Rejected;
-
-        if (shouldBePaused && !_isPausedForVote)
-        {
-            _isPausedForVote = true;
-            _votePauseStartTime = NetworkManager.ServerTime.Time;
-        }
-        else if (!shouldBePaused && _isPausedForVote)
-        {
-            _isPausedForVote = false;
-            // 이 보정은 라운드 진행 중(InRound) 타이머를 위한 것이다. 투표가 가결되어 이미
-            // RoundClear 등으로 전환된 뒤라면 _roundEndTime이 다른 용도(다음 라운드 카운트다운)로
-            // 바뀌어 있으므로 보정을 적용하면 안 된다.
-            if (_currentState.Value == RoundState.InRound)
-            {
-                double pausedDuration = NetworkManager.ServerTime.Time - _votePauseStartTime;
-                _roundEndTime.Value += pausedDuration;
-            }
-        }
     }
 
     //최신 값으로 동기화
@@ -243,13 +190,13 @@ public partial class RoundManager : NetworkBehaviour
     private void Update()
     {
         if (!IsSpawned || !IsServer) return;
-        if (_isPausedForVote || _debugTimeStopped.Value) return;
+        if (_debugTimeStopped.Value) return;
         if (NetworkManager.ServerTime.Time < _roundEndTime.Value) return;
 
         switch (_currentState.Value)
         {
             case RoundState.InRound:
-                SetFail(RoundFailReason.TimeOver); // 시간 초과로 실패 처리
+                SetFail(); // 시간 초과로 실패 처리
                 break;
             case RoundState.RoundClear:
                 if (!_isStartingNextRound)
@@ -401,12 +348,9 @@ public partial class RoundManager : NetworkBehaviour
         }
 
         // _roundEndTime을 RoundClear 대기시간으로 덮어쓰기 전에 현재 라운드 남은 시간을 직접 계산해 스냅샷으로 남긴다.
-        // 검거 투표 중에는 타이머가 멈춰있는 상태라, 투표로 흘러간 시간을 빼기 위해
-        // 현재 시각이 아니라 투표(일시정지) 시작 시각을 기준으로 계산한다.
-        double referenceTime = _isPausedForVote ? _votePauseStartTime : NetworkManager.ServerTime.Time;
         float remainingAtClear = _debugTimeStopped.Value
             ? _debugStoppedRemainingTime.Value
-            : Mathf.Max(0f, (float)(_roundEndTime.Value - referenceTime));
+            : Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));
         _debugTimeStopped.Value = false;
         _debugStoppedRemainingTime.Value = 0f;
         _roundRemainingTimeAtClear.Value = remainingAtClear;
@@ -441,26 +385,9 @@ public partial class RoundManager : NetworkBehaviour
         OnRoundStarted?.Invoke(roundIndex);
     }
 
-    // 실패 사유를 모든 클라이언트에 먼저 알린 뒤 실패 상태로 전환한다.
-    private void SetFail(RoundFailReason reason)
+    private void SetFail()
     {
-        AnnounceFailRpc(reason);
         _currentState.Value = RoundState.Fail;
-    }
-
-    [Rpc(SendTo.ClientsAndHost)]
-    private void AnnounceFailRpc(RoundFailReason reason)
-    {
-        LastFailReason = reason;
-    }
-
-    // 검거 투표 횟수를 모두 소진했는데 마지막 결과도 성공(가결+범인)이 아니면 결과 대기 없이 즉시 실패 처리한다.
-    public void ForceFail()
-    {
-        if (!IsServer) return;
-        if (_currentState.Value != RoundState.InRound) return;
-
-        SetFail(RoundFailReason.VoteExhausted);
     }
 
     // 살아있는 플레이어가 한 명도 없으면(전원 다운) 게임을 실패 처리한다.
@@ -478,7 +405,7 @@ public partial class RoundManager : NetworkBehaviour
             if (!playerHealth.IsDowned) return;
         }
 
-        SetFail(RoundFailReason.AllPlayersDowned);
+        SetFail();
     }
 
     // 라운드 전환/게임 재시작 시 전체 플레이어 인벤토리를 아이템 종류 무관하게 초기화한다.
@@ -560,18 +487,11 @@ public partial class RoundManager : NetworkBehaviour
     {
         if (!IsSpawned) return 0f;
 
-        // 검거 투표 시작부터 결과 표시가 끝날 때까지, 서버/클라이언트 모두 남은 시간 계산을 멈춰서 타이머가 멎어 보이게 한다.
-        ArrestVoteState? arrestVoteState = ArrestVoteManager.Instance?.CurrentVoteState;
-        bool isVotingInProgress = arrestVoteState == ArrestVoteState.Voting
-            || arrestVoteState == ArrestVoteState.Passed
-            || arrestVoteState == ArrestVoteState.Rejected;
-
         if (_debugTimeStopped.Value)
         {
             _cachedRemainingTime = _debugStoppedRemainingTime.Value;
         }
-        else if (!isVotingInProgress &&
-            (_currentState.Value == RoundState.InRound || _currentState.Value == RoundState.RoundClear))
+        else if (_currentState.Value == RoundState.InRound || _currentState.Value == RoundState.RoundClear)
         {
             _cachedRemainingTime = Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));
         }
