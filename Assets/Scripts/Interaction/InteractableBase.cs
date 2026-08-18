@@ -23,6 +23,11 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
     // 화면 중심 조준 판정 반경에 곱해지는 배율. 기본은 1(PlayerInteraction의 공통 반경 그대로 사용).
     public virtual float AimRadiusMultiplier => 1f;
 
+    // 상호작용 조준점 계산에서 뺄 콜라이더. 아이템 낙하 방지용처럼 상호작용 면이 아닌 콜라이더가
+    // 바운드에 끼면 조준점이 실제 오브젝트 밖으로 밀려난다.
+    [Header("조준 설정")]
+    [SerializeField] private Collider[] _aimIgnoredColliders;
+
     public Vector3 InteractionPosition
     {
         get
@@ -36,7 +41,8 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
                     !interactionCollider.enabled ||
                     !interactionCollider.gameObject.activeInHierarchy ||
                     !interactionCollider.transform.IsChildOf(transform) ||
-                    interactionCollider.isTrigger)
+                    interactionCollider.isTrigger ||
+                    IsAimIgnored(interactionCollider))
                 {
                     continue;
                 }
@@ -54,6 +60,24 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
 
             return hasBounds ? combinedBounds.center : transform.position;
         }
+    }
+
+    private bool IsAimIgnored(Collider target)
+    {
+        if (_aimIgnoredColliders == null)
+        {
+            return false;
+        }
+
+        foreach (Collider ignored in _aimIgnoredColliders)
+        {
+            if (ignored == target)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     [Header("외곽선 설정")]
