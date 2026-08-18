@@ -13,6 +13,9 @@ public class PlayerInventory : NetworkBehaviour
 
     [SerializeField, Min(0f)] private float _dropInteractionDelay = 1.5f;   // 드롭 후 상호작용 차단 시간
 
+    // 드롭 위치가 다른 Collider 내부에 걸렸는지 검사할 때 쓰는 반지름.
+    private const float DropOverlapProbeRadius = 0.15f;
+
     // 슬롯 내용은 서버만 쓰고 전원이 읽는다
     private readonly NetworkList<InventorySlot> _slots = new(
         readPerm: NetworkVariableReadPermission.Everyone,
@@ -224,6 +227,13 @@ public class PlayerInventory : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     public void RequestDropRpc(ItemType itemId, int selectedIndex, Vector3 dropPosition, Vector3 dropVelocity)
     {
+        // 드롭 위치가 다른 Collider 내부에 걸리면(#495) 아이템이 끼거나 튕겨나가므로, 꺼내기 전에 먼저 검사한다.
+        if (Physics.CheckSphere(dropPosition, DropOverlapProbeRadius, ~0, QueryTriggerInteraction.Ignore))
+        {
+            ShowDropBlockedMessageOwnerRpc(RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
+            return;
+        }
+
         // 실제로 그 슬롯에 그 종류가 있었는지는 TryTakeSelectedItemOnServer 내부에서 재검증한다.
         if (!TryTakeSelectedItemOnServer(itemId, selectedIndex, out ItemBase item)) {
             Debug.LogError($"[PlayerInventory] 선택한 슬롯의 아이템을 드롭하지 못했습니다.");
@@ -234,6 +244,12 @@ public class PlayerInventory : NetworkBehaviour
         // (건전지처럼 눕혀 놓은 아이템이 세워진 채로 떨어지지 않게 한다.)
         Quaternion dropRotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f) * item.InitialRotation;
         item.DropItemToWorldRpc(dropPosition, dropRotation, dropVelocity, _dropInteractionDelay);
+    }
+
+    [Rpc(SendTo.SpecifiedInParams)]
+    private void ShowDropBlockedMessageOwnerRpc(RpcParams rpcParams = default)
+    {
+        NoticeUI.Instance?.ShowNotice("버릴 수 없습니다");
     }
 
     private void TryDropSelectedItem()
