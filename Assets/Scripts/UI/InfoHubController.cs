@@ -352,6 +352,13 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 			return;
 		}
 
+		// 미션 패널을 보고 있는 동안에는 되돌리지 않는다. 되돌리면 미니게임 위에 단서 탭이 남는다.
+		if (_isHiddenForMission)
+		{
+			_cluePanel.gameObject.SetActive(false);
+			return;
+		}
+
 		ApplyPanelX(_cluePanel, _clueRestoreHiddenX);
 		_cluePanel.gameObject.SetActive(true);
 		_clueSlide = _cluePanel
