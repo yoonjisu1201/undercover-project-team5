@@ -69,6 +69,11 @@ public partial class RoundManager : NetworkBehaviour
     private readonly NetworkVariable<int> _currentRoundIndex =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    // 게임 세션 하나당 한 번만 뽑는 시드. ClothCatalog가 이 값과 라운드 번호를 조합해
+    // "이번 라운드에 쓸 옷 목록"을 서버/클라이언트 모두 동일하게 계산하는 데 사용한다.
+    private readonly NetworkVariable<int> _clothPoolSessionSeed =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     private readonly NetworkVariable<double> _roundEndTime =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -102,6 +107,7 @@ public partial class RoundManager : NetworkBehaviour
 
     public RoundState CurrentState => _currentState.Value;
     public int CurrentRoundIndex => _currentRoundIndex.Value;
+    public int ClothPoolSessionSeed => _clothPoolSessionSeed.Value;
 
     // HQ 타이머 UI가 남은 시간 비율(색상 변화 등)을 계산하려면 현재 라운드의 총 시간이 필요해서 노출
     public float RoundDuration => CurrentState == RoundState.InRound ?
@@ -156,6 +162,14 @@ public partial class RoundManager : NetworkBehaviour
     {
         // 스폰 대기 흐름이 세는 NPC·단서가 확정된 구역 안에 생성되도록 구역을 가장 먼저 정한다.
         BeginRegionFlow();
+
+        // 라운드 1의 NPC는 씬 로드 완료 이벤트로 스폰되면서 그 시점에 바로 옷을 고른다.
+        // ClothCatalog가 참조하는 이 시드도 StartGame()(전원 스폰 확인 이후, NPC보다 한참 뒤)이
+        // 아니라 그보다 앞선 이 시점에 확정해야 NPC가 고른 옷과 이후 조회 결과가 어긋나지 않는다.
+        if (IsServer)
+        {
+            _clothPoolSessionSeed.Value = UnityEngine.Random.Range(int.MinValue, int.MaxValue);
+        }
 
         _currentState.OnValueChanged += HandleStateChanged;
         OnRoundStateChanged?.Invoke(_currentState.Value); // OnValueChanged는 최초 동기화값에는 발동하지 않으므로 직접 1회 호출
@@ -296,6 +310,7 @@ public partial class RoundManager : NetworkBehaviour
 
         _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _currentRoundIndex.Value = 0;
+        // _clothPoolSessionSeed는 OnNetworkSpawn에서 이미 NPC 스폰보다 먼저 확정해뒀다.
         _debugTimeStopped.Value = false;
         _debugStoppedRemainingTime.Value = 0f;
         ResetMissionsForNewRound();
