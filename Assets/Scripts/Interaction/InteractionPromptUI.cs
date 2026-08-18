@@ -8,7 +8,7 @@ using UnityEngine.UI;
 public class InteractionPromptUI : MonoBehaviour
 {
     [SerializeField] private TMP_Text _interactionPromptText;
-    [SerializeField, Min(0f)] private float _selectedItemPromptDuration = 1f;
+    [SerializeField, Min(0f)] private float _selectedItemPromptDuration = 2f;   // 선택 아이템 안내 문구가 사라지기 전까지 유지되는 시간
     [SerializeField] private Image _useHoldProgressImage;
 
     private Coroutine _selectedItemPromptRoutine;

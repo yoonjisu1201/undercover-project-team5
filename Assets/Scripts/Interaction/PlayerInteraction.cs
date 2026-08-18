@@ -450,11 +450,30 @@ public class PlayerInteraction : NetworkBehaviour
 
         if (item is IUsable usable)
         {
-            _promptUI?.ShowTemporaryPrompt(AppendHoldSuffix(usable.UseText, item.ItemHoldThreshold), true);
+            _promptUI?.ShowTemporaryPrompt(
+                AppendUsageDescription(AppendHoldSuffix(usable.UseText, item.ItemHoldThreshold), item.ItemData),
+                true);
             return;
         }
 
-        _promptUI?.ShowTemporaryPrompt(item.ItemData.DisplayName);
+        // 사용 방법이 없는 아이템은 이름만 띄워봐야 알려 줄 게 없으므로 아예 표시하지 않는다.
+        if (string.IsNullOrWhiteSpace(item.ItemData.UsageDescription))
+        {
+            return;
+        }
+
+        _promptUI?.ShowTemporaryPrompt(AppendUsageDescription($"[{item.ItemData.DisplayName}]", item.ItemData));
+    }
+
+    // ItemData에 사용 방법이 적혀 있으면 안내 문구 뒤에 " : "로 이어 붙인다.
+    private static string AppendUsageDescription(string message, ItemData itemData)
+    {
+        if (itemData == null || string.IsNullOrWhiteSpace(itemData.UsageDescription))
+        {
+            return message;
+        }
+
+        return $"{message} : {itemData.UsageDescription}";
     }
 
     // 현재 조준 대상과 들고 있는 아이템 기준으로 상호작용 안내 문구를 갱신한다.
