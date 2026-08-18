@@ -228,6 +228,13 @@ public abstract class CartBase : InteractableBase
 		return _holderRigidbody != null && hit.rigidbody == _holderRigidbody;
 	}
 
+	// hit이 이 카트 자신에게 붙은 콜라이더인지 확인한다(루트 콜라이더뿐 아니라 ItemLandingBlocker 같은
+	// 자식 콜라이더도 포함). 그렇지 않으면 카트 자신의 자식 콜라이더를 벽으로 오인해 못 움직이게 된다.
+	private bool IsOwnCollider(Collider collider)
+	{
+		return collider.GetComponentInParent<CartBase>() == this;
+	}
+
 	// direction으로 distance만큼 이동할 때, 발밑 높이가 아니라 _maxStepHeight만큼 위에서 스윕해도
 	// 여전히 막히는지 확인한다. 위쪽이 뚫려 있으면 발밑에 걸린 건 벽이 아니라 낮은 단차라는 뜻이다.
 	private bool IsStepClimbable(Vector3 direction, float distance)
@@ -242,7 +249,7 @@ public abstract class CartBase : InteractableBase
 
 		foreach (RaycastHit hit in hits)
 		{
-			if (hit.collider == _collider) { continue; }
+			if (IsOwnCollider(hit.collider)) { continue; }
 			if (IsHolderHit(hit)) { continue; }
 
 			// 위쪽에서도 뭔가에 걸리면, 진짜 벽(또는 너무 높은 턱)이라 오를 수 없다.
@@ -273,8 +280,8 @@ public abstract class CartBase : InteractableBase
 		bool found = false;
 		foreach (RaycastHit hit in hits)
 		{
-			// 카트 자기 자신의 콜라이더는 당연히 스윕 결과에 걸리므로 제외한다.
-			if (hit.collider == _collider) { continue; }
+			// 카트 자기 자신의 콜라이더(ItemLandingBlocker 등 자식 콜라이더 포함)는 당연히 스윕 결과에 걸리므로 제외한다.
+			if (IsOwnCollider(hit.collider)) { continue; }
 			if (IsHolderHit(hit)) { continue; }
 
 			// 지금까지 찾은 것보다 더 가까이서 막혔다면, 그 지점을 새로운 정지 지점으로 갱신한다.
