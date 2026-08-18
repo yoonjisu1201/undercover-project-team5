@@ -16,6 +16,7 @@ public class AlienCloneManager : MonoBehaviour
     [SerializeField] private MapRegionController _mapRegionController;
     [SerializeField, Min(1)] private int _spawnCountPerCycle = 3;
     [SerializeField, Min(0.1f)] private float _spawnInterval = 60f; // 라운드 타이머가 이만큼(초) 줄어들 때마다 스폰
+    [SerializeField, Min(0f)] private float _minimumPlayerDistance = 30f; // 이 거리 안에는 스폰하지 않는다
 
     private readonly List<AlienCloneHealth> _aliveClones = new();
     private bool _spawnFailedThisCycle;
@@ -191,13 +192,33 @@ public class AlienCloneManager : MonoBehaviour
     // 배회하다 플레이어를 감지했을 때 마주치는 흐름을 만든다.
     private bool TryGetSpawnPosition(out Vector3 spawnPosition)
     {
-        if (_mapRegionController != null && _mapRegionController.TryGetRandomSpawnPoint(out _, out spawnPosition))
+        if (_mapRegionController != null &&
+            _mapRegionController.TryGetRandomSpawnPoint(out _, out spawnPosition) &&
+            IsFarFromPlayers(spawnPosition))
         {
             return true;
         }
 
         spawnPosition = default;
         return false;
+    }
+
+    // 후보 지점이 모든 플레이어로부터 최소 거리 이상 떨어졌는지 확인한다.
+    private bool IsFarFromPlayers(Vector3 candidate)
+    {
+        float minimumDistanceSquared = _minimumPlayerDistance * _minimumPlayerDistance;
+
+        foreach (Player player in Player.ActiveInstances)
+        {
+            if (player == null) continue;
+
+            if ((player.transform.position - candidate).sqrMagnitude < minimumDistanceSquared)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // AlienCloneHealth.CompleteDeath에서 발생한 완료 이벤트를 처리한다.
