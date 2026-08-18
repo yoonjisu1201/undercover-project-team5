@@ -16,6 +16,7 @@ public sealed class PlayerListPanelUI : MonoBehaviour
     [SerializeField] private TMP_Text[] _playerNameTexts = new TMP_Text[MaxPlayerCount];
     [SerializeField] private Image[] _stateIconImages = new Image[MaxPlayerCount];
     [SerializeField] private TMP_Text[] _stateTexts = new TMP_Text[MaxPlayerCount];
+    [SerializeField] private GameObject[] _localPlayerFrames = new GameObject[MaxPlayerCount];
     // 좌석별 음성 아이콘. 체력바 쪽과 같은 컴포넌트를 쓴다.
     [SerializeField] private PlayerVoiceIconUI[] _voiceIcons = new PlayerVoiceIconUI[MaxPlayerCount];
 
@@ -23,7 +24,7 @@ public sealed class PlayerListPanelUI : MonoBehaviour
     [SerializeField] private Sprite _hostIconSprite;
     [SerializeField] private Sprite _readyIconSprite;
     [SerializeField] private Sprite _notReadyIconSprite;
-    
+
     [Header("=== RoomManager 넣기 ===")]
     [SerializeField] private WaitingRoomReadyManager _manager;
 
@@ -125,15 +126,18 @@ public sealed class PlayerListPanelUI : MonoBehaviour
                 _stateIconImages[i].enabled = false;
                 _stateTexts[i].text = "";
                 ClearVoiceIcon(i);
+                SetLocalPlayerMarker(i, false);
                 continue;
             }
 
             // slots[i]가 곧 i번 좌석: WaitingRoomReadyManager가 ClientId 오름차순으로 정렬을 유지해준다.
             var slot = slots[i];
-            bool isHost = slot.ClientId == NetworkManager.ServerClientId; 
-            
-            // 실제 이름 기준으로 이름, 역할 작성
+            bool isHost = slot.ClientId == NetworkManager.ServerClientId;
+
+            // 좌석에 있는 플레이어가 로컬 플레이어인지 확인하고, 이름과 상태 아이콘을 업데이트한다.
+            bool isLocalPlayer = slot.ClientId == NetworkManager.Singleton.LocalClientId;
             _playerNameTexts[i].text = slot.Player.PlayerName;
+            SetLocalPlayerMarker(i, isLocalPlayer);
             _stateIconImages[i].enabled = true;
             _stateIconImages[i].sprite = isHost
                 ? _hostIconSprite
@@ -152,6 +156,14 @@ public sealed class PlayerListPanelUI : MonoBehaviour
             {
                 _voiceIcons[i].Bind(slot.Player);
             }
+        }
+    }
+
+    private void SetLocalPlayerMarker(int index, bool isLocalPlayer)
+    {
+        if (index < _localPlayerFrames.Length && _localPlayerFrames[index] != null)
+        {
+            _localPlayerFrames[index].SetActive(isLocalPlayer);
         }
     }
 
