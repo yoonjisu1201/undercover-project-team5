@@ -57,6 +57,11 @@ public class HqScreenController : MonoBehaviour, IClosableUi
 		_closeButton.onClick.AddListener(OnCloseButtonClicked);
 		GameplayUiMode.Instance?.RegisterUi(this);
 		
+		// Initialize()보다 먼저 켜지는 경우가 있어 기본 화면으로 받아둔다.
+		if (_currentScreen == null) {
+			_currentScreen = _cctvScreen;
+		}
+		
 		_currentScreen.ActivateScreen();
 	}
 
