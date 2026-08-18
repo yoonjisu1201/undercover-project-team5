@@ -179,42 +179,21 @@ public sealed partial class DebugMenuController
     }
 
     // 범인의 외형 모듈 ID를 몽타주 상태로 변환합니다.
+    // NPC 외형과 몽타주가 이제 같은 ClothCatalog/ClothData.Id를 공유하므로 번역 없이 그대로 옮긴다.
     private static MontageState CreateCriminalMontageState(OutfitFeature outfit)
     {
         return MontageState.Empty
-            .WithCloth(MontageParts.Beard, ToMontageClothId(MontageParts.Beard, outfit.BeardNumber))
-            .WithCloth(MontageParts.Eyebrows, ToMontageClothId(MontageParts.Eyebrows, outfit.EyebrowsNumber))
-            .WithCloth(MontageParts.Glasses, ToMontageClothId(MontageParts.Glasses, outfit.GlassesNumber))
-            .WithCloth(MontageParts.Hair, ToMontageClothId(MontageParts.Hair, outfit.HairNumber))
-            .WithCloth(MontageParts.Hats, ToMontageClothId(MontageParts.Hats, outfit.HatNumber))
-            .WithCloth(MontageParts.Headphones, ToMontageClothId(MontageParts.Headphones, outfit.HeadphoneNumber))
-            .WithCloth(MontageParts.Arms, ToMontageClothId(MontageParts.Arms, outfit.ArmNumber))
-            .WithCloth(MontageParts.Pants, ToMontageClothId(MontageParts.Pants, outfit.PantsNumber))
-            .WithCloth(MontageParts.Masks, ToMontageClothId(MontageParts.Masks, outfit.MaskNumber))
-            .WithCloth(MontageParts.Shoes, ToMontageClothId(MontageParts.Shoes, outfit.ShoesNumber))
-            .WithCloth(MontageParts.Torso, ToMontageClothId(MontageParts.Torso, outfit.TorsoNumber));
-    }
-
-    // NPC 의상 배열 인덱스를 파츠별 몽타주 카탈로그 ID로 변환합니다.
-    private static int ToMontageClothId(MontageParts part, int npcOutfitIndex)
-    {
-        if (npcOutfitIndex < 0)
-        {
-            return MontageState.None;
-        }
-
-        return part switch
-        {
-            // Pants_01은 몽타주 카탈로그에 아직 등록되어 있지 않습니다.
-            MontageParts.Pants => MontageState.None,
-            // NPC에는 기본 Torso_01이 있지만 몽타주 목록은 Torso_02_01부터 ID 0입니다.
-            MontageParts.Torso => npcOutfitIndex == 0
-                ? MontageState.None
-                : npcOutfitIndex - 1,
-            // 몽타주 ID 0은 NPC 랜덤 목록에 없는 기본 Shoes_01입니다.
-            MontageParts.Shoes => npcOutfitIndex + 1,
-            _ => npcOutfitIndex
-        };
+            .WithCloth(ClothPart.Beard, outfit.BeardNumber)
+            .WithCloth(ClothPart.Eyebrow, outfit.EyebrowsNumber)
+            .WithCloth(ClothPart.Glasses, outfit.GlassesNumber)
+            .WithCloth(ClothPart.Hair, outfit.HairNumber)
+            .WithCloth(ClothPart.Hat, outfit.HatNumber)
+            .WithCloth(ClothPart.Headphone, outfit.HeadphoneNumber)
+            .WithCloth(ClothPart.Arm, outfit.ArmNumber)
+            .WithCloth(ClothPart.Pants, outfit.PantsNumber)
+            .WithCloth(ClothPart.Mask, outfit.MaskNumber)
+            .WithCloth(ClothPart.Shoes, outfit.ShoesNumber)
+            .WithCloth(ClothPart.Torso, outfit.TorsoNumber);
     }
 
     // 서버 권한의 몽타주 NetworkVariable에 완성 상태를 기록합니다.

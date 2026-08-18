@@ -11,7 +11,6 @@ using UnityEngine;
 public partial class RoundManager
 {
     [Header("게임 시작하면서 몽타주 의류 데이터 로딩하기 위함")]
-    [SerializeField] private MontageClothCatalog _catalog;
     [SerializeField] private MontageSyncManager _syncManager;
     [SerializeField] private MontageShareManager _shareManager;
 
@@ -69,7 +68,7 @@ public partial class RoundManager
 
         try
         {
-            // PlayerObject가 아직 안 온 상태로 넘어가면 LoadClothData()에서 NRE로 조용히 죽는다.
+            // PlayerObject가 아직 안 온 상태로 넘어가면 ClothCatalog.LoadAllAsync()에서 NRE로 조용히 죽는다.
             await UniTask.WaitUntil(
                 () => NetworkManager.Singleton.LocalClient.PlayerObject != null
                     && FindObjectsByType<NpcStateMachine>(FindObjectsSortMode.None).Length >= _npcSpawner.SpawnCount
@@ -81,7 +80,7 @@ public partial class RoundManager
 
             // 몽타주 옷 데이터를 미리 로딩하고, 지금까지 조합된 몽타주를 내 화면에도 조립해둔다.
             // 이 셋은 취소 토큰을 받지 않아, 대기만 중단하도록 외부에서 취소를 붙인다.
-            await _catalog.LoadClothData().AttachExternalCancellation(timeoutCts.Token);
+            await ClothCatalog.LoadAllAsync().AttachExternalCancellation(timeoutCts.Token);
             await _syncManager.InitializeAsync().AttachExternalCancellation(timeoutCts.Token);
             await _shareManager.InitializeAsync().AttachExternalCancellation(timeoutCts.Token);
         }

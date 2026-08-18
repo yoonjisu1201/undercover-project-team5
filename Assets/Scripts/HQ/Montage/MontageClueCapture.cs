@@ -18,7 +18,7 @@ public sealed class MontageClueCapture {
 		_applyPreviewState = applyPreviewState;
 	}
 
-	public Texture2D Capture(MontageState state, MontageParts focusPart, MontageState previousState) {
+	public Texture2D Capture(MontageState state, ClothPart focusPart, MontageState previousState) {
 		CameraClearFlags previousClearFlags = _camera.clearFlags;
 		Color previousBackgroundColor = _camera.backgroundColor;
 		Vector3 previousPosition = _camera.transform.position;
@@ -50,12 +50,15 @@ public sealed class MontageClueCapture {
 			_camera.transform.SetPositionAndRotation(previousPosition, previousRotation);
 			_camera.fieldOfView = previousFieldOfView;
 			_camera.orthographicSize = previousOrthographicSize;
+			// SetRootPartsVisible(false)는 착용 여부와 무관하게 기본 파츠를 전부 껐으므로,
+			// 여기서 먼저 전부 되돌린 뒤 _applyPreviewState가 실제로 입고 있는 파츠만 다시 숨기게 한다.
+			_montage.SetRootPartsVisible(true);
 			_applyPreviewState(previousState);
 			_camera.Render();
 		}
 	}
 
-	private void ApplyFocusFraming(MontageParts focusPart) {
+	private void ApplyFocusFraming(ClothPart focusPart) {
 		if (!_montage.TryGetClothBounds(focusPart, out Bounds bounds) && !TryGetMontageBounds(out bounds)) {
 			Vector3 fallbackTarget = _montage.transform.position;
 			Vector3 fallbackViewDirection = GetCameraViewDirection(fallbackTarget);
@@ -90,24 +93,24 @@ public sealed class MontageClueCapture {
 		_camera.transform.LookAt(target);
 	}
 
-	private Bounds AdjustFocusBounds(Bounds bounds, MontageParts focusPart) {
+	private Bounds AdjustFocusBounds(Bounds bounds, ClothPart focusPart) {
 		Vector3 center = bounds.center;
 		Vector3 size = bounds.size;
 
 		switch (focusPart) {
-			case MontageParts.Eyebrows:
+			case ClothPart.Eyebrow:
 				size = new Vector3(
 					Mathf.Max(size.x, 0.16f),
 					Mathf.Max(size.y, 0.08f),
 					Mathf.Max(size.z, 0.06f));
 				break;
-			case MontageParts.Beard:
+			case ClothPart.Beard:
 				size = new Vector3(
 					Mathf.Max(size.x, 0.22f),
 					Mathf.Max(size.y, 0.14f),
 					Mathf.Max(size.z, 0.06f));
 				break;
-			case MontageParts.Arms:
+			case ClothPart.Arm:
 				// 손 파츠는 좌우가 멀리 떨어져 있어서 전체 중심을 쓰면 빈 공간을 찍는다.
 				// 몽타주 카메라 기준 오른쪽 끝 손을 단서 대상으로 잡는다.
 				center += _camera.transform.right * bounds.extents.x * 0.55f;
@@ -121,50 +124,50 @@ public sealed class MontageClueCapture {
 		return new Bounds(center, size);
 	}
 
-	private static float GetFramingMargin(MontageParts focusPart) {
+	private static float GetFramingMargin(ClothPart focusPart) {
 		switch (focusPart) {
-			case MontageParts.Beard:
-			case MontageParts.Eyebrows:
+			case ClothPart.Beard:
+			case ClothPart.Eyebrow:
 				return 0.6f;
-			case MontageParts.Glasses:
+			case ClothPart.Glasses:
 				return 0.7f;
-			case MontageParts.Masks:
+			case ClothPart.Mask:
 				return 1.0f;
-			case MontageParts.Hair:
-			case MontageParts.Hats:
-			case MontageParts.Headphones:
+			case ClothPart.Hair:
+			case ClothPart.Hat:
+			case ClothPart.Headphone:
 				return 0.92f;
-			case MontageParts.Shoes:
+			case ClothPart.Shoes:
 				return 0.75f;
-			case MontageParts.Torso:
-			case MontageParts.Pants:
+			case ClothPart.Torso:
+			case ClothPart.Pants:
 				return 1.15f;
-			case MontageParts.Arms:
+			case ClothPart.Arm:
 				return 0.75f;
 			default:
 				return 0.9f;
 		}
 	}
 
-	private static float GetMinOrthographicSize(MontageParts focusPart) {
+	private static float GetMinOrthographicSize(ClothPart focusPart) {
 		switch (focusPart) {
-			case MontageParts.Beard:
-			case MontageParts.Eyebrows:
+			case ClothPart.Beard:
+			case ClothPart.Eyebrow:
 				return 0.04f;
-			case MontageParts.Glasses:
+			case ClothPart.Glasses:
 				return 0.06f;
-			case MontageParts.Masks:
+			case ClothPart.Mask:
 				return 0.12f;
-			case MontageParts.Hair:
-			case MontageParts.Hats:
-			case MontageParts.Headphones:
+			case ClothPart.Hair:
+			case ClothPart.Hat:
+			case ClothPart.Headphone:
 				return 0.16f;
-			case MontageParts.Shoes:
+			case ClothPart.Shoes:
 				return 0.08f;
-			case MontageParts.Arms:
+			case ClothPart.Arm:
 				return 0.06f;
-			case MontageParts.Torso:
-			case MontageParts.Pants:
+			case ClothPart.Torso:
+			case ClothPart.Pants:
 				return 0.28f;
 			default:
 				return 0.12f;
@@ -182,7 +185,7 @@ public sealed class MontageClueCapture {
 		return states;
 	}
 
-	private void ApplyClueLightBoost(MontageParts focusPart) {
+	private void ApplyClueLightBoost(ClothPart focusPart) {
 		Light[] lights = GetCaptureLightRoot().GetComponentsInChildren<Light>(true);
 		float intensityMultiplier = GetLightIntensityMultiplier(focusPart);
 
@@ -196,7 +199,7 @@ public sealed class MontageClueCapture {
 		}
 	}
 
-	private GameObject CreateClueFillLight(MontageParts focusPart) {
+	private GameObject CreateClueFillLight(ClothPart focusPart) {
 		float intensity = GetFillLightIntensity(focusPart);
 		if (intensity <= 0f) {
 			return null;
@@ -215,29 +218,29 @@ public sealed class MontageClueCapture {
 		return lightObject;
 	}
 
-	private static float GetFillLightIntensity(MontageParts focusPart) {
+	private static float GetFillLightIntensity(ClothPart focusPart) {
 		switch (focusPart) {
-			case MontageParts.Hair:
-			case MontageParts.Hats:
-			case MontageParts.Headphones:
+			case ClothPart.Hair:
+			case ClothPart.Hat:
+			case ClothPart.Headphone:
 				return FillLightIntensity * 1.35f;
-			case MontageParts.Arms:
-			case MontageParts.Pants:
+			case ClothPart.Arm:
+			case ClothPart.Pants:
 				return FillLightIntensity * 1.15f;
-			case MontageParts.Torso:
+			case ClothPart.Torso:
 				return FillLightIntensity * 0.45f;
-			case MontageParts.Shoes:
+			case ClothPart.Shoes:
 				return FillLightIntensity * 0.35f;
 			default:
 				return FillLightIntensity * 0.75f;
 		}
 	}
 
-	private static float GetLightIntensityMultiplier(MontageParts focusPart) {
+	private static float GetLightIntensityMultiplier(ClothPart focusPart) {
 		switch (focusPart) {
-			case MontageParts.Shoes:
+			case ClothPart.Shoes:
 				return 1.15f;
-			case MontageParts.Torso:
+			case ClothPart.Torso:
 				return 1.25f;
 			default:
 				return LightIntensityMultiplier;

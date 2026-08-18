@@ -2,7 +2,7 @@ using System;
 using Unity.Netcode;
 
 /// 본부에서 조합한 몽타주의 파츠별 착용 상태입니다.
-/// 값은 MontageClothData.id이고, -1은 미착용을 의미합니다.
+/// 값은 ClothData.Id이고, -1은 미착용을 의미합니다.
 public struct MontageState : INetworkSerializable, IEquatable<MontageState> {
 	public const int None = -1;
 
@@ -33,47 +33,47 @@ public struct MontageState : INetworkSerializable, IEquatable<MontageState> {
 		TorsoId = None
 	};
 
-	public int Get(MontageParts part) {
+	public int Get(ClothPart part) {
 		switch (part) {
-			case MontageParts.Beard: return BeardId;
-			case MontageParts.Eyebrows: return EyebrowsId;
-			case MontageParts.Glasses: return GlassesId;
-			case MontageParts.Hair: return HairId;
-			case MontageParts.Hats: return HatId;
-			case MontageParts.Headphones: return HeadphoneId;
-			case MontageParts.Arms: return ArmId;
-			case MontageParts.Pants: return PantsId;
-			case MontageParts.Masks: return MaskId;
-			case MontageParts.Shoes: return ShoesId;
-			case MontageParts.Torso: return TorsoId;
+			case ClothPart.Beard: return BeardId;
+			case ClothPart.Eyebrow: return EyebrowsId;
+			case ClothPart.Glasses: return GlassesId;
+			case ClothPart.Hair: return HairId;
+			case ClothPart.Hat: return HatId;
+			case ClothPart.Headphone: return HeadphoneId;
+			case ClothPart.Arm: return ArmId;
+			case ClothPart.Pants: return PantsId;
+			case ClothPart.Mask: return MaskId;
+			case ClothPart.Shoes: return ShoesId;
+			case ClothPart.Torso: return TorsoId;
 			default:
 				throw new ArgumentOutOfRangeException(nameof(part), part, "[MontageState] 알 수 없는 파츠입니다.");
 		}
 	}
 
 	// struct이므로 원본을 바꾸지 않고 해당 파츠만 교체한 복사본을 돌려준다
-	public MontageState WithCloth(MontageParts part, int clothId) {
+	public MontageState WithCloth(ClothPart part, int clothId) {
 		MontageState changed = this;
 
 		switch (part) {
-			case MontageParts.Beard: changed.BeardId = clothId; break;
-			case MontageParts.Eyebrows: changed.EyebrowsId = clothId; break;
-			case MontageParts.Glasses: changed.GlassesId = clothId; break;
-			case MontageParts.Hair: changed.HairId = clothId; break;
-			case MontageParts.Hats: changed.HatId = clothId; break;
-			case MontageParts.Headphones: changed.HeadphoneId = clothId; break;
-			case MontageParts.Arms: changed.ArmId = clothId; break;
-			case MontageParts.Pants: changed.PantsId = clothId; break;
-			case MontageParts.Masks: changed.MaskId = clothId; break;
-			case MontageParts.Shoes: changed.ShoesId = clothId; break;
-			case MontageParts.Torso: changed.TorsoId = clothId; break;
+			case ClothPart.Beard: changed.BeardId = clothId; break;
+			case ClothPart.Eyebrow: changed.EyebrowsId = clothId; break;
+			case ClothPart.Glasses: changed.GlassesId = clothId; break;
+			case ClothPart.Hair: changed.HairId = clothId; break;
+			case ClothPart.Hat: changed.HatId = clothId; break;
+			case ClothPart.Headphone: changed.HeadphoneId = clothId; break;
+			case ClothPart.Arm: changed.ArmId = clothId; break;
+			case ClothPart.Pants: changed.PantsId = clothId; break;
+			case ClothPart.Mask: changed.MaskId = clothId; break;
+			case ClothPart.Shoes: changed.ShoesId = clothId; break;
+			case ClothPart.Torso: changed.TorsoId = clothId; break;
 			default:
 				throw new ArgumentOutOfRangeException(nameof(part), part, "[MontageState] 알 수 없는 파츠입니다.");
 		}
 		return changed;
 	}
 
-	
+
 	// NetworkVariable로 기본 자료형이 아닌 클래스를 관리하려면 아래의 두 내용을 적어둬야 함,.. 무슨 뜻인지는 저도 잘 몰라요
 	public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter {
 		serializer.SerializeValue(ref BeardId);

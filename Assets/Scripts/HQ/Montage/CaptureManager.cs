@@ -25,25 +25,26 @@ public class CaptureManager : MonoBehaviour {
 
 #if UNITY_EDITOR
 	private readonly string _captureImageSavePath = "Assets/Resources/Montage/Thumbnails";
-	private readonly string _clothDataSavePath = "Assets/Resources/Montage/ClothData";
+	// ClothCatalog이 Resources.Load(Path.Combine("ClothData", part, id))로 읽는 경로와 같아야 한다.
+	private readonly string _clothDataSavePath = "Assets/Resources/ClothData";
 	private int _id = 0;
 
 	// 각 부위별로 썸네일 만들기 위해서는 어느 정도의 거리에서 캡쳐해야 하는가?
-	private readonly Dictionary<MontageParts, float> SizeByParts = new Dictionary<MontageParts, float>() {
-		{ MontageParts.Beard, 0.1f },
-		{ MontageParts.Eyebrows, 0.1f },
-		{ MontageParts.Glasses, 0.15f },
-		{ MontageParts.Hair, 0.4f},
-		{ MontageParts.Hats, 0.4f},
-		{ MontageParts.Pants, 0.4f},
-		{ MontageParts.Headphones, 0.4f},
-		{ MontageParts.Masks, 0.4f},
-		{ MontageParts.Arms, 0.2f},
-		{ MontageParts.Shoes, 0.2f},
-		{ MontageParts.Torso, 0.4f}
+	private readonly Dictionary<ClothPart, float> SizeByParts = new Dictionary<ClothPart, float>() {
+		{ ClothPart.Beard, 0.1f },
+		{ ClothPart.Eyebrow, 0.1f },
+		{ ClothPart.Glasses, 0.15f },
+		{ ClothPart.Hair, 0.4f},
+		{ ClothPart.Hat, 0.4f},
+		{ ClothPart.Pants, 0.4f},
+		{ ClothPart.Headphone, 0.4f},
+		{ ClothPart.Mask, 0.4f},
+		{ ClothPart.Arm, 0.2f},
+		{ ClothPart.Shoes, 0.2f},
+		{ ClothPart.Torso, 0.4f}
 	};
 
-	private readonly Dictionary<MontageParts, Transform> Parts = new Dictionary<MontageParts, Transform>();
+	private readonly Dictionary<ClothPart, Transform> Parts = new Dictionary<ClothPart, Transform>();
 
 	[ContextMenu("Generate ClothDatas")]
 	private void MakeAllSprites() {
@@ -66,20 +67,20 @@ public class CaptureManager : MonoBehaviour {
 		_id = 0;
 
 		Parts.Clear();
-		Parts.Add(MontageParts.Beard, Beard);
-		Parts.Add(MontageParts.Eyebrows, Eyebrows);
-		Parts.Add(MontageParts.Glasses, Glasses);
-		Parts.Add(MontageParts.Hair, Hair);
-		Parts.Add(MontageParts.Hats, Hats);
-		Parts.Add(MontageParts.Pants, Pants);
-		Parts.Add(MontageParts.Headphones, Headphones);
-		Parts.Add(MontageParts.Masks, Masks);
-		Parts.Add(MontageParts.Arms, Arms);
-		Parts.Add(MontageParts.Shoes, Shoes);
-		Parts.Add(MontageParts.Torso, Torso);
+		Parts.Add(ClothPart.Beard, Beard);
+		Parts.Add(ClothPart.Eyebrow, Eyebrows);
+		Parts.Add(ClothPart.Glasses, Glasses);
+		Parts.Add(ClothPart.Hair, Hair);
+		Parts.Add(ClothPart.Hat, Hats);
+		Parts.Add(ClothPart.Pants, Pants);
+		Parts.Add(ClothPart.Headphone, Headphones);
+		Parts.Add(ClothPart.Mask, Masks);
+		Parts.Add(ClothPart.Arm, Arms);
+		Parts.Add(ClothPart.Shoes, Shoes);
+		Parts.Add(ClothPart.Torso, Torso);
 	}
 
-	private void MakeClothDatas(MontageParts part) {
+	private void MakeClothDatas(ClothPart part) {
 		// OrthographicSize 설정
 		_captureCamera.Camera.orthographicSize = SizeByParts[part];
 		Transform parts = Parts[part];
@@ -96,7 +97,7 @@ public class CaptureManager : MonoBehaviour {
 			Debug.Log($"[Capture] 종료, AssetPath = {assetPath}");
 			// 캡쳐된 이미지 Sprite로 변경
 			ConfigureImageToSprite(assetPath);
-			// MontageClothData 생성
+			// ClothData 생성(있으면 몽타주 쪽 필드만 갱신)
 			CreateClothData(part, item.gameObject, assetPath);
 
 			// 비활성화
@@ -104,7 +105,7 @@ public class CaptureManager : MonoBehaviour {
 		}
 	}
 
-	private string Capture(MontageParts part, string fileName) {
+	private string Capture(ClothPart part, string fileName) {
 		if (_captureCamera == null) {
 			Debug.LogError($"[CaptureManager] 캡쳐용 카메라 없음");
 			return null;
@@ -149,9 +150,9 @@ public class CaptureManager : MonoBehaviour {
 		importer.spriteImportMode = SpriteImportMode.Single;
 		importer.SaveAndReimport();
 	}
-	
-	// ClothData를 직접 생성한다
-	private void CreateClothData(MontageParts part, GameObject instance, string assetPath) {
+
+	// ClothData를 직접 생성한다. 이미 NPC 쪽에서 만들어둔 카드가 있으면 몽타주 쪽 필드만 채운다.
+	private void CreateClothData(ClothPart part, GameObject instance, string assetPath) {
 		// 저장 경로 설정
 		string dataFolderPath = Path.Combine(_clothDataSavePath, part.ToString()).Replace('\\', '/');
 		string dataPath = Path.Combine(dataFolderPath, $"{_id}.asset").Replace('\\', '/');
@@ -164,15 +165,15 @@ public class CaptureManager : MonoBehaviour {
 		GameObject prefab = PrefabUtility.GetCorrespondingObjectFromSource(instance);
 
 		// 에셋 불러오기, 없다면 생성
-		MontageClothData data = AssetDatabase.LoadAssetAtPath<MontageClothData>(dataPath);
+		ClothData data = AssetDatabase.LoadAssetAtPath<ClothData>(dataPath);
 		if (data == null) {
-			data = ScriptableObject.CreateInstance<MontageClothData>();
+			data = ScriptableObject.CreateInstance<ClothData>();
 			AssetDatabase.CreateAsset(data, dataPath);
 		}
 
-		data.id = _id++;
-		data.ClothPrefabs = prefab;
-		data.ClothThumbnail = sprite;
+		data.Id = _id++;
+		data.MontagePrefab = prefab;
+		data.Thumbnail = sprite;
 		data.Part = part;
 
 		// Dirty Flag 설정. 모든 생성이 끝나면 dirty 상태인 모든 Asset을 한번에 저장한다.

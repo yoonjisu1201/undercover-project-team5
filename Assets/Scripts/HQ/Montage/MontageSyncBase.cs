@@ -12,9 +12,6 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 	[Header("=== 조립 대상 몽타주 오브젝트 ===")]
 	[SerializeField] protected Montage _montage;
 
-	[Header("=== 몽타주에 입힐 옷 대신 로드해줄 오브젝트 ===")]
-	[SerializeField] protected MontageClothCatalog _catalog;
-	
 	[Header("=== 몽타주 공유 시에 사용하는 카메라 ===")]
 	[SerializeField] protected Camera _montageCamera;
 
@@ -25,8 +22,8 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 	);
 
 	// 모든 파츠를 순회할 때 매번 GetValues를 부르지 않도록 한 번만 만들어둔다
-	private static readonly MontageParts[] AllParts =
-		Enum.GetValues(typeof(MontageParts)).Cast<MontageParts>().ToArray();
+	private static readonly ClothPart[] AllParts =
+		Enum.GetValues(typeof(ClothPart)).Cast<ClothPart>().ToArray();
 	private UniTask _initializeTask;
 	private bool _initializeStarted;
 	private MontageClueCapture _clueCapture;
@@ -39,11 +36,7 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 	/// 몽타주 상태가 바뀔 때마다 발동합니다. UI가 선택 표시를 갱신하는 데 사용합니다
 	public event Action<MontageState> OnMontageStateChanged;
 
-	public bool TryGetClothIdByIndex(MontageParts part, int index, out int clothId) {
-		return _catalog.TryGetIdByIndex(part, index, out clothId);
-	}
-
-	public Texture2D CaptureTemporaryState(MontageState state, MontageParts focusPart) {
+	public Texture2D CaptureTemporaryState(MontageState state, ClothPart focusPart) {
 		if (!_isReady) {
 			Debug.LogError($"[{GetType().Name}] 초기화 전에 몽타주 캡쳐를 시도했습니다.", this);
 			return null;
@@ -95,7 +88,7 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 		// OnValueChanged는 최초 동기화값에는 발동하지 않으므로 현재 값을 직접 한 번 적용한다.
 		// 준비되기 전에 도착해 무시된 변경도 여기서 최신값으로 함께 반영된다.
 		ApplyFull(_montageState.Value);
-		
+
 		// 초기화 완료 후 카메라 끄고(렉 줄이기 위해)
 		// 초기 렌더 정보 만들기 위해 1회 수동 렌더링
 		_montageCamera.enabled = false;
@@ -105,7 +98,7 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 	protected virtual void HandleStateChanged(MontageState previous, MontageState current) {
 		// 준비 전에 도착한 변경은 버린다. Initialize가 최신값으로 대신 적용한다
 		if (_isReady) {
-			foreach (MontageParts part in AllParts) {
+			foreach (ClothPart part in AllParts) {
 				int previousId = previous.Get(part);
 				int currentId = current.Get(part);
 
@@ -121,7 +114,7 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 	// 상태 전체를 입힌다. 미착용 파츠는 아직 입은 적이 없으므로 건드리지 않는다
 	// OnNetworkSpawn, Initialize시에 사용한다.
 	private void ApplyFull(MontageState state) {
-		foreach (MontageParts part in AllParts) {
+		foreach (ClothPart part in AllParts) {
 			int clothId = state.Get(part);
 
 			if (clothId == MontageState.None) { continue; }
@@ -135,19 +128,19 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 		ApplyFull(state);
 	}
 
-	private void ApplyPart(MontageParts part, int clothId) {
+	private void ApplyPart(ClothPart part, int clothId) {
 		if (clothId == MontageState.None) {
 			_montage.RemoveCloth(part);
 			return;
 		}
 
-		MontageClothData data = _catalog.Find(part, clothId);
+		ClothData data = ClothCatalog.Find(part, clothId);
 		if (data == null) {
 			Debug.LogError($"[{GetType().Name}] {part} 파츠의 옷 id({clothId})를 찾을 수 없습니다.", this);
 			return;
 		}
 
-		_montage.WearCloth(part, data.ClothPrefabs);
+		_montage.WearCloth(part, data.MontagePrefab);
 	}
 
 	// 새 라운드가 시작될 때 이 상태를 어떻게 리셋할지는 서브클래스가 필요에 따라 확장한다.

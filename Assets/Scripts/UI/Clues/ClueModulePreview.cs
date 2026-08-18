@@ -10,7 +10,7 @@ public class ClueModulePreview : MonoBehaviour
     [SerializeField] private MontageSyncManager _syncManager;
     [SerializeField, Min(1)] private int _clueCount = 8;
 
-    private readonly List<MontageParts> _equippedParts = new();
+    private readonly List<ClothPart> _equippedParts = new();
     private readonly List<MontageState> _equippedStates = new();
     private readonly List<Texture2D> _capturedTextures = new();
     private readonly List<string> _capturedPartLabels = new();
@@ -94,7 +94,7 @@ public class ClueModulePreview : MonoBehaviour
         // 단서 번호별로 몽타주 카메라로 찍은 이미지를 보관하고, 단서 목록 UI가 열람 시점에 꺼내 쓴다.
         for (int i = 0; i < captureCount; i++)
         {
-            MontageParts focusPart = _equippedParts[i];
+            ClothPart focusPart = _equippedParts[i];
             Texture2D texture = _syncManager.CaptureTemporaryState(_equippedStates[i], focusPart);
             if (texture == null)
             {
@@ -143,17 +143,17 @@ public class ClueModulePreview : MonoBehaviour
             return false;
         }
 
-        AddClueState(MontageParts.Beard, criminalManager.CriminalFeature.Outfit.BeardNumber);
-        AddClueState(MontageParts.Eyebrows, criminalManager.CriminalFeature.Outfit.EyebrowsNumber);
-        AddClueState(MontageParts.Glasses, criminalManager.CriminalFeature.Outfit.GlassesNumber);
-        AddClueState(MontageParts.Hair, criminalManager.CriminalFeature.Outfit.HairNumber);
-        AddClueState(MontageParts.Hats, criminalManager.CriminalFeature.Outfit.HatNumber);
-        AddClueState(MontageParts.Headphones, criminalManager.CriminalFeature.Outfit.HeadphoneNumber);
-        AddClueState(MontageParts.Arms, criminalManager.CriminalFeature.Outfit.ArmNumber);
-        AddClueState(MontageParts.Masks, criminalManager.CriminalFeature.Outfit.MaskNumber);
-        AddClueState(MontageParts.Pants, criminalManager.CriminalFeature.Outfit.PantsNumber);
-        AddClueState(MontageParts.Shoes, criminalManager.CriminalFeature.Outfit.ShoesNumber);
-        AddClueState(MontageParts.Torso, criminalManager.CriminalFeature.Outfit.TorsoNumber);
+        AddClueState(ClothPart.Beard, criminalManager.CriminalFeature.Outfit.BeardNumber);
+        AddClueState(ClothPart.Eyebrow, criminalManager.CriminalFeature.Outfit.EyebrowsNumber);
+        AddClueState(ClothPart.Glasses, criminalManager.CriminalFeature.Outfit.GlassesNumber);
+        AddClueState(ClothPart.Hair, criminalManager.CriminalFeature.Outfit.HairNumber);
+        AddClueState(ClothPart.Hat, criminalManager.CriminalFeature.Outfit.HatNumber);
+        AddClueState(ClothPart.Headphone, criminalManager.CriminalFeature.Outfit.HeadphoneNumber);
+        AddClueState(ClothPart.Arm, criminalManager.CriminalFeature.Outfit.ArmNumber);
+        AddClueState(ClothPart.Mask, criminalManager.CriminalFeature.Outfit.MaskNumber);
+        AddClueState(ClothPart.Pants, criminalManager.CriminalFeature.Outfit.PantsNumber);
+        AddClueState(ClothPart.Shoes, criminalManager.CriminalFeature.Outfit.ShoesNumber);
+        AddClueState(ClothPart.Torso, criminalManager.CriminalFeature.Outfit.TorsoNumber);
 
         if (_equippedParts.Count > 0)
         {
@@ -164,16 +164,19 @@ public class ClueModulePreview : MonoBehaviour
         return false;
     }
 
-    private void AddClueState(MontageParts part, int npcOutfitIndex)
+    // NPC가 착용한 ClothData.Id를 그대로 몽타주 상태에 담는다. 예전에는 NPC 인덱스와 몽타주 id가
+    // 서로 다른 번호 체계였지만, 지금은 ClothCatalog 하나를 공유하므로 번역이 필요 없다.
+    private void AddClueState(ClothPart part, int clothId)
     {
-        if (npcOutfitIndex < 0)
+        if (clothId < 0)
         {
             return;
         }
 
-        if (!_syncManager.TryGetClothIdByIndex(part, npcOutfitIndex, out int clothId))
+        ClothData data = ClothCatalog.Find(part, clothId);
+        if (data == null || data.MontagePrefab == null)
         {
-            Debug.LogWarning($"[ClueModulePreview] {part} 파츠의 NPC 인덱스({npcOutfitIndex})에 맞는 몽타주 데이터를 찾지 못했습니다.", this);
+            Debug.LogWarning($"[ClueModulePreview] {part} 파츠의 옷 id({clothId})에 몽타주용 프리팹이 없어 단서에서 제외합니다.", this);
             return;
         }
 
@@ -195,19 +198,19 @@ public class ClueModulePreview : MonoBehaviour
         }
     }
 
-    private static string GetPartLabel(MontageParts part) => part switch
+    private static string GetPartLabel(ClothPart part) => part switch
     {
-        MontageParts.Hats => "모자",
-        MontageParts.Hair => "머리",
-        MontageParts.Torso => "상의",
-        MontageParts.Pants => "하의",
-        MontageParts.Shoes => "신발",
-        MontageParts.Arms => "손",
-        MontageParts.Glasses => "안경",
-        MontageParts.Masks => "마스크",
-        MontageParts.Headphones => "헤드폰",
-        MontageParts.Beard => "수염",
-        MontageParts.Eyebrows => "눈썹",
+        ClothPart.Hat => "모자",
+        ClothPart.Hair => "머리",
+        ClothPart.Torso => "상의",
+        ClothPart.Pants => "하의",
+        ClothPart.Shoes => "신발",
+        ClothPart.Arm => "손",
+        ClothPart.Glasses => "안경",
+        ClothPart.Mask => "마스크",
+        ClothPart.Headphone => "헤드폰",
+        ClothPart.Beard => "수염",
+        ClothPart.Eyebrow => "눈썹",
         _ => "의상"
     };
 
