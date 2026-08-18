@@ -83,6 +83,10 @@ public class ArrestJudgementManager : NetworkBehaviour
         else
         {
             _wrongArrestCount.Value++;
+
+            // 확인 패널이 붙잡아 둔 NPC를 여기서 풀어준다.
+            // 오검거는 추격전으로 이어지지 않아, 안 풀면 그 NPC가 계속 멈춰 있는다.
+            candidate.GetComponent<NpcMovement>()?.ReleaseExternalHold();
         }
 
         // 결과 패널은 전원에게 띄운다. 같은 결과가 연달아 나와도 누락되지 않도록 Rpc로 알린다.

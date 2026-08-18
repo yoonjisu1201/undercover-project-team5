@@ -141,6 +141,11 @@ public class ArrestChaseManager : NetworkBehaviour
         _gauge.Value = 0f;
         _state.Value = ArrestChaseState.Chasing;
 
+        // 검거 확인 패널이 붙잡아 둔 상태로 넘어오므로 먼저 풀어준다.
+        // 이걸 안 풀면 NpcStateMachine이 IsHeldExternally를 보고 상태 갱신을 막아
+        // Run으로 바뀌어도 제자리에 서 있게 된다.
+        candidate.GetComponent<NpcMovement>()?.ReleaseExternalHold();
+
         if (candidate.TryGetComponent(out NpcStateMachine stateMachine))
         {
             stateMachine.ChangeToRun();
