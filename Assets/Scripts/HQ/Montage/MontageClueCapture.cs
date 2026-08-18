@@ -37,7 +37,10 @@ public sealed class MontageClueCapture {
 			ApplyClueLightBoost(focusPart);
 			ApplyFocusFraming(focusPart);
 			clueFillLight = CreateClueFillLight(focusPart);
-			return CopyCameraTexture();
+
+			Texture2D captured = CopyCameraTexture();
+			ApplyColorCorrection(captured, focusPart);
+			return captured;
 		}
 		finally {
 			if (clueFillLight != null) {
@@ -218,15 +221,66 @@ public sealed class MontageClueCapture {
 		return lightObject;
 	}
 
+	// 파츠별 색 보정. 조명을 건드리지 않고 캡처된 픽셀의 채도·명도만 조정한다.
+	// 채도를 내리고 명도를 올리면 원색(빨강)이 옅어져 원래 색조(분홍)에 가까워진다.
+	private static void ApplyColorCorrection(Texture2D texture, ClothPart focusPart) {
+		float saturation = GetCaptureSaturation(focusPart);
+		float value = GetCaptureValue(focusPart);
+
+		if (Mathf.Approximately(saturation, 1f) && Mathf.Approximately(value, 1f)) {
+			return;
+		}
+
+		Color[] pixels = texture.GetPixels();
+
+		for (int i = 0; i < pixels.Length; i++) {
+			Color.RGBToHSV(pixels[i], out float h, out float s, out float v);
+			Color adjusted = Color.HSVToRGB(h, Mathf.Clamp01(s * saturation), Mathf.Clamp01(v * value));
+			adjusted.a = pixels[i].a;
+			pixels[i] = adjusted;
+		}
+
+		texture.SetPixels(pixels);
+		texture.Apply();
+	}
+
+	// 1보다 작으면 채도를 낮춘다(원색이 옅어짐). 1보다 크면 더 진해진다.
+	private static float GetCaptureSaturation(ClothPart focusPart) {
+		switch (focusPart) {
+			case ClothPart.Shoes:
+				return 0.8f;
+			case ClothPart.Mask:
+				return 0.8f;
+			default:
+				return 1f;
+		}
+	}
+
+	// 1보다 크면 밝아진다. 채도를 낮춘 만큼 명도를 올려야 원래 색으로 보인다.
+	private static float GetCaptureValue(ClothPart focusPart) {
+		switch (focusPart) {
+			case ClothPart.Shoes:
+				return 1.05f;
+			default:
+				return 1f;
+		}
+	}
+
 	private static float GetFillLightIntensity(ClothPart focusPart) {
 		switch (focusPart) {
+			// 머리·얼굴 파츠는 카메라가 바짝 붙어 찍혀서 조명이 세면 바로 하얗게 날아간다.
 			case ClothPart.Hair:
 			case ClothPart.Hat:
 			case ClothPart.Headphone:
-				return FillLightIntensity * 1.35f;
+			case ClothPart.Eyebrow:
+			case ClothPart.Beard:
+			case ClothPart.Glasses:
+			case ClothPart.Mask:
+				return FillLightIntensity * 0.6f;
 			case ClothPart.Arm:
-			case ClothPart.Pants:
 				return FillLightIntensity * 1.15f;
+			case ClothPart.Pants:
+				return FillLightIntensity * 0.75f;
 			case ClothPart.Torso:
 				return FillLightIntensity * 0.45f;
 			case ClothPart.Shoes:
@@ -242,6 +296,16 @@ public sealed class MontageClueCapture {
 				return 1.15f;
 			case ClothPart.Torso:
 				return 1.25f;
+			case ClothPart.Pants:
+				return 1.6f;
+			case ClothPart.Hair:
+			case ClothPart.Hat:
+			case ClothPart.Headphone:
+			case ClothPart.Eyebrow:
+			case ClothPart.Beard:
+			case ClothPart.Glasses:
+			case ClothPart.Mask:
+				return 1.45f;
 			default:
 				return LightIntensityMultiplier;
 		}
