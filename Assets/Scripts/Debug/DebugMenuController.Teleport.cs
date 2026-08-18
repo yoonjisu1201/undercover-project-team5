@@ -12,6 +12,21 @@ public sealed partial class DebugMenuController
     public void OnTeleportPlayer2Click() => TeleportToOtherPlayer(1);
     public void OnTeleportPlayer3Click() => TeleportToOtherPlayer(2);
 
+    // 주파수 미션의 안테나 설치 구역으로 이동합니다.
+    public void OnTeleportAntennaZoneClick()
+    {
+        FrequencyAntennaZone zone = FindFirstObjectByType<FrequencyAntennaZone>();
+        if (zone == null)
+        {
+            ShowStatus("안테나 설치 구역을 찾지 못했습니다. 미션 기계가 스폰된 뒤에 사용하세요.");
+            return;
+        }
+
+        Transform target = zone.transform;
+        TeleportLocalPlayer(target.position - target.forward * 2f, target.rotation);
+        ShowStatus("안테나 설치 구역으로 이동했습니다.");
+    }
+
     // 현재 라운드의 범인 NPC 앞쪽으로 이동합니다.
     public void OnTeleportCriminalClick()
     {

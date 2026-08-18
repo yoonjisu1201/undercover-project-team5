@@ -507,7 +507,24 @@ public sealed class FrequencySyncState : NetworkBehaviour
 
         if (_installedAntennaPrefab != null)
         {
-            GameObject installed = Instantiate(_installedAntennaPrefab, position, Quaternion.identity);
+            GameObject installed = Instantiate(_installedAntennaPrefab, position, _installedAntennaPrefab.transform.rotation);
+
+            // 모델 피벗이 중앙에 있어 그대로 두면 바닥에 묻힌다.
+            // 렌더러 하단이 설치 지점 높이에 닿도록 올려준다.
+            Renderer[] renderers = installed.GetComponentsInChildren<Renderer>();
+
+            if (renderers.Length > 0)
+            {
+                Bounds bounds = renderers[0].bounds;
+
+                for (int i = 1; i < renderers.Length; i++)
+                {
+                    bounds.Encapsulate(renderers[i].bounds);
+                }
+
+                installed.transform.position += Vector3.up * (position.y - bounds.min.y);
+            }
+
             if (installed.TryGetComponent(out NetworkObject installedObject))
             {
                 installedObject.Spawn(destroyWithScene: true);
