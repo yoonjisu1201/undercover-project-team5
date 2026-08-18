@@ -59,9 +59,10 @@ public sealed class ShopScreenUI : ScreenBase, IClosableUi
 	[SerializeField] private GameObject _purchaseResultPopup;
 	[SerializeField] private TMP_Text _purchaseResultMessageText;
 	[SerializeField] private Button _purchaseResultConfirmButton;
+	[SerializeField] private LocalizedString _purchaseCompleteMessage;
+	[SerializeField] private LocalizedString _creditsMessage;
 
 	private const float InventoryFullWarningSeconds = 2f;
-	private const string PurchaseCompleteMessageFormat = "{0} 구매 완료\n잔액: {1}";
 	private const string PurchaseUnavailableMessageFormat = "구매 불가\n{0}";
 	private const string InventoryFullReason = "인벤토리가 가득 찼습니다.";
 	private CancellationTokenSource _inventoryFullWarningCts;
@@ -260,19 +261,25 @@ public sealed class ShopScreenUI : ScreenBase, IClosableUi
 		HideInventoryFullWarning();
 
 		string itemName = itemId.ToString();
+		string locationMessage = string.Empty;
 		ShopItemData purchasedItem = FindShopItem(itemId);
-		string purchaseMessage =
-			string.Format(PurchaseCompleteMessageFormat, itemName, remainingCredits.ToString("N0"));
 
 		if (purchasedItem != null)
 		{
 			itemName = purchasedItem.DisplayName.GetLocalizedString();
-			purchaseMessage =
-				string.Format(PurchaseCompleteMessageFormat, itemName, remainingCredits.ToString("N0"));
-			purchaseMessage += $"\n{purchasedItem.PickupLocationMessage.GetLocalizedString()}";
+
+			if (!purchasedItem.PickupLocationMessage.IsEmpty)
+			{
+				locationMessage = purchasedItem.PickupLocationMessage.GetLocalizedString();
+			}
 		}
 
-		ShowPurchaseResultPopup(purchaseMessage);
+		string purchaseMessage = _purchaseCompleteMessage.GetLocalizedString(itemName);
+		string creditsMessage = _creditsMessage.GetLocalizedString(remainingCredits.ToString("N0"));
+
+		ShowPurchaseResultPopup(locationMessage.Length > 0
+			? $"{purchaseMessage}\n\n{locationMessage}\n{creditsMessage}"
+			: $"{purchaseMessage}\n\n{creditsMessage}");
 	}
 
 	private void HandlePurchaseFailed(string reason)
