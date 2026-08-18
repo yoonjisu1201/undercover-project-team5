@@ -31,17 +31,20 @@ public class ArrestChaseUI : MonoBehaviour
     private string _pendingPromptMessage;
     private float _pendingPromptSince;
 
-    [SerializeField] private RectTransform _targetingFrame;      // UI_TargetReticle. _chasePanel의 자식이라 표시/숨김은 부모가 처리, 여기서는 위치만 갱신한다.
-    [SerializeField] private float _targetingHeightOffset = 1f;  // NPC 발밑 대신 몸통 높이에 맞추기 위한 오프셋
-
-    [SerializeField] private float _targetingReferenceDistance = 5f; // 이 거리일 때 프레임이 원본 크기(1배)로 보이도록 기준을 잡는다.
+    [SerializeField] private RectTransform _targetingFrame;        // UI_TargetReticle. _chasePanel의 자식이라 표시/숨김은 부모가 처리, 여기서는 위치와 크기만 갱신한다.
+    [SerializeField] private float _targetingFramePadding = 1f;  // 대상의 몸 크기보다 얼마나 여유 있게 감쌀지
     [SerializeField] private float _targetingMinScale = 0.5f;
     [SerializeField] private float _targetingMaxScale = 2f;
+
+    private Canvas _canvas; // 프레임의 화면상 픽셀 크기를 구하려면 최상단 캔버스의 해상도 배율이 필요하다
 
     private void Start()
     {
         _chasePanel.SetActive(false);
         _promptPanel.SetActive(false);
+
+        // 중첩 캔버스가 생겨도 해상도 배율을 가진 최상단 캔버스를 잡도록 rootCanvas까지 따라간다.
+        _canvas = _targetingFrame.GetComponentInParent<Canvas>().rootCanvas;
 
         ArrestChaseManager.Instance.OnStateChanged += HandleStateChanged;
         ArrestChaseManager.Instance.OnGaugeChanged += HandleGaugeChanged;
@@ -61,7 +64,8 @@ public class ArrestChaseUI : MonoBehaviour
         }
     }
 
-    private void Update()
+    // 카메라가 LateUpdate에서 움직이므로, 그보다 먼저 계산하면 타겟팅 프레임이 한 프레임씩 어긋나 떨린다.
+    private void LateUpdate()
     {
         // 안내 문구는 "지금 이 순간" 로컬 플레이어의 위치/장착 상태에 달려있어서 이벤트로 알 수 없다.
         // 추격 중일 때만 계산하면 되므로 그 외에는 아무것도 하지 않는다.
@@ -121,7 +125,8 @@ public class ArrestChaseUI : MonoBehaviour
         _participantCountText.text = $"{holdingCount}/{ArrestChaseManager.Instance.CurrentRequiredParticipants}";
     }
 
-    // 대상 NPC의 월드 좌표를 화면 좌표로 변환해 타겟팅 프레임(UI_TargetReticle) 위치를 갱신한다.
+    // 대상 NPC의 렌더러 바운드를 화면 좌표로 변환해 타겟팅 프레임(UI_TargetReticle)의 위치와 크기를 갱신한다.
+    // 위장이 풀리면 대상 모델이 통째로 바뀌므로, 고정 오프셋 대신 그때그때의 실제 크기를 따라간다.
     private void UpdateTargetingFrame()
     {
         NetworkObject target = ArrestChaseManager.Instance.Target;
@@ -131,20 +136,57 @@ public class ArrestChaseUI : MonoBehaviour
             return;
         }
 
-        Vector3 worldPos = target.transform.position + Vector3.up * _targetingHeightOffset;
-        Vector3 screenPos = Camera.main.WorldToScreenPoint(worldPos);
+        // 화면 좌표는 내 카메라 기준이어야 한다. Camera.main은 CCTV·초상화 카메라를 잡을 수 있다.
+        Camera camera = LocalCameraProvider.MainCamera;
+        Renderer targetRenderer = FindVisibleRenderer(target);
+
+        if (camera == null || targetRenderer == null)
+        {
+            _targetingFrame.gameObject.SetActive(false);
+            return;
+        }
+
+        // 스킨 메시의 bounds는 팔다리가 흔들릴 때마다 매 프레임 커졌다 작아져 프레임이 떤다.
+        // 애니메이션과 무관한 원본 바운드를 쓰면 크기가 고정되고, 위치만 대상을 따라간다.
+        Bounds local = targetRenderer.localBounds;
+        float worldHalfHeight = local.extents.y * targetRenderer.transform.lossyScale.y;
+
+        // localBounds는 루트 본 기준이라 그대로 변환하면 중심이 발치로 내려간다.
+        // NPC 루트가 발밑이므로, 거기서 몸 높이의 절반만큼 올리면 몸통 중앙이다.
+        Vector3 worldCenter = target.transform.position + Vector3.up * worldHalfHeight;
+
+        Vector3 screenCenter = camera.WorldToScreenPoint(worldCenter);
 
         // 대상이 카메라 뒤에 있으면(z<0) WorldToScreenPoint가 반대편 좌표를 반환하므로 프레임을 숨긴다.
-        bool isBehindCamera = screenPos.z < 0f;
+        bool isBehindCamera = screenCenter.z < 0f;
         _targetingFrame.gameObject.SetActive(!isBehindCamera);
         if (isBehindCamera) return;
 
-        _targetingFrame.position = screenPos;
+        _targetingFrame.position = screenCenter;
 
-        // 카메라와의 거리가 가까울수록 크게, 멀수록 작게 — NPC의 화면상 겉보기 크기 변화를 따라간다.
-        float distance = Vector3.Distance(Camera.main.transform.position, target.transform.position);
-        float scale = Mathf.Clamp(_targetingReferenceDistance / distance, _targetingMinScale, _targetingMaxScale);
-        _targetingFrame.localScale = Vector3.one * scale;
+        // 몸의 위아래 끝을 함께 투영해 화면에서 차지하는 세로 픽셀 크기를 재고, 그 비율만큼 프레임을 키운다.
+        // (원근 때문에 중심에서 위/아래까지의 픽셀 거리가 달라, 한쪽만 재서 두 배 하면 어긋난다)
+        Vector3 screenTop = camera.WorldToScreenPoint(worldCenter + Vector3.up * worldHalfHeight);
+        Vector3 screenBottom = camera.WorldToScreenPoint(worldCenter - Vector3.up * worldHalfHeight);
+        float targetPixelHeight = Mathf.Abs(screenTop.y - screenBottom.y);
+        float framePixelHeight = _targetingFrame.rect.height * _canvas.scaleFactor;
+
+        _targetingFrame.localScale = Vector3.one * Mathf.Clamp(
+            targetPixelHeight * _targetingFramePadding / framePixelHeight,
+            _targetingMinScale,
+            _targetingMaxScale);
+    }
+
+    // 추격 대상은 위장이 풀린 범인이라 시민 파츠는 전부 꺼져 있다. 켜져 있는 스킨 메시가 곧 외계인 몸이다.
+    // (디버그 라벨이나 소품 같은 MeshRenderer가 먼저 잡히지 않도록 스킨 메시만 본다)
+    private static Renderer FindVisibleRenderer(NetworkObject target)
+    {
+        foreach (SkinnedMeshRenderer renderer in target.GetComponentsInChildren<SkinnedMeshRenderer>())
+        {
+            if (renderer.enabled && renderer.gameObject.activeInHierarchy) return renderer;
+        }
+
+        return null;
     }
 
     private void HandleGaugeChanged(float gauge)

@@ -10,6 +10,18 @@ public class CriminalAlienReveal : NetworkBehaviour
     // 배열 순서는 AlienCloneManager의 분신 프리팹 배열과 반드시 같아야 범인과 분신이 같은 종류로 나온다.
     [SerializeField] private GameObject[] _alienModelPrefabs;
 
+    // 촬영 때 잠시 감추려면 생성해둔 본모습 인스턴스를 들고 있어야 한다.
+    private GameObject _alienForm;
+
+    // 촬영 때 시민 외형의 포즈를 되돌리는 데 쓴다.
+    private Animator _humanAnimator;
+
+    // 본모습은 드러난 뒤 계속 달리기만 하므로 파라미터를 한 번만 켠다.
+    // 이름은 분신이 쓰는 AlienAnimator 컨트롤러와 같아야 한다.
+    private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
+
+    private Animator _alienAnimator;
+
     private readonly NetworkVariable<bool> _isRevealed = new(
         false,
         NetworkVariableReadPermission.Everyone,
@@ -43,12 +55,54 @@ public class CriminalAlienReveal : NetworkBehaviour
         // 위장 해제는 되돌아가지 않으므로, 아직 해제 전이면 손댈 것이 없다.
         if (!revealed) return;
 
-        // 생성에 실패하면 시민 외형을 그대로 둔다. 
-        if (CreateAlienForm() == null) return;
+        // 생성에 실패하면 시민 외형을 그대로 둔다.
+        _alienForm = CreateAlienForm();
+        if (_alienForm == null) return;
+
+        _alienAnimator = _alienForm.GetComponent<Animator>();
+        _alienAnimator.SetBool(IsRunningHash, true);
 
         if (_humanForm != null)
         {
-            _humanForm.SetActive(false);
+            _humanAnimator = _humanForm.GetComponentInChildren<Animator>(true);
+            SetRenderersEnabled(_humanForm, false);
+        }
+    }
+
+    // 결과 패널 촬영처럼 한 프레임만 위장한 모습이 필요할 때 쓴다.
+    // 메인 카메라가 그리기 전에 EndHumanFormCapture로 반드시 되돌려야 한다.
+    public void BeginHumanFormCapture()
+    {
+        if (!_isRevealed.Value || _alienForm == null || _humanForm == null) return;
+
+        SetRenderersEnabled(_alienForm, false);
+        SetRenderersEnabled(_humanForm, true);
+
+        // 위장이 풀린 뒤에도 시민 Animator는 NPC 상태 머신이 계속 몰고 있어, 추격 중이면 달리는 포즈로 찍힌다.
+        // 이 프레임만 기본 Idle 첫 프레임을 직접 재생해 서 있는 모습으로 남긴다.
+        // 파라미터는 건드리지 않으므로 다음 프레임에 컨트롤러가 알아서 원래 상태로 돌아간다.
+        if (_humanAnimator != null)
+        {
+            _humanAnimator.Play(AnimatorHashes.IdleState, 0, 0f);
+            _humanAnimator.Update(0f); // 여기까지 해야 이번 프레임 본 포즈에 반영된다
+        }
+    }
+
+    public void EndHumanFormCapture()
+    {
+        if (!_isRevealed.Value || _alienForm == null || _humanForm == null) return;
+
+        SetRenderersEnabled(_humanForm, false);
+        SetRenderersEnabled(_alienForm, true);
+    }
+
+    // 시민 외형 루트에는 Animator와 NpcAnimationEvents가 함께 붙어 있어, 오브젝트를 통째로 끄면
+    // 애니메이션 이벤트가 끊겨 NPC 상태 머신이 Phone 종료를 영영 기다린다. 그래서 보이는 것만 끈다.
+    private static void SetRenderersEnabled(GameObject form, bool enabled)
+    {
+        foreach (Renderer renderer in form.GetComponentsInChildren<Renderer>(true))
+        {
+            renderer.enabled = enabled;
         }
     }
 

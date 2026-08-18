@@ -14,4 +14,7 @@ public static class AnimatorHashes
 
     // 휴대폰 소품을 유지해야 하는 Animator State Tag입니다.
     public const string PhoneActionTag = "PhoneAction";
+
+    // 촬영처럼 특정 포즈가 필요할 때 직접 재생하는 기본 Idle State입니다.
+    public static readonly int IdleState = Animator.StringToHash("Idle");
 }

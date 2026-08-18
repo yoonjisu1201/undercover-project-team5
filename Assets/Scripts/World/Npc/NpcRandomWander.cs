@@ -18,6 +18,9 @@ public sealed class NpcRandomWander : MonoBehaviour
     [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 1f;
     [SerializeField, Min(0f)] private float _minimumMoveDistance = 2f;
 
+    // 추격 중에는 이만큼 남았을 때 다음 목적지를 잡아, 멈추지 않고 이어 달리게 합니다.
+    [SerializeField, Min(0.5f)] private float _chaseRepathDistance = 3f;
+
     private NpcMovement _movement;
     private NpcStateMachine _stateMachine;
     private MapRegion _spawnRegion;
@@ -80,7 +83,12 @@ public sealed class NpcRandomWander : MonoBehaviour
 
         if (_hasRequestedMove)
         {
-            if (!_movement.HasArrived)
+            // 추격 대상만 도착 전에 다음 목적지로 넘어간다. 배회는 기존대로 완전히 도착한 뒤에 고른다.
+            bool readyForNext = IsChaseTarget
+                ? _movement.IsNearDestination(_chaseRepathDistance)
+                : _movement.HasArrived;
+
+            if (!readyForNext)
             {
                 return;
             }

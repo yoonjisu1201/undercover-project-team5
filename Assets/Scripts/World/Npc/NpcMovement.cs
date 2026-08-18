@@ -75,6 +75,17 @@ public class NpcMovement : MonoBehaviour
             _agent.SetDestination(worldPos);
         }
 
+        // 목적지에 완전히 멈추기 전에 다음 목적지를 잡아야 추격이 끊기지 않습니다.
+        public bool IsNearDestination(float distance)
+        {
+            if (_agent == null || _agent.pathPending)
+            {
+                return false;
+            }
+
+            return _agent.remainingDistance <= distance;
+        }
+
         // Agent의 최대 이동 속도를 0 이상의 값으로 설정합니다.
         public void SetSpeed(float speed)
         {
