@@ -248,7 +248,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: -120}
-  m_SizeDelta: {x: 420, y: 60}
+  m_SizeDelta: {x: 800, y: 60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5256073808918900849
 CanvasRenderer:
@@ -281,7 +281,7 @@ MonoBehaviour:
   m_text: "\uC90D\uAE30 : [E]"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
-  m_sharedMaterial: {fileID: 0}
+  m_sharedMaterial: {fileID: -2647956062019823955, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
   m_fontSharedMaterials:
   - {fileID: 0}
   m_fontMaterial: {fileID: 0}
@@ -1744,6 +1744,7 @@ GameObject:
   - component: {fileID: 4105605871546457509}
   - component: {fileID: 5713101930436285777}
   - component: {fileID: 5837840438065526402}
+  - component: {fileID: 4968682925593553600}
   m_Layer: 0
   m_Name: InventoryCanvas
   m_TagString: Untagged
@@ -1765,7 +1766,6 @@ RectTransform:
   m_Children:
   - {fileID: 8527903958741459288}
   - {fileID: 7413037309360603347}
-  - {fileID: 5273534947505582756}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -1854,8 +1854,22 @@ MonoBehaviour:
   - {fileID: 2404477986392982948}
   - {fileID: 6003256034318646309}
   _selectionOutline: {fileID: 4261724886581815510}
-  _shotgunCrosshair: {fileID: 5273534947505582759}
   _itemCatalog: {fileID: 0}
+--- !u!114 &4968682925593553600
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6867887084107031234}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f91fb811849c78948ae1976b98c67654, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptUI
+  _interactionPromptText: {fileID: 6948077601196424578}
+  _selectedItemPromptDuration: 2
+  _useHoldProgressImage: {fileID: 0}
 --- !u!1 &9205330015936181326
 GameObject:
   m_ObjectHideFlags: 0
@@ -1931,34 +1945,3 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!1001 &4813827323320857254
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 7514348910333129600}
-    m_Modifications:
-    - target: {fileID: 856100000000000001, guid: b9f2e7c3d5a14a6f8c0e21b437659a10, type: 3}
-      propertyPath: m_Name
-      value: ShotgunCrosshair
-      objectReference: {fileID: 0}
-    - target: {fileID: 856100000000000002, guid: b9f2e7c3d5a14a6f8c0e21b437659a10, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: -46
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: b9f2e7c3d5a14a6f8c0e21b437659a10, type: 3}
---- !u!224 &5273534947505582756 stripped
-RectTransform:
-  m_CorrespondingSourceObject: {fileID: 856100000000000002, guid: b9f2e7c3d5a14a6f8c0e21b437659a10, type: 3}
-  m_PrefabInstance: {fileID: 4813827323320857254}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &5273534947505582759 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 856100000000000001, guid: b9f2e7c3d5a14a6f8c0e21b437659a10, type: 3}
-  m_PrefabInstance: {fileID: 4813827323320857254}
-  m_PrefabAsset: {fileID: 0}
