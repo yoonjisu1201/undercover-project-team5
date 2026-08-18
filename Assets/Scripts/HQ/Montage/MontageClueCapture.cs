@@ -6,6 +6,10 @@ public sealed class MontageClueCapture {
 	private const float FallbackFieldOfView = 24f;
 	private const float CaptureFieldOfView = 4f;
 	private const float LightIntensityMultiplier = 2.2f;
+	// 팔 바운드의 중심에서 손 끝 쪽으로 얼마나 옮길지의 비율(1이면 바운드 끝).
+	private const float HandCenterRatio = 0.82f;
+	// 손 하나가 들어가는 정도의 한 변 길이(m).
+	private const float HandFocusSize = 0.14f;
 	private const float FillLightIntensity = 2.0f;
 
 	private readonly Montage _montage;
@@ -114,17 +118,23 @@ public sealed class MontageClueCapture {
 					Mathf.Max(size.z, 0.06f));
 				break;
 			case ClothPart.Arm:
-				// 손 파츠는 좌우가 멀리 떨어져 있어서 전체 중심을 쓰면 빈 공간을 찍는다.
-				// 몽타주 카메라 기준 오른쪽 끝 손을 단서 대상으로 잡는다.
-				center += _camera.transform.right * bounds.extents.x * 0.55f;
-				size = new Vector3(
-					Mathf.Max(size.x * 0.24f, 0.08f),
-					Mathf.Max(size.y * 0.75f, 0.1f),
-					Mathf.Max(size.z, 0.05f));
+				// 팔은 T포즈로 좌우로 뻗어 있어 전체 중심을 쓰면 몸통 한가운데(빈 공간)를 찍는다.
+				// 팔이 뻗은 축은 카메라가 아니라 몽타주 자신의 좌우축이므로 그 축을 기준으로
+				// 한쪽 끝(손)까지 중심을 옮기고, 손 크기에 맞춘 정육면체로 범위를 잡는다.
+				Vector3 armAxis = _montage.transform.right;
+				center += armAxis * GetExtentAlongAxis(bounds.extents, armAxis) * HandCenterRatio;
+				size = new Vector3(HandFocusSize, HandFocusSize, HandFocusSize);
 				break;
 		}
 
 		return new Bounds(center, size);
+	}
+
+	// AABB 반지름을 임의 축에 투영한 길이. 몽타주가 회전해 있어도 팔 방향 반경을 바르게 구한다.
+	private static float GetExtentAlongAxis(Vector3 extents, Vector3 axis) {
+		return Mathf.Abs(extents.x * axis.x) +
+			Mathf.Abs(extents.y * axis.y) +
+			Mathf.Abs(extents.z * axis.z);
 	}
 
 	private static float GetFramingMargin(ClothPart focusPart) {
@@ -251,6 +261,12 @@ public sealed class MontageClueCapture {
 				return 0.8f;
 			case ClothPart.Mask:
 				return 0.8f;
+			case ClothPart.Beard:
+				return 0.8f;
+			case ClothPart.Torso:
+				return 0.8f;
+			case ClothPart.Glasses:
+				return 0.8f;
 			default:
 				return 1f;
 		}
@@ -274,15 +290,16 @@ public sealed class MontageClueCapture {
 			case ClothPart.Headphone:
 			case ClothPart.Eyebrow:
 			case ClothPart.Beard:
-			case ClothPart.Glasses:
 			case ClothPart.Mask:
 				return FillLightIntensity * 0.6f;
+			case ClothPart.Glasses:
+				return FillLightIntensity * 0.45f;
 			case ClothPart.Arm:
 				return FillLightIntensity * 1.15f;
 			case ClothPart.Pants:
-				return FillLightIntensity * 0.75f;
-			case ClothPart.Torso:
 				return FillLightIntensity * 0.45f;
+			case ClothPart.Torso:
+				return FillLightIntensity * 0.35f;
 			case ClothPart.Shoes:
 				return FillLightIntensity * 0.35f;
 			default:
@@ -295,17 +312,18 @@ public sealed class MontageClueCapture {
 			case ClothPart.Shoes:
 				return 1.15f;
 			case ClothPart.Torso:
-				return 1.25f;
+				return 1.1f;
 			case ClothPart.Pants:
-				return 1.6f;
+				return 1.3f;
 			case ClothPart.Hair:
 			case ClothPart.Hat:
 			case ClothPart.Headphone:
 			case ClothPart.Eyebrow:
 			case ClothPart.Beard:
-			case ClothPart.Glasses:
 			case ClothPart.Mask:
 				return 1.45f;
+			case ClothPart.Glasses:
+				return 1.3f;
 			default:
 				return LightIntensityMultiplier;
 		}
