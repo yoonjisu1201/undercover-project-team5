@@ -565,11 +565,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MissionInteractable
   ShowTopMostFoldoutHeaderGroup: 1
+  _aimIgnoredColliders: []
   _outlineFadeDuration: 0.15
   _uiPrefab: {fileID: 6903825664421191889, guid: 7b238c348e906e8439b53d9ff331e8c8, type: 3}
   _interactionText: "\uC678\uACC4 \uD754\uC801 \uBD84\uC11D"
   _completionReward: {fileID: 0}
   _rewardSpawnOffset: {x: 0, y: 0.5, z: 1.2}
+  _requiredItem: {fileID: 0}
+  _requiredItemMissingText: "\uD544\uC694"
+  _requiredItemInsertedText: "\uBD84\uC11D \uAC00\uB2A5"
 --- !u!114 &4743200448401377465
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2431,7 +2435,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1982295587047100204
 Transform:
   m_ObjectHideFlags: 0
