@@ -40,11 +40,8 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	[Header("=== 몽타주 갱신 알림 ===")]
 	[SerializeField] private float _notificationHiddenX = 460f;
 	[SerializeField] private float _notificationShownX = -24f;
-	[SerializeField] private float _tabRestX = 300f;
 	[SerializeField, Min(0f)] private float _notificationSlideDuration = 0.3f;
 	[SerializeField, Min(0f)] private float _notificationHoldSeconds = 2.5f;
-	[SerializeField, Min(0f)] private float _tabRestoreDelay = 0.25f;
-	[SerializeField, Min(0f)] private float _tabRestoreSlideDuration = 0.35f;
 
 	public bool IsExpanded => _expandedUI != null && _expandedUI.activeSelf;
 
@@ -58,6 +55,8 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	private Tween _compactSlide;
 	private Sequence _notificationSequence;
 	private bool _isNotificationPlaying;
+	// 미션 패널처럼 밖에서 Tab 카드를 숨겨둔 상태. 알림이 끝나도 이 상태를 덮어쓰지 않는다.
+	private bool _isTabCardAllowed = true;
 
 	private void Awake()
 	{
@@ -297,7 +296,7 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	private void RefreshCompactState()
 	{
 		bool showNotification = _isNotificationPlaying && !InfoHubController.IsHubOpen;
-		SetCompactCardsActive(showNotification, !showNotification);
+		SetCompactCardsActive(showNotification, !showNotification && _isTabCardAllowed);
 	}
 
 	private void PlayNotification()
@@ -313,10 +312,9 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 		RectTransform notificationRect = _notificationUI != null
 			? _notificationUI.transform as RectTransform
 			: null;
-		RectTransform tabRect = _tabUI != null ? _tabUI.transform as RectTransform : null;
-		if (notificationRect == null || tabRect == null)
+		if (notificationRect == null)
 		{
-			Debug.LogError("[MontageShareUI] NotificationState 또는 TabState의 RectTransform을 찾지 못했습니다.", this);
+			Debug.LogError("[MontageShareUI] NotificationState의 RectTransform을 찾지 못했습니다.", this);
 			RefreshCompactState();
 			return;
 		}
@@ -329,15 +327,8 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 			.Append(notificationRect.DOAnchorPosX(_notificationShownX, _notificationSlideDuration).SetEase(Ease.OutCubic))
 			.AppendInterval(_notificationHoldSeconds)
 			.Append(notificationRect.DOAnchorPosX(_notificationHiddenX, _notificationSlideDuration).SetEase(Ease.InCubic))
+			// 알림이 나가면 그대로 끝낸다. Tab 카드를 다시 밀어 넣으면 화면 구석에 칩이 남는다.
 			.AppendCallback(() => SetCompactCardsActive(false, false))
-			.AppendInterval(_tabRestoreDelay)
-			.AppendCallback(() =>
-			{
-				tabRect.anchoredPosition = new Vector2(_notificationHiddenX, tabRect.anchoredPosition.y);
-				SetCompactCardsActive(false, true);
-			})
-			.Append(tabRect.DOAnchorPosX(_tabRestX, _tabRestoreSlideDuration)
-				.SetEase(Ease.OutCubic))
 			.OnComplete(() =>
 			{
 				_isNotificationPlaying = false;
@@ -355,6 +346,8 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	// 알림(NotificationState)은 건드리지 않아 미션 중에도 새 몽타주는 알려준다.
 	public void SetTabCardVisible(bool visible)
 	{
+		_isTabCardAllowed = visible;
+
 		if (_tabUI != null)
 		{
 			_tabUI.SetActive(visible);
@@ -369,7 +362,7 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 		}
 		if (_tabUI != null)
 		{
-			_tabUI.SetActive(tabActive);
+			_tabUI.SetActive(tabActive && _isTabCardAllowed);
 		}
 	}
 
