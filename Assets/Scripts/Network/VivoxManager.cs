@@ -1,5 +1,6 @@
 using Cysharp.Threading.Tasks;
 using System;
+using System.Threading.Tasks;
 using Unity.Services.Vivox;
 using UnityEngine;
 
@@ -20,8 +21,9 @@ public class VivoxManager : MonoBehaviour
 	public static bool IsOutputMuted => VivoxService.Instance != null && VivoxService.Instance.IsOutputDeviceMuted;
 
 	// 음성 채널 참가 전에 이 Task를 먼저 기다리면, 로그인 완료 시점과 무관하게 항상 안전하다.
-	// Preserve()로 여러 곳에서 반복 await 가능하게 만든다.
-	public static UniTask LoginTask { get; private set; }
+	// UniTask는 Preserve()를 해도 "완료 후 재await"만 되고 "대기 중 동시 await"는 예외가 난다.
+	// 채널 참가·장치 변경·마이크 테스트가 로그인 도중 겹칠 수 있으므로 Task를 쓴다.
+	public static Task LoginTask { get; private set; }
 
 	private string _sessionChannelName; // 실제 플레이 음성채널
 
@@ -66,7 +68,7 @@ public class VivoxManager : MonoBehaviour
 
 	private void Start()
 	{
-		LoginTask = LoginAsync().Preserve();
+		LoginTask = LoginAsync();
 	}
 
 	private void OnDestroy()
@@ -87,7 +89,7 @@ public class VivoxManager : MonoBehaviour
 
 	//--- 로그인 ---//
 
-	private async UniTask LoginAsync()
+	private async Task LoginAsync()
 	{
 		await NetworkBootstrap.SignInTask; // UGS 로그인 완료 후 Vivox 초기화
 

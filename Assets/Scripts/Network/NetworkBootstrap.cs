@@ -1,6 +1,6 @@
 using System;
 using System.Text;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using UnityEngine;
@@ -15,8 +15,9 @@ public class NetworkBootstrap : MonoBehaviour
 	public static bool IsSignedIn => AuthenticationService.Instance != null && AuthenticationService.Instance.IsSignedIn;
 
 	// 세션 생성/참가 전에 이 Task를 먼저 기다리면, 로그인 완료 시점과 무관하게 항상 안전하다.
-	// Preserve()로 여러 곳에서 반복 await 가능하게 만든다.
-	public static UniTask SignInTask { get; private set; }
+	// UniTask는 Preserve()를 해도 "완료 후 재await"만 되고 "대기 중 동시 await"는 예외가 난다.
+	// 로비 진입 시 Vivox 로그인과 방 목록 조회가 동시에 기다리므로 Task를 쓴다.
+	public static Task SignInTask { get; private set; }
 
 	private static NetworkBootstrap s_instance;
 
@@ -30,10 +31,10 @@ public class NetworkBootstrap : MonoBehaviour
 		s_instance = this;
 
 		DontDestroyOnLoad(gameObject);
-		SignInTask = SignInAsync().Preserve();
+		SignInTask = SignInAsync();
 	}
 
-	private async UniTask SignInAsync()
+	private async Task SignInAsync()
 	{
 		string authProfile = ResolveAuthenticationProfile();
 
