@@ -1,28 +1,115 @@
 using System.Collections.Generic;
 using Unity.AI.Navigation;
+using Unity.Netcode;
 using UnityEngine;
+using Random = System.Random;
 
 // 시드 하나로 StartPoint부터 DoorSocket을 이어가며 지하 맵을 절차적으로 생성한다.
-// 같은 시드를 넣으면 항상 같은 배치가 나온다(Random.InitState 사용).
-[RequireComponent(typeof(NavMeshSurface))]
-public class UndergroundRandomMapGenerator : MonoBehaviour
+// 같은 시드를 넣으면 항상 같은 배치가 나온다. 전역 UnityEngine.Random 대신 이 인스턴스만의
+// System.Random을 쓰기 때문에, 다른 코드의 랜덤 호출과 절대 섞이지 않는다.
+[RequireComponent(typeof(NavMeshSurface), typeof(NetworkObject))]
+public class UndergroundRandomMapGenerator : NetworkBehaviour
 {
-    [SerializeField] private UndergroundModule _startModulePrefab;
+    // RoundManager.GetRandomSeed(tag)에 넘기는 태그. 다른 시스템의 태그와 겹치지만 않으면 된다.
+    private const int MapSeedTag = 100;
+
+    // 프리팹이 아니라 이 생성기의 자식으로 미리 배치해둔 실제 StartPoint 인스턴스. 매번 새로 만들지 않고 그대로 등록해서 쓴다.
+    [SerializeField] private UndergroundModule _startModule;
     [SerializeField] private UndergroundModule[] _modulePrefabs;
     [SerializeField, Min(1)] private int _targetModuleCount = 20;
     [SerializeField, Min(1)] private int _maxDepth = 10;
     [SerializeField, Range(0f, 1f)] private float _doorUseChance = 0.7f;
     [SerializeField] private int _debugSeed;
-    
+
+    // 호스트/클라이언트가 같은 맵을 생성하도록 서버가 뽑아 동기화하는 시드.
+    private readonly NetworkVariable<int> _mapSeed =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    // 실제로 문으로 쓰인 소켓들의 문을 생성 순서대로 담아, 인덱스로 _doorOpenStates와 맞춘다.
+    // 생성 자체는 모든 클라이언트가 같은 시드로 각자 독립적으로 돌리기 때문에, 이 순서도 항상 동일하다.
+    private readonly List<UndergroundDoor> _doors = new();
+    // 문 열림/닫힘 상태. 서버만 쓰고 클라이언트는 OnListChanged로 읽기만 한다.
+    private readonly NetworkList<bool> _doorOpenStates = new();
+
     private NavMeshSurface _navMeshSurface;
-    // readonly면 Unity가 아예 직렬화를 안 해서 인스펙터에 안 뜬다. 디버그용이라 readonly 뺐다.
+    private Random _random;
+    
     private readonly List<UndergroundModule> _placedModules = new();
+    // 열린 상태로 다음 방 붙일 문들
     private readonly Queue<DoorSocket> _openSockets = new();
-    // 랜덤으로 안 열고 닫아둔 문들. 큐가 말랐는데 아직 목표에 못 미치면 여기서 꺼내 다시 시도한다.
+    // 일단 안 열릴 계획인 문들. 큐가 말랐는데 아직 목표에 못 미치면 여기서 꺼내 다시 시도한다.
     private readonly List<DoorSocket> _reserveSockets = new();
 
     private void Awake() {
         _navMeshSurface = GetComponent<NavMeshSurface>();
+    }
+
+    // 서버는 시드를 직접 뽑아 동기화하고 바로 생성한다. 클라이언트는 지금 값으로 바로 한 번 생성하고,
+    // 나중에 값이 또 바뀌는 경우(다음 라운드 등)에 대비해 구독도 해둔다. 레이트 조인 클라이언트는
+    // OnNetworkSpawn 시점에 이미 동기화된 _mapSeed.Value를 그대로 읽으니 별도 처리가 필요 없다.
+    public override void OnNetworkSpawn()
+    {
+        _mapSeed.OnValueChanged += HandleMapSeedChanged;
+        _doorOpenStates.OnListChanged += HandleDoorStateChanged;
+
+        if (IsServer) {
+            // 라운드매니저 있으면 랜덤값 사용, 없으면 DebugSeed 사용
+            _mapSeed.Value = RoundManager.Instance == null ? _debugSeed : RoundManager.Instance.GetRandomSeed(MapSeedTag);
+            Generate(_mapSeed.Value);
+            return;
+        }
+
+        Generate(_mapSeed.Value);
+
+        // 레이트 조인 클라이언트는 생성 시점에 이미 서버가 채워둔 _doorOpenStates를 그대로 들고 있으니,
+        // OnListChanged로 이후 변경분만 받는 대신 지금 값들을 한 번 직접 적용해줘야 한다.
+        for (int i = 0; i < _doorOpenStates.Count && i < _doors.Count; i++)
+        {
+            if (_doorOpenStates[i])
+            {
+                _doors[i].Open();
+            }
+        }
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        _mapSeed.OnValueChanged -= HandleMapSeedChanged;
+        _doorOpenStates.OnListChanged -= HandleDoorStateChanged;
+    }
+
+    // 서버가 문을 열 때마다 모든 클라이언트가 여기서 반영한다. 문은 한 번 열리면 다시 닫히지 않는다.
+    private void HandleDoorStateChanged(NetworkListEvent<bool> change)
+    {
+        if (!change.Value || change.Index < 0 || change.Index >= _doors.Count)
+        {
+            return;
+        }
+
+        _doors[change.Index].Open();
+    }
+
+    // 문과 상호작용한 클라이언트가 이 문을 열어달라고 요청할 때 부른다. 실제 상태 변경은 서버만 할 수 있다.
+    // 기본값(소유자만 호출 가능)으로는 막히므로 Everyone으로 열어둔다.
+    [Rpc(SendTo.Server)]
+    public void OpenDoorRpc(int doorIndex)
+    {
+        if (doorIndex < 0 || doorIndex >= _doorOpenStates.Count)
+        {
+            return;
+        }
+
+        _doorOpenStates[doorIndex] = true;
+    }
+
+    // 서버는 OnNetworkSpawn에서 이미 직접 생성했으니 중복 실행하지 않는다.
+    private void HandleMapSeedChanged(int previousSeed, int currentSeed)
+    {
+        if (IsServer) {
+            return;
+        }
+
+        Generate(currentSeed);
     }
 
     // 인스펙터에서 우클릭 → 이 메뉴로 _debugSeed를 넣어 바로 테스트해볼 수 있다.
@@ -32,24 +119,25 @@ public class UndergroundRandomMapGenerator : MonoBehaviour
         Generate(_debugSeed);
     }
 
-    // 이전 생성 결과를 지우고, seed로 Random 상태를 고정한 뒤 새로 생성한다.
+    // 이전 생성 결과를 지우고, seed로 이 인스턴스 전용 Random을 새로 만든 뒤 생성한다.
     // 호스트/클라이언트가 같은 seed로 이 함수를 부르면 항상 같은 맵이 나온다.
     public void Generate(int seed)
     {
         Clear();
-
-        Random.State previousState = Random.state;
-        try
-        {
-            Random.InitState(seed);
-            GenerateInternal();
-        }
-        finally
-        {
-            Random.state = previousState;
-        }
-
+        _random = new Random(seed);
+        GenerateInternal();
         _navMeshSurface.BuildNavMesh(); // 생성된 지오메트리 기준으로 NavMesh를 다시 굽는다. 런타임에도 동작한다.
+
+        // 문은 전부 닫힌 채로 시작한다. 서버만 NetworkList를 채울 수 있고, 클라이언트는 이 값을
+        // OnListChanged(또는 늦게 들어왔다면 OnNetworkSpawn의 캐치업 루프)로 받아 반영한다.
+        if (IsServer)
+        {
+            _doorOpenStates.Clear();
+            for (int i = 0; i < _doors.Count; i++)
+            {
+                _doorOpenStates.Add(false);
+            }
+        }
     }
 
     // 지금까지 생성된 모듈을 전부 지우고 생성 관련 상태(큐, 예비 목록)를 초기화한다.
@@ -57,24 +145,28 @@ public class UndergroundRandomMapGenerator : MonoBehaviour
     {
         foreach (UndergroundModule placed in _placedModules)
         {
-            if (placed != null)
+            // StartPoint는 매번 새로 만드는 게 아니라 계속 재사용하는 고정 인스턴스라 지우지 않는다.
+            if (placed != null && placed != _startModule)
             {
-                DestroyModule(placed.gameObject);
+                Destroy(placed.gameObject);
             }
         }
+
+        // 재사용되는 StartPoint는 지워지지 않으니, 이전 라운드에 열렸던 문 상태를 직접 초기화해줘야 한다.
+        _startModule.ResetState();
 
         _placedModules.Clear();
         _openSockets.Clear();
         _reserveSockets.Clear();
+        _doors.Clear();
     }
 
-    // StartPoint를 이 오브젝트 위치에 놓고, 목표 개수에 도달하거나 더 이을 문이 없을 때까지
+    // 미리 배치해둔 StartPoint를 등록하고, 목표 개수에 도달하거나 더 이을 문이 없을 때까지
     // 큐에서 열린 소켓을 하나씩 꺼내 모듈을 이어붙인다.
     private void GenerateInternal()
     {
-        UndergroundModule start = Instantiate(_startModulePrefab, transform.position, transform.rotation, transform);
+        UndergroundModule start = _startModule;
         start.Depth = 0;
-        start.SourcePrefab = _startModulePrefab;
         _placedModules.Add(start);
         EnqueueOpenSockets(start);
         Debug.Log($"[생성 시작] start={start.name}, doorSockets={start.DoorSockets.Count}, openQueue={_openSockets.Count}, reserve={_reserveSockets.Count}");
@@ -124,7 +216,7 @@ public class UndergroundRandomMapGenerator : MonoBehaviour
 
         if (_reserveSockets.Count > 0)
         {
-            int index = Random.Range(0, _reserveSockets.Count);
+            int index = _random.Next(_reserveSockets.Count);
             socket = _reserveSockets[index];
             _reserveSockets.RemoveAt(index);
             return true;
@@ -143,31 +235,27 @@ public class UndergroundRandomMapGenerator : MonoBehaviour
         bool mustBeDeadEnd = newDepth >= _maxDepth;
         bool mustAvoidDeadEnd = !mustBeDeadEnd && isLastChance;
 
-        foreach (UndergroundModule candidatePrefab in Shuffled(_modulePrefabs))
-        {
+        foreach (UndergroundModule candidatePrefab in Shuffled(_modulePrefabs)) {
             bool isDeadEnd = candidatePrefab.DoorSockets.Count == 1;
 
-            if (mustBeDeadEnd && !isDeadEnd)
-            {
+            if (mustBeDeadEnd && !isDeadEnd) {
                 continue; // 깊이 제한에 걸리면 막다른 모듈만 써야 한다
             }
 
-            if (mustAvoidDeadEnd && isDeadEnd)
-            {
+            if (mustAvoidDeadEnd && isDeadEnd) {
                 continue; // 마지막 기회인데 막다른 모듈을 쓰면 여기서 생성이 끝나버린다
             }
 
-            if (candidatePrefab == parentModule.SourcePrefab)
-            {
+            if (candidatePrefab == parentModule.SourcePrefab) {
                 continue; // 같은 모듈이 연속으로 나오지 않게 한다
             }
-
+            
             UndergroundModule candidate = Instantiate(candidatePrefab, transform);
             candidate.SourcePrefab = candidatePrefab;
 
             foreach (DoorSocket candidateSocket in Shuffled(candidate.DoorSockets))
             {
-                UndergroundSocketAligner.AlignToSocket(candidate, candidateSocket, openSocket);
+                AlignToSocket(candidate, candidateSocket, openSocket);
                 Physics.SyncTransforms(); // 방금 옮긴 Transform을 Collider.bounds에 즉시 반영시킨다 (안 하면 겹침 검사가 옛날 위치로 이뤄진다).
 
                 if (Overlaps(candidate, parentModule))
@@ -177,30 +265,20 @@ public class UndergroundRandomMapGenerator : MonoBehaviour
 
                 openSocket.IsConnected = true;
                 candidateSocket.IsConnected = true;
-                openSocket.ShowAsDoor(); // 문은 한쪽만 보여준다. candidateSocket은 기본값(둘 다 꺼짐)으로 둔다.
+                // 문은 한쪽만 보여준다. candidateSocket은 기본값(둘 다 꺼짐)으로 둔다.
+                // 인덱스가 _doorOpenStates와 대응해야 하니, 등록될 자리(_doors.Count)를 그대로 넘긴다.
+                openSocket.ShowAsDoor(this, _doors.Count);
+                _doors.Add(openSocket.Door);
                 candidate.Depth = newDepth;
                 _placedModules.Add(candidate);
                 EnqueueOpenSockets(candidate);
                 return;
             }
 
-            DestroyModule(candidate.gameObject);
+            Destroy(candidate.gameObject);
         }
 
         openSocket.ShowAsWall(); // 어떤 후보도 못 붙였으니 확실히 벽으로 마감한다.
-    }
-
-    // Destroy는 Play 모드에서만 되고, Edit 모드(ContextMenu 테스트)에서는 DestroyImmediate를 써야 한다.
-    private static void DestroyModule(GameObject target)
-    {
-        if (Application.isPlaying)
-        {
-            Destroy(target);
-        }
-        else
-        {
-            DestroyImmediate(target);
-        }
     }
 
     // 문마다 독립적으로 지금 열지, 예비로 남겨둘지 정한다. 예비로 간 문은 나중에 큐가 말랐을 때
@@ -214,7 +292,7 @@ public class UndergroundRandomMapGenerator : MonoBehaviour
             }
 
             // 일정 확률로 이번 문을 사용할지 말지, 사용하면 _openSocket에, 안하면 _reverseSocekt에 저장
-            if (Random.value <= _doorUseChance) {
+            if (_random.NextDouble() <= _doorUseChance) {
                 _openSockets.Enqueue(socket);
             }
             else {
@@ -222,6 +300,15 @@ public class UndergroundRandomMapGenerator : MonoBehaviour
                 _reserveSockets.Add(socket);
             }
         }
+    }
+
+    // moduleSocket이 targetSocket과 마주보게(forward가 서로 반대) moduleToPlace 전체를 옮기고 돌린다.
+    private static void AlignToSocket(UndergroundModule moduleToPlace, DoorSocket moduleSocket, DoorSocket targetSocket)
+    {
+        float angle = Vector3.SignedAngle(moduleSocket.transform.forward, -targetSocket.transform.forward, Vector3.up);
+        moduleToPlace.transform.RotateAround(moduleSocket.transform.position, Vector3.up, angle);
+
+        moduleToPlace.transform.position += targetSocket.transform.position - moduleSocket.transform.position;
     }
 
     // 문 있는 자리에서 부모 모듈과 살짝 겹치는 건 정상이라, 부모 모듈은 겹침 검사에서 제외한다.
@@ -244,7 +331,7 @@ public class UndergroundRandomMapGenerator : MonoBehaviour
     }
 
     // source 전체를 무작위 순서로, 겹치지도 빠지지도 않게 한 번씩 돈다(Fisher-Yates).
-    private static IEnumerable<T> Shuffled<T>(IReadOnlyList<T> source)
+    private IEnumerable<T> Shuffled<T>(IReadOnlyList<T> source)
     {
         int[] indices = new int[source.Count];
         for (int i = 0; i < indices.Length; i++)
@@ -254,7 +341,7 @@ public class UndergroundRandomMapGenerator : MonoBehaviour
 
         for (int i = indices.Length - 1; i > 0; i--)
         {
-            int swapIndex = Random.Range(0, i + 1);
+            int swapIndex = _random.Next(i + 1);
             (indices[i], indices[swapIndex]) = (indices[swapIndex], indices[i]);
         }
 

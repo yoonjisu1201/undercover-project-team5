@@ -19,12 +19,27 @@ public class UndergroundModule : MonoBehaviour
     // 이 모듈이 어느 프리팹에서 Instantiate됐는지. 바로 다음 모듈이 같은 프리팹인지 확인할 때 쓴다.
     public UndergroundModule SourcePrefab { get; set; }
 
+    // 재사용되는 모듈(StartPoint 등)을 다시 생성하기 전에, 이전 라운드의 문 상태를 전부 초기화한다.
+    public void ResetState()
+    {
+        foreach (DoorSocket socket in _doorSockets)
+        {
+            socket.ResetState();
+        }
+    }
+
+    // 프리팹에 _bounds가 어떻게 저장돼있든, 실제로 겹침 판정 용도로만 쓰이도록 런타임에 강제한다.
+    private void Awake()
+    {
+        _bounds = GetComponent<BoxCollider>();
+        _bounds.isTrigger = true;
+    }
+
     // 에디터에서 수정할때마다 DoorSocket리스트 미리 받아두기.
     private void Reset()
     {
         _doorSockets = GetComponentsInChildren<DoorSocket>();
         _bounds = GetComponent<BoxCollider>();
-        _bounds.isTrigger = true;
     }
 
     private void OnValidate()
@@ -35,5 +50,8 @@ public class UndergroundModule : MonoBehaviour
         {
             _bounds = GetComponent<BoxCollider>();
         }
+
+        // 실제 강제는 Awake가 하지만, 인스펙터에서 보다가 상태가 어긋나 보이지 않도록 여기서도 맞춰둔다.
+        _bounds.isTrigger = true;
     }
 }
