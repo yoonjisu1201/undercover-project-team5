@@ -1,12 +1,8 @@
 using System.Linq;
-using System.Reflection;
 using UnityEngine;
 
 public sealed partial class DebugMenuController
 {
-    private static readonly FieldInfo HqSpawnPoint =
-        typeof(HqEntrance).GetField("_hqSpawnPoint", BindingFlags.Instance | BindingFlags.NonPublic);
-
     // 목록의 다른 플레이어에게 이동합니다.
     public void OnTeleportPlayer1Click() => TeleportToOtherPlayer(0);
     public void OnTeleportPlayer2Click() => TeleportToOtherPlayer(1);
@@ -155,7 +151,7 @@ public sealed partial class DebugMenuController
     // 본부 스폰 지점 주변에서 바닥이 안정적인 위치를 찾아 플레이어를 이동합니다.
     private void TeleportToSafeHqPosition(Player player, HqEntrance entrance)
     {
-        Transform hqPoint = HqSpawnPoint?.GetValue(entrance) as Transform;
+        Transform hqPoint = entrance.TargetPoint;
         if (player == null || player.PlayerMove == null || hqPoint == null)
         {
             ShowStatus("본부 이동 지점을 찾지 못했습니다.");
