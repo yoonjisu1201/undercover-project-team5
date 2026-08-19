@@ -10,6 +10,7 @@ public class AlienShotgunInput : NetworkBehaviour
 
     [SerializeField] private Camera _playerCamera;
     [SerializeField] private Transform _muzzlePoint;
+
     [SerializeField] private GameObject _bulletProjectilePrefab;
     [SerializeField] private GameObject _handToolVisual;
     [SerializeField] private GameObject _crosshair;     // 조준용 크로스헤어
@@ -118,10 +119,14 @@ public class AlienShotgunInput : NetworkBehaviour
         }
     }
 
-    // 총구 위치/조준 방향을 서버에 전달해 실제 탄알 스폰을 요청한다.
+    // 시작점은 총구, 방향은 조준선과 평행하게 맞춘다.
+    // 조준점으로 수렴시키면 총구가 화면 아래쪽이라 가까운 거리에서 탄이 비스듬히 가로질러 보인다.
+    // 평행하게 쏘면 총구에서 나가면서도 화면상 항상 곧게 뻗는다.
     private void TryFire()
     {
-        RequestFireRpc(_muzzlePoint.position, _playerCamera.transform.forward);
+        Ray aimRay = _playerCamera.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
+
+        RequestFireRpc(_muzzlePoint.position, aimRay.direction);
     }
 
     // 서버가 실제 탄알 NetworkObject를 스폰한다. 이후 판정은 AlienBulletProjectile이 이동하며 직접 수행한다.
@@ -129,6 +134,13 @@ public class AlienShotgunInput : NetworkBehaviour
     private void RequestFireRpc(Vector3 origin, Vector3 direction)
     {
         if (_bulletProjectilePrefab == null) return;
+
+        if (direction.sqrMagnitude <= Mathf.Epsilon)
+        {
+            return;
+        }
+
+        direction = direction.normalized;
 
         GameObject bulletObject = Instantiate(_bulletProjectilePrefab, origin, Quaternion.LookRotation(direction));
 
