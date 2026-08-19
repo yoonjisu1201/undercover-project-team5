@@ -53,7 +53,8 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
         _doorOpenStates.OnListChanged += HandleDoorStateChanged;
 
         if (IsServer) {
-            _mapSeed.Value = RoundManager.Instance.GetRandomSeed(MapSeedTag);
+            // 라운드매니저 있으면 랜덤값 사용, 없으면 DebugSeed 사용
+            _mapSeed.Value = RoundManager.Instance == null ? _debugSeed : RoundManager.Instance.GetRandomSeed(MapSeedTag);
             Generate(_mapSeed.Value);
             return;
         }
