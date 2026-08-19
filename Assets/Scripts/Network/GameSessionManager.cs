@@ -572,8 +572,13 @@ public class GameSessionManager : MonoBehaviour
 					// 서버/네트워크 권한이 필요하면 여기서 검증하거나 서버-side 초기화로 옮기세요.
 					playerHealth.ResetForNewRound();
 				}
+                GameObject WaitingRoomSpawnPointObj = GameObject.Find("WaitingRoomSpawnPoint");
 
-				player.TeleportToPosition(Vector3.zero, playerObject.transform.rotation);
+                Vector3 WaitingroomSpawnPoint = WaitingRoomSpawnPointObj != null
+					? WaitingRoomSpawnPointObj.transform.position
+					: Vector3.zero;
+
+				player.TeleportToPosition(WaitingroomSpawnPoint, playerObject.transform.rotation);
 			}
 		}
 	}
