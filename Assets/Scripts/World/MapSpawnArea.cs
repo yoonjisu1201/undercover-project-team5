@@ -10,6 +10,8 @@ public sealed class MapSpawnArea : MonoBehaviour
     [SerializeField] private BoxCollider _spawnBounds;
 
     [Header("지면 높이 보정")]
+    [Tooltip("켜면 레이 시작 높이를 Box 꼭대기 이상으로 강제한다. 다리·고가도로처럼 같은 XZ에 층이 겹치는 야외 지형에 필요한 설정이라 기본값은 켜져 있다. 천장이 낮은 실내 공간(지하 등)에서 켜두면 레이가 항상 천장에 먼저 맞아 검증이 무조건 실패하니 꺼야 한다.")]
+    [SerializeField] private bool _clampRayOriginToBoundsTop = true;
     [SerializeField] private LayerMask _groundLayer;
     [SerializeField, Min(0f)] private float _groundRaycastHeight = 20f;
     [SerializeField, Min(0f)] private float _groundRaycastDistance = 50f;
@@ -39,6 +41,28 @@ public sealed class MapSpawnArea : MonoBehaviour
     private void OnValidate()
     {
         EnsureSpawnBounds();
+    }
+
+    // 스폰 범위 Box를 월드 좌표 기준 경계에 맞춰 다시 설정한다.
+    // 절차적으로 생성되어 매번 크기가 달라지는 맵(지하 등)의 스폰 영역을 실제 생성 결과에 맞출 때 쓴다.
+    public void SetBounds(Bounds worldBounds)
+    {
+        EnsureSpawnBounds();
+        ApplyWorldBounds(_spawnBounds, worldBounds);
+    }
+
+    // BoxCollider의 center/size는 로컬 좌표라, 월드 경계를 그대로 대입할 수 없어 변환해준다.
+    // 회전은 없다고 가정한다(스폰 영역 오브젝트는 축 정렬 상태로 배치됨).
+    internal static void ApplyWorldBounds(BoxCollider collider, Bounds worldBounds)
+    {
+        Transform colliderTransform = collider.transform;
+        Vector3 lossyScale = colliderTransform.lossyScale;
+
+        collider.center = colliderTransform.InverseTransformPoint(worldBounds.center);
+        collider.size = new Vector3(
+            worldBounds.size.x / Mathf.Max(lossyScale.x, 0.0001f),
+            worldBounds.size.y / Mathf.Max(lossyScale.y, 0.0001f),
+            worldBounds.size.z / Mathf.Max(lossyScale.z, 0.0001f));
     }
 
     // 통합 NavMesh에서 현재 Box Collider 안에 포함된 삼각형을 수집한다.
@@ -120,9 +144,14 @@ public sealed class MapSpawnArea : MonoBehaviour
             ? _groundLayer.value
             : LayerMask.GetMask("Ground");
 
-        float rayOriginY = Mathf.Max(
-            navMeshPosition.y + _groundRaycastHeight,
-            _spawnBounds.bounds.max.y + 0.1f);
+        float rayOriginY = navMeshPosition.y + _groundRaycastHeight;
+        if (_clampRayOriginToBoundsTop)
+        {
+            // 다리 밑 등 같은 XZ에 층이 겹치는 야외 지형에서, 위쪽 구조물을 뚫고 지나가
+            // 그 아래 지면까지 정확히 재려면 레이가 Box 꼭대기보다 위에서 시작해야 한다.
+            rayOriginY = Mathf.Max(rayOriginY, _spawnBounds.bounds.max.y + 0.1f);
+        }
+
         Vector3 rayOrigin = new Vector3(navMeshPosition.x, rayOriginY, navMeshPosition.z);
         if (groundMask == 0 ||
             !Physics.Raycast(
