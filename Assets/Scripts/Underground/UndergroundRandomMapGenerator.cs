@@ -275,6 +275,10 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
                 return;
             }
 
+            // SetActive(false)를 먼저 해서 NavMesh 소스 수집(활성 오브젝트만 대상)에서 즉시 제외시킨다.
+            // Destroy()는 프레임이 끝나야 실제로 처리되는데, 이 프레임 안에서 바로 BuildNavMesh()가
+            // 불리기 때문에 비활성화 없이는 탈락한 후보가 유령 지오메트리로 구워질 수 있다.
+            candidate.gameObject.SetActive(false);
             Destroy(candidate.gameObject);
         }
 
