@@ -158269,7 +158269,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bf62e34c6a21bc84cb2e69ebb21bdd10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ArrestVoteUI
+  _handcuffArrestEffect: {fileID: 2170575044802647470}
   _wrongTargetPanel: {fileID: 1943569282}
+  _wrongTargetSubText: {fileID: 1891058642}
   _arrestSuccessPanel: {fileID: 654920305}
   _revealedPanel: {fileID: 1977431742}
   _candidatePortrait: {fileID: 454291399}
@@ -214884,6 +214886,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RoundTimerDisplay
   _timerText: {fileID: 153007649}
   _roundText: {fileID: 1782817568}
+  _useWrongArrestFlash: 1
+  _wrongArrestFlashColor: {r: 1, g: 0, b: 0, a: 1}
+  _wrongArrestFlashDuration: 0.25
+  _wrongArrestFlashCount: 4
 --- !u!1001 &1208418655
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -328397,7 +328403,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uC77C\uBC18 \uC2DC\uBBFC\uC744 \uAC80\uAC70\uD558\uB824\uACE0 \uD588\uC2B5\uB2C8\uB2E4!"
+  m_text: "[\uD558\uD558\uD558] \uB2D8\uC774 \uBC94\uC778\uC774 \uC544\uB2CC\n\uC2DC\uBBFC\uC744
+    \uAC80\uAC70\uD558\uB824\uACE0 \uD588\uC2B5\uB2C8\uB2E4!"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
   m_sharedMaterial: {fileID: 1585453618}
@@ -367427,7 +367434,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uD328\uB110\uD2F0\uB85C \uC678\uACC4\uC778\uC758 \uC7A5\uB09C\uC774 \uBC1C\uB3D9\uB429\uB2C8\uB2E4."
+  m_text: "\uC678\uACC4\uC778\uC744 \uBE68\uB9AC \uCC3E\uC544\uC57C \uD569\uB2C8\uB2E4.\n\uC81C\uD55C\uC2DC\uAC04\uC774
+    2\uBD84 \uAC10\uC18C\uD569\uB2C8\uB2E4."
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
   m_sharedMaterial: {fileID: 1585453618}
@@ -368044,115 +368052,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 417072, guid: e249c30ff85e94249b2d74951bcbde63, type: 3}
   m_PrefabInstance: {fileID: 2136135638}
   m_PrefabAsset: {fileID: 0}
---- !u!21 &2137214550
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: NanumSquareRoundR Atlas Material (Instance)
-  m_Shader: {fileID: 4800000, guid: 68e6db2ebdc24f95958faec2be5558d6, type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _BumpMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _Cube:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _FaceTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MainTex:
-        m_Texture: {fileID: 3768360001556917589, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _OutlineTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - _Ambient: 0.5
-    - _Bevel: 0.5
-    - _BevelClamp: 0
-    - _BevelOffset: 0
-    - _BevelRoundness: 0
-    - _BevelWidth: 0
-    - _BumpFace: 0
-    - _BumpOutline: 0
-    - _ColorMask: 15
-    - _CullMode: 0
-    - _Diffuse: 0.5
-    - _FaceDilate: 0
-    - _FaceUVSpeedX: 0
-    - _FaceUVSpeedY: 0
-    - _GlowInner: 0.05
-    - _GlowOffset: 0
-    - _GlowOuter: 0.05
-    - _GlowPower: 0.75
-    - _GradientScale: 10
-    - _LightAngle: 3.1416
-    - _MaskSoftnessX: 0
-    - _MaskSoftnessY: 0
-    - _OutlineSoftness: 0
-    - _OutlineUVSpeedX: 0
-    - _OutlineUVSpeedY: 0
-    - _OutlineWidth: 0
-    - _PerspectiveFilter: 0.875
-    - _Reflectivity: 10
-    - _ScaleRatioA: 0.9
-    - _ScaleRatioB: 0.73125
-    - _ScaleRatioC: 0.73125
-    - _ScaleX: 1
-    - _ScaleY: 1
-    - _ShaderFlags: 0
-    - _Sharpness: 0
-    - _SpecularPower: 2
-    - _Stencil: 0
-    - _StencilComp: 8
-    - _StencilOp: 0
-    - _StencilReadMask: 255
-    - _StencilWriteMask: 255
-    - _TextureHeight: 2048
-    - _TextureWidth: 2048
-    - _UnderlayDilate: 0
-    - _UnderlayOffsetX: 0
-    - _UnderlayOffsetY: 0
-    - _UnderlaySoftness: 0
-    - _VertexOffsetX: 0
-    - _VertexOffsetY: 0
-    - _WeightBold: 0.75
-    - _WeightNormal: 0
-    m_Colors:
-    - _ClipRect: {r: -32767, g: -32767, b: 32767, a: 32767}
-    - _EnvMatrixRotation: {r: 0, g: 0, b: 0, a: 0}
-    - _FaceColor: {r: 1, g: 1, b: 1, a: 1}
-    - _GlowColor: {r: 0, g: 1, b: 0, a: 0.5}
-    - _MaskCoord: {r: 0, g: 0, b: 32767, a: 32767}
-    - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
-    - _ReflectFaceColor: {r: 0, g: 0, b: 0, a: 1}
-    - _ReflectOutlineColor: {r: 0, g: 0, b: 0, a: 1}
-    - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
-    - _UnderlayColor: {r: 0, g: 0, b: 0, a: 0.5}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1001 &2138390614
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -373124,6 +373023,98 @@ MonoBehaviour:
   m_Center: {x: 0, y: 0, z: 0}
   m_Area: 1
   m_AffectedAgents: ffffffff
+--- !u!1001 &2170575044802647467
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6551523345588086423, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: orthographic size
+      value: 0.16
+      objectReference: {fileID: 0}
+    - target: {fileID: 7476338786537617402, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_Name
+      value: HandcuffArrestEffect
+      objectReference: {fileID: 0}
+    - target: {fileID: 7476338786537617402, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7501525650243769295, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 613.3384
+      objectReference: {fileID: 0}
+    - target: {fileID: 7501525650243769295, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 613.3384
+      objectReference: {fileID: 0}
+    - target: {fileID: 7501525650243769295, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7501525650243769295, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+--- !u!114 &2170575044802647470 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5155028228427258544, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+  m_PrefabInstance: {fileID: 2170575044802647467}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07d0018858e241f41a8fe36d918fbbfb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HandcuffArrestEffect
 --- !u!114 &2176709327445315357
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -382596,3 +382587,4 @@ SceneRoots:
   - {fileID: 2008239900}
   - {fileID: 904807420}
   - {fileID: 1537345325}
+  - {fileID: 2170575044802647467}

@@ -480,6 +480,30 @@ public partial class RoundManager : NetworkBehaviour
         return true;
     }
 
+    // 서버에서 현재 라운드의 남은 시간을 지정한 초만큼 줄인다.
+    // 디버그로 시간이 정지된 상태라면 저장된 잔여 시간에서 차감한다.
+    public bool TryReduceRemainingTime(float seconds)
+    {
+        if (!IsServer || _currentState.Value != RoundState.InRound || seconds <= 0f)
+        {
+            return false;
+        }
+
+        if (_debugTimeStopped.Value)
+        {
+            _debugStoppedRemainingTime.Value =
+                Mathf.Max(0f, _debugStoppedRemainingTime.Value - seconds);
+        }
+        else
+        {
+            _roundEndTime.Value = Math.Max(
+                NetworkManager.ServerTime.Time,
+                _roundEndTime.Value - seconds);
+        }
+
+        return true;
+    }
+
     // 클라이언트 UI(시계 등)가 매 프레임 호출해서 남은 시간을 계산한다.
     // Fail/Success 등 라운드 진행 상태가 아닐 때는 재계산하지 않고, 직전에 계산된 값을 그대로 반환한다.
     // (그래야 성공/실패 순간 남아있던 시간이 0으로 바뀌지 않고 그대로 화면에 유지된다)
