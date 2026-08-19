@@ -10,12 +10,16 @@ public class RoomListEntryUI : MonoBehaviour
 	[Header("참조")]
 	[SerializeField] private TextMeshProUGUI _roomNameText;
 	[SerializeField] private TextMeshProUGUI _playerCountText;
+	[SerializeField] private TextMeshProUGUI _statusText;
+	[SerializeField] private GameObject _lockIcon;
 	// 클릭 처리는 인스펙터의 OnClick()에 연결한다. 이 참조는 입장 불가 방을 비활성화하는 데만 쓴다.
 	[SerializeField] private Button _joinButton;
 
 	[Header("글자 색")]
 	[SerializeField] private Color _joinableColor = Color.white;
 	[SerializeField] private Color _unjoinableColor = new(0.5f, 0.5f, 0.5f, 1f);
+	[SerializeField] private Color _inGameColor = new(1f, 0.65f, 0.2f, 1f);
+	[SerializeField] private Color _fullColor = new(1f, 0.25f, 0.25f, 1f);
 
 	private string _sessionId;
 
@@ -28,6 +32,22 @@ public class RoomListEntryUI : MonoBehaviour
 		// 정원이 찬 방과 이미 시작된 방도 방이 있다는 건 보여야 하므로, 지우지 않고 회색으로만 표시한다.
 		bool isJoinable = GameSessionManager.IsJoinable(room);
 		_joinButton.interactable = isJoinable;
+		_lockIcon.SetActive(!isJoinable);
+
+		if (room.IsLocked)
+		{
+			_statusText.text = "게임 중";
+			_statusText.color = _inGameColor;
+		}
+		else if (room.AvailableSlots <= 0)
+		{
+			_statusText.text = "정원 FULL";
+			_statusText.color = _fullColor;
+		}
+		else
+		{
+			_statusText.text = string.Empty;
+		}
 
 		Color textColor = isJoinable ? _joinableColor : _unjoinableColor;
 		_roomNameText.color = textColor;

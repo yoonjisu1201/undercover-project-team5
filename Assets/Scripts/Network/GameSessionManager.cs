@@ -50,6 +50,10 @@ public class GameSessionManager : MonoBehaviour
 	private bool _isLeavingVoluntarily;
 	private string _pendingLeaveReason;
 
+	// 퇴장 요청은 로비 복귀를 늦추지 않도록 기다리지 않는다. 다만 방금 나온 방이 목록에
+	// 남지 않으려면 조회 전에는 끝나 있어야 하므로 참조를 들고 있는다.
+	private Task _pendingLeaveTask;
+
 	private void Awake()
 	{
 		if (Instance != null && Instance != this)
@@ -201,6 +205,9 @@ public class GameSessionManager : MonoBehaviour
 		try
 		{
 			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
+
+			// 방금 나온 방의 삭제가 끝나기 전에 조회하면 사라진 방이 목록에 남는다.
+			if (_pendingLeaveTask != null) await _pendingLeaveTask;
 
 			var results = await MultiplayerService.Instance.QuerySessionsAsync(new QuerySessionsOptions());
 			return results.Sessions;
@@ -502,7 +509,7 @@ public class GameSessionManager : MonoBehaviour
 
 		VivoxManager.Instance.LeaveSessionChannel();
 		// 로비 화면 복귀가 네트워크 왕복을 기다리지 않도록 완료를 기다리지 않는다.
-		_ = ReleaseCurrentSessionAsync();
+		_pendingLeaveTask = ReleaseCurrentSessionAsync();
 		SceneManager.LoadScene(_lobbySceneName);
 	}
 
