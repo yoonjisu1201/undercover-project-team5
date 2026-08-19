@@ -7,7 +7,9 @@ public enum RegionId {
     B,
     C,
     D,
-    E
+    E,
+    // 지상 A~E의 배타적 추첨과 무관하게 항상 별도로 관리되는 지하 구역.
+    Basement
 }
 
 // Box Collider로 정의된 맵 구역의 해금 상태와 관련 오브젝트를 관리합니다.
@@ -82,6 +84,18 @@ public sealed class MapRegion : MonoBehaviour
         SetUnlocked(false);
     }
 
+
+    // 구역 경계와 스폰 영역 Box를 월드 좌표 기준 경계에 맞춰 다시 설정합니다.
+    // 절차적으로 생성되어 매번 크기가 달라지는 맵(지하 등)에서, 생성 결과에 맞춰 구역을 갱신할 때 씁니다.
+    public void SetBoundsFromWorld(Bounds worldBounds)
+    {
+        if (_bounds != null)
+        {
+            MapSpawnArea.ApplyWorldBounds(_bounds, worldBounds);
+        }
+
+        _spawnArea?.SetBounds(worldBounds);
+    }
 
     // 월드 좌표가 이 구역의 Box Collider 안에 있는지 확인합니다.
     public bool Contains(Vector3 worldPosition)

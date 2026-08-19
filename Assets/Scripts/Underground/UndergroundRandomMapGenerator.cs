@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.AI.Navigation;
 using Unity.Netcode;
@@ -39,6 +40,9 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
     private readonly Queue<DoorSocket> _openSockets = new();
     // 일단 안 열릴 계획인 문들. 큐가 말랐는데 아직 목표에 못 미치면 여기서 꺼내 다시 시도한다.
     private readonly List<DoorSocket> _reserveSockets = new();
+
+    // 생성(재생성 포함)이 끝날 때마다 알림. 지하 스폰 영역을 이 결과에 맞춰 갱신하는 쪽에서 구독한다.
+    public event Action Generated;
 
     private void Awake() {
         _navMeshSurface = GetComponent<NavMeshSurface>();
@@ -119,6 +123,19 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
         Generate(_debugSeed);
     }
 
+    // 라운드가 바뀔 때 RoundManager가 명시적으로 호출한다. 새 시드를 뽑아 동기화하고 서버에서 바로 생성하면,
+    // 클라이언트는 _mapSeed.OnValueChanged(HandleMapSeedChanged)로 따라와 각자 같은 맵을 만든다.
+    public void RegenerateForNewRound()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        _mapSeed.Value = RoundManager.Instance == null ? _debugSeed : RoundManager.Instance.GetRandomSeed(MapSeedTag);
+        Generate(_mapSeed.Value);
+    }
+
     // 이전 생성 결과를 지우고, seed로 이 인스턴스 전용 Random을 새로 만든 뒤 생성한다.
     // 호스트/클라이언트가 같은 seed로 이 함수를 부르면 항상 같은 맵이 나온다.
     public void Generate(int seed)
@@ -138,6 +155,21 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
                 _doorOpenStates.Add(false);
             }
         }
+
+        Generated?.Invoke();
+    }
+
+    // 이번 생성 결과로 실제 배치된 모든 모듈의 Bounds를 합친 월드 좌표 경계를 반환한다.
+    // 지하 맵은 라운드마다 크기/형태가 달라지므로, 스폰 영역 Box를 고정값 대신 이 값으로 맞춰야 한다.
+    public Bounds GetGeneratedBounds()
+    {
+        Bounds bounds = _placedModules[0].Bounds.bounds;
+        for (int i = 1; i < _placedModules.Count; i++)
+        {
+            bounds.Encapsulate(_placedModules[i].Bounds.bounds);
+        }
+
+        return bounds;
     }
 
     // 지금까지 생성된 모듈을 전부 지우고 생성 관련 상태(큐, 예비 목록)를 초기화한다.
@@ -148,6 +180,11 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
             // StartPoint는 매번 새로 만드는 게 아니라 계속 재사용하는 고정 인스턴스라 지우지 않는다.
             if (placed != null && placed != _startModule)
             {
+                // SetActive(false)를 먼저 해서 NavMesh 소스 수집(활성 오브젝트만 대상)에서 즉시 제외시킨다.
+                // Destroy()는 프레임이 끝나야 실제로 처리되는데, 재생성 시 이 프레임 안에서 바로
+                // GenerateInternal() 다음 BuildNavMesh()가 불리기 때문에, 비활성화 없이는 이전 라운드
+                // 모듈이 새 라운드 모듈과 함께 NavMesh에 같이 구워진다.
+                placed.gameObject.SetActive(false);
                 Destroy(placed.gameObject);
             }
         }

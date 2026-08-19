@@ -53,6 +53,9 @@ public partial class RoundManager : NetworkBehaviour
     [Header("본부 에일리언 샷건 스폰 담당 (로딩 게이트 대상 아님)")]
     [SerializeField] private HqItemSpawner _shotgunSpawner;
 
+    [Header("지하 맵 생성 담당 (라운드마다 새로 생성)")]
+    [SerializeField] private UndergroundRandomMapGenerator _undergroundGenerator;
+
     [Header("라운드 클리어 보상 지급 담당")]
     [SerializeField] private ShopManager _shopManager;
 
@@ -246,6 +249,9 @@ public partial class RoundManager : NetworkBehaviour
             // 이전 라운드 인벤토리와 필드 단서를 먼저 제거해 전환 중 드롭된 단서가 남지 않게 합니다.
             ClearAllPlayerInventories();
             _clueSpawner?.PrepareForNextRound();
+            // 단서 스폰(SpawnForNextRound)보다 먼저 새 지하 맵을 만들어둬야 지하 스폰 영역이 준비된다.
+            // 라운드 종료 시 플레이어는 전부 지상으로 텔레포트되므로, 지하에 남은 인원을 신경 쓸 필요는 없다.
+            _undergroundGenerator?.RegenerateForNewRound();
             _playerSpawner?.RespawnAllPlayers();
 
             if (_npcSpawner != null)
