@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
 
 public class PlayerInventory : NetworkBehaviour
 {
@@ -12,6 +13,11 @@ public class PlayerInventory : NetworkBehaviour
     public const int NoSelectionIndex = -1;
 
     [SerializeField, Min(0f)] private float _dropInteractionDelay = 1.5f;   // 드롭 후 상호작용 차단 시간
+
+    // 드롭 경로(카메라 위치 → 드롭 위치)를 스윕할 때 쓰는 박스의 half-extent.
+    private static readonly Vector3 DropOverlapProbeHalfExtents = Vector3.one * 0.15f;
+
+    [SerializeField] private LocalizedString _dropBlockedNotice;
 
     // 슬롯 내용은 서버만 쓰고 전원이 읽는다
     private readonly NetworkList<InventorySlot> _slots = new(
@@ -38,6 +44,7 @@ public class PlayerInventory : NetworkBehaviour
 
     private CustomInputActions _actions;
     private Camera _playerCamera;
+    private Collider _selfCollider;
     private PlayerHealth _health;
     private PlayerInteraction _interaction;
     private InventoryUI _inventoryUI;
@@ -45,6 +52,7 @@ public class PlayerInventory : NetworkBehaviour
     private void Awake()
     {
         _playerCamera = GetComponentInChildren<Camera>(true);
+        _selfCollider = GetComponent<Collider>();
         _health = GetComponent<PlayerHealth>();
         _interaction = GetComponent<PlayerInteraction>();
     }
@@ -224,6 +232,14 @@ public class PlayerInventory : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     public void RequestDropRpc(ItemType itemId, int selectedIndex, Vector3 dropPosition, Vector3 dropVelocity)
     {
+        // 드롭 위치만 검사하면(#495) 벽이 얇을 때 목적지가 이미 벽 바깥으로 넘어가 있어서 못 잡는다.
+        // 카메라 위치 → 드롭 위치 경로 전체를 박스로 스윕해서, 그 사이에 걸리는 벽까지 잡아낸다.
+        if (IsDropPathBlocked(dropPosition))
+        {
+            ShowDropBlockedMessageOwnerRpc(RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
+            return;
+        }
+
         // 실제로 그 슬롯에 그 종류가 있었는지는 TryTakeSelectedItemOnServer 내부에서 재검증한다.
         if (!TryTakeSelectedItemOnServer(itemId, selectedIndex, out ItemBase item)) {
             Debug.LogError($"[PlayerInventory] 선택한 슬롯의 아이템을 드롭하지 못했습니다.");
@@ -234,6 +250,37 @@ public class PlayerInventory : NetworkBehaviour
         // (건전지처럼 눕혀 놓은 아이템이 세워진 채로 떨어지지 않게 한다.)
         Quaternion dropRotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f) * item.InitialRotation;
         item.DropItemToWorldRpc(dropPosition, dropRotation, dropVelocity, _dropInteractionDelay);
+    }
+
+    [Rpc(SendTo.SpecifiedInParams)]
+    private void ShowDropBlockedMessageOwnerRpc(RpcParams rpcParams = default)
+    {
+        NoticeUI.Instance?.ShowNotice(_dropBlockedNotice);
+    }
+
+    // 카메라 위치에서 dropPosition까지 박스를 스윕해, 그 경로에 벽 등 다른 Collider가 걸리는지 확인한다.
+    // 자기 자신의 Collider는 항상 스윕 결과에 걸리므로 제외한다.
+    private bool IsDropPathBlocked(Vector3 dropPosition)
+    {
+        Vector3 origin = _playerCamera.transform.position;
+        Vector3 delta = dropPosition - origin;
+        float distance = delta.magnitude;
+        if (distance <= 0f)
+        {
+            return false;
+        }
+
+        RaycastHit[] hits = Physics.BoxCastAll(
+            origin, DropOverlapProbeHalfExtents, delta / distance, Quaternion.identity, distance,
+            ~0, QueryTriggerInteraction.Ignore);
+
+        foreach (RaycastHit hit in hits)
+        {
+            if (hit.collider == _selfCollider) { continue; }
+            return true;
+        }
+
+        return false;
     }
 
     private void TryDropSelectedItem()
