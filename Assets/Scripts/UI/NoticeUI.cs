@@ -1,6 +1,7 @@
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Localization;
 
 // 아이템/상호작용과 무관한 게임 전역 일회성 안내 메시지(예: "버릴 수 없습니다")를
 // 화면 중앙 상단에 눈에 띄게 띄운다. 상호작용 힌트(InteractionPromptUI)와는 별개의 자리다.
@@ -30,7 +31,19 @@ public class NoticeUI : MonoBehaviour
         }
     }
 
-    public void ShowNotice(string message)
+    // 호출부가 문자열을 하드코딩해 로컬라이제이션을 건너뛰지 못하도록,
+    // 진입점은 LocalizedString만 받는다.
+    public void ShowNotice(LocalizedString localizedMessage)
+    {
+        if (localizedMessage == null)
+        {
+            return;
+        }
+
+        ShowNotice(localizedMessage.GetLocalizedString());
+    }
+
+    private void ShowNotice(string message)
     {
         if (string.IsNullOrWhiteSpace(message))
         {
