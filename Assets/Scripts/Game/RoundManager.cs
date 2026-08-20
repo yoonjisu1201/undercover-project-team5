@@ -53,6 +53,9 @@ public partial class RoundManager : NetworkBehaviour
     [Header("본부 에일리언 샷건 스폰 담당 (로딩 게이트 대상 아님)")]
     [SerializeField] private HqItemSpawner _shotgunSpawner;
 
+    [Header("지하 맵 생성 담당 (라운드마다 새로 생성)")]
+    [SerializeField] private UndergroundRandomMapGenerator _undergroundGenerator;
+
     [Header("라운드 클리어 보상 지급 담당")]
     [SerializeField] private ShopManager _shopManager;
 
@@ -98,6 +101,25 @@ public partial class RoundManager : NetworkBehaviour
     public RoundState CurrentState => _currentState.Value;
     public int CurrentRoundIndex => _currentRoundIndex.Value;
     public int ClothPoolSessionSeed => _clothPoolSessionSeed.Value;
+
+    // 세션 시드 + 라운드 번호 + 호출자가 넘긴 태그를 조합해 이번 라운드용 시드를 계산한다.
+    // 옷 풀, 지하 맵처럼 서로 다른 시스템이 같은 세션 시드를 공유해도 태그로 구분되어 값이 안 겹친다.
+    public int GetRandomSeed(int tag) => CombineSeed(_clothPoolSessionSeed.Value, _currentRoundIndex.Value, tag);
+
+    // System.HashCode.Combine은 프로세스마다 다른 내부 솔트를 섞어 넣어 같은 입력에도 서버/클라이언트가
+    // 서로 다른 값을 얻는다 (보안 목적의 의도된 동작). 여기서는 모든 클라이언트가 반드시 같은 시드를
+    // 얻어야 하므로 프로세스와 무관하게 항상 같은 결과를 내는 방식으로 직접 합성한다.
+    private static int CombineSeed(int a, int b, int c)
+    {
+        unchecked
+        {
+            int hash = 17;
+            hash = hash * 31 + a;
+            hash = hash * 31 + b;
+            hash = hash * 31 + c;
+            return hash;
+        }
+    }
 
     // HQ 타이머 UI가 남은 시간 비율(색상 변화 등)을 계산하려면 현재 라운드의 총 시간이 필요해서 노출
     public float RoundDuration => CurrentState == RoundState.InRound ?
@@ -227,6 +249,9 @@ public partial class RoundManager : NetworkBehaviour
             // 이전 라운드 인벤토리와 필드 단서를 먼저 제거해 전환 중 드롭된 단서가 남지 않게 합니다.
             ClearAllPlayerInventories();
             _clueSpawner?.PrepareForNextRound();
+            // 단서 스폰(SpawnForNextRound)보다 먼저 새 지하 맵을 만들어둬야 지하 스폰 영역이 준비된다.
+            // 라운드 종료 시 플레이어는 전부 지상으로 텔레포트되므로, 지하에 남은 인원을 신경 쓸 필요는 없다.
+            _undergroundGenerator?.RegenerateForNewRound();
             _playerSpawner?.RespawnAllPlayers();
 
             if (_npcSpawner != null)

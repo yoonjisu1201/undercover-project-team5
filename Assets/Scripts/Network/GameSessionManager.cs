@@ -7,8 +7,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 
-/* 조인코드로만 입장 가능한 세션(방)을 만들고 참가하는 기능.
- * 랜덤 매칭, 빠른 시작(QuickJoin), 공개 세션 목록 조회는 사용하지 않는다.
+/* 조인코드, 로비의 방 목록, 빠른 시작으로 입장 가능한 세션(방)을 만들고 참가하는 기능.
+ * 방은 공개로 생성되어 로비 목록에 노출되며, 게임이 시작되면 잠겨서 목록에는 남되 입장만 막힌다.
  */
 public class GameSessionManager : MonoBehaviour
 {
@@ -25,6 +25,10 @@ public class GameSessionManager : MonoBehaviour
 	public ISession CurrentSession { get; private set; }
 	public string JoinCode => CurrentSession?.Code;
 	public string LastLeaveReason { get; set; }
+
+	// 방 이름은 로비 목록에 그대로 노출되므로, 한 줄에 들어가는 길이로 제한한다.
+	// TMP의 characterLimit은 글자 수를 세므로 한글도 10자까지 들어간다.
+	public const int MaxRoomNameLength = 10;
 
 	// 서버가 우리 코드에서 클라이언트를 내보낼 때 사유 앞에 붙이는 표식.
 	// NGO가 자동으로 채우는 영문 사유("Client-1 disconnected by server." 등)와 구분하기 위함이다.
@@ -45,6 +49,10 @@ public class GameSessionManager : MonoBehaviour
 
 	private bool _isLeavingVoluntarily;
 	private string _pendingLeaveReason;
+
+	// 퇴장 요청은 로비 복귀를 늦추지 않도록 기다리지 않는다. 다만 방금 나온 방이 목록에
+	// 남지 않으려면 조회 전에는 끝나 있어야 하므로 참조를 들고 있는다.
+	private Task _pendingLeaveTask;
 
 	private void Awake()
 	{
@@ -73,7 +81,8 @@ public class GameSessionManager : MonoBehaviour
 	}
 
 	// 호스트: 방을 만들고 조인코드를 발급받는다.
-	public async void CreateSession()
+	// 방 이름은 로비 목록에 노출된다. 비워두면 서로 구분되도록 임의의 번호를 붙인 기본 이름을 쓴다.
+	public async void CreateSession(string roomName)
 	{
 		OnSessionStarting?.Invoke();
 		string stage = "로그인 대기";
@@ -84,10 +93,12 @@ public class GameSessionManager : MonoBehaviour
 			stage = "연결 승인 설정";
 			PrepareConnectionApproval();
 
+			// IsPrivate이면 목록 조회에 잡히지 않는다. 로비에 방을 노출하려면 공개로 만들어야 한다.
 			var options = new SessionOptions
 			{
+				Name = ResolveRoomName(roomName),
 				MaxPlayers = _maxPlayers,
-				IsPrivate = true
+				IsPrivate = false
 			}.WithRelayNetwork();
 
 			stage = "세션 생성 요청";
@@ -124,8 +135,29 @@ public class GameSessionManager : MonoBehaviour
 		}
 	}
 
+	// 입력이 비어 있을 때만 기본 이름을 만든다. 번호를 붙여 목록에서 서로 구분되게 한다.
+	private static string ResolveRoomName(string roomName)
+		=> string.IsNullOrWhiteSpace(roomName)
+			? $"방 {UnityEngine.Random.Range(1000, 10000)}"
+			: roomName.Trim();
+
+	// 같은 실패라도 어떤 경로로 시도했는지에 따라 사용자에게 알려줄 원인이 다르다.
+	private enum JoinRoute
+	{
+		Code, // 조인코드 입력
+		List  // 로비 목록 선택 / 빠른 시작
+	}
+
 	// 클라이언트: 조인코드로 방에 참가한다.
-	public async void JoinSessionByCode(string joinCode)
+	public void JoinSessionByCode(string joinCode)
+		=> JoinSession(() => MultiplayerService.Instance.JoinSessionByCodeAsync(joinCode), JoinRoute.Code);
+
+	// 클라이언트: 로비 목록에서 고른 방에 조인코드 없이 참가한다.
+	public void JoinSessionById(string sessionId)
+		=> JoinSession(() => MultiplayerService.Instance.JoinSessionByIdAsync(sessionId), JoinRoute.List);
+
+	// 참가 경로마다 요청 방식과 실패 문구만 다르고, 그 뒤 절차는 모두 같다.
+	private async void JoinSession(Func<Task<ISession>> requestSession, JoinRoute route)
 	{
 		OnSessionStarting?.Invoke();
 		string stage = "로그인 대기";
@@ -136,8 +168,8 @@ public class GameSessionManager : MonoBehaviour
 			stage = "연결 승인 설정";
 			PrepareConnectionApproval();
 
-			stage = "조인코드로 세션 참가 요청";
-			CurrentSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(joinCode);
+			stage = "세션 참가 요청";
+			CurrentSession = await requestSession();
 
 			stage = "음성 채널 참가";
 			VivoxManager.Instance.JoinSessionChannel(CurrentSession.Code);
@@ -158,12 +190,64 @@ public class GameSessionManager : MonoBehaviour
 		}
 		catch (Exception e)
 		{
-			Debug.LogError($"[GameSessionManager] 세션 참가 중 '{stage}' 단계에서 오류가 발생했습니다.\n" +
+			Debug.LogError($"[GameSessionManager] 세션 참가({route}) 중 '{stage}' 단계에서 오류가 발생했습니다.\n" +
 						   $"오류 내용: [{DescribeError(e)}] {e.Message}");
 			await ReleaseCurrentSessionAsync();
-			OnSessionError?.Invoke(ToUserMessage(e, isJoinByCode: true));
+			OnSessionError?.Invoke(ToUserMessage(e, route));
 		}
 	}
+
+	// 로비 목록에 뿌릴 공개 방 목록을 조회한다.
+	// 정원이 찼거나 게임이 시작된 방도 그대로 돌려주고, 입장 가능 여부 판단은 호출부가 IsJoinable로 한다.
+	// 조회에 실패하면 사유를 알린 뒤 null을 돌려준다. 빈 목록(방이 하나도 없음)과 구분해야 하기 때문이다.
+	public async Task<IList<ISessionInfo>> QueryRoomsAsync()
+	{
+		try
+		{
+			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
+
+			// 방금 나온 방의 삭제가 끝나기 전에 조회하면 사라진 방이 목록에 남는다.
+			if (_pendingLeaveTask != null) await _pendingLeaveTask;
+
+			var results = await MultiplayerService.Instance.QuerySessionsAsync(new QuerySessionsOptions());
+			return results.Sessions;
+		}
+		catch (Exception e)
+		{
+			Debug.LogError($"[GameSessionManager] 방 목록 조회 중 오류가 발생했습니다.\n" +
+						   $"오류 내용: [{DescribeError(e)}] {e.Message}");
+			OnSessionError?.Invoke("방 목록을 불러오지 못했습니다");
+			return null;
+		}
+	}
+
+	// 빠른 시작: 입장 가능한 방 중 하나를 무작위로 골라 참가한다.
+	// 캐시된 목록을 쓰면 그사이 꽉 찬 방을 고르게 되므로 누른 시점에 다시 조회한다.
+	public async void QuickJoinRandomRoom()
+	{
+		OnSessionStarting?.Invoke();
+
+		var rooms = await QueryRoomsAsync();
+		if (rooms == null) return; // 조회 실패 사유는 QueryRoomsAsync가 이미 알렸다
+
+		List<ISessionInfo> joinableRooms = new();
+		foreach (var room in rooms)
+		{
+			if (IsJoinable(room)) joinableRooms.Add(room);
+		}
+
+		if (joinableRooms.Count == 0)
+		{
+			OnSessionError?.Invoke("입장할 수 있는 방이 없습니다");
+			return;
+		}
+
+		JoinSessionById(joinableRooms[UnityEngine.Random.Range(0, joinableRooms.Count)].Id);
+	}
+
+	// 정원이 찼거나(AvailableSlots) 게임이 시작되어 잠긴(IsLocked) 방에는 들어갈 수 없다.
+	// 목록의 회색 처리와 빠른 시작이 같은 기준을 쓰도록 한곳에서 판단한다.
+	public static bool IsJoinable(ISessionInfo room) => room.AvailableSlots > 0 && !room.IsLocked;
 
 	// Unity Lobby 멤버십은 Netcode 연결과 별개라, 연결이 끊겨도 로비에는 멤버로 남는다.
 	// 명시적으로 나가지 않으면 같은 방 코드로 재참가할 때 SessionConflict
@@ -198,10 +282,11 @@ public class GameSessionManager : MonoBehaviour
 	// Unity Services 예외 메시지는 영문 원문이라 그대로 띄우면 알아볼 수 없어 한글 문구로 바꿔준다.
 	// (원문은 호출부의 Debug.LogError에 그대로 남는다)
 	// 참가는 방 생성과 달리 잘못된 방 코드가 압도적으로 흔해서 원인 불명일 때의 기본 문구가 다르다.
-	private static string ToUserMessage(Exception e, bool isJoinByCode = false)
+	private static string ToUserMessage(Exception e, JoinRoute? route = null)
 	{
 		const string networkMessage = "네트워크 오류로 연결하지 못했습니다";
 		const string invalidCodeMessage = "방 코드를 다시 확인해주세요";
+		const string roomGoneMessage = "방이 사라졌거나 이미 시작되었습니다";
 
 		// 로그인이나 서비스 초기화 실패는 SessionException이 아니다. 방 코드와 무관한 실패다.
 		if (e is not SessionException sessionException) return networkMessage;
@@ -209,7 +294,10 @@ public class GameSessionManager : MonoBehaviour
 		// 서비스는 코드 형식 위반과 네트워크 오류를 둘 다 Unknown으로만 알려줘 구분할 수 없다.
 		// 인터넷이 아예 끊긴 상태라면 코드 문제가 아니라고 확실히 말할 수 있다.
 		bool isOffline = Application.internetReachability == NetworkReachability.NotReachable;
-		string defaultMessage = isJoinByCode && !isOffline ? invalidCodeMessage : networkMessage;
+		string defaultMessage = route == JoinRoute.Code && !isOffline ? invalidCodeMessage : networkMessage;
+
+		// 방을 찾지 못한 원인은 경로마다 다르다. 목록 선택은 그사이 방이 닫힌 경우가 흔하다.
+		string sessionNotFoundMessage = route == JoinRoute.List ? roomGoneMessage : invalidCodeMessage;
 
 		switch (sessionException.Error)
 		{
@@ -217,7 +305,7 @@ public class GameSessionManager : MonoBehaviour
 			case SessionError.SessionDeleted:
 			case SessionError.NetworkManagerStartFailed:
 			case SessionError.NetworkSetupFailed:
-				return invalidCodeMessage;
+				return sessionNotFoundMessage;
 			case SessionError.SessionConflict:
 				return "이미 같은 플레이어가 이 방에 참가 중입니다";
 			case SessionError.RateLimitExceeded:
@@ -326,6 +414,10 @@ public class GameSessionManager : MonoBehaviour
 	{
 		if (sceneName != _waitingRoomSceneName || !NetworkManager.Singleton.IsServer) return;
 
+		// 라운드가 끝나 대기방으로 돌아왔으면 다시 입장을 받아야 한다.
+		// 방 생성 직후의 첫 진입에서도 호출되지만, 이미 풀려 있으면 서버 요청 없이 그냥 반환된다.
+		SetSessionLocked(false);
+
 		foreach (var clientId in clientsCompleted)
 		{
 			var playerObject = NetworkManager.Singleton.ConnectedClients[clientId].PlayerObject;
@@ -417,7 +509,7 @@ public class GameSessionManager : MonoBehaviour
 
 		VivoxManager.Instance.LeaveSessionChannel();
 		// 로비 화면 복귀가 네트워크 왕복을 기다리지 않도록 완료를 기다리지 않는다.
-		_ = ReleaseCurrentSessionAsync();
+		_pendingLeaveTask = ReleaseCurrentSessionAsync();
 		SceneManager.LoadScene(_lobbySceneName);
 	}
 
@@ -498,6 +590,27 @@ public class GameSessionManager : MonoBehaviour
 	{
 		if (!NetworkManager.Singleton.IsServer) return;
 
+		SetSessionLocked(true);
+
 		NetworkManager.Singleton.SceneManager.LoadScene(_gameSceneName, LoadSceneMode.Single);
+	}
+
+	// 게임이 시작된 방은 로비 목록에 계속 보이되 입장만 막혀야 한다.
+	// 세션을 삭제하지 않고 잠그면 목록 조회에는 그대로 나오면서 IsLocked로 구분된다.
+	// 잠금 성패가 게임 진행을 막을 이유는 없으므로 결과를 기다리지 않고 로그만 남긴다.
+	private async void SetSessionLocked(bool isLocked)
+	{
+		try
+		{
+			var hostSession = CurrentSession?.AsHost();
+			if (hostSession == null) return;
+
+			hostSession.IsLocked = isLocked;
+			await hostSession.SavePropertiesAsync();
+		}
+		catch (Exception e)
+		{
+			Debug.LogWarning($"[GameSessionManager] 세션 잠금 상태 변경에 실패했습니다: {e.Message}");
+		}
 	}
 }

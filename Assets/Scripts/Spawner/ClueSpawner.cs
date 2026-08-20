@@ -24,11 +24,29 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     [SerializeField] private MapRegionController _regionController;
     [SerializeField] private RoundSpawnCoordinator _spawnCoordinator;
 
+    [Header("지하 스폰 전환")]
+    [Tooltip("켜면 지상 구역 대신 Basement 전용 MapRegionController에서 스폰한다.")]
+    [SerializeField] private bool _useBasement;
+    [SerializeField] private MapRegionController _basementRegionController;
+
+    private MapRegionController ActiveRegionController => _useBasement ? _basementRegionController : _regionController;
+
     [Header("배치 설정")]
     [SerializeField]
     private SpawnRule _spawnRule = new()
     {
         MinimumDistance = 5f,
+        MaxAttempts = 50,
+        HeightOffset = 0.04f,
+        UseGroundPosition = true,
+        ReservePosition = true
+    };
+
+    // 지하는 방/복도가 좁아 지상과 같은 최소 거리를 쓰면 배치 실패가 잦아 별도로 둔다.
+    [SerializeField]
+    private SpawnRule _basementSpawnRule = new()
+    {
+        MinimumDistance = 10f,
         MaxAttempts = 50,
         HeightOffset = 0.04f,
         UseGroundPosition = true,
@@ -41,7 +59,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     // 이번 라운드에 배정된 단서 번호(필드 스폰 + 미션 보상 공통). 라운드가 바뀌면 초기화된다.
     private readonly HashSet<int> _usedClueNumbers = new();
 
-    public SpawnRule Rule => _spawnRule;
+    public SpawnRule Rule => _useBasement ? _basementSpawnRule : _spawnRule;
 
     private void Awake()
     {
@@ -84,6 +102,19 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         SpawnAsync(_spawnCoordinator, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
+    // 씬 로드 시점의 최초 스폰 시도는 지하 맵 생성(별도 NetworkObject의 OnNetworkSpawn)보다
+    // 먼저 일어날 수 있어 실패했을 수 있다. 지하 맵 생성이 끝난 뒤 이걸로 다시 시도한다.
+    // 이미 스폰됐거나 지하 모드가 아니면 아무 일도 하지 않는다.
+    public void RetrySpawnIfPending()
+    {
+        if (!_useBasement || _hasSpawned)
+        {
+            return;
+        }
+
+        SpawnClues();
+    }
+
     public UniTask SpawnAsync(RoundSpawnCoordinator coordinator, CancellationToken cancellationToken)
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer || !ValidateSettings())
@@ -91,7 +122,9 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
             return UniTask.CompletedTask;
         }
 
-        if (!_regionController.RefreshSpawnAreas())
+        MapRegionController regionController = ActiveRegionController;
+
+        if (!regionController.RefreshSpawnAreas())
         {
             Debug.LogError("[ClueSpawner] NavMesh가 포함된 단서 스폰 영역이 없습니다.", this);
             return UniTask.CompletedTask;
@@ -110,7 +143,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
             cancellationToken.ThrowIfCancellationRequested();
 
             if (!coordinator.TryGetSpawnPose(
-                    _regionController,
+                    regionController,
                     Rule,
                     this,
                     out _,
@@ -181,7 +214,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
             return false;
         }
 
-        if (_regionController == null)
+        if (ActiveRegionController == null)
         {
             Debug.LogError("[ClueSpawner] MapRegionController를 설정해야 합니다.", this);
             return false;

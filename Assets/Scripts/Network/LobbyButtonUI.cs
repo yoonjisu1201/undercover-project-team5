@@ -1,9 +1,12 @@
+using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using TMPro;
+using Unity.Services.Multiplayer;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-// 로비 화면의 UI(방 생성 버튼, 조인코드 입력 필드, 참여 버튼)와 GameSessionManager를 코드로 연결한다.
+// 로비 화면의 UI(방 생성, 방 목록, 조인코드 입력, 빠른 시작)와 GameSessionManager를 연결한다.
 
 public class LobbyButtonUI : MonoBehaviour
 {
@@ -13,16 +16,80 @@ public class LobbyButtonUI : MonoBehaviour
 	[SerializeField] private TMP_InputField _joinCodeInputField;
 	[SerializeField] private TextMeshProUGUI _leaveReasonText;
 
+	[Header("방 만들기")]
+	[SerializeField] private TMP_InputField _roomNameInputField;
+
+	[Header("방 목록")]
+	[SerializeField] private Button _refreshButton;
+	[SerializeField] private RoomListEntryUI _roomEntryPrefab;
+	[SerializeField] private Transform _roomListContent;
+
+	// 목록 조회는 서비스에서 초당 1회로 제한되어 있어, 새로고침 연타가 그대로 조회 실패로 이어진다.
+	private const int RefreshCooldownMilliseconds = 2000;
+
+	private bool _isRefreshing;
+
 	private void Start()
 	{
 		_createButton.onClick.AddListener(HandleCreateButtonClicked);
 		_joinButton.onClick.AddListener(HandleJoinButtonClicked);
+
+		_roomNameInputField.characterLimit = GameSessionManager.MaxRoomNameLength;
 
 		GameSessionManager.Instance.OnSessionCreated += HandleSessionCreated;
 		GameSessionManager.Instance.OnSessionJoined += HandleSessionJoined;
 		GameSessionManager.Instance.OnSessionError += HandleSessionError;
 
 		ShowLeaveReasonIfAny();
+
+		// 방에서 나와 로비로 돌아올 때도 이 씬이 새로 로드되므로, 여기서 한 번만 조회하면 된다.
+		RefreshRoomList();
+	}
+
+	// 인스펙터의 새로고침 버튼 OnClick()과 빠른 시작 버튼 OnClick()에 연결한다.
+	public void RefreshRoomList() => RefreshRoomListAsync().Forget();
+
+	public void QuickStart() => GameSessionManager.Instance.QuickJoinRandomRoom();
+
+	// 주기적으로 자동 갱신하지 않는 이유: 목록이 저절로 재정렬되면 누르려던 방 대신 다른 방에 들어가게 되고,
+	// 조회 자체도 초당 1회 제한이 있어 폴링이 실패로 이어진다.
+	private async UniTaskVoid RefreshRoomListAsync()
+	{
+		if (_isRefreshing) return;
+
+		_isRefreshing = true;
+		_refreshButton.interactable = false; // 눌리지 않는 이유가 보이도록 비활성 상태로 둔다
+
+		IList<ISessionInfo> rooms = await GameSessionManager.Instance.QueryRoomsAsync();
+
+		// 조회를 기다리는 동안 방에 입장해 씬이 바뀌었으면 이미 파괴된 UI를 건드리게 된다.
+		if (this == null) return;
+
+		// 조회 실패(null)면 화면의 기존 목록을 지우지 않고 그대로 둔다. 사유는 이미 안내되었다.
+		if (rooms != null) PopulateRoomList(rooms);
+
+		// 연타가 조회 제한에 걸리지 않도록, 조회가 끝난 시점부터 쿨다운을 센다.
+		bool canceled = await UniTask
+			.Delay(RefreshCooldownMilliseconds, cancellationToken: this.GetCancellationTokenOnDestroy())
+			.SuppressCancellationThrow();
+		if (canceled) return;
+
+		_isRefreshing = false;
+		_refreshButton.interactable = true;
+	}
+
+	// 목록은 매번 통째로 다시 만든다. 방 개수가 많지 않아 재사용 풀을 둘 이유가 없다.
+	private void PopulateRoomList(IList<ISessionInfo> rooms)
+	{
+		foreach (Transform entry in _roomListContent)
+		{
+			Destroy(entry.gameObject);
+		}
+
+		foreach (var room in rooms)
+		{
+			Instantiate(_roomEntryPrefab, _roomListContent).Bind(room);
+		}
 	}
 
 	// 방에서 로비로 돌아온 경우에만(자진 퇴장/호스트 퇴장/연결 끊김) 사유를 잠깐 보여준다.
@@ -61,7 +128,8 @@ public class LobbyButtonUI : MonoBehaviour
 
 	private void HandleCreateButtonClicked()
 	{
-		GameSessionManager.Instance.CreateSession();
+		// 비워두면 GameSessionManager가 번호를 붙인 기본 이름을 대신 만든다.
+		GameSessionManager.Instance.CreateSession(_roomNameInputField.text);
 	}
 
 	private void HandleJoinButtonClicked()
@@ -92,6 +160,7 @@ public class LobbyButtonUI : MonoBehaviour
 	private void ReleaseInputFocus()
 	{
 		_joinCodeInputField.DeactivateInputField();
+		_roomNameInputField.DeactivateInputField();
 		EventSystem.current.SetSelectedGameObject(null);
 	}
 
