@@ -25,4 +25,5 @@ public static class Layers {
 	public static readonly int LocalCameraOnly =  LayerMask.NameToLayer("LocalCameraOnly");
 	public static readonly int CCTVPostProcessing = LayerMask.NameToLayer("CCTVPostProcessing");
 	public static readonly int NotInMinimap = LayerMask.NameToLayer("NotInMinimap");
+	public static readonly int NavMeshOnly = LayerMask.NameToLayer("NavMeshOnly");
 }
