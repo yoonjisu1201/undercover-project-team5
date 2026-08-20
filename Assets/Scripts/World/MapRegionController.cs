@@ -15,6 +15,7 @@ public sealed class MapRegionController : MonoBehaviour
     [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 1f;
     
     [Header("=== 특정 위치가 해금되면 CCTV도 열어주기 위해 CCTVHub등록 ===")]
+    [Tooltip("CCTV가 없는 구역(지하실)을 관리하는 컨트롤러는 비워둔다.")]
     [SerializeField] private CCTVHub _cctvHub;
 
     [Header("=== 활성 구역으로 옮길 시작 지점(StartPoint 캠핑카) ===")]
@@ -32,7 +33,11 @@ public sealed class MapRegionController : MonoBehaviour
 
     // 활성 구역은 RoundManager가 라운드마다 추첨해 SetActiveRegion()으로 지정합니다.
     private void Awake() {
-        _cctvHub.Initialize();
+        // 지하실처럼 CCTV를 쓰지 않는 구역은 참조가 비어 있다.
+        if (_cctvHub != null)
+        {
+            _cctvHub.Initialize();
+        }
     }
 
     // 한 번에 하나의 맵만 사용하도록 선택한 구역만 활성화합니다.
