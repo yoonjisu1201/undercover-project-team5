@@ -135,11 +135,11 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         GameplayUiMode.Instance?.UnregisterUi(this);
 
-        // 설정창을 연 채로 씬이 바뀌면 차단 카운트가 남아 다음 씬에서 이동이 계속 막힌다.
+        // 설정창을 연 채로 씬이 바뀌면 카운트가 남아 다음 씬에서 조작이 계속 막힌다.
         if (_isNicknamePanelOpen)
         {
             _isNicknamePanelOpen = false;
-            GameplayUiMode.Instance?.PopMovementBlock();
+            GameplayUiMode.Instance?.DeactivateCursor();
         }
 
         if (GameSessionManager.Instance != null)
@@ -206,12 +206,11 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     // ESC로 닫으면 이름 적용 없이 닉네임 패널을 취소(닫기)한다. (IClosableUi)
     public void Close()
     {
-        s_hasCompletedNicknameSetup = true;
         SetNicknamePanelOpen(false);
     }
 
-    // 설정창을 여닫을 때 ESC 스택 등록과 이동 차단을 한 번에 처리한다.
-    // 이동 차단은 참조 카운트 방식이라 열고 닫는 짝이 어긋나면 이동이 계속 막힌다.
+    // 설정창을 여닫을 때 ESC 스택 등록과 조작 차단을 한 번에 처리한다.
+    // 참조 카운트 방식이라 열고 닫는 짝이 어긋나면 조작이 계속 막힌다.
     private void SetNicknamePanelOpen(bool open)
     {
         _nicknameSettingPanel.SetActive(open);
@@ -227,13 +226,17 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         {
             // ESC 닫기 스택에 등록한다. (ESC 시 설정창보다 먼저 닫히도록)
             GameplayUiMode.Instance?.RegisterUi(this);
-            // 대기방은 커서가 계속 보여야 하므로 커서는 건드리지 않고 이동만 막는다.
-            GameplayUiMode.Instance?.PushMovementBlock();
+            // 이동과 시야 회전을 함께 막는다. 대기방은 씬 기본값이 '커서 보임'이라
+            // 닫을 때 커서 상태가 그대로 유지된다.
+            GameplayUiMode.Instance?.ActivateCursor();
             return;
         }
 
+        // 어떤 경로로 닫아도(확인·ESC·닫기 버튼) 다시 묻지 않도록 여기서 한 번에 표시한다.
+        s_hasCompletedNicknameSetup = true;
+
         GameplayUiMode.Instance?.UnregisterUi(this);
-        GameplayUiMode.Instance?.PopMovementBlock();
+        GameplayUiMode.Instance?.DeactivateCursor();
     }
 
     private void HandleNicknameConfirmButtonClicked()
@@ -244,7 +247,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         {
             localPlayer.SetPlayerName(_nicknameInputField.text);
             SaveNicknameIfValid(_nicknameInputField.text);
-            s_hasCompletedNicknameSetup = true;
             SetNicknamePanelOpen(false);
         }
     }

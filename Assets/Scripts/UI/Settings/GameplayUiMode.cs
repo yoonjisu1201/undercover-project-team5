@@ -11,7 +11,6 @@ public class GameplayUiMode : MonoBehaviour
     public static bool IsMovementBlocked { get; private set; } // 플레이어 이동을 제한하는 상태
     private SceneCursorSettings _sceneCursorSettings;
     private int _cursorActivationCount;
-    private int _movementBlockCount;
 
     private readonly List<IClosableUi> _openUIs = new();
     public void RegisterUi(IClosableUi ui)  // 최근에 연 ui가 맨 위로
@@ -41,7 +40,6 @@ public class GameplayUiMode : MonoBehaviour
         Instance = this;
         _sceneCursorSettings = GetComponent<SceneCursorSettings>();
         _cursorActivationCount = 0;
-        _movementBlockCount = 0;
         IsActive = false;
         IsMovementBlocked = false;
         _sceneCursorSettings.ApplyDefaultCursorState();
@@ -50,7 +48,6 @@ public class GameplayUiMode : MonoBehaviour
     private void OnDisable()
     {
         _cursorActivationCount = 0;
-        _movementBlockCount = 0;
         _openUIs.Clear();
         IsActive = false;
         IsMovementBlocked = false;
@@ -89,21 +86,8 @@ public class GameplayUiMode : MonoBehaviour
         ForceUnlockCursor();
     }
 
-    // 커서 상태는 그대로 두고 이동만 막는다.
-    // 대기방 닉네임 설정창처럼 커서가 원래부터 보여야 하는 화면에서는 ActivateCursor를 쓰면
-    // 닫을 때 DeactivateCursor가 씬 기본 커서 상태로 되돌려 커서가 잠겨 버린다.
-    public void PushMovementBlock()
-    {
-        _movementBlockCount++;
-        IsMovementBlocked = true;
-    }
-
-    public void PopMovementBlock()
-    {
-        _movementBlockCount = Mathf.Max(0, _movementBlockCount - 1);
-        IsMovementBlocked = _cursorActivationCount > 0 || _movementBlockCount > 0;
-    }
-
+    // 커서를 씬 기본 상태로 되돌린다. 대기방·로비는 기본값이 '커서 보임'이라
+    // 원래부터 커서가 보여야 하는 화면에서도 그대로 쓸 수 있다.
     public void DeactivateCursor()
     {
         _cursorActivationCount = Mathf.Max(0, _cursorActivationCount - 1);
