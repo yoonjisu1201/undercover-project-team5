@@ -71,6 +71,10 @@ public class Player : NetworkBehaviour
 	public event Action<FixedString32Bytes, FixedString32Bytes> PlayerNameChanged;
 	public event Action<Color, Color> PlayerColorChanged;
 
+	// 말하기 시작·종료 시점을 알아야 하는 쪽(음성 오버레이)이 순서까지 정확히 받도록 전환을 그대로 흘려준다.
+	// 매 갱신마다 전체 플레이어를 훑지 않아도 된다.
+	public event Action<bool> SpeakingChanged;
+
 	// PlayerName을 가져오도록 하는 Property. 닉네임을 설정했으면 설정한 닉네임을 제공하고, 설정되지 않았다면 Player 1같은 값을 반환한다.
 	public string PlayerName
 	{
@@ -136,6 +140,7 @@ public class Player : NetworkBehaviour
 
 		_playerName.OnValueChanged += HandlePlayerNameChanged;
 		_playerColor.OnValueChanged += HandlePlayerColorChanged;
+		_isSpeaking.OnValueChanged += HandleSpeakingChanged;
 
 		PlayerNameChanged += PlayerInfoPresenter.HandlePlayerNameChanged;
 
@@ -147,6 +152,7 @@ public class Player : NetworkBehaviour
 	{
 		_playerName.OnValueChanged -= HandlePlayerNameChanged;
 		_playerColor.OnValueChanged -= HandlePlayerColorChanged;
+		_isSpeaking.OnValueChanged -= HandleSpeakingChanged;
 		_activeInstances.Remove(this);
 	}
 
@@ -192,5 +198,10 @@ public class Player : NetworkBehaviour
 	private void HandlePlayerColorChanged(Color previousValue, Color newValue)
 	{
 		PlayerColorChanged?.Invoke(previousValue, newValue);
+	}
+
+	private void HandleSpeakingChanged(bool previousValue, bool newValue)
+	{
+		SpeakingChanged?.Invoke(newValue);
 	}
 }
