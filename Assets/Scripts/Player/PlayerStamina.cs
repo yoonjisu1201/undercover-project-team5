@@ -6,9 +6,11 @@ using UnityEngine;
 public class PlayerStamina : NetworkBehaviour
 {
     [Header("스태미나 설정 (임시 기본값, 추후 밸런싱 이슈로 조정)")]
-    [SerializeField] private float _maxStamina = 100f;
+    [SerializeField] private float _maxStamina = 50f;
     [SerializeField] private float _drainPerSecond = 20f;
-    [SerializeField] private float _regenPerSecond = 10f;
+    [SerializeField] private float _regenPerSecond = 5f;
+
+    private const float EmptyThreshold = 0.01f;
 
     private readonly NetworkVariable<float> _currentStamina =
         new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -43,6 +45,11 @@ public class PlayerStamina : NetworkBehaviour
 
         float delta = (_isSprinting ? -_drainPerSecond : _regenPerSecond) * Time.fixedDeltaTime;
         _currentStamina.Value = Mathf.Clamp(_currentStamina.Value + delta, 0f, _maxStamina);
+
+        if (_isSprinting && _currentStamina.Value <= EmptyThreshold)
+        {
+            _isSprinting = false;
+        }
     }
 
     // 오너의 PlayerMoveSample이 달리기를 시작했을 때 호출하는 공개 진입점.
@@ -51,6 +58,12 @@ public class PlayerStamina : NetworkBehaviour
         if (!IsOwner)
         {
             Debug.LogError("[PlayerStamina] StartRunning은 오너만 호출할 수 있습니다.");
+            return;
+        }
+
+        if (CurrentStamina <= EmptyThreshold)
+        {
+            StopRunningServerRpc();
             return;
         }
 
@@ -72,7 +85,7 @@ public class PlayerStamina : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     private void StartRunningServerRpc()
     {
-        _isSprinting = true;
+        _isSprinting = _currentStamina.Value > EmptyThreshold;
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]

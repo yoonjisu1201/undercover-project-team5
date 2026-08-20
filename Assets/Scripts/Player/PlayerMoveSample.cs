@@ -14,6 +14,8 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private float _moveSpeedWithCart = 3f;
 	[SerializeField] private float _moveSpeed = 5f;
 	[SerializeField] private float _runSpeedMultiplier = 1.5f;
+	[SerializeField, Min(0f)] private float _minimumRunStamina = 1f;
+	[SerializeField, Range(0f, 0.5f)] private float _staminaRunResumeRatio = 0.2f;
 	[SerializeField] private float _jumpPower = 10f;
 
 	[Header("중력 관련")]
@@ -61,6 +63,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
+	private bool _isStaminaExhausted;
 	// #392: 실제 소생 후 Getting Up에서 Idle로 돌아갈 때까지 이동을 차단한다.
 	private bool _isGettingUp;
 
@@ -279,11 +282,14 @@ public class PlayerMoveSample : NetworkBehaviour
 		Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
 
 		bool isMoving = move.sqrMagnitude > 0.01f;
+		UpdateStaminaExhaustion();
+
 		bool isRunning =
 			isMoving
 			&& _actions.Player.Shift.IsPressed()
 			&& _playerInteraction.CarryingCart == null // 카트 끄는 중에는 달릴 수 없다.
-			&& _playerStamina.CurrentStamina > 0f; // 스태미나가 없으면 달릴 수 없다.
+			&& !_isStaminaExhausted
+			&& _playerStamina.CurrentStamina > _minimumRunStamina; // 스태미나가 없으면 달릴 수 없다.
 
 		SetMovingState(isMoving);
 		SetRunningState(isRunning);
@@ -314,6 +320,22 @@ public class PlayerMoveSample : NetworkBehaviour
 		// 벽 뚫리지 않게 하기 위해 MovePosition -> linearVelocity로 수정
 		delta.y = _rigidbody.linearVelocity.y;
 		_rigidbody.linearVelocity = delta;
+	}
+
+	private void UpdateStaminaExhaustion()
+	{
+		float currentStamina = _playerStamina.CurrentStamina;
+		if (currentStamina <= _minimumRunStamina)
+		{
+			_isStaminaExhausted = true;
+			return;
+		}
+
+		float resumeStamina = Mathf.Max(_minimumRunStamina, _playerStamina.MaxStamina * _staminaRunResumeRatio);
+		if (_isStaminaExhausted && currentStamina >= resumeStamina)
+		{
+			_isStaminaExhausted = false;
+		}
 	}
 
 	// 이동 중이거나 공중이면 마찰0(벽을 미끄러져 지나감), 지면에 멈춰 있으면 높은 마찰(경사에서 안 미끄러짐)
