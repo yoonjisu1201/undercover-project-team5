@@ -152,7 +152,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
             _readyManager.Slots.OnListChanged -= HandleSlotsChanged;
         }
 
-        if (NetworkManager.Singleton != null)
+        // SceneManager는 NetworkManager가 Shutdown되면 null이 된다. 방을 나갈 때가 정확히 그 순서다.
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null)
         {
             NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleInitialLoadCompleted;
         }
