@@ -14,6 +14,9 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
     // RoundManager.GetRandomSeed(tag)에 넘기는 태그. 다른 시스템의 태그와 겹치지만 않으면 된다.
     private const int MapSeedTag = 100;
 
+    // 목표 개수에 못 미치면 이 횟수까지 시드를 바꿔가며 다시 시도한다.
+    private const int MaxGenerationAttempts = 5;
+
     // 프리팹이 아니라 이 생성기의 자식으로 미리 배치해둔 실제 StartPoint 인스턴스. 매번 새로 만들지 않고 그대로 등록해서 쓴다.
     [SerializeField] private UndergroundModule _startModule;
     [SerializeField] private UndergroundModule[] _modulePrefabs;
@@ -138,11 +141,25 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
 
     // 이전 생성 결과를 지우고, seed로 이 인스턴스 전용 Random을 새로 만든 뒤 생성한다.
     // 호스트/클라이언트가 같은 seed로 이 함수를 부르면 항상 같은 맵이 나온다.
+    // 목표 개수에 못 미치면, 서버가 새 시드를 다시 뽑아 동기화하는 대신 지금 시드에서
+    // NextSeed로 다음 시도용 시드를 결정적으로 유도해 재시도한다. 호스트/클라이언트가
+    // 이 유도 규칙을 각자 똑같이 따르므로 재동기화 없이도 항상 같은 맵으로 수렴한다.
     public void Generate(int seed)
     {
-        Clear();
-        _random = new Random(seed);
-        GenerateInternal();
+        for (int attempt = 0; attempt < MaxGenerationAttempts; attempt++)
+        {
+            Clear();
+            _random = new Random(seed);
+            GenerateInternal();
+
+            if (_placedModules.Count >= _targetModuleCount)
+            {
+                break;
+            }
+
+            seed = NextSeed(seed);
+        }
+
         _navMeshSurface.BuildNavMesh(); // 생성된 지오메트리 기준으로 NavMesh를 다시 굽는다. 런타임에도 동작한다.
 
         // 문은 전부 닫힌 채로 시작한다. 서버만 NetworkList를 채울 수 있고, 클라이언트는 이 값을
@@ -241,6 +258,10 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
             Debug.LogWarning($"[UndergroundRandomMapGenerator] 길이 막혀 목표 개수({_targetModuleCount})에 못 미치고 {_placedModules.Count}개로 끝났습니다.", this);
         }
     }
+
+    // 재시도용 다음 시드를 이번 시드에서 결정적으로 뽑아낸다. 같은 seed는 항상 같은 다음 seed로
+    // 이어지므로, 호스트/클라이언트가 각자 이 함수를 불러도 재시도 시퀀스가 항상 일치한다.
+    private static int NextSeed(int seed) => new Random(seed).Next();
 
     // 큐에서 하나 꺼내고, 큐가 비어있으면 예비 목록에서 하나 무작위로 뽑아온다.
     private bool TryTakeNextSocket(out DoorSocket socket)
