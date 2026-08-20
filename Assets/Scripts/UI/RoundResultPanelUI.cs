@@ -78,6 +78,8 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
         {
             // 성공/실패: 확인 버튼을 누른 인원 현황 표시
             _confirmedCountText.text = $"{RoundManager.Instance.ConfirmedCount}/{RoundManager.Instance.TotalPlayerCount}";
+            // 남은 시간 RPC가 상태 변경보다 늦게 도착할 수 있어, RoundClear와 같이 매 프레임 자체 교정한다.
+            ShowRoundResultStats(state);
         }
     }
 
@@ -123,18 +125,22 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
 
     // 라운드 종료 시점 남은 시간과 해당 라운드의 오검거 횟수를 표시한다.
     // RoundClear는 _roundEndTime이 다음 라운드 카운트다운으로 재사용되므로 별도 스냅샷 값을 쓰고,
-    // Success/Fail은 전환 시점에 멈춰있는 CachedRemainingTime을 그대로 쓴다.
+    // Success/Fail은 GetRemainingTime()이 서버가 알려준 값을 그대로 반환하므로 그것을 쓴다.
     private void ShowRoundResultStats(RoundState state)
     {
         float remaining = state == RoundState.RoundClear
             ? _roundRemainingTimeAtClearLocal
-            : RoundManager.Instance.CachedRemainingTime;
+            : RoundManager.Instance.GetRemainingTime();
 
         int minutes = Mathf.FloorToInt(remaining / 60f);
         int seconds = Mathf.FloorToInt(remaining % 60f);
         _remainingTimeText.text = $"{minutes:00}:{seconds:00}";
 
-        _wrongArrestCountText.text = ArrestJudgementManager.Instance.WrongArrestCount.ToString();
+        // 결과창이 떠 있는 동안 매 프레임 호출되므로, 씬 정리 중 파괴 순서에 걸리지 않도록 확인한다.
+        if (ArrestJudgementManager.Instance != null)
+        {
+            _wrongArrestCountText.text = ArrestJudgementManager.Instance.WrongArrestCount.ToString();
+        }
     }
 
     private void ShowPanel()

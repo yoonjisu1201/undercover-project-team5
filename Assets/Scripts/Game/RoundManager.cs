@@ -86,15 +86,9 @@ public partial class RoundManager : NetworkBehaviour
     private readonly NetworkVariable<int> _totalPlayerCount =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    // 라운드가 클리어되는 순간의 해당 라운드 잔여 시간 스냅샷.
-    // RoundClear 상태에서는 _roundEndTime이 "다음 라운드 자동 시작까지 남은 시간"으로 재사용되어
-    // GetRemainingTime()으로는 방금 끝난 라운드의 남은 시간을 구할 수 없으므로 별도로 기록해둔다.
-    // (Success/Fail은 GetRemainingTime()의 _cachedRemainingTime이 전환 시점 값을 그대로 유지하므로 별도 스냅샷이 필요 없다)
-    private readonly NetworkVariable<float> _roundRemainingTimeAtClear =
-        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
-
-    // GetRemainingTime()이 Fail/Success 이후에도 재계산 없이 반환할 마지막 남은 시간 (최종성공/실패 시점 값 고정용)
-    private float _cachedRemainingTime;
+    // Fail/Success 전환 직전에 서버가 RPC로 알려준 남은 시간. 상태가 바뀐 뒤에는 이 값을 그대로 쓴다.
+    // 클라이언트가 각자 계산한 값을 얼려두면 상태 변경을 받는 프레임에 따라 사람마다 다른 시간이 표시된다.
+    private float _remainingTimeAtResult;
 
     private bool _isStartingNextRound;
 
@@ -135,11 +129,6 @@ public partial class RoundManager : NetworkBehaviour
     public int ConfirmedCount => _confirmedClients.Count;
     public int TotalPlayerCount => _totalPlayerCount.Value;
 
-    // Success/Fail 전환 시점에 멈춰있는 남은 시간을 그대로 읽기 위한 프로퍼티 (GetRemainingTime()의 재계산 분기를 타지 않음)
-    public float CachedRemainingTime => _cachedRemainingTime;
-
-    // 결과 패널에서 "Round 클리어 시점의 Round 남은 시간"을 표시하기 위한 값
-    public float RoundRemainingTimeAtClear => _roundRemainingTimeAtClear.Value;
     public bool IsDebugTimeStopped => _debugTimeStopped.Value;
 
     public event Action<RoundState> OnRoundStateChanged; // 라운드 상태가 바뀔 때마다 전달 (늦참 클라이언트는 스폰 시 현재 상태로 1회 발동)
@@ -368,17 +357,15 @@ public partial class RoundManager : NetworkBehaviour
         bool isLastRound = _currentRoundIndex.Value >= _rounds.Length - 1;
         if (isLastRound)
         {
+            AnnounceRoundResultTimeRpc(CalculateRemainingTimeOnServer());
             _currentState.Value = RoundState.Success;
             return;
         }
 
         // _roundEndTime을 RoundClear 대기시간으로 덮어쓰기 전에 현재 라운드 남은 시간을 직접 계산해 스냅샷으로 남긴다.
-        float remainingAtClear = _debugTimeStopped.Value
-            ? _debugStoppedRemainingTime.Value
-            : Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));
+        float remainingAtClear = CalculateRemainingTimeOnServer();
         _debugTimeStopped.Value = false;
         _debugStoppedRemainingTime.Value = 0f;
-        _roundRemainingTimeAtClear.Value = remainingAtClear;
 
         RoundConfig currentRound = _rounds[_currentRoundIndex.Value];
         float clearWaitDuration = currentRound.ClearWaitDuration;
@@ -412,7 +399,25 @@ public partial class RoundManager : NetworkBehaviour
 
     private void SetFail()
     {
+        // 상태를 바꾸기 전에 서버 기준 남은 시간을 전원에게 알린다. (OnRoundClearAnnounced와 같은 이유)
+        AnnounceRoundResultTimeRpc(CalculateRemainingTimeOnServer());
         _currentState.Value = RoundState.Fail;
+    }
+
+    // 서버 기준 현재 라운드의 남은 시간. 디버그로 시간을 멈춘 상태면 멈춰둔 값을 그대로 쓴다.
+    private float CalculateRemainingTimeOnServer()
+    {
+        return _debugTimeStopped.Value
+            ? _debugStoppedRemainingTime.Value
+            : Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));
+    }
+
+    // 성공/실패 시점의 남은 시간을 원자적으로 전달한다. 결과창뿐 아니라 본부 타이머·미션 UI도
+    // GetRemainingTime()으로 이 값을 읽으므로 전원이 같은 시간을 본다.
+    [Rpc(SendTo.ClientsAndHost)]
+    private void AnnounceRoundResultTimeRpc(float remainingTime)
+    {
+        _remainingTimeAtResult = remainingTime;
     }
 
     // 살아있는 플레이어가 한 명도 없으면(전원 다운) 게임을 실패 처리한다.
@@ -530,21 +535,19 @@ public partial class RoundManager : NetworkBehaviour
     }
 
     // 클라이언트 UI(시계 등)가 매 프레임 호출해서 남은 시간을 계산한다.
-    // Fail/Success 등 라운드 진행 상태가 아닐 때는 재계산하지 않고, 직전에 계산된 값을 그대로 반환한다.
-    // (그래야 성공/실패 순간 남아있던 시간이 0으로 바뀌지 않고 그대로 화면에 유지된다)
+    // Fail/Success 등 라운드 진행 상태가 아닐 때는 재계산하지 않고, 서버가 전환 직전에 알려준 값을 반환한다.
+    // (그래야 성공/실패 순간 남아있던 시간이 클라이언트마다 다른 값으로 굳지 않는다)
     public float GetRemainingTime()
     {
         if (!IsSpawned) return 0f;
 
-        if (_debugTimeStopped.Value)
+        if (_debugTimeStopped.Value) return _debugStoppedRemainingTime.Value;
+
+        if (_currentState.Value == RoundState.InRound || _currentState.Value == RoundState.RoundClear)
         {
-            _cachedRemainingTime = _debugStoppedRemainingTime.Value;
-        }
-        else if (_currentState.Value == RoundState.InRound || _currentState.Value == RoundState.RoundClear)
-        {
-            _cachedRemainingTime = Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));
+            return Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));
         }
 
-        return _cachedRemainingTime;
+        return _remainingTimeAtResult;
     }
 }
