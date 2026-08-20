@@ -139,6 +139,7 @@ GameObject:
   m_Component:
   - component: {fileID: 566639903177380924}
   - component: {fileID: 4274620560115936603}
+  - component: {fileID: 4045451420981890089}
   m_Layer: 0
   m_Name: M3CPCV2_PANTS_02_02
   m_TagString: Untagged
@@ -286,6 +287,18 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.00000011920929, y: -0.28299674, z: -0.00885953}
     m_Extent: {x: 0.19927284, y: 0.32637963, z: 0.16884871}
   m_DirtyAABB: 0
+--- !u!114 &4045451420981890089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 606404924952326811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1 &652807202391233900
 GameObject:
   m_ObjectHideFlags: 0
@@ -556,6 +569,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6590663676592714737}
   - component: {fileID: 6624927892052222632}
+  - component: {fileID: 3611758401658909820}
   m_Layer: 0
   m_Name: M3CPCV2_SHOES_01
   m_TagString: Untagged
@@ -703,6 +717,18 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.00015740097, y: -0.6353327, z: 0.010183796}
     m_Extent: {x: 0.15794772, y: 0.108178616, z: 0.1209023}
   m_DirtyAABB: 0
+--- !u!114 &3611758401658909820
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 911785670149498720}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1 &1325274091485079881
 GameObject:
   m_ObjectHideFlags: 0
@@ -1307,9 +1333,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 60599407004542aebef8fa5d1253b06c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMinimapMarker
-  _minimapNameText: {fileID: 0}
-  _minimapMarker: {fileID: 0}
-  _minimapDirectionArrow: {fileID: 0}
   _nameTag: {fileID: 8972778768536092647}
 --- !u!54 &2513456902304565783
 Rigidbody:
@@ -1444,7 +1467,84 @@ MonoBehaviour:
   complexMaskingMode: 0
   drawingMode: 1
   outlineLayer: 0
-  outlineTargets: []
+  outlineTargets:
+  - CutoutMask: 8
+    renderer: {fileID: 2562460037712297257}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 5953419249797727623}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 5253400399036532633}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 477255776327313148}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 4274620560115936603}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 6624927892052222632}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 6580130311887101424}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
   renderStyle: 1
   outlineParameters:
     enabled: 1
@@ -1487,6 +1587,9 @@ MonoBehaviour:
   _outlineFadeDuration: 0.15
   _rangeTolerance: 2
   _reviveHoldDuration: 1.2
+  _downedAimAnchor: {fileID: 2691643801152483347}
+  _downedAimRadiusMultiplier: 1.6
+  _maxReviveDistance: 2.2
 --- !u!114 &5141826162153009683
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1931,6 +2034,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1753970972892001806}
   - component: {fileID: 6580130311887101424}
+  - component: {fileID: 8895380807692172852}
   m_Layer: 0
   m_Name: M3CPCV2_TORSO_01
   m_TagString: Untagged
@@ -2078,6 +2182,18 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.0016729534, y: 0.29751822, z: 0.008061759}
     m_Extent: {x: 0.6012436, y: 0.27444252, z: 0.13459307}
   m_DirtyAABB: 0
+--- !u!114 &8895380807692172852
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3074837764126639480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1 &3175006323979277557
 GameObject:
   m_ObjectHideFlags: 0
@@ -2445,6 +2561,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6771279002366015647}
   - component: {fileID: 2562460037712297257}
+  - component: {fileID: 3945464811793346435}
   m_Layer: 0
   m_Name: M3CPCV2_HAND_06_LEFT_01
   m_TagString: Untagged
@@ -2592,6 +2709,18 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.6306155, y: 0.4431771, z: 0.018917944}
     m_Extent: {x: 0.2049121, y: 0.06638561, z: 0.10727331}
   m_DirtyAABB: 0
+--- !u!114 &3945464811793346435
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4128712031953136050}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1 &4262621050090276587
 GameObject:
   m_ObjectHideFlags: 0
@@ -4196,6 +4325,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6280591215286778396}
   - component: {fileID: 477255776327313148}
+  - component: {fileID: 3131632170423540818}
   m_Layer: 0
   m_Name: M3CPCV2_MASK_03_01
   m_TagString: Untagged
@@ -4344,6 +4474,18 @@ SkinnedMeshRenderer:
     m_Center: {x: 0, y: 0.7285706, z: 0.075718895}
     m_Extent: {x: 0.20981194, y: 0.21301213, z: 0.18670987}
   m_DirtyAABB: 0
+--- !u!114 &3131632170423540818
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7843193060722096876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1 &7880307780213777480
 GameObject:
   m_ObjectHideFlags: 0
@@ -4386,6 +4528,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7145248513258201845}
   - component: {fileID: 5253400399036532633}
+  - component: {fileID: 2227447809978158418}
   m_Layer: 0
   m_Name: M3CPCV2_HEAD_01
   m_TagString: Untagged
@@ -4533,6 +4676,18 @@ SkinnedMeshRenderer:
     m_Center: {x: 0, y: 0.7006214, z: -0.0072011203}
     m_Extent: {x: 0.18793961, y: 0.2138977, z: 0.18783076}
   m_DirtyAABB: 0
+--- !u!114 &2227447809978158418
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8221971112721455827}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1 &8287302943690017669
 GameObject:
   m_ObjectHideFlags: 0
@@ -4607,6 +4762,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7095962742888994071}
   - component: {fileID: 5953419249797727623}
+  - component: {fileID: 5189780394296006406}
   m_Layer: 0
   m_Name: M3CPCV2_HAND_06_RIGHT_01
   m_TagString: Untagged
@@ -4754,6 +4910,18 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.63069695, y: 0.44348055, z: 0.016632311}
     m_Extent: {x: 0.20395993, y: 0.067814454, z: 0.10584321}
   m_DirtyAABB: 0
+--- !u!114 &5189780394296006406
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8380180192845770218}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1 &8420906698779312087
 GameObject:
   m_ObjectHideFlags: 0

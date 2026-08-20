@@ -12,14 +12,47 @@ public class PlayerReviveInteractable : InteractableBase
 
     [SerializeField, Min(0f)] private float _reviveHoldDuration = 1.2f;
 
+    [Header("쓰러진 상태 조준")]
+    [Tooltip("쓰러졌을 때 조준점으로 쓸 위치. 몸을 따라가는 본(Hips)을 넣는다.")]
+    [SerializeField] private Transform _downedAimAnchor;
+
+    [Tooltip("쓰러진 대상은 바닥에 넓게 누워 있어 조준 판정 반경을 넓혀 준다.")]
+    [SerializeField, Min(1f)] private float _downedAimRadiusMultiplier = 1.6f;
+
+    [Tooltip("소생 가능 거리. 공용 상호작용 트리거(반지름 2.5)는 모든 대상이 함께 쓰므로 소생만 따로 좁힌다.")]
+    [SerializeField, Min(0.5f)] private float _maxReviveDistance = 1.6f;
+
     public override float InteractHoldThreshold => _reviveHoldDuration;
+
+    // 몸 콜라이더는 쓰러져도 서 있는 크기(높이 2, 중심 y 0.97) 그대로라, 기본 조준점은
+    // 바닥에 누운 몸보다 1m쯤 위에 뜬다. 그래서 몸을 내려다보면 조준이 잡히지 않는다.
+    // 쓰러진 동안은 실제 몸을 따라가는 본 위치를 조준점으로 쓴다.
+    public override Vector3 InteractionPosition
+    {
+        get
+        {
+            if (_downedAimAnchor != null && TryGetComponent(out PlayerHealth health) && health.IsDowned)
+            {
+                return _downedAimAnchor.position;
+            }
+
+            return base.InteractionPosition;
+        }
+    }
+
+    // 바닥에 누운 대상은 화면에서 가로로 길게 퍼져 보이므로 판정을 조금 넉넉하게 잡는다.
+    public override float AimRadiusMultiplier =>
+        TryGetComponent(out PlayerHealth health) && health.IsDowned
+            ? _downedAimRadiusMultiplier
+            : base.AimRadiusMultiplier;
 
     public override bool CanInteract(GameObject interactor)
     {
         return IsSpawned
             && interactor != gameObject
             && TryGetComponent(out PlayerHealth health)
-            && health.IsDowned;
+            && health.IsDowned
+            && Vector3.Distance(interactor.transform.position, transform.position) <= _maxReviveDistance;
     }
 
     public override void Interact(GameObject interactor)
