@@ -102,19 +102,6 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         SpawnAsync(_spawnCoordinator, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
-    // 씬 로드 시점의 최초 스폰 시도는 지하 맵 생성(별도 NetworkObject의 OnNetworkSpawn)보다
-    // 먼저 일어날 수 있어 실패했을 수 있다. 지하 맵 생성이 끝난 뒤 이걸로 다시 시도한다.
-    // 이미 스폰됐거나 지하 모드가 아니면 아무 일도 하지 않는다.
-    public void RetrySpawnIfPending()
-    {
-        if (!_useBasement || _hasSpawned)
-        {
-            return;
-        }
-
-        SpawnClues();
-    }
-
     public UniTask SpawnAsync(RoundSpawnCoordinator coordinator, CancellationToken cancellationToken)
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer || !ValidateSettings())
