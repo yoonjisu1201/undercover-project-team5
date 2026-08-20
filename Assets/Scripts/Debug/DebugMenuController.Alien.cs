@@ -10,7 +10,8 @@ public sealed partial class DebugMenuController
     [SerializeField] private Button _alienSpawnButton;
 
     // 스폰 허용 여부는 서버만 들고 있는 값이라, 클라이언트는 브로드캐스트로 받은 값을 표시용으로 기억한다.
-    private bool _alienSpawnEnabled = true;
+    // GroundAlienCloneSpawner의 기본값(꺼짐)과 맞춘다.
+    private bool _alienSpawnEnabled = false;
 
     // 범인 패널 안에서 외계인 하위 메뉴만 열고 닫습니다.
     public void OnAlienMenuClick()
@@ -46,10 +47,10 @@ public sealed partial class DebugMenuController
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestClearAliensRpc()
     {
-        AlienCloneManager manager = FindFirstObjectByType<AlienCloneManager>();
+        GroundAlienCloneSpawner manager = FindFirstObjectByType<GroundAlienCloneSpawner>();
         if (manager == null)
         {
-            Debug.LogWarning("[DebugMenu] AlienCloneManager를 찾지 못했습니다.");
+            Debug.LogWarning("[DebugMenu] GroundAlienCloneSpawner를 찾지 못했습니다.");
             return;
         }
 
@@ -65,10 +66,10 @@ public sealed partial class DebugMenuController
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestToggleAlienSpawnRpc()
     {
-        AlienCloneManager manager = FindFirstObjectByType<AlienCloneManager>();
+        GroundAlienCloneSpawner manager = FindFirstObjectByType<GroundAlienCloneSpawner>();
         if (manager == null)
         {
-            Debug.LogWarning("[DebugMenu] AlienCloneManager를 찾지 못했습니다.");
+            Debug.LogWarning("[DebugMenu] GroundAlienCloneSpawner를 찾지 못했습니다.");
             return;
         }
 
@@ -89,7 +90,7 @@ public sealed partial class DebugMenuController
     {
         if (IsServer)
         {
-            AlienCloneManager manager = FindFirstObjectByType<AlienCloneManager>();
+            GroundAlienCloneSpawner manager = FindFirstObjectByType<GroundAlienCloneSpawner>();
             if (manager != null)
             {
                 _alienSpawnEnabled = manager.SpawningEnabled;

@@ -5,6 +5,9 @@ public class ArrestCandidateInteractable : InteractableBase
 {
     public override string InteractionText => "검거하기";
 
+    [SerializeField, Min(0f)] private float _arrestHoldDuration = 1.2f;
+    public override float InteractHoldThreshold => _arrestHoldDuration;
+
     // 추적기를 선택 중일 때는 검거 후보 지정 문구 대신 부착 안내/이미 부착됨 안내를 보여준다.
     public override string GetInteractionText(GameObject interactor)
     {
@@ -54,10 +57,10 @@ public class ArrestCandidateInteractable : InteractableBase
             return;
         }
 
-        // 바로 판정하지 않고 확인 패널을 먼저 띄운다.
-        // 패널을 보는 동안 NPC가 멀어져 서버 재검증에 실패하지 않도록 이 시점에 붙잡아 둔다.
+        // 홀드 상호작용이 끝나면 NPC를 붙잡고 로컬 플레이어 화면에 수갑 체결 연출을 재생한다.
+        // 범인 판정은 다음 단계에서 연출 완료 시점에 연결한다.
         RequestPauseForConfirmationRpc();
-        FindFirstObjectByType<ArrestResultUI>()?.RequestOpenConfirmPanel(this);
+        FindFirstObjectByType<ArrestResultUI>()?.RequestPlayHandcuffEffect(this);
     }
 
     // 확인 패널에서 [예]를 눌렀을 때 ArrestResultUI가 호출하는 진입점.
@@ -114,6 +117,8 @@ public class ArrestCandidateInteractable : InteractableBase
             return;
         }
 
-        ArrestJudgementManager.Instance?.TryJudgeArrest(NetworkObject);
+        ArrestJudgementManager.Instance?.TryJudgeArrest(
+            NetworkObject,
+            rpcParams.Receive.SenderClientId);
     }
 }

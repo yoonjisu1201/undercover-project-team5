@@ -4,11 +4,12 @@ using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 
-// 라운드 타이머가 일정 시간(검거 투표 등으로 멈춰있는
-// 동안은 제외) 줄어들 때마다 여러 마리를 한 번에 스폰한다. 라운드가 시작되면 최대 마릿수를 즉시 채우고,
-// 스폰 위치는 플레이어와 무관한 맵 임의 위치로 정한다. 외계인은 배회하다 플레이어를 감지하면 추격한다.
+// 외계인 분신 스포너 공통 로직. 라운드 타이머가 일정 시간(검거 투표 등으로 멈춰있는 동안은 제외)
+// 줄어들 때마다 여러 마리를 한 번에 스폰하고, 라운드가 시작되면 최대 마릿수를 즉시 채운다.
 // 스폰한 개체의 사망 애니메이션 완료 이벤트를 구독해 애니메이션이 끝나면 실제로 디스폰시킨다.
-public class AlienCloneManager : MonoBehaviour
+// 지상(GroundAlienCloneSpawner)과 지하(UndergroundAlienCloneSpawner)가 이 로직을 공유하며,
+// 라운드 시작 시 스폰 영역을 직접 갱신해야 하는지 여부만 OnRoundStarting 훅으로 갈린다.
+public abstract class AlienCloneSpawnerBase : MonoBehaviour
 {
     [Header("스폰 설정 (임시 기본값, 추후 밸런싱 이슈로 조정)")]
     [SerializeField] private GameObject[] _alienClonePrefabs;  //외계인 5종
@@ -25,7 +26,7 @@ public class AlienCloneManager : MonoBehaviour
     public IReadOnlyList<AlienCloneHealth> AliveClones => _aliveClones;
 
     // 디버그 메뉴에서 주기적인 스폰을 끄거나, 범인과 함께 분신도 정지시킬 때 사용한다. 서버에서만 의미가 있다.
-    public bool SpawningEnabled { get; private set; } = true;
+    public bool SpawningEnabled { get; private set; }
 
     // 범인이 정체를 드러내 이번 라운드 동안만 스폰을 멈춘 상태.
     // 디버그 메뉴 설정(SpawningEnabled)과 분리해야, 디버그로 꺼둔 것은 라운드가 바뀌어도 유지된다.
@@ -35,6 +36,17 @@ public class AlienCloneManager : MonoBehaviour
     // 지난 프레임에 읽은 라운드 잔여시간. 이번 프레임과의 차이로 "실제로 흐른 라운드 시간"을 계산하는 기준값.
     private float _lastRoundRemainingTime;
     private float _elapsedSinceLastSpawn;
+
+    // 라운드 시작 시 스폰 영역을 직접 갱신해야 하는 하위 클래스가 참조할 수 있게 노출한다.
+    protected MapRegionController RegionController => _mapRegionController;
+
+    private void Awake()
+    {
+        SpawningEnabled = GetDefaultSpawningEnabled();
+    }
+
+    // 지상/지하 스포너마다 자동 스폰 기본 활성화 여부가 달라 하위 클래스가 오버라이드한다.
+    protected virtual bool GetDefaultSpawningEnabled() => true;
 
     private void Start()
     {
@@ -119,7 +131,7 @@ public class AlienCloneManager : MonoBehaviour
     {
         if (_criminalNpcManager == null)
         {
-            Debug.LogError("[AlienCloneManager] CriminalNpcManager 참조가 없어 이번 라운드의 외계인 종류를 알 수 없습니다.", this);
+            Debug.LogError($"[{GetType().Name}] CriminalNpcManager 참조가 없어 이번 라운드의 외계인 종류를 알 수 없습니다.", this);
             return null;
         }
 
@@ -128,7 +140,7 @@ public class AlienCloneManager : MonoBehaviour
         if (typeIndex < 0 || typeIndex >= _alienClonePrefabs.Length)
         {
             Debug.LogError(
-                $"[AlienCloneManager] 이번 라운드 외계인 종류({typeIndex})에 해당하는 분신 프리팹이 없습니다. " +
+                $"[{GetType().Name}] 이번 라운드 외계인 종류({typeIndex})에 해당하는 분신 프리팹이 없습니다. " +
                 $"등록된 프리팹 수: {_alienClonePrefabs.Length}",
                 this);
             return null;
@@ -137,7 +149,7 @@ public class AlienCloneManager : MonoBehaviour
         GameObject prefab = _alienClonePrefabs[typeIndex];
         if (prefab == null)
         {
-            Debug.LogError($"[AlienCloneManager] {typeIndex}번 외계인 분신 프리팹 슬롯이 비어 있습니다.", this);
+            Debug.LogError($"[{GetType().Name}] {typeIndex}번 외계인 분신 프리팹 슬롯이 비어 있습니다.", this);
         }
 
         return prefab;
@@ -156,7 +168,7 @@ public class AlienCloneManager : MonoBehaviour
             if (!instance.TryGetComponent(out NetworkObject networkObject) ||
                 !instance.TryGetComponent(out AlienCloneHealth health))
             {
-                Debug.LogError("[AlienCloneManager] 외계인 프리팹에 NetworkObject 또는 AlienCloneHealth가 없습니다.", this);
+                Debug.LogError($"[{GetType().Name}] 외계인 프리팹에 NetworkObject 또는 AlienCloneHealth가 없습니다.", this);
                 Destroy(instance);
                 return false;
             }
@@ -177,7 +189,7 @@ public class AlienCloneManager : MonoBehaviour
         }
         catch (System.Exception exception)
         {
-            Debug.LogError($"[AlienCloneManager] 외계인 스폰 중 예외가 발생해 자동 스폰을 중단합니다.\n{exception}", this);
+            Debug.LogError($"[{GetType().Name}] 외계인 스폰 중 예외가 발생해 자동 스폰을 중단합니다.\n{exception}", this);
             _spawnFailedThisCycle = true;
             if (instance != null)
             {
@@ -294,6 +306,9 @@ public class AlienCloneManager : MonoBehaviour
             // 기준값도 새 라운드의 남은 시간으로 맞춘다. 라운드마다 지속시간이 달라서(900→750→600)
             // 이전 라운드 잔여시간을 그대로 두면 그 차이가 "흐른 시간"으로 잡혀 시작 즉시 스폰된다.
             _lastRoundRemainingTime = RoundManager.Instance.GetRemainingTime();
+
+            OnRoundStarting();
+
             FillToMaxNextFrameAsync(this.GetCancellationTokenOnDestroy()).Forget();
             return;
         }
@@ -301,6 +316,12 @@ public class AlienCloneManager : MonoBehaviour
         DespawnAllClones();
         ClonesFrozen = false;
     }
+
+    // 라운드 시작 시 스폰 시도 전에 필요한 준비 작업을 하위 클래스가 끼워 넣을 수 있는 훅.
+    // 지상은 필드 구역 해금 추첨(MapRegionController.SetActiveRegion) 쪽에서 스폰 영역이 자동으로
+    // 갱신되어 따로 할 일이 없지만, 지하(Basement)는 그 갱신을 아무도 대신해주지 않아
+    // UndergroundAlienCloneSpawner가 이 훅에서 직접 갱신한다.
+    protected virtual void OnRoundStarting() { }
 
     // 라운드 시작 시 최대 마릿수를 즉시 채운다. 직접 스폰하지 않고 스폰 주기를 다 찬 상태로 만들어
     // Update의 기존 경로(프리팹 확인 / 마릿수 상한 / 실패 처리)를 그대로 태운다.
