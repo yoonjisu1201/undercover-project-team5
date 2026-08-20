@@ -24,6 +24,9 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
     [SerializeField] private ClueModulePreview _clueModulePreview; // 촬영된 단서 이미지 참조용, static Instance가 없어 인스펙터에서 직접 연결
     [SerializeField] private RawImage[] _clueImages; // 무작위로 뽑은 단서 이미지를 표시할 슬롯
 
+    // #664: 상점 제거 전까지 라운드 보상(크레딧) 표기를 숨긴다. 되돌릴 때는 이 값을 켜면 된다.
+    [SerializeField] private bool _showCreditSection;
+
     private float _roundRemainingTimeAtClearLocal;
     private float _roundClearCountdownEndTimeLocal;
 
@@ -86,7 +89,7 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
                 _resultText.text = $"{RoundManager.Instance.CurrentRoundIndex + 1}라운드 클리어";
                 _confirmButton.gameObject.SetActive(false); // 자동으로 다음 라운드 전환
                 _nextRoundText.SetActive(true);
-                _creditSection.SetActive(true);
+                _creditSection.SetActive(_showCreditSection);
                 ShowPanel();
                 break;
             case RoundState.Success:

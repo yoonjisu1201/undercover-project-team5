@@ -145,6 +145,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RoundTimerDisplay_HQ
   _timerText: {fileID: 5262003030573099731}
   _roundText: {fileID: 76557237119124644}
+  _useWrongArrestFlash: 0
+  _wrongArrestFlashColor: {r: 1, g: 0, b: 0, a: 1}
+  _wrongArrestFlashDuration: 0.15
+  _wrongArrestFlashCount: 3
 --- !u!1 &255959585837708528
 GameObject:
   m_ObjectHideFlags: 0
@@ -10160,7 +10164,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &6420836101594717105
 RectTransform:
   m_ObjectHideFlags: 0
@@ -10176,10 +10180,10 @@ RectTransform:
   - {fileID: 9099426711769757096}
   m_Father: {fileID: 1674896435469927247}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 1300, y: -50}
+  m_SizeDelta: {x: 200, y: 40}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2639537318654536258
 CanvasRenderer:
