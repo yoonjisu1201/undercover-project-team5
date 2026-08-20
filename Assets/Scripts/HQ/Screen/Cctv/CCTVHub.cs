@@ -91,6 +91,7 @@ public class CCTVHub : MonoBehaviour {
 
 		Layers.ShowLayerToCamera(_cctvCamera, Layers.Item);
 		Layers.ShowLayerToCamera(_cctvCamera, Layers.CCTVPostProcessing);
+		Layers.HideLayerFromCamera(_cctvCamera, Layers.NavMeshOnly);
 
 		SetupOutlineOverlayCamera();
 	}
