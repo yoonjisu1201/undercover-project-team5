@@ -26,6 +26,13 @@ public class MinimapMarkerController : MonoBehaviour {
 	[Header("=== 플레이어(사람) 마커 등록 ===")]
 	[SerializeField] private GameObject _playerMarkerPrefab;
 
+	[Header("=== 마커 크기 ===")]
+	[Tooltip("마커 하나가 덮을 월드 크기(유닛). 지도 배율에 맞춰 마커도 같이 커지고 작아진다.")]
+	[SerializeField, Min(0.1f)] private float _markerWorldSize = 8f;
+
+	[Tooltip("마커가 지나치게 작아지거나 커지지 않도록 제한하는 배율 범위.")]
+	[SerializeField] private Vector2 _markerScaleRange = new Vector2(0.3f, 1.2f);
+
 	private static readonly Color ConnectedColor = Color.green;
 	private static readonly Color PartialColor = Color.yellow;
 	private static readonly Color DisconnectedColor = Color.red;
@@ -198,11 +205,31 @@ public class MinimapMarkerController : MonoBehaviour {
 			markerRect.anchoredPosition = anchoredPosition;
 			// 미니맵이 돌아간 구역에서도 아이콘과 라벨은 똑바로 보이게 한다.
 			markerRect.localRotation = _minimapScreen.MarkerCounterRotation;
+			ApplyMarkerScale(markerRect);
 			return true;
 		}
 
 		markerRect.gameObject.SetActive(false);
 		return false;
+	}
+
+	// 지하 맵처럼 넓은 지도는 배율이 작아지는데 마커는 픽셀 크기가 고정이라 상대적으로 너무 커진다.
+	// 마커가 항상 같은 월드 크기를 덮도록 배율을 맞춘다.
+	private void ApplyMarkerScale(RectTransform markerRect) {
+		if (!_minimapScreen.TryGetWorldToMapScale(out float worldToMap)) {
+			return;
+		}
+
+		float nativeSize = markerRect.rect.width;
+		if (nativeSize <= 0f) {
+			return;
+		}
+
+		float scale = Mathf.Clamp(
+			_markerWorldSize * worldToMap / nativeSize,
+			_markerScaleRange.x,
+			_markerScaleRange.y);
+		markerRect.localScale = Vector3.one * scale;
 	}
 
 	private static void ApplyConnectionColor(Image icon, CCTVConnectionState state) {
