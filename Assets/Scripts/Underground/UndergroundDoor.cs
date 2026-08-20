@@ -56,6 +56,7 @@ public class UndergroundDoor : InteractableBase
         }
 
         transform.position = targetPosition;
+        gameObject.SetActive(false);
     }
 
     public override string InteractionText => "문 열기";

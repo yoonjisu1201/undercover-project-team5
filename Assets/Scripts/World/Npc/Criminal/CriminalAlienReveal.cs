@@ -7,7 +7,7 @@ using UnityEngine;
 public class CriminalAlienReveal : NetworkBehaviour
 {
     [SerializeField] private GameObject _humanForm;  // 평소 보이는 시민 본체(모델+아웃핏 전체를 담은 루트)
-    // 배열 순서는 AlienCloneManager의 분신 프리팹 배열과 반드시 같아야 범인과 분신이 같은 종류로 나온다.
+    // 배열 순서는 GroundAlienCloneSpawner/UndergroundAlienCloneSpawner의 분신 프리팹 배열과 반드시 같아야 범인과 분신이 같은 종류로 나온다.
     [SerializeField] private GameObject[] _alienModelPrefabs;
 
     // 촬영 때 잠시 감추려면 생성해둔 본모습 인스턴스를 들고 있어야 한다.
