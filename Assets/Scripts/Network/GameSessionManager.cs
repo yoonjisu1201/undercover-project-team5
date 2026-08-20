@@ -50,6 +50,10 @@ public class GameSessionManager : MonoBehaviour
 	private bool _isLeavingVoluntarily;
 	private string _pendingLeaveReason;
 
+	// 게임이 시작됐는지 서버가 즉시 판단하기 위한 플래그.
+	// Lobby의 IsLocked는 반영에 네트워크 왕복이 필요해 접속 승인 시점에는 믿을 수 없다.
+	private bool _isSessionLocked;
+
 	// 퇴장 요청은 로비 복귀를 늦추지 않도록 기다리지 않는다. 다만 방금 나온 방이 목록에
 	// 남지 않으려면 조회 전에는 끝나 있어야 하므로 참조를 들고 있는다.
 	private Task _pendingLeaveTask;
@@ -254,6 +258,10 @@ public class GameSessionManager : MonoBehaviour
 	// ("player is already a member of the lobby")가 난다.
 	private async Task ReleaseCurrentSessionAsync()
 	{
+		// 음성 채널은 Netcode 연결과 별개라, 연결이 서지 않은 채 실패해도 저절로 빠지지 않는다.
+		// 남겨두면 입장하지 못한 클라이언트가 그 방의 대화를 계속 듣게 된다.
+		VivoxManager.Instance.LeaveSessionChannel();
+
 		if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
 		{
 			NetworkManager.Singleton.Shutdown();
@@ -291,6 +299,15 @@ public class GameSessionManager : MonoBehaviour
 		// 로그인이나 서비스 초기화 실패는 SessionException이 아니다. 방 코드와 무관한 실패다.
 		if (e is not SessionException sessionException) return networkMessage;
 
+		// 서버가 승인을 거부하면 SDK는 참가 요청 자체를 NetworkManager 시작 실패로 던진다.
+		// 이때는 서버가 붙인 사유가 원인을 정확히 알려주므로 추측성 문구로 덮지 않는다.
+		// (이 두 에러는 NGO가 시작된 뒤에만 나오고, 시작 시 DisconnectReason이 비워져 값이 최신임이 보장된다)
+		if (sessionException.Error is SessionError.NetworkManagerStartFailed or SessionError.NetworkSetupFailed)
+		{
+			string serverReason = ReadServerReason();
+			if (serverReason != null) return serverReason;
+		}
+
 		// 서비스는 코드 형식 위반과 네트워크 오류를 둘 다 Unknown으로만 알려줘 구분할 수 없다.
 		// 인터넷이 아예 끊긴 상태라면 코드 문제가 아니라고 확실히 말할 수 있다.
 		bool isOffline = Application.internetReachability == NetworkReachability.NotReachable;
@@ -311,10 +328,19 @@ public class GameSessionManager : MonoBehaviour
 			case SessionError.RateLimitExceeded:
 				return "요청이 너무 잦습니다. 잠시 후 다시 시도해주세요";
 			default:
-				// 정원 초과는 별도 SessionError 없이 Unknown으로 넘어와 메시지로만 구분할 수 있다.
-				return sessionException.Message.Contains("full", StringComparison.OrdinalIgnoreCase)
-					? "방 정원이 가득 찼습니다"
-					: defaultMessage;
+				// 정원 초과와 잠긴 방은 별도 SessionError 없이 Unknown으로 넘어와 메시지로만 구분할 수 있다.
+				// (각각 "lobby is full", "lobby is locked"로 온다)
+				if (sessionException.Message.Contains("full", StringComparison.OrdinalIgnoreCase))
+				{
+					return "방 정원이 가득 찼습니다";
+				}
+
+				if (sessionException.Message.Contains("locked", StringComparison.OrdinalIgnoreCase))
+				{
+					return roomGoneMessage;
+				}
+
+				return defaultMessage;
 		}
 	}
 
@@ -323,6 +349,9 @@ public class GameSessionManager : MonoBehaviour
 	// 세션 생성/참가보다 먼저 호출한다.
 	private void PrepareConnectionApproval()
 	{
+		// 싱글턴이 씬을 넘어 살아남으므로, 게임을 시작했던 상태가 다음 방까지 따라오면 아무도 못 들어온다.
+		_isSessionLocked = false;
+
 		var networkManager = NetworkManager.Singleton;
 		networkManager.NetworkConfig.ConnectionApproval = true;
 		networkManager.ConnectionApprovalCallback = HandleConnectionApproval;
@@ -344,6 +373,19 @@ public class GameSessionManager : MonoBehaviour
 		}
 
 		return IsNetworkReady(networkManager, requireServer);
+	}
+
+	// 우리 서버가 붙인 사유. 없으면 null.
+	// NGO는 서버가 사유를 보내지 않아도 영문 문자열을 채워두므로, 표식이 있을 때만 채택한다.
+	private static string ReadServerReason()
+	{
+		var networkManager = NetworkManager.Singleton;
+		if (networkManager == null) return null;
+
+		string reason = networkManager.DisconnectReason;
+		return !string.IsNullOrEmpty(reason) && reason.StartsWith(ServerReasonPrefix)
+			? reason.Substring(ServerReasonPrefix.Length)
+			: null;
 	}
 
 	private static bool IsNetworkReady(NetworkManager networkManager, bool requireServer)
@@ -406,6 +448,15 @@ public class GameSessionManager : MonoBehaviour
 
 	private void HandleConnectionApproval(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
 	{
+		// 게임이 시작된 뒤 붙은 클라이언트는 대기방 씬에서만 하는 스폰을 받지 못해 준비 보고를
+		// 영원히 못 한다. 붙이고 나서 정리하는 대신 승인 단계에서 막는다.
+		if (_isSessionLocked)
+		{
+			response.Approved = false;
+			response.Reason = ServerReasonPrefix + "이미 시작된 방입니다";
+			return;
+		}
+
 		response.Approved = true;
 		response.CreatePlayerObject = false;
 	}
@@ -507,7 +558,6 @@ public class GameSessionManager : MonoBehaviour
 		_pendingLeaveReason = null;
 		_isLeavingVoluntarily = false;
 
-		VivoxManager.Instance.LeaveSessionChannel();
 		// 로비 화면 복귀가 네트워크 왕복을 기다리지 않도록 완료를 기다리지 않는다.
 		_pendingLeaveTask = ReleaseCurrentSessionAsync();
 		SceneManager.LoadScene(_lobbySceneName);
@@ -518,12 +568,8 @@ public class GameSessionManager : MonoBehaviour
 	{
 		if (!string.IsNullOrEmpty(_pendingLeaveReason)) return _pendingLeaveReason;
 
-		// NGO는 서버가 사유를 보내지 않아도 영문 문자열을 채워두므로, 우리가 붙인 표식이 있을 때만 채택한다.
-		string disconnectReason = NetworkManager.Singleton.DisconnectReason;
-		if (!string.IsNullOrEmpty(disconnectReason) && disconnectReason.StartsWith(ServerReasonPrefix))
-		{
-			return disconnectReason.Substring(ServerReasonPrefix.Length);
-		}
+		string serverReason = ReadServerReason();
+		if (serverReason != null) return serverReason;
 
 		if (_isLeavingVoluntarily) return "방을 나왔습니다";
 		if (NetworkManager.Singleton.IsHost) return "연결이 끊겼습니다";
@@ -600,6 +646,9 @@ public class GameSessionManager : MonoBehaviour
 	// 잠금 성패가 게임 진행을 막을 이유는 없으므로 결과를 기다리지 않고 로그만 남긴다.
 	private async void SetSessionLocked(bool isLocked)
 	{
+		// 서버 판정용 플래그를 먼저 세운다. Lobby 반영을 기다리는 사이에 들어오는 접속도 막아야 한다.
+		_isSessionLocked = isLocked;
+
 		try
 		{
 			var hostSession = CurrentSession?.AsHost();

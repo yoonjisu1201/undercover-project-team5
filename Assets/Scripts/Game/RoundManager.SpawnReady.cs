@@ -127,10 +127,28 @@ public partial class RoundManager
         //  이 조건이 없으면 내보내는 도중에 최소 인원 미만으로 라운드가 시작될 수 있다)
         if (NetworkManager.ConnectedClientsIds.Count < WaitingRoomReadyManager.MinPlayersToStart) return;
 
-        if (_spawnReadyConfirmedClients.Count >= NetworkManager.ConnectedClientsIds.Count)
+        if (_spawnReadyConfirmedClients.Count >= CountClientsExpectedToReport())
         {
             StartGame();
         }
+    }
+
+    // PlayerObject가 없는 클라이언트는 스폰 대기 조건을 통과할 수 없어 보고가 구조적으로 불가능하다.
+    // 이들을 분모에 넣으면 정상 플레이어 전원이 제한 시간만큼 로딩 화면에 묶인다.
+    private int CountClientsExpectedToReport()
+    {
+        int count = 0;
+        foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
+        {
+            // 퇴장 처리 도중에는 두 목록이 어긋날 수 있어 인덱서 대신 TryGetValue로 읽는다.
+            if (NetworkManager.ConnectedClients.TryGetValue(clientId, out var client)
+                && client.PlayerObject != null)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     // 로딩 대기 중이든 라운드 진행 중이든, 접속자가 빠지면 계속 진행할 수 있는지 다시 판단한다.
