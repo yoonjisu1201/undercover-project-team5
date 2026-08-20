@@ -57,8 +57,9 @@ public class ArrestCandidateInteractable : InteractableBase
             return;
         }
 
-        // 홀드 상호작용이 끝나면 NPC를 붙잡고 로컬 플레이어 화면에 수갑 체결 연출을 재생한다.
-        // 범인 판정은 다음 단계에서 연출 완료 시점에 연결한다.
+        // 홀드 상호작용이 끝나면 NPC를 붙잡고 수갑 체결 연출을 재생한다.
+        // #679: 검거자는 입력 반응이 늦지 않도록 여기서 바로 재생하고,
+        // 나머지 플레이어는 서버가 검증을 통과시킨 뒤 RPC로 재생시킨다.
         RequestPauseForConfirmationRpc();
         FindFirstObjectByType<ArrestResultUI>()?.RequestPlayHandcuffEffect(this);
     }
@@ -90,6 +91,16 @@ public class ArrestCandidateInteractable : InteractableBase
         }
 
         GetComponent<NpcMovement>()?.HoldExternally();
+
+        // #679: 검거자는 이미 로컬에서 재생 중이므로 제외하고 나머지에게만 보낸다.
+        PlayHandcuffEffectRpc(RpcTarget.Not(rpcParams.Receive.SenderClientId, RpcTargetUse.Temp));
+    }
+
+    // 검거자가 아닌 플레이어는 연출만 본다. 판정 요청은 검거자 쪽 연출이 끝난 뒤 한 번만 나간다.
+    [Rpc(SendTo.SpecifiedInParams)]
+    private void PlayHandcuffEffectRpc(RpcParams rpcParams = default)
+    {
+        FindFirstObjectByType<ArrestResultUI>()?.RequestPlayHandcuffEffect(null);
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]

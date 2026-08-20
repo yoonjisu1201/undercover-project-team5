@@ -103,11 +103,12 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
         GameplayUiMode.Instance?.RegisterUi(this);
     }
 
-    // 시민 검거 상호작용이 완료됐을 때 로컬 플레이어 화면에만 수갑 연출을 재생한다.
-    // 연출이 끝나면 서버에 검거 판정을 요청한다.
+    // 시민 검거 상호작용이 완료됐을 때 수갑 연출을 재생한다.
+    // #679: candidate가 null이면 연출만 재생한다(검거자가 아닌 플레이어).
+    // candidate가 있으면 연출이 끝난 뒤 서버에 검거 판정을 요청한다.
     public void RequestPlayHandcuffEffect(ArrestCandidateInteractable candidate)
     {
-        if (candidate == null || _isHandcuffEffectPlaying)
+        if (_isHandcuffEffectPlaying)
         {
             candidate?.CancelPendingConfirmation();
             return;
@@ -129,7 +130,7 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
             await _handcuffArrestEffect.PlayAsync();
         }
 
-        candidate.ConfirmArrest();
+        candidate?.ConfirmArrest();
         _isHandcuffEffectPlaying = false;
     }
 
