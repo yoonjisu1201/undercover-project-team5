@@ -12,6 +12,10 @@ public sealed class HqItemSpawner : MonoBehaviour
     [Header("본부 스폰 지점")]
     [SerializeField] private Transform[] _spawnPoints;
 
+    // #664: 스폰을 통째로 막을 때 쓴다. 컴포넌트를 꺼도 RoundManager가 RespawnTools()를 직접 호출하므로
+    // 라운드 전환 스폰까지 막으려면 이 값을 꺼야 한다.
+    [SerializeField] private bool _spawnEnabled = true;
+
     private bool _hasSpawned;
 
     private void OnEnable()
@@ -53,7 +57,7 @@ public sealed class HqItemSpawner : MonoBehaviour
 
     public void SpawnTools()
     {
-        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer || !ValidateSettings())
+        if (!_spawnEnabled || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer || !ValidateSettings())
         {
             return;
         }

@@ -319,8 +319,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HqEntrance
   ShowTopMostFoldoutHeaderGroup: 1
+  _aimIgnoredColliders: []
   _outlineFadeDuration: 0.15
-  _hqSpawnPoint: {fileID: 0}
+  _targetPoint: {fileID: 0}
   _aimRadiusMultiplier: 3
 --- !u!1 &471308271195365178
 GameObject:
@@ -1563,6 +1564,10 @@ PrefabInstance:
     - target: {fileID: 1693577533377353510, guid: ad340bee41f893149967a0ab900130a2, type: 3}
       propertyPath: m_Name
       value: CartPrefab
+      objectReference: {fileID: 0}
+    - target: {fileID: 1693577533377353510, guid: ad340bee41f893149967a0ab900130a2, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2167124735128175939, guid: ad340bee41f893149967a0ab900130a2, type: 3}
       propertyPath: GlobalObjectIdHash
