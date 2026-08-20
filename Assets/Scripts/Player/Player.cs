@@ -138,10 +138,8 @@ public class Player : NetworkBehaviour
 		_playerColor.OnValueChanged += HandlePlayerColorChanged;
 
 		PlayerNameChanged += PlayerInfoPresenter.HandlePlayerNameChanged;
-		PlayerColorChanged += PlayerInfoPresenter.HandlePlayerColorChanged;
 
 		// 접속 시 한번 적용하기
-		PlayerInfoPresenter.HandlePlayerColorChanged(Color.white, _playerColor.Value);
 		PlayerInfoPresenter.HandlePlayerNameChanged(null, PlayerName);
 	}
 
