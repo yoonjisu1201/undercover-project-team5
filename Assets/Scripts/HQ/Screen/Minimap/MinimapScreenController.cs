@@ -25,6 +25,10 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 	[Tooltip("스프라이트가 월드 기준으로 돌아가 있는 각도. 칸 순서는 위 스프라이트와 같다.")]
 	[SerializeField] private MapRotation[] _regionRotations = Array.Empty<MapRotation>();
 
+	[Header("=== 스프라이트가 구역 밖까지 그린 여백 (월드 단위) ===")]
+	[Tooltip("스프라이트는 구역 콜라이더보다 넓은 범위(주변 도로 등)를 그리고 있다. 콜라이더를 사방으로 이 값만큼 넓힌 범위가 스프라이트 전체에 대응한다.")]
+	[SerializeField, Min(0f)] private float _spriteWorldMargin = 27f;
+
 	[Header("=== 활성 구역을 알려줄 컨트롤러 ===")]
 	[SerializeField] private MapRegionController _regionController;
 
@@ -159,6 +163,9 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 		if (bounds.size.x <= 0f || bounds.size.z <= 0f) {
 			return false;
 		}
+
+		// 스프라이트가 그린 범위는 콜라이더보다 넓으므로, 그 범위를 기준으로 정규화해야 위치가 맞는다.
+		bounds.Expand(new Vector3(_spriteWorldMargin * 2f, 0f, _spriteWorldMargin * 2f));
 
 		float normalizedX = Mathf.InverseLerp(bounds.min.x, bounds.max.x, worldPosition.x);
 		float normalizedY = Mathf.InverseLerp(bounds.min.z, bounds.max.z, worldPosition.z);
