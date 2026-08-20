@@ -44,6 +44,9 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
     // 생성(재생성 포함)이 끝날 때마다 알림. 지하 스폰 영역을 이 결과에 맞춰 갱신하는 쪽에서 구독한다.
     public event Action Generated;
 
+    // 생성이 끝난 뒤 배치된 조각 목록. 미니맵처럼 배치 결과를 그대로 다시 그려야 하는 쪽에서 참조한다.
+    public IReadOnlyList<UndergroundModule> PlacedModules => _placedModules;
+
     private void Awake() {
         _navMeshSurface = GetComponent<NavMeshSurface>();
     }
