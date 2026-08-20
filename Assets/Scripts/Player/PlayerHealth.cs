@@ -12,6 +12,9 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     [SerializeField] private float _reviveHpAmount = 20f; //쓰러진 플레이어 살릴때 회복 수치
     [SerializeField] private float _alienAttackDamage = 20f; //외계인 공격 1회당 감소 HP 수치
 
+    // #663: 체력 시스템 제거 전까지 자연 감소를 꺼 둔다. 되돌릴 때는 이 값을 켜면 된다.
+    [SerializeField] private bool _enableHpDecay;
+
     private readonly NetworkVariable<float> _currentHp =
         new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -55,6 +58,8 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
 
     private void Update()
     {
+        if (!_enableHpDecay) return;
+
         if (!IsServer || !IsSpawned || _isDowned.Value || _isInHeadquarters) return;
 
         // 로딩(NPC/단서 스폰, 몽타주 로딩 등) 도중에는 라운드가 아직 InRound가 아니므로 감소하지 않는다.
