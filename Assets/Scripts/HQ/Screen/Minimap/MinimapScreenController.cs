@@ -14,8 +14,8 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 	[Header("=== 미니맵 스프라이트를 그릴 Image ===")]
 	[SerializeField] private Image _mapImage;
 
-	[Header("=== 구역별 미니맵 스프라이트 (E 구역은 아직 없음) ===")]
-	[Tooltip("칸 순서가 RegionId 순서(A, B, C, D, E, Basement)와 그대로 맞아야 한다. 없는 구역은 비워둔다.")]
+	[Header("=== 지상 구역별 미니맵 스프라이트 (E 구역은 아직 없음) ===")]
+	[Tooltip("칸 순서가 RegionId 순서(A, B, C, D, E)와 그대로 맞아야 한다. 없는 구역은 비워둔다. 지하는 그림을 조립하므로 칸이 없다.")]
 	[SerializeField] private Sprite[] _regionSprites = Array.Empty<Sprite>();
 
 	[Header("=== 구역별 스프라이트 회전 보정 ===")]
@@ -82,15 +82,16 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 	// 지하 맵은 조립한 조각이 곧 그림이므로 스프라이트 여백·패딩 보정을 적용하지 않는다.
 	private Rect DisplayedContentRect => _mode == MinimapMode.Field ? _spriteContentRect : new Rect(0f, 0f, 1f, 1f);
 
-	// 칸 개수를 RegionId 개수에 고정해, 드래그로 채운 순서가 구역과 어긋나지 않게 한다.
+	// 칸 개수를 지상 구역 개수에 고정해, 드래그로 채운 순서가 구역과 어긋나지 않게 한다.
+	// 지하는 조각을 조립해 그리므로 스프라이트 칸이 필요 없다. RegionId에서 Basement 앞까지가 지상이다.
 	private void OnValidate() {
-		int regionCount = Enum.GetValues(typeof(RegionId)).Length;
-		if (_regionSprites.Length != regionCount) {
-			Array.Resize(ref _regionSprites, regionCount);
+		int surfaceRegionCount = (int)RegionId.Basement;
+		if (_regionSprites.Length != surfaceRegionCount) {
+			Array.Resize(ref _regionSprites, surfaceRegionCount);
 		}
 
-		if (_regionRotations.Length != regionCount) {
-			Array.Resize(ref _regionRotations, regionCount);
+		if (_regionRotations.Length != surfaceRegionCount) {
+			Array.Resize(ref _regionRotations, surfaceRegionCount);
 		}
 	}
 
