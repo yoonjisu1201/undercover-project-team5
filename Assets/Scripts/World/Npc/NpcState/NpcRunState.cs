@@ -36,6 +36,8 @@ public sealed class NpcRunState : INpcState
         _animator.SetInteger(AnimatorHashes.NpcState, NpcStateValue);
 
         // 목적지 없는 추격 요청은 기존 NavMesh 경로를 그대로 이어서 달립니다.
+        // Idle에서 붙잡힌 NPC처럼 이어서 달릴 경로가 없으면, 다음 프레임에 NpcRandomWander가
+        // 목적지를 골라 이어 줍니다.
         if (!_hasDestination)
         {
             Debug.Log($"[NpcRunState] '{_movement.name}' NPC가 새 목적지 없이 기존 NavMesh 경로로 Run에 진입합니다.", _movement);
