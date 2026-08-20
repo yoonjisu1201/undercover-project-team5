@@ -52,6 +52,32 @@ public class MinimapMarkerController : MonoBehaviour {
 	}
 
 	private void OnEnable() {
+		// CCTVHub의 포인트 목록은 구역이 활성화될 때 통째로 바뀌므로, 그때마다 마커를 다시 만든다.
+		_cctvHub.OnCctvPointsActivated += RebuildCctvMarkers;
+		RebuildCctvMarkers();
+
+		GameObject startPointMarkerObject = Instantiate(_startPointMarkerPrefab, _markerParent);
+		_startPointMarkerRect = startPointMarkerObject.GetComponent<RectTransform>();
+	}
+
+	private void OnDisable() {
+		_cctvHub.OnCctvPointsActivated -= RebuildCctvMarkers;
+		ClearCctvMarkers();
+
+		if (_startPointMarkerRect != null) {
+			Destroy(_startPointMarkerRect.gameObject);
+			_startPointMarkerRect = null;
+		}
+
+		foreach (PlayerMarker marker in _playerMarkers.Values) {
+			Destroy(marker.RectTransform.gameObject);
+		}
+		_playerMarkers.Clear();
+	}
+
+	private void RebuildCctvMarkers() {
+		ClearCctvMarkers();
+
 		foreach (CCTVPoint point in _cctvHub.CCTVPoints) {
 			GameObject markerObject = Instantiate(_cctvMarkerPrefab, _markerParent);
 
@@ -73,27 +99,14 @@ public class MinimapMarkerController : MonoBehaviour {
 
 			_markerInstances.Add(instance);
 		}
-
-		GameObject startPointMarkerObject = Instantiate(_startPointMarkerPrefab, _markerParent);
-		_startPointMarkerRect = startPointMarkerObject.GetComponent<RectTransform>();
 	}
 
-	private void OnDisable() {
+	private void ClearCctvMarkers() {
 		foreach (MarkerInstance instance in _markerInstances) {
 			instance.Point.OnConnectionStateChanged -= instance.OnStateChanged;
 			Destroy(instance.RectTransform.gameObject);
 		}
 		_markerInstances.Clear();
-
-		if (_startPointMarkerRect != null) {
-			Destroy(_startPointMarkerRect.gameObject);
-			_startPointMarkerRect = null;
-		}
-
-		foreach (PlayerMarker marker in _playerMarkers.Values) {
-			Destroy(marker.RectTransform.gameObject);
-		}
-		_playerMarkers.Clear();
 	}
 
 	// 구역이 바뀌거나 대상이 움직일 수 있으므로 매 프레임 위치를 다시 계산한다.

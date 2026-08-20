@@ -25,9 +25,20 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 	[Tooltip("스프라이트가 월드 기준으로 돌아가 있는 각도. 칸 순서는 위 스프라이트와 같다.")]
 	[SerializeField] private MapRotation[] _regionRotations = Array.Empty<MapRotation>();
 
-	[Header("=== 스프라이트가 구역 밖까지 그린 여백 (월드 단위) ===")]
-	[Tooltip("스프라이트는 구역 콜라이더보다 넓은 범위(주변 도로 등)를 그리고 있다. 콜라이더를 사방으로 이 값만큼 넓힌 범위가 스프라이트 전체에 대응한다.")]
-	[SerializeField, Min(0f)] private float _spriteWorldMargin = 27f;
+	[Header("=== 스프라이트가 그린 범위 보정 (월드 단위) ===")]
+	[Tooltip("스프라이트는 구역 콜라이더보다 넓은 범위(주변 도로 등)를 그린다. 콜라이더를 짧은 축·긴 축으로 각각 이 값만큼 넓힌 범위가 스프라이트 전체에 대응한다. 네 구역 크기가 같아 값 하나로 전부 맞는다.")]
+	[SerializeField] private Vector2 _spriteMargin = new Vector2(27f, 27f);
+
+	[Tooltip("스프라이트가 구역 중심에서 치우쳐 있을 때 짧은 축·긴 축으로 밀어주는 값. 양수면 월드 좌표가 커지는 방향.")]
+	[SerializeField] private Vector2 _spriteOffset = Vector2.zero;
+
+	[Header("=== 구역 경계 밖을 표시할 허용 범위 ===")]
+	[Tooltip("구역 경계에 걸쳐 설치된 CCTV처럼 살짝 밖에 있는 대상까지 표시하기 위한 여유. 그려진 범위 대비 비율이며, 이보다 더 멀면 다른 구역으로 보고 숨긴다.")]
+	[SerializeField, Range(0f, 0.5f)] private float _outsideSlack = 0.1f;
+
+	[Header("=== 스프라이트 안에서 맵이 실제로 그려진 영역 (0~1) ===")]
+	[Tooltip("PNG에 투명 패딩이 있어 그림이 이미지 전체를 채우지 않는다. 네 스프라이트의 패딩이 거의 같아 값 하나를 공유한다. 픽셀로 측정한 값이므로 그림을 다시 뽑으면 갱신해야 한다.")]
+	[SerializeField] private Rect _spriteContentRect = new Rect(0.1048f, 0.0815f, 0.7857f, 0.8301f);
 
 	[Header("=== 활성 구역을 알려줄 컨트롤러 ===")]
 	[SerializeField] private MapRegionController _regionController;
@@ -123,6 +134,23 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 		SetZoom(_minZoom);
 	}
 
+	// 스프라이트가 실제로 그린 월드 범위(XZ)를 구한다.
+	// 여백·오프셋은 구역의 짧은 축·긴 축 기준으로 정의되므로, 구역이 가로든 세로든 같은 값이 통한다.
+	private Rect GetDrawnWorldArea(Bounds bounds) {
+		bool longAxisIsX = bounds.size.x >= bounds.size.z;
+
+		float marginX = longAxisIsX ? _spriteMargin.y : _spriteMargin.x;
+		float marginZ = longAxisIsX ? _spriteMargin.x : _spriteMargin.y;
+		float offsetX = longAxisIsX ? _spriteOffset.y : _spriteOffset.x;
+		float offsetZ = longAxisIsX ? _spriteOffset.x : _spriteOffset.y;
+
+		return Rect.MinMaxRect(
+			bounds.min.x - marginX + offsetX,
+			bounds.min.z - marginZ + offsetZ,
+			bounds.max.x + marginX + offsetX,
+			bounds.max.z + marginZ + offsetZ);
+	}
+
 	// 구역마다 스프라이트 비율이 다를 수 있으므로, 뷰포트 안에 비율을 유지한 최대 크기로 맞춘다.
 	// 마커 좌표를 이 RectTransform 기준으로 계산하기 때문에 rect가 실제로 그려지는 영역과 같아야 한다.
 	private void FitToViewport(Sprite sprite) {
@@ -164,25 +192,37 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 			return false;
 		}
 
-		// 스프라이트가 그린 범위는 콜라이더보다 넓으므로, 그 범위를 기준으로 정규화해야 위치가 맞는다.
-		bounds.Expand(new Vector3(_spriteWorldMargin * 2f, 0f, _spriteWorldMargin * 2f));
-
-		float normalizedX = Mathf.InverseLerp(bounds.min.x, bounds.max.x, worldPosition.x);
-		float normalizedY = Mathf.InverseLerp(bounds.min.z, bounds.max.z, worldPosition.z);
-
-		// 구역 밖(다른 구역이나 지하)에 있는 대상은 미니맵에 올리지 않는다.
-		if (normalizedX < 0f || normalizedX > 1f || normalizedY < 0f || normalizedY > 1f) {
+		// 본부(y≈-500)나 지하실(y≈-300)에 있는 대상은 이 구역의 층이 아니므로 미니맵에 올리지 않는다.
+		if (worldPosition.y < bounds.min.y || worldPosition.y > bounds.max.y) {
 			return false;
 		}
 
-		// 화면 기준 위치를 먼저 구한 뒤, 회전된 Image의 로컬 좌표로 되돌린다.
+		Rect drawnArea = GetDrawnWorldArea(bounds);
+
+		// Mathf.InverseLerp은 0~1로 잘라내므로 구역 밖 대상이 걸러지지 않는다. 직접 나눠 범위를 그대로 본다.
+		float normalizedX = (worldPosition.x - drawnArea.xMin) / drawnArea.width;
+		float normalizedY = (worldPosition.z - drawnArea.yMin) / drawnArea.height;
+
+		// 다른 구역에 있는 대상은 숨긴다. 경계에 걸친 대상은 허용 범위만큼 프레임 밖에 그려진다.
+		if (normalizedX < -_outsideSlack || normalizedX > 1f + _outsideSlack ||
+			normalizedY < -_outsideSlack || normalizedY > 1f + _outsideSlack) {
+			return false;
+		}
+
+		// 월드 범위는 이미지 전체가 아니라 그림이 실제로 그려진 영역에 대응한다.
 		Vector2 rectSize = _mapImage.rectTransform.rect.size;
-		Vector2 displayedSize = IsQuarterTurned ? new Vector2(rectSize.y, rectSize.x) : rectSize;
+		Vector2 contentSize = new Vector2(_spriteContentRect.width * rectSize.x, _spriteContentRect.height * rectSize.y);
+		Vector2 contentCenter = new Vector2(
+			(_spriteContentRect.center.x - 0.5f) * rectSize.x,
+			(_spriteContentRect.center.y - 0.5f) * rectSize.y);
+
+		// 화면 기준 위치를 먼저 구한 뒤, 회전된 Image의 로컬 좌표로 되돌린다.
+		Vector2 displayedSize = IsQuarterTurned ? new Vector2(contentSize.y, contentSize.x) : contentSize;
 		Vector2 displayedOffset = new Vector2(
 			(normalizedX - 0.5f) * displayedSize.x,
 			(normalizedY - 0.5f) * displayedSize.y);
 
-		anchoredPosition = MarkerCounterRotation * displayedOffset;
+		anchoredPosition = contentCenter + (Vector2)(MarkerCounterRotation * displayedOffset);
 		return true;
 	}
 
