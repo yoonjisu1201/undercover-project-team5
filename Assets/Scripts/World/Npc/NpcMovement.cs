@@ -76,11 +76,18 @@ public class NpcMovement : MonoBehaviour
         }
 
         // 목적지에 완전히 멈추기 전에 다음 목적지를 잡아야 추격이 끊기지 않습니다.
+        // 경로가 아예 없으면 remainingDistance가 무한이라 이 값이 영원히 false가 되고,
+        // 호출부가 다음 목적지를 고르지 못해 제자리에 멈춘다. HasArrived와 같은 기준으로 맞춘다.
         public bool IsNearDestination(float distance)
         {
             if (_agent == null || _agent.pathPending)
             {
                 return false;
+            }
+
+            if (!_agent.hasPath)
+            {
+                return true;
             }
 
             return _agent.remainingDistance <= distance;
