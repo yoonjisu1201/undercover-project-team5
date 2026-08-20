@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.AI;
 
 // NPC 주변 Sphere Collider 반경 안에서 임시 목적지를 생성해 반복해서 배회시킵니다.
+// 목적지를 뽑는 일 자체는 추격(NpcChase)도 같은 규칙을 쓰므로 TryGetDestination으로 열어 둡니다.
+// 추격 중에는 이 클래스가 목적지를 건드리지 않고 물러납니다.
 [RequireComponent(typeof(NpcMovement))]
 [RequireComponent(typeof(NpcStateMachine))]
 public sealed class NpcRandomWander : MonoBehaviour
@@ -18,27 +20,12 @@ public sealed class NpcRandomWander : MonoBehaviour
     [SerializeField, Min(0.01f)] private float _navMeshSampleDistance = 1f;
     [SerializeField, Min(0f)] private float _minimumMoveDistance = 2f;
 
-    // 추격 중에는 이만큼 남았을 때 다음 목적지를 잡아, 멈추지 않고 이어 달리게 합니다.
-    [SerializeField, Min(0.5f)] private float _chaseRepathDistance = 3f;
-
     private NpcMovement _movement;
     private NpcStateMachine _stateMachine;
+    private NpcChase _chase;
     private MapRegion _spawnRegion;
     private MapRegionController _regionController;
     private bool _hasRequestedMove;
-
-    private bool IsChaseTarget
-    {
-        get
-        {
-            ArrestChaseManager chaseManager = ArrestChaseManager.Instance;
-
-            return chaseManager != null &&
-                   chaseManager.CurrentState == ArrestChaseState.Chasing &&
-                   chaseManager.Target != null &&
-                   chaseManager.Target.gameObject == gameObject;
-        }
-    }
 
     // 배회 영역으로 쓰는 콜라이더. 상호작용 트리거 판정(PlayerInteraction)에서 이 콜라이더는 제외하기 위해 노출한다.
     public Collider WanderAreaCollider => _wanderArea;
@@ -59,6 +46,7 @@ public sealed class NpcRandomWander : MonoBehaviour
     {
         _movement = GetComponent<NpcMovement>();
         _stateMachine = GetComponent<NpcStateMachine>();
+        _chase = GetComponent<NpcChase>();
 
         if (_wanderArea == null)
         {
@@ -81,14 +69,16 @@ public sealed class NpcRandomWander : MonoBehaviour
 
         if (_movement.IsHeldExternally) return; // 외부에서 붙잡아 둔 동안은 배회 로직을 멈춘다
 
+        // 추격 중에는 NpcChase가 목적지를 잡는다. 둘이 같은 NPC의 목적지를 번갈아 덮어쓰지 않도록 물러난다.
+        if (_chase != null && _chase.IsChasing)
+        {
+            _hasRequestedMove = false;
+            return;
+        }
+
         if (_hasRequestedMove)
         {
-            // 추격 대상만 도착 전에 다음 목적지로 넘어간다. 배회는 기존대로 완전히 도착한 뒤에 고른다.
-            bool readyForNext = IsChaseTarget
-                ? _movement.IsNearDestination(_chaseRepathDistance)
-                : _movement.HasArrived;
-
-            if (!readyForNext)
+            if (!_movement.HasArrived)
             {
                 return;
             }
@@ -97,33 +87,23 @@ public sealed class NpcRandomWander : MonoBehaviour
             return;
         }
 
-        if (!IsChaseTarget && !_stateMachine.CanSelectDestination)
+        if (!_stateMachine.CanSelectDestination)
         {
             return;
         }
 
-        if (TryGetRandomDestination(out Vector3 destination))
+        if (TryGetDestination(out Vector3 destination))
         {
-            if (IsChaseTarget)
-            {
-                _stateMachine.ChangeToRun(destination);
-            }
-            else
-            {
-                _stateMachine.ChangeToWalk(destination);
-            }
-
+            _stateMachine.ChangeToWalk(destination);
             _hasRequestedMove = true;
             return;
         }
 
-        if (!IsChaseTarget)
-        {
-            _stateMachine.WaitForNextIdleCompletion();
-        }
+        _stateMachine.WaitForNextIdleCompletion();
     }
 
-    private bool TryGetRandomDestination(out Vector3 destination)
+    // 배회 영역 안에서 갈 수 있는 지점 하나를 고릅니다. 추격도 같은 규칙으로 목적지를 받습니다.
+    public bool TryGetDestination(out Vector3 destination)
     {
         destination = default;
 
