@@ -42,6 +42,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private Animator _animator;
 	private PlayerHealth _playerHealth;
+	private PlayerStamina _playerStamina;
 	private PlayerInteraction _playerInteraction;
 	private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
 	private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
@@ -73,6 +74,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		_animator = GetComponent<Animator>();
 		_playerHealth = GetComponent<PlayerHealth>();
+		_playerStamina = GetComponent<PlayerStamina>();
 		_playerInteraction = GetComponent<PlayerInteraction>();
 
 		_bodyCollider = GetComponent<CapsuleCollider>();
@@ -110,7 +112,15 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void SetRunningState(bool value)
 	{
+		bool changed = IsSpawned && IsOwner && _networkIsRunning.Value != value;
 		SyncAnimatorBool(IsRunningHash, _networkIsRunning, value);
+
+		// 스태미나 소모/회복은 값이 실제로 바뀌는 시점(달리기 시작/중지)에만 서버에 알린다.
+		if (changed)
+		{
+			if (value) { _playerStamina.StartRunning(); }
+			else { _playerStamina.StopRunning(); }
+		}
 	}
 
 	private void SetJumpingState(bool value)
@@ -269,10 +279,11 @@ public class PlayerMoveSample : NetworkBehaviour
 		Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
 
 		bool isMoving = move.sqrMagnitude > 0.01f;
-		bool isRunning = 
-			isMoving 
+		bool isRunning =
+			isMoving
 			&& _actions.Player.Shift.IsPressed()
-			&& _playerInteraction.CarryingCart == null; // 카트 끄는 중에는 달릴 수 없다.
+			&& _playerInteraction.CarryingCart == null // 카트 끄는 중에는 달릴 수 없다.
+			&& _playerStamina.CurrentStamina > 0f; // 스태미나가 없으면 달릴 수 없다.
 
 		SetMovingState(isMoving);
 		SetRunningState(isRunning);

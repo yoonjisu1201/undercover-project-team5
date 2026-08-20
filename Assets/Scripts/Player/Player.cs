@@ -11,6 +11,7 @@ using Random = UnityEngine.Random;
 	typeof(PlayerInventory),
 	typeof(PlayerInteraction))]
 [RequireComponent(typeof(PlayerHealth))]
+[RequireComponent(typeof(PlayerStamina))]
 [RequireComponent(typeof(PlayerRenderer))]
 public class Player : NetworkBehaviour
 {
@@ -21,6 +22,7 @@ public class Player : NetworkBehaviour
 	[HideInInspector] public PlayerInfoPresenter PlayerInfoPresenter;
 	[HideInInspector] public PlayerRenderer PlayerRenderer;
 	[HideInInspector] public PlayerHealth PlayerHealth;
+	[HideInInspector] public PlayerStamina PlayerStamina;
 
 	public const int MaxPlayerNameLength = 8;
 
@@ -96,6 +98,7 @@ public class Player : NetworkBehaviour
 		PlayerInfoPresenter = GetComponent<PlayerInfoPresenter>();
 		PlayerRenderer = GetComponent<PlayerRenderer>();
 		PlayerHealth = GetComponent<PlayerHealth>();
+		PlayerStamina = GetComponent<PlayerStamina>();
 
 		// 메인 카메라는 MinimapOnly인 레이어를 보지 못하도록
 		Camera playerCamera = GetComponentInChildren<Camera>();
