@@ -158324,7 +158324,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bf62e34c6a21bc84cb2e69ebb21bdd10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ArrestVoteUI
+  _handcuffArrestEffect: {fileID: 1461910635}
   _wrongTargetPanel: {fileID: 1943569282}
+  _wrongTargetSubText: {fileID: 1891058642}
   _arrestSuccessPanel: {fileID: 654920305}
   _revealedPanel: {fileID: 1977431742}
   _candidatePortrait: {fileID: 454291399}
@@ -215087,6 +215089,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RoundTimerDisplay
   _timerText: {fileID: 153007649}
   _roundText: {fileID: 1782817568}
+  _useWrongArrestFlash: 1
+  _wrongArrestFlashColor: {r: 1, g: 0, b: 0, a: 1}
+  _wrongArrestFlashDuration: 0.25
+  _wrongArrestFlashCount: 4
 --- !u!1001 &1208418655
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -253273,6 +253279,74 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4000013398243146, guid: ec63a064dbd786c41a053bad759efb21, type: 3}
   m_PrefabInstance: {fileID: 1459880738}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1461910634
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4396262094646973523, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7476338786537617402, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+      propertyPath: m_Name
+      value: HandcuffArrestEffect
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+--- !u!114 &1461910635 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5155028228427258544, guid: a79fc4d8e0e1ae24cb1857c7766e980d, type: 3}
+  m_PrefabInstance: {fileID: 1461910634}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07d0018858e241f41a8fe36d918fbbfb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HandcuffArrestEffect
 --- !u!1001 &1463248888
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -367713,7 +367787,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uD328\uB110\uD2F0\uB85C \uC678\uACC4\uC778\uC758 \uC7A5\uB09C\uC774 \uBC1C\uB3D9\uB429\uB2C8\uB2E4."
+  m_text: "\uC678\uACC4\uC778\uC744 \uBE68\uB9AC \uCC3E\uC544\uC57C \uD569\uB2C8\uB2E4.\r\n\uC81C\uD55C\uC2DC\uAC04\uC774
+    2\uBD84 \uAC10\uC18C\uD569\uB2C8\uB2E4."
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 05e71f31b72b9194490edf33a46a56c0, type: 2}
   m_sharedMaterial: {fileID: 1585453618}
@@ -382955,3 +383030,4 @@ SceneRoots:
   - {fileID: 904807420}
   - {fileID: 1537345325}
   - {fileID: 1175554275}
+  - {fileID: 1461910634}
