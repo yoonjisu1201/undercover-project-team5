@@ -4,11 +4,13 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+// 미니맵 스프라이트 위에 CCTV·본부 마커를 얹는다.
+// 위치는 MinimapScreenController가 구역 경계를 기준으로 계산해준다.
 public class MinimapMarkerController : MonoBehaviour {
-	[Header("=== 미니맵 카메라 등록 ===")]
-	[SerializeField] private Camera _minimapCamera;
+	[Header("=== 미니맵 스크린 등록 ===")]
+	[SerializeField] private MinimapScreenController _minimapScreen;
 
-	[Header("=== 마커 등록할 부모 Transform ===")]
+	[Header("=== 마커 등록할 부모 Transform (미니맵 Image의 자식) ===")]
 	[SerializeField] private Transform _markerParent;
 
 	[Header("=== 미니맵 마커 등록 ===")]
@@ -76,27 +78,26 @@ public class MinimapMarkerController : MonoBehaviour {
 		}
 	}
 
-	// 미니맵은 열려 있는 동안 드래그·줌으로 카메라가 계속 움직이므로 매 프레임 위치를 다시 계산한다.
+	// 구역이 바뀌거나 대상이 움직일 수 있으므로 매 프레임 위치를 다시 계산한다.
 	private void LateUpdate() {
-		RectTransform displayRect = _markerParent.parent as RectTransform;
-		if (displayRect == null) {
-			return;
-		}
-
-		Rect rect = displayRect.rect;
 		foreach (MarkerInstance instance in _markerInstances) {
-			Vector3 viewportPoint = _minimapCamera.WorldToViewportPoint(instance.Point.transform.position);
-			instance.RectTransform.anchoredPosition = new Vector2(
-				(viewportPoint.x - 0.5f) * rect.width,
-				(viewportPoint.y - 0.5f) * rect.height);
+			PlaceMarker(instance.RectTransform, instance.Point.transform.position);
 		}
 
 		if (_startPointMarkerRect != null) {
-			Vector3 viewportPoint = _minimapCamera.WorldToViewportPoint(_startPoint.position);
-			_startPointMarkerRect.anchoredPosition = new Vector2(
-				(viewportPoint.x - 0.5f) * rect.width,
-				(viewportPoint.y - 0.5f) * rect.height);
+			PlaceMarker(_startPointMarkerRect, _startPoint.position);
 		}
+	}
+
+	// 활성 구역 밖에 있는 대상은 미니맵에 올릴 자리가 없으므로 숨긴다.
+	private void PlaceMarker(RectTransform markerRect, Vector3 worldPosition) {
+		if (_minimapScreen.TryProjectToMap(worldPosition, out Vector2 anchoredPosition)) {
+			markerRect.gameObject.SetActive(true);
+			markerRect.anchoredPosition = anchoredPosition;
+			return;
+		}
+
+		markerRect.gameObject.SetActive(false);
 	}
 
 	private static void ApplyConnectionColor(Image icon, CCTVConnectionState state) {
