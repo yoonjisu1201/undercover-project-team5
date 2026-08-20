@@ -1,5 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
+using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,7 +10,13 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
 {
     private const float RevealedNoticeSeconds = 1.5f;
 
+    [Header("=== 수갑 체결 연출 ===")]
+    [SerializeField] private HandcuffArrestEffect _handcuffArrestEffect;
+
+    private bool _isHandcuffEffectPlaying;
+
     [SerializeField] private GameObject _wrongTargetPanel;       //"범인이 아니었음"을 보여주는 패널
+    [SerializeField] private TMP_Text _wrongTargetSubText;
     [SerializeField] private GameObject _arrestSuccessPanel;     //"범인이 맞았음"을 보여주는 패널
     [SerializeField] private GameObject _revealedPanel;          //"외계인이 본 모습을 드러냈습니다!" 안내 문구, 성공 판정 시 잠깐 표시
 
@@ -96,6 +103,36 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
         GameplayUiMode.Instance?.RegisterUi(this);
     }
 
+    // 시민 검거 상호작용이 완료됐을 때 로컬 플레이어 화면에만 수갑 연출을 재생한다.
+    // 연출이 끝나면 서버에 검거 판정을 요청한다.
+    public void RequestPlayHandcuffEffect(ArrestCandidateInteractable candidate)
+    {
+        if (candidate == null || _isHandcuffEffectPlaying)
+        {
+            candidate?.CancelPendingConfirmation();
+            return;
+        }
+
+        PlayHandcuffEffectAsync(candidate).Forget();
+    }
+
+    private async UniTaskVoid PlayHandcuffEffectAsync(ArrestCandidateInteractable candidate)
+    {
+        _isHandcuffEffectPlaying = true;
+
+        if (_handcuffArrestEffect == null)
+        {
+            Debug.LogError("[ArrestResultUI] 수갑 체결 연출 참조가 없습니다.", this);
+        }
+        else
+        {
+            await _handcuffArrestEffect.PlayAsync();
+        }
+
+        candidate.ConfirmArrest();
+        _isHandcuffEffectPlaying = false;
+    }
+
     private void HandleConfirmYesClicked()
     {
         ArrestCandidateInteractable candidate = _pendingCandidate;
@@ -134,6 +171,13 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
         if (candidate != null)
         {
             _candidatePortrait.ShowCandidate(candidate);
+        }
+
+        if (result == ArrestResult.WrongTarget)
+        {
+            _wrongTargetSubText.text =
+                $"[{ArrestJudgementManager.Instance.LastArrestingPlayerName}] 님이 범인이 아닌\n" +
+                "시민을 검거하려고 했습니다!";
         }
 
         _arrestSuccessPanel.SetActive(result == ArrestResult.Success);
