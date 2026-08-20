@@ -28,7 +28,8 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
     [Header("조준 설정")]
     [SerializeField] private Collider[] _aimIgnoredColliders;
 
-    public Vector3 InteractionPosition
+    // 콜라이더가 실제 외형과 어긋나는 대상(쓰러진 플레이어 등)은 이 값을 재정의해 조준점을 옮긴다.
+    public virtual Vector3 InteractionPosition
     {
         get
         {
