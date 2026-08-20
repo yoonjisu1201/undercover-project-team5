@@ -144,7 +144,8 @@ public class ArrestChaseManager : NetworkBehaviour
         // 검거 확인 패널이 붙잡아 둔 상태로 넘어오므로 먼저 풀어준다.
         // 이걸 안 풀면 NpcStateMachine이 IsHeldExternally를 보고 상태 갱신을 막아
         // Run으로 바뀌어도 제자리에 서 있게 된다.
-        candidate.GetComponent<NpcMovement>()?.ReleaseExternalHold();
+        // 다른 플레이어가 같은 NPC의 패널을 열어 둔 경우까지 있어 남은 붙잡기를 전부 해제한다.
+        candidate.GetComponent<NpcMovement>()?.ReleaseAllExternalHolds();
 
         if (candidate.TryGetComponent(out NpcStateMachine stateMachine))
         {
