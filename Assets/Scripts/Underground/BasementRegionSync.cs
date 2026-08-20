@@ -9,11 +9,6 @@ public sealed class BasementRegionSync : MonoBehaviour
 
     private UndergroundRandomMapGenerator _generator;
 
-    // 최초 생성 때만 ClueSpawner에 재시도를 알린다. 2라운드부터는 RoundManager가
-    // RegenerateForNewRound() 이후 SpawnForNextRound()를 직접, 순서대로 호출하므로
-    // 여기서 또 알리면 같은 라운드에 단서가 두 번 스폰된다.
-    private bool _hasNotifiedInitialGeneration;
-
     private void Awake()
     {
         _generator = GetComponent<UndergroundRandomMapGenerator>();
@@ -39,12 +34,5 @@ public sealed class BasementRegionSync : MonoBehaviour
 
         _basementRegion.SetBoundsFromWorld(_generator.GetGeneratedBounds());
         _basementRegion.Unlock();
-
-        if (!_hasNotifiedInitialGeneration)
-        {
-            _hasNotifiedInitialGeneration = true;
-            // ClueSpawner의 최초 스폰 시도가 이 시점보다 먼저 실행돼 실패했을 수 있으니 해금 직후 다시 시도해준다.
-            ClueSpawner.Instance?.RetrySpawnIfPending();
-        }
     }
 }
