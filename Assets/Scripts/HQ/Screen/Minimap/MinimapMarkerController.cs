@@ -94,6 +94,8 @@ public class MinimapMarkerController : MonoBehaviour {
 		if (_minimapScreen.TryProjectToMap(worldPosition, out Vector2 anchoredPosition)) {
 			markerRect.gameObject.SetActive(true);
 			markerRect.anchoredPosition = anchoredPosition;
+			// 미니맵이 돌아간 구역에서도 아이콘과 라벨은 똑바로 보이게 한다.
+			markerRect.localRotation = _minimapScreen.MarkerCounterRotation;
 			return;
 		}
 
