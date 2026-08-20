@@ -225,7 +225,7 @@ public class GameSessionManager : MonoBehaviour
 		}
 	}
 
-	// 빠른 시작: 입장 가능한 방 중 하나를 무작위로 골라 참가한다.
+	// 빠른 시작: 입장 가능한 방 중 하나를 무작위로 골라 참가하고, 없으면 직접 방을 만든다.
 	// 캐시된 목록을 쓰면 그사이 꽉 찬 방을 고르게 되므로 누른 시점에 다시 조회한다.
 	public async void QuickJoinRandomRoom()
 	{
@@ -240,9 +240,11 @@ public class GameSessionManager : MonoBehaviour
 			if (IsJoinable(room)) joinableRooms.Add(room);
 		}
 
+		// 안내만 하고 끝나면 유저가 방 만들기를 다시 눌러야 한다. 대신 호스트로 시작한다.
+		// (조회 자체가 실패한 경우는 위에서 이미 돌아갔으므로, 여기는 "방이 하나도 없음"이 확실하다)
 		if (joinableRooms.Count == 0)
 		{
-			OnSessionError?.Invoke("입장할 수 있는 방이 없습니다");
+			CreateSession(null); // 이름을 비우면 번호를 붙인 기본 이름이 쓰인다
 			return;
 		}
 
