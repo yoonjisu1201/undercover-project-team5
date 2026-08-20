@@ -22,7 +22,7 @@ public class Player : NetworkBehaviour
 	[HideInInspector] public PlayerRenderer PlayerRenderer;
 	[HideInInspector] public PlayerHealth PlayerHealth;
 
-	public const int MaxPlayerNameLength = 6;
+	public const int MaxPlayerNameLength = 8;
 
 	// 오너가 자기 음성 상태를 다시 확인하는 간격.
 	private const float VoiceStateRefreshSeconds = 0.1f;
