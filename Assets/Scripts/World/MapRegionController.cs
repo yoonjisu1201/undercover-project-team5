@@ -24,6 +24,12 @@ public sealed class MapRegionController : MonoBehaviour
 
     public IReadOnlyList<MapRegion> Regions => _regions;
 
+    // 현재 라운드에서 사용 중인 구역. 미니맵처럼 구역별로 표시를 바꿔야 하는 쪽에서 참조한다.
+    public MapRegion ActiveRegion { get; private set; }
+
+    // 활성 구역이 바뀐 뒤 호출됩니다.
+    public event Action<MapRegion> ActiveRegionChanged;
+
     // 활성 구역은 RoundManager가 라운드마다 추첨해 SetActiveRegion()으로 지정합니다.
     private void Awake() {
         _cctvHub.Initialize();
@@ -60,6 +66,9 @@ public sealed class MapRegionController : MonoBehaviour
                 region.SetUnlocked(region == selectedRegion);
             }
         }
+
+        ActiveRegion = selectedRegion;
+        ActiveRegionChanged?.Invoke(selectedRegion);
 
         MoveStartPointToRegion(selectedRegion);
 
