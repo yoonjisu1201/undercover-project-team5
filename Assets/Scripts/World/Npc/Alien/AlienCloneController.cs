@@ -40,7 +40,7 @@ public class AlienCloneController : NetworkBehaviour
     private Animator _animator;
     private Vector3 _spawnPosition;
     private MapRegion _currentRegion;
-    private AlienCloneManager _cloneManager;
+    private GroundAlienCloneSpawner _cloneManager;
     // 순번에서 밀려 양보한 뒤 배회할 시간. 이 사이에는 타겟을 다시 잡지 않는다.
     // 무시할 대상을 하나만 담는 _ignoredTarget으로는 플레이어가 둘 이상일 때
     // 서로를 번갈아 무시하며 매 프레임 타겟을 잡았다 놓아 제자리에 멈춰버린다.
@@ -71,7 +71,7 @@ public class AlienCloneController : NetworkBehaviour
 
         if (IsServer && _agent != null)
         {
-            _cloneManager = FindFirstObjectByType<AlienCloneManager>();
+            _cloneManager = FindFirstObjectByType<GroundAlienCloneSpawner>();
             _agent.avoidancePriority = Random.Range(35, 66);
             _agent.stoppingDistance = _targetStopDistance;
         }

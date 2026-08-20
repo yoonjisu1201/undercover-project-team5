@@ -121,7 +121,7 @@ public class ArrestJudgementManager : NetworkBehaviour
         }
 
         // 정체가 드러난 뒤에는 분신을 더 내보내지 않는다. 다음 라운드 시작 때 다시 켜진다.
-        FindFirstObjectByType<AlienCloneManager>()?.StopSpawningForRevealedCriminal();
+        FindFirstObjectByType<GroundAlienCloneSpawner>()?.StopSpawningForRevealedCriminal();
     }
 
     // 오검거 시 방해 효과 2종(시야 방해/글리치) 중 하나를 랜덤으로 발동한다.
