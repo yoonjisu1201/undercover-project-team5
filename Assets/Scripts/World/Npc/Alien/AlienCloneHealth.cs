@@ -7,7 +7,7 @@ using UnityEngine;
 
 // 외계인 복제체의 서버 권한 체력, 피격 표시와 사망 흐름을 관리한다.
 // HP가 0이 되면 공격·이동 중단 이벤트를 먼저 발생시키고 사망 애니메이션을 실행한다.
-// 실제 디스폰은 사망 Animation Event가 완료 이벤트를 발생시킨 뒤 AlienCloneManager가 처리한다.
+// 실제 디스폰은 사망 Animation Event가 완료 이벤트를 발생시킨 뒤 스폰한 쪽(GroundAlienCloneSpawner/UndergroundAlienCloneSpawner)이 처리한다.
 public class AlienCloneHealth : NetworkBehaviour, IDamageable
 {
     // Animator 파라미터: AlienAnimator의 Death Trigger와 이름이 일치해야 한다.
@@ -41,7 +41,7 @@ public class AlienCloneHealth : NetworkBehaviour, IDamageable
     public event Action<float, float> HpChanged;
     public event Action Died;
     // 사망 Animation Event가 완료되면 자신을 전달한다.
-    // AlienCloneManager는 전달받은 개체를 목록에서 제거하고 네트워크 디스폰한다.
+    // 스폰한 쪽은 전달받은 개체를 목록에서 제거하고 네트워크 디스폰한다.
     public event Action<AlienCloneHealth> DeathAnimationCompleted;
 
     public float MaxHp => _maxHp;

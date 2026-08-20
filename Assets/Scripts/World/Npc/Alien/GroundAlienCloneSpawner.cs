@@ -4,11 +4,11 @@ using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 
-// 라운드 타이머가 일정 시간(검거 투표 등으로 멈춰있는
+// 지상 구역용 외계인 분신 스포너. 라운드 타이머가 일정 시간(검거 투표 등으로 멈춰있는
 // 동안은 제외) 줄어들 때마다 여러 마리를 한 번에 스폰한다. 라운드가 시작되면 최대 마릿수를 즉시 채우고,
 // 스폰 위치는 플레이어와 무관한 맵 임의 위치로 정한다. 외계인은 배회하다 플레이어를 감지하면 추격한다.
 // 스폰한 개체의 사망 애니메이션 완료 이벤트를 구독해 애니메이션이 끝나면 실제로 디스폰시킨다.
-public class AlienCloneManager : MonoBehaviour
+public class GroundAlienCloneSpawner : MonoBehaviour
 {
     [Header("스폰 설정 (임시 기본값, 추후 밸런싱 이슈로 조정)")]
     [SerializeField] private GameObject[] _alienClonePrefabs;  //외계인 5종
@@ -25,7 +25,8 @@ public class AlienCloneManager : MonoBehaviour
     public IReadOnlyList<AlienCloneHealth> AliveClones => _aliveClones;
 
     // 디버그 메뉴에서 주기적인 스폰을 끄거나, 범인과 함께 분신도 정지시킬 때 사용한다. 서버에서만 의미가 있다.
-    public bool SpawningEnabled { get; private set; } = true;
+    // 지하 전용 스포너(UndergroundAlienCloneSpawner)를 도입하면서 지상 스폰은 기본적으로 꺼둔다.
+    public bool SpawningEnabled { get; private set; } = false;
 
     // 범인이 정체를 드러내 이번 라운드 동안만 스폰을 멈춘 상태.
     // 디버그 메뉴 설정(SpawningEnabled)과 분리해야, 디버그로 꺼둔 것은 라운드가 바뀌어도 유지된다.
@@ -119,7 +120,7 @@ public class AlienCloneManager : MonoBehaviour
     {
         if (_criminalNpcManager == null)
         {
-            Debug.LogError("[AlienCloneManager] CriminalNpcManager 참조가 없어 이번 라운드의 외계인 종류를 알 수 없습니다.", this);
+            Debug.LogError("[GroundAlienCloneSpawner] CriminalNpcManager 참조가 없어 이번 라운드의 외계인 종류를 알 수 없습니다.", this);
             return null;
         }
 
@@ -128,7 +129,7 @@ public class AlienCloneManager : MonoBehaviour
         if (typeIndex < 0 || typeIndex >= _alienClonePrefabs.Length)
         {
             Debug.LogError(
-                $"[AlienCloneManager] 이번 라운드 외계인 종류({typeIndex})에 해당하는 분신 프리팹이 없습니다. " +
+                $"[GroundAlienCloneSpawner] 이번 라운드 외계인 종류({typeIndex})에 해당하는 분신 프리팹이 없습니다. " +
                 $"등록된 프리팹 수: {_alienClonePrefabs.Length}",
                 this);
             return null;
@@ -137,7 +138,7 @@ public class AlienCloneManager : MonoBehaviour
         GameObject prefab = _alienClonePrefabs[typeIndex];
         if (prefab == null)
         {
-            Debug.LogError($"[AlienCloneManager] {typeIndex}번 외계인 분신 프리팹 슬롯이 비어 있습니다.", this);
+            Debug.LogError($"[GroundAlienCloneSpawner] {typeIndex}번 외계인 분신 프리팹 슬롯이 비어 있습니다.", this);
         }
 
         return prefab;
@@ -156,7 +157,7 @@ public class AlienCloneManager : MonoBehaviour
             if (!instance.TryGetComponent(out NetworkObject networkObject) ||
                 !instance.TryGetComponent(out AlienCloneHealth health))
             {
-                Debug.LogError("[AlienCloneManager] 외계인 프리팹에 NetworkObject 또는 AlienCloneHealth가 없습니다.", this);
+                Debug.LogError("[GroundAlienCloneSpawner] 외계인 프리팹에 NetworkObject 또는 AlienCloneHealth가 없습니다.", this);
                 Destroy(instance);
                 return false;
             }
@@ -177,7 +178,7 @@ public class AlienCloneManager : MonoBehaviour
         }
         catch (System.Exception exception)
         {
-            Debug.LogError($"[AlienCloneManager] 외계인 스폰 중 예외가 발생해 자동 스폰을 중단합니다.\n{exception}", this);
+            Debug.LogError($"[GroundAlienCloneSpawner] 외계인 스폰 중 예외가 발생해 자동 스폰을 중단합니다.\n{exception}", this);
             _spawnFailedThisCycle = true;
             if (instance != null)
             {
