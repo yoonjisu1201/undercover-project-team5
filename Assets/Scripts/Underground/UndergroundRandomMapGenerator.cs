@@ -257,6 +257,10 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
         {
             Debug.LogWarning($"[UndergroundRandomMapGenerator] 길이 막혀 목표 개수({_targetModuleCount})에 못 미치고 {_placedModules.Count}개로 끝났습니다.", this);
         }
+        else
+        {
+            Debug.Log($"[UndergroundRandomMapGenerator] 목표 개수({_targetModuleCount}) 채워서 생성 완료.", this);
+        }
     }
 
     // 재시도용 다음 시드를 이번 시드에서 결정적으로 뽑아낸다. 같은 seed는 항상 같은 다음 seed로
