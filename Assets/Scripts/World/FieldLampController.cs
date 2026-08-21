@@ -27,6 +27,23 @@ public sealed class FieldLampController : MonoBehaviour
         }
     }
 
+    // 전구가 빛나 보이는 것은 Light가 아니라 가로등 메시의 이미시브 서브메시다.
+    // 머티리얼은 모든 가로등이 공유하므로 직접 고치면 꺼진 가로등까지 함께 어두워진다.
+    // 그래서 렌더러별 MaterialPropertyBlock으로 발광 색만 덮어쓴다.
+    private readonly struct Bulb
+    {
+        public readonly Renderer Renderer;
+        public readonly int MaterialIndex;
+        public readonly Color LitColor;
+
+        public Bulb(Renderer renderer, int materialIndex, Color litColor)
+        {
+            Renderer = renderer;
+            MaterialIndex = materialIndex;
+            LitColor = litColor;
+        }
+    }
+
     [Header("=== 활성 구역을 알려줄 컨트롤러 ===")]
     [SerializeField] private MapRegionController _regionController;
 
@@ -48,6 +65,8 @@ public sealed class FieldLampController : MonoBehaviour
     [SerializeField, Min(0f)] private float _turnOnFadeSeconds = 0.8f;
 
     private readonly Dictionary<RegionId, Lamp[]> _lampsByRegion = new();
+    private readonly Dictionary<RegionId, Bulb[]> _bulbsByRegion = new();
+    private MaterialPropertyBlock _block;
     private Coroutine _fadeRoutine;
 
     // 이미 켠 구역. 중복 요청과 여러 브레이커가 각각 완료를 알리는 경우를 걸러낸다.
@@ -55,6 +74,8 @@ public sealed class FieldLampController : MonoBehaviour
 
     private void Awake()
     {
+        _block = new MaterialPropertyBlock();
+
         foreach (RegionLampGroup group in _groups)
         {
             if (group.Root == null)
@@ -64,6 +85,7 @@ public sealed class FieldLampController : MonoBehaviour
             }
 
             _lampsByRegion[group.RegionId] = CollectLamps(group.Root);
+            _bulbsByRegion[group.RegionId] = CollectBulbs(group.Root);
         }
 
         SetLit(false);
@@ -97,37 +119,36 @@ public sealed class FieldLampController : MonoBehaviour
 
         if (!lit)
         {
-            foreach (Lamp[] lamps in _lampsByRegion.Values)
+            foreach (RegionId regionId in _lampsByRegion.Keys)
             {
-                Enable(lamps, false);
+                Enable(regionId, false);
             }
 
             _litRegion = null;
             return;
         }
 
-        if (!TryGetActiveLamps(out RegionId regionId, out Lamp[] activeLamps) || _litRegion == regionId)
+        if (!TryGetActiveRegion(out RegionId activeRegionId) || _litRegion == activeRegionId)
         {
             return;
         }
 
-        _litRegion = regionId;
-        Enable(activeLamps, true);
+        _litRegion = activeRegionId;
+        Enable(activeRegionId, true);
 
         if (withFade)
         {
-            _fadeRoutine = StartCoroutine(FadeOn(activeLamps));
+            _fadeRoutine = StartCoroutine(FadeOn(activeRegionId));
         }
         else
         {
-            SetRatio(activeLamps, 1f);
+            SetRatio(activeRegionId, 1f);
         }
     }
 
-    private bool TryGetActiveLamps(out RegionId regionId, out Lamp[] lamps)
+    private bool TryGetActiveRegion(out RegionId regionId)
     {
         regionId = default;
-        lamps = null;
 
         MapRegion activeRegion = _regionController != null ? _regionController.ActiveRegion : null;
         if (activeRegion == null)
@@ -137,7 +158,7 @@ public sealed class FieldLampController : MonoBehaviour
         }
 
         regionId = activeRegion.RegionId;
-        if (!_lampsByRegion.TryGetValue(regionId, out lamps))
+        if (!_lampsByRegion.ContainsKey(regionId))
         {
             Debug.LogWarning($"[FieldLampController] {regionId} 구역의 가로등 묶음이 등록되지 않았습니다.", this);
             return false;
@@ -147,29 +168,29 @@ public sealed class FieldLampController : MonoBehaviour
     }
 
     // 서서히 깜빡인 뒤 마지막에 100%까지 켠다.
-    private IEnumerator FadeOn(Lamp[] lamps)
+    private IEnumerator FadeOn(RegionId regionId)
     {
-        SetRatio(lamps, 0f);
+        SetRatio(regionId, 0f);
 
         for (int i = 0; i < _flickerCount; i++)
         {
-            yield return Fade(lamps, 0f, _flickerPeakRatio, _flickerFadeSeconds);
-            yield return Fade(lamps, _flickerPeakRatio, 0f, _flickerFadeSeconds);
+            yield return Fade(regionId, 0f, _flickerPeakRatio, _flickerFadeSeconds);
+            yield return Fade(regionId, _flickerPeakRatio, 0f, _flickerFadeSeconds);
         }
 
-        yield return Fade(lamps, 0f, 1f, _turnOnFadeSeconds);
+        yield return Fade(regionId, 0f, 1f, _turnOnFadeSeconds);
         _fadeRoutine = null;
     }
 
-    private IEnumerator Fade(Lamp[] lamps, float fromRatio, float toRatio, float seconds)
+    private IEnumerator Fade(RegionId regionId, float fromRatio, float toRatio, float seconds)
     {
         for (float elapsed = 0f; elapsed < seconds; elapsed += Time.deltaTime)
         {
-            SetRatio(lamps, Mathf.Lerp(fromRatio, toRatio, elapsed / seconds));
+            SetRatio(regionId, Mathf.Lerp(fromRatio, toRatio, elapsed / seconds));
             yield return null;
         }
 
-        SetRatio(lamps, toRatio);
+        SetRatio(regionId, toRatio);
     }
 
     private void StopFade()
@@ -196,11 +217,33 @@ public sealed class FieldLampController : MonoBehaviour
         return lamps;
     }
 
-    // 프리팹에 설정된 밝기로 되돌려, 다음 점등이 항상 같은 값에서 시작하게 한다.
-    private static void Enable(Lamp[] lamps, bool enabled)
+    // 이미시브 키워드가 켜진 서브메시가 전구다. 원래 발광 색을 기억해 두고 비율만 곱한다.
+    private static Bulb[] CollectBulbs(Transform root)
     {
-        SetRatio(lamps, 1f);
-        foreach (Lamp lamp in lamps)
+        List<Bulb> bulbs = new();
+        foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            Material[] materials = renderer.sharedMaterials;
+            for (int i = 0; i < materials.Length; i++)
+            {
+                if (materials[i] == null || !materials[i].IsKeywordEnabled("_EMISSION"))
+                {
+                    continue;
+                }
+
+                bulbs.Add(new Bulb(renderer, i, materials[i].GetColor("_EmissionColor")));
+            }
+        }
+
+        return bulbs.ToArray();
+    }
+
+    // Light 오브젝트를 켜고 끈다. 전구는 오브젝트가 아니라 서브메시라 비율로만 다룬다.
+    private void Enable(RegionId regionId, bool enabled)
+    {
+        SetRatio(regionId, enabled ? 1f : 0f);
+
+        foreach (Lamp lamp in _lampsByRegion[regionId])
         {
             if (lamp.Light != null)
             {
@@ -209,14 +252,31 @@ public sealed class FieldLampController : MonoBehaviour
         }
     }
 
-    private static void SetRatio(Lamp[] lamps, float ratio)
+    private void SetRatio(RegionId regionId, float ratio)
     {
-        foreach (Lamp lamp in lamps)
+        foreach (Lamp lamp in _lampsByRegion[regionId])
         {
             if (lamp.Light != null)
             {
                 lamp.Light.intensity = lamp.FullIntensity * ratio;
             }
+        }
+
+        if (!_bulbsByRegion.TryGetValue(regionId, out Bulb[] bulbs))
+        {
+            return;
+        }
+
+        foreach (Bulb bulb in bulbs)
+        {
+            if (bulb.Renderer == null)
+            {
+                continue;
+            }
+
+            bulb.Renderer.GetPropertyBlock(_block, bulb.MaterialIndex);
+            _block.SetColor("_EmissionColor", bulb.LitColor * ratio);
+            bulb.Renderer.SetPropertyBlock(_block, bulb.MaterialIndex);
         }
     }
 }
