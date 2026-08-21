@@ -72,7 +72,7 @@ public class CCTVItemReticle : MonoBehaviour
 			return;
 		}
 
-		ItemBase hovered = FindHoveredItem(out Rect itemRect);
+		string hovered = FindHoveredName(out Rect itemRect);
 
 		if (hovered == null)
 		{
@@ -88,10 +88,8 @@ public class CCTVItemReticle : MonoBehaviour
 		UpdateTooltip(hovered);
 	}
 
-	private void UpdateTooltip(ItemBase item)
+	private void UpdateTooltip(string displayName)
 	{
-		string displayName = item.ItemData != null ? item.ItemData.DisplayName : null;
-
 		if (string.IsNullOrEmpty(displayName))
 		{
 			_tooltip.gameObject.SetActive(false);
@@ -125,8 +123,8 @@ public class CCTVItemReticle : MonoBehaviour
 		_tooltip.anchoredPosition = position;
 	}
 
-	// 커서 아래에 있는 아이템 중 가장 가까운 것을 찾고, 그 아이템의 화면 사각형(RawImage 로컬 좌표)을 돌려준다.
-	private ItemBase FindHoveredItem(out Rect itemRect)
+	// 커서 아래에 있는 대상 중 가장 가까운 것을 찾고, 그 화면 사각형(RawImage 로컬 좌표)과 이름을 돌려준다.
+	private string FindHoveredName(out Rect itemRect)
 	{
 		itemRect = default;
 
@@ -151,55 +149,72 @@ public class CCTVItemReticle : MonoBehaviour
 
 		_lastCursorLocal = cursorLocal;
 
-		ItemBase best = null;
+		string bestName = null;
 		float bestDistance = float.MaxValue;
 
-		foreach (ItemBase item in ItemBase.SpawnedItemList)
+		// 종류(아이템·미션 장치·NPC)를 가리지 않고 한 목록으로 본다.
+		// 외곽선이 꺼진 종류는 화면에 보이지 않으므로 조준 대상에서도 제외한다.
+		foreach (ICctvHighlightTarget target in CctvHighlight.RegisteredTargets)
 		{
-			if (item == null || item.IsStored)
+			if (target == null || !target.IsVisibleOnCctv || !CctvHighlight.IsKindEnabled(target.CctvKind))
 			{
 				continue;
 			}
 
-			if (!TryGetScreenRect(item, out Rect candidateRect, out Rect itemPixelRect))
-			{
-				continue;
-			}
-
-			// 판정 영역은 화면에 그려진 아이템 크기 그대로다. 괄호를 최소 크기로 키우더라도
-			// 판정까지 커지면, 눈에 안 보이는 아이템이 커서에 잡히게 된다.
-			if (!itemPixelRect.Contains(cursorLocal))
-			{
-				continue;
-			}
-
-			float distance = Vector2.Distance(itemPixelRect.center, cursorLocal);
-			if (distance >= bestDistance)
-			{
-				continue;
-			}
-
-			// 벽 뒤에 있는 아이템은 조준 표시를 띄우지 않는다.
-			if (IsOccluded(item))
-			{
-				continue;
-			}
-
-			best = item;
-			bestDistance = distance;
-			itemRect = candidateRect;
+			Consider(target.CctvBounds, target.CctvDisplayName, cursorLocal, ref bestName, ref bestDistance, ref itemRect);
 		}
 
-		return best;
+		return bestName;
+	}
+
+	// 커서가 대상 위에 있고 지금까지 중 가장 가까우면 후보로 채택한다.
+	private void Consider(
+		Bounds bounds,
+		string displayName,
+		Vector2 cursorLocal,
+		ref string bestName,
+		ref float bestDistance,
+		ref Rect bestRect)
+	{
+		if (string.IsNullOrEmpty(displayName))
+		{
+			return;
+		}
+
+		if (!TryGetScreenRect(bounds, out Rect candidateRect, out Rect itemPixelRect))
+		{
+			return;
+		}
+
+		// 판정 영역은 화면에 그려진 크기 그대로다. 괄호를 최소 크기로 키우더라도
+		// 판정까지 커지면, 눈에 안 보이는 대상이 커서에 잡히게 된다.
+		if (!itemPixelRect.Contains(cursorLocal))
+		{
+			return;
+		}
+
+		float distance = Vector2.Distance(itemPixelRect.center, cursorLocal);
+		if (distance >= bestDistance)
+		{
+			return;
+		}
+
+		// 벽 뒤에 있는 대상은 조준 표시를 띄우지 않는다.
+		if (IsOccluded(bounds))
+		{
+			return;
+		}
+
+		bestName = displayName;
+		bestDistance = distance;
+		bestRect = candidateRect;
 	}
 
 	// 아이템 바운즈의 여덟 꼭짓점을 CCTV 카메라로 투영해 RawImage 로컬 좌표계의 사각형을 만든다.
-	private bool TryGetScreenRect(ItemBase item, out Rect result, out Rect itemPixelRect)
+	private bool TryGetScreenRect(Bounds bounds, out Rect result, out Rect itemPixelRect)
 	{
 		result = default;
 		itemPixelRect = default;
-
-		Bounds bounds = item.WorldBounds;
 
 		float minX = float.MaxValue, minY = float.MaxValue;
 		float maxX = float.MinValue, maxY = float.MinValue;
@@ -244,9 +259,8 @@ public class CCTVItemReticle : MonoBehaviour
 
 	// 바운즈 중심 한 점만 보면 건물 모서리나 기둥에 스쳐도 통째로 가려진 것으로 걸러진다.
 	// 중심과 여덟 꼭짓점 중 하나라도 뚫려 있으면 보이는 것으로 친다.
-	private bool IsOccluded(ItemBase item)
+	private bool IsOccluded(Bounds bounds)
 	{
-		Bounds bounds = item.WorldBounds;
 
 		if (!IsPointOccluded(bounds.center))
 		{
@@ -277,8 +291,8 @@ public class CCTVItemReticle : MonoBehaviour
 
 		for (int i = 0; i < hitCount; i++)
 		{
-			// 아이템끼리는 서로 가리는 것으로 치지 않는다. 겹쳐 놓인 아이템도 각각 조준할 수 있어야 한다.
-			if (OcclusionHits[i].collider.GetComponentInParent<ItemBase>() != null)
+			// 표시 대상끼리는 서로 가리는 것으로 치지 않는다. 겹쳐 놓인 아이템도 각각 조준할 수 있어야 한다.
+			if (OcclusionHits[i].collider.GetComponentInParent<ICctvHighlightTarget>() != null)
 			{
 				continue;
 			}
