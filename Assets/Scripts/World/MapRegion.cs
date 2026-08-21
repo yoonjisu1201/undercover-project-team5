@@ -91,7 +91,7 @@ public sealed class MapRegion : MonoBehaviour
     {
         if (_bounds != null)
         {
-            MapSpawnArea.ApplyWorldBounds(_bounds, worldBounds);
+            BoxColliderUtility.ApplyWorldBounds(_bounds, worldBounds);
         }
 
         _spawnArea?.SetBounds(worldBounds);

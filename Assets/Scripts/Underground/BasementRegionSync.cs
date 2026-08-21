@@ -16,15 +16,15 @@ public sealed class BasementRegionSync : MonoBehaviour
 
     private void OnEnable()
     {
-        _generator.Generated += HandleGenerated;
+        _generator.OnGenerated += HandleOnGenerated;
     }
 
     private void OnDisable()
     {
-        _generator.Generated -= HandleGenerated;
+        _generator.OnGenerated -= HandleOnGenerated;
     }
 
-    private void HandleGenerated()
+    private void HandleOnGenerated()
     {
         if (_basementRegion == null)
         {
