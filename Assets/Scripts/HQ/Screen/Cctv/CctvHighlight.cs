@@ -158,6 +158,12 @@ public static class CctvHighlight
     // 그래서 대상 위치 기준의 작은 바운즈로 대체한다.
     public static Bounds GetWorldBounds(Renderer[] renderers, Vector3 fallbackPosition)
     {
+        // NPC처럼 렌더러를 나중에 모으는 대상이 있어, 아직 준비되지 않은 경우를 막아 둔다.
+        if (renderers == null)
+        {
+            return new Bounds(fallbackPosition, Vector3.one * 0.1f);
+        }
+
         bool hasBounds = false;
         Bounds bounds = default;
 

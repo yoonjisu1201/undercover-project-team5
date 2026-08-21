@@ -17,6 +17,8 @@ public sealed class NpcCctvHighlight : MonoBehaviour, ICctvHighlightTarget, ICct
 	// 공개할 부위는 NPC마다 한 번만 정한다. 호버를 반복해도 바뀌지 않아야 한다.
 	private List<Sprite> _thumbnails;
 
+	private bool _hasOutline;
+
 	private void Awake()
 	{
 		_featureController = GetComponent<NpcFeatureController>();
@@ -25,8 +27,15 @@ public sealed class NpcCctvHighlight : MonoBehaviour, ICctvHighlightTarget, ICct
 
 	// 의상 파츠는 ApplyOutfit으로 런타임에 생성되므로 Awake 시점에는 렌더러가 없다.
 	// 그래서 NpcFeatureController가 의상을 적용한 뒤 이것을 불러 준다.
+	// 두 번 부르면 외곽선이 두 개 생기고, 앞의 것은 SetOutlineEnabled의 통제를 벗어나 계속 켜져 있는다.
 	public void BuildOutline()
 	{
+		if (_hasOutline)
+		{
+			return;
+		}
+
+		_hasOutline = true;
 		_renderers = GetComponentsInChildren<Renderer>(true);
 		CctvHighlight.CreateOutline(this, transform, gameObject.layer, _renderers, CctvHighlightKind.Npc);
 	}
