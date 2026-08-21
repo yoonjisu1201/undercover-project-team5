@@ -424,7 +424,7 @@ MonoBehaviour:
   ScaleLerpSmoothing: 1
   ScaleMaxInterpolationTime: 0.1
   AuthorityMode: 0
-  TickSyncChildren: 0
+  TickSyncChildren: 1
   UseUnreliableDeltas: 0
   SyncPositionX: 1
   SyncPositionY: 1
@@ -485,8 +485,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PickupItem
   ShowTopMostFoldoutHeaderGroup: 1
+  _aimIgnoredColliders: []
   _outlineFadeDuration: 0.15
   _itemData: {fileID: 0}
+  _itemHoldThreshold: 0
 --- !u!114 &6763141120704093168
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -500,11 +502,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MissionInteractable
   ShowTopMostFoldoutHeaderGroup: 1
+  _aimIgnoredColliders: []
   _outlineFadeDuration: 0.15
   _uiPrefab: {fileID: 3785387011108116750, guid: c2aa60cd08c29bc488117b7a5c3f48c0, type: 3}
   _interactionText: "\uC2DC\uBBFC \uC778\uD130\uBDF0"
+  _cctvDisplayName: 
   _completionReward: {fileID: 0}
   _rewardSpawnOffset: {x: 0, y: 0.5, z: 1.2}
+  _requiredItem: {fileID: 0}
+  _requiredItemMissingText: "\uD544\uC694"
+  _requiredItemInsertedText: "\uBD84\uC11D \uAC00\uB2A5"
 --- !u!114 &2214565763388510265
 MonoBehaviour:
   m_ObjectHideFlags: 0
