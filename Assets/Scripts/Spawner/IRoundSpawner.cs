@@ -5,7 +5,6 @@ using UnityEngine;
 public interface IRoundSpawner
 {
     int SpawnCount { get; }
-    SpawnRule Rule { get; }
 
     UniTask SpawnAsync(RoundSpawnCoordinator coordinator, CancellationToken cancellationToken);
 
