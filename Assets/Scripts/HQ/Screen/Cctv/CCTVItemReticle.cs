@@ -292,7 +292,7 @@ public class CCTVItemReticle : MonoBehaviour
 		for (int i = 0; i < hitCount; i++)
 		{
 			// 표시 대상끼리는 서로 가리는 것으로 치지 않는다. 겹쳐 놓인 아이템도 각각 조준할 수 있어야 한다.
-			if (OcclusionHits[i].collider.GetComponentInParent<MonoBehaviour>() is ICctvHighlightTarget)
+			if (OcclusionHits[i].collider.GetComponentInParent<ICctvHighlightTarget>() != null)
 			{
 				continue;
 			}
