@@ -21,26 +21,28 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     private int FieldClueCount => Mathf.Max(0, _totalClueCount - _missionRewardClueCount);
 
     [Header("스폰 영역")]
-    [SerializeField] private MapRegionController _regionController;
     [SerializeField] private RoundSpawnCoordinator _spawnCoordinator;
-
-    [Header("지하 스폰 전환")]
-    [Tooltip("켜면 지상 구역 대신 Basement 전용 MapRegionController에서 스폰한다.")]
-    [SerializeField] private bool _useBasement;
     [SerializeField] private MapRegionController _basementRegionController;
 
-    private MapRegionController ActiveRegionController => _useBasement ? _basementRegionController : _regionController;
+    // 단서는 지하실에서만 획득한다. 지상 스폰 경로는 되살릴 수 있게 주석으로 남겨둔다.
+    // [SerializeField] private MapRegionController _regionController;
+    // [Tooltip("켜면 지상 구역 대신 Basement 전용 MapRegionController에서 스폰한다.")]
+    // [SerializeField] private bool _useBasement;
+    // private MapRegionController ActiveRegionController => _useBasement ? _basementRegionController : _regionController;
+
+    private MapRegionController ActiveRegionController => _basementRegionController;
 
     [Header("배치 설정")]
-    [SerializeField]
-    private SpawnRule _spawnRule = new()
-    {
-        MinimumDistance = 5f,
-        MaxAttempts = 50,
-        HeightOffset = 0.04f,
-        UseGroundPosition = true,
-        ReservePosition = true
-    };
+    // 지상 스폰 규칙. 지상 경로를 되살릴 때 함께 살린다.
+    // [SerializeField]
+    // private SpawnRule _spawnRule = new()
+    // {
+    //     MinimumDistance = 5f,
+    //     MaxAttempts = 50,
+    //     HeightOffset = 0.04f,
+    //     UseGroundPosition = true,
+    //     ReservePosition = true
+    // };
 
     // 지하는 방/복도가 좁아 지상과 같은 최소 거리를 쓰면 배치 실패가 잦아 별도로 둔다.
     [SerializeField]
@@ -59,7 +61,8 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     // 이번 라운드에 배정된 단서 번호(필드 스폰 + 미션 보상 공통). 라운드가 바뀌면 초기화된다.
     private readonly HashSet<int> _usedClueNumbers = new();
 
-    public SpawnRule Rule => _useBasement ? _basementSpawnRule : _spawnRule;
+    // public SpawnRule Rule => _useBasement ? _basementSpawnRule : _spawnRule;
+    public SpawnRule Rule => _basementSpawnRule;
 
     private void Awake()
     {
