@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Services.Multiplayer;
@@ -33,6 +34,10 @@ public class GameSessionManager : MonoBehaviour
 	// 서버가 우리 코드에서 클라이언트를 내보낼 때 사유 앞에 붙이는 표식.
 	// NGO가 자동으로 채우는 영문 사유("Client-1 disconnected by server." 등)와 구분하기 위함이다.
 	public const string ServerReasonPrefix = "UC|";
+
+	// 방 목록에서 빌드 버전을 대조하려면 세션 프로퍼티로 공개해야 한다.
+	// 이 키가 없는 방은 버전 검사가 없던 구버전 빌드가 만든 방이다.
+	private const string BuildVersionPropertyKey = "buildVersion";
 
 	// 게임 중에는 방장이 나갔는지 다른 인원이 빠졌는지가 남은 사람 입장에서 다르지 않으므로 문구를 구분하지 않는다.
 	private const string InGameHostLeftReason = "다른 플레이어의 접속이 끊어졌습니다";
@@ -102,7 +107,12 @@ public class GameSessionManager : MonoBehaviour
 			{
 				Name = ResolveRoomName(roomName),
 				MaxPlayers = _maxPlayers,
-				IsPrivate = false
+				IsPrivate = false,
+				// 목록 조회 결과에 실려야 하므로 Public으로 공개한다.
+				SessionProperties = new Dictionary<string, SessionProperty>
+				{
+					[BuildVersionPropertyKey] = new(Application.version, VisibilityPropertyOptions.Public)
+				}
 			}.WithRelayNetwork();
 
 			stage = "세션 생성 요청";
@@ -174,6 +184,18 @@ public class GameSessionManager : MonoBehaviour
 
 			stage = "세션 참가 요청";
 			CurrentSession = await requestSession();
+
+			stage = "빌드 버전 확인";
+			// 구버전 빌드가 만든 방은 호스트에 버전 검사가 없어 그냥 승인해버린다.
+			// 호스트를 믿을 수 없으므로 참가한 쪽에서도 확인하고 스스로 빠진다.
+			string roomVersion = ReadRoomVersion(CurrentSession.Properties);
+			if (roomVersion != Application.version)
+			{
+				await ReleaseCurrentSessionAsync();
+				OnSessionError?.Invoke(
+					$"파일 버전이 달라서 방에 참가할 수 없습니다. (내 버전 {Application.version} / 방 버전 {DescribeVersion(roomVersion)})");
+				return;
+			}
 
 			stage = "음성 채널 참가";
 			VivoxManager.Instance.JoinSessionChannel(CurrentSession.Code);
@@ -253,7 +275,17 @@ public class GameSessionManager : MonoBehaviour
 
 	// 정원이 찼거나(AvailableSlots) 게임이 시작되어 잠긴(IsLocked) 방에는 들어갈 수 없다.
 	// 목록의 회색 처리와 빠른 시작이 같은 기준을 쓰도록 한곳에서 판단한다.
-	public static bool IsJoinable(ISessionInfo room) => room.AvailableSlots > 0 && !room.IsLocked;
+	public static bool IsJoinable(ISessionInfo room)
+		=> room.AvailableSlots > 0 && !room.IsLocked && IsVersionMatched(room);
+
+	// 세션 프로퍼티에 실린 방의 빌드 버전. 프로퍼티가 없으면 빈 문자열이 된다.
+	public static string ReadRoomVersion(IReadOnlyDictionary<string, SessionProperty> properties)
+		=> properties != null && properties.TryGetValue(BuildVersionPropertyKey, out var property)
+			? property.Value
+			: string.Empty;
+
+	public static bool IsVersionMatched(ISessionInfo room)
+		=> ReadRoomVersion(room.Properties) == Application.version;
 
 	// Unity Lobby 멤버십은 Netcode 연결과 별개라, 연결이 끊겨도 로비에는 멤버로 남는다.
 	// 명시적으로 나가지 않으면 같은 방 코드로 재참가할 때 SessionConflict
@@ -356,6 +388,8 @@ public class GameSessionManager : MonoBehaviour
 
 		var networkManager = NetworkManager.Singleton;
 		networkManager.NetworkConfig.ConnectionApproval = true;
+		// 승인 단계에서 빌드 버전을 대조하려면 클라이언트가 자기 버전을 미리 실어 보내야 한다.
+		networkManager.NetworkConfig.ConnectionData = Encoding.UTF8.GetBytes(Application.version);
 		networkManager.ConnectionApprovalCallback = HandleConnectionApproval;
 	}
 
@@ -459,9 +493,27 @@ public class GameSessionManager : MonoBehaviour
 			return;
 		}
 
+		// 빌드가 다르면 프리팹 목록은 같아도 수치·판정이 어긋나 원인 불명의 오동작이 난다.
+		// 버전을 싣지 않는 구버전 빌드는 빈 값이 되어 자연히 불일치로 걸러진다.
+		string clientVersion = ReadClientVersion(request.Payload);
+		if (clientVersion != Application.version)
+		{
+			response.Approved = false;
+			response.Reason = ServerReasonPrefix +
+				$"파일 버전이 달라서 방에 참가할 수 없습니다. (내 버전 {DescribeVersion(clientVersion)} / 방 버전 {Application.version})";
+			return;
+		}
+
 		response.Approved = true;
 		response.CreatePlayerObject = false;
 	}
+
+	// 승인 요청에 실린 접속자의 빌드 버전. 버전을 싣지 않는 빌드는 빈 문자열이 된다.
+	private static string ReadClientVersion(byte[] payload)
+		=> payload == null || payload.Length == 0 ? string.Empty : Encoding.UTF8.GetString(payload);
+
+	private static string DescribeVersion(string version)
+		=> string.IsNullOrEmpty(version) ? "알 수 없음" : version;
 
 	private void HandleWaitingRoomSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
 	{

@@ -20,6 +20,7 @@ public class RoomListEntryUI : MonoBehaviour
 	[SerializeField] private Color _unjoinableColor = new(0.5f, 0.5f, 0.5f, 1f);
 	[SerializeField] private Color _inGameColor = new(1f, 0.65f, 0.2f, 1f);
 	[SerializeField] private Color _fullColor = new(1f, 0.25f, 0.25f, 1f);
+	[SerializeField] private Color _versionMismatchColor = new(0.55f, 0.55f, 0.9f, 1f);
 
 	private string _sessionId;
 
@@ -43,6 +44,12 @@ public class RoomListEntryUI : MonoBehaviour
 		{
 			_statusText.text = "정원 FULL";
 			_statusText.color = _fullColor;
+		}
+		else if (!GameSessionManager.IsVersionMatched(room))
+		{
+			string roomVersion = GameSessionManager.ReadRoomVersion(room.Properties);
+			_statusText.text = string.IsNullOrEmpty(roomVersion) ? "버전 불명" : $"버전 {roomVersion}";
+			_statusText.color = _versionMismatchColor;
 		}
 		else
 		{
