@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using EPOOutline;
@@ -68,7 +67,7 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
 	public bool IsVisibleOnCctv => !IsStored;
 
 	// 활성화된 렌더러들을 합친 월드 바운즈. CCTV 조준 표시가 화면 사각형을 잡을 때 쓴다.
-	public Bounds WorldBounds => CctvHighlight.GetWorldBounds(_renderers);
+	public Bounds WorldBounds => CctvHighlight.GetWorldBounds(_renderers, transform.position);
 
 	private static void SetLayerRecursively(Transform target, int layer)
 	{

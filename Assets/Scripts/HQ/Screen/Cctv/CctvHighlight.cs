@@ -122,7 +122,9 @@ public static class CctvHighlight
     }
 
     // 활성화된 렌더러들을 합친 월드 바운즈. CCTV 조준 표시가 화면 사각형을 잡을 때 쓴다.
-    public static Bounds GetWorldBounds(Renderer[] renderers)
+    // 활성 렌더러가 하나도 없으면 default(Bounds)는 월드 원점이 되어 엉뚱한 곳에 조준이 잡힌다.
+    // 그래서 대상 위치 기준의 작은 바운즈로 대체한다.
+    public static Bounds GetWorldBounds(Renderer[] renderers, Vector3 fallbackPosition)
     {
         bool hasBounds = false;
         Bounds bounds = default;
@@ -144,6 +146,6 @@ public static class CctvHighlight
             bounds.Encapsulate(targetRenderer.bounds);
         }
 
-        return bounds;
+        return hasBounds ? bounds : new Bounds(fallbackPosition, Vector3.one * 0.1f);
     }
 }

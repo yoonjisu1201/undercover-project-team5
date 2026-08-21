@@ -261,7 +261,6 @@ public class CCTVItemReticle : MonoBehaviour
 	// 중심과 여덟 꼭짓점 중 하나라도 뚫려 있으면 보이는 것으로 친다.
 	private bool IsOccluded(Bounds bounds)
 	{
-
 		if (!IsPointOccluded(bounds.center))
 		{
 			return false;
