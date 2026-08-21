@@ -28,7 +28,9 @@ public sealed class NpcSpawner : MonoBehaviour, IRoundSpawner
 
     // 스폰 목표 수. 현재 라운드 설정을 따른다 (RoundManager의 스폰 완료 확인용으로도 쓰인다).
     public int SpawnCount => RoundManager.Instance.NpcSpawnCount;
-    public SpawnRule Rule => _spawnRule;
+
+    // 배치 규칙은 이 스포너가 코디네이터에 넘길 때만 쓴다.
+    private SpawnRule Rule => _spawnRule;
 
     private readonly List<NetworkObject> _spawnedNpcs = new();
 

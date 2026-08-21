@@ -64,8 +64,9 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     // 이번 라운드에 배정된 단서 번호(필드 스폰 + 미션 보상 공통). 라운드가 바뀌면 초기화된다.
     private readonly HashSet<int> _usedClueNumbers = new();
 
-    // public SpawnRule Rule => _useBasement ? _basementSpawnRule : _spawnRule;
-    public SpawnRule Rule => _basementSpawnRule;
+    // 배치 규칙은 이 스포너가 코디네이터에 넘길 때만 쓴다.
+    // private SpawnRule Rule => _useBasement ? _basementSpawnRule : _spawnRule;
+    private SpawnRule Rule => _basementSpawnRule;
 
     private void Awake()
     {
@@ -178,6 +179,9 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         out Vector3 spawnPosition,
         out Quaternion spawnRotation)
     {
+        spawnPosition = default;
+        spawnRotation = Quaternion.identity;
+
         SpawnRule rule = Rule;
         while (true)
         {

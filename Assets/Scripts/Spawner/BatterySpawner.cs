@@ -35,9 +35,11 @@ public sealed class BatterySpawner : MonoBehaviour, IRoundSpawner
     // 같은 씬 로드 이벤트가 중복 전달되더라도 한 번만 생성하기 위한 상태값.
     private bool _hasSpawned;
 
-    // IRoundSpawner가 외부에 제공하는 목표 생성 개수와 배치 규칙.
+    // IRoundSpawner가 외부에 제공하는 목표 생성 개수.
     public int SpawnCount => _spawnCount;
-    public SpawnRule Rule => _spawnRule;
+
+    // 배치 규칙은 이 스포너가 코디네이터에 넘길 때만 쓴다.
+    private SpawnRule Rule => _spawnRule;
 
     // 네트워크 씬 로드가 모든 접속자에게 완료된 시점을 기다린다.
     private void OnEnable()
