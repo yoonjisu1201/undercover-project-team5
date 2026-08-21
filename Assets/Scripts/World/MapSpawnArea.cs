@@ -48,21 +48,7 @@ public sealed class MapSpawnArea : MonoBehaviour
     public void SetBounds(Bounds worldBounds)
     {
         EnsureSpawnBounds();
-        ApplyWorldBounds(_spawnBounds, worldBounds);
-    }
-
-    // BoxCollider의 center/size는 로컬 좌표라, 월드 경계를 그대로 대입할 수 없어 변환해준다.
-    // 회전은 없다고 가정한다(스폰 영역 오브젝트는 축 정렬 상태로 배치됨).
-    internal static void ApplyWorldBounds(BoxCollider collider, Bounds worldBounds)
-    {
-        Transform colliderTransform = collider.transform;
-        Vector3 lossyScale = colliderTransform.lossyScale;
-
-        collider.center = colliderTransform.InverseTransformPoint(worldBounds.center);
-        collider.size = new Vector3(
-            worldBounds.size.x / Mathf.Max(lossyScale.x, 0.0001f),
-            worldBounds.size.y / Mathf.Max(lossyScale.y, 0.0001f),
-            worldBounds.size.z / Mathf.Max(lossyScale.z, 0.0001f));
+        BoxColliderUtility.ApplyWorldBounds(_spawnBounds, worldBounds);
     }
 
     // 통합 NavMesh에서 현재 Box Collider 안에 포함된 삼각형을 수집한다.

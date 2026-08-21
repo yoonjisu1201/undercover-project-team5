@@ -59,7 +59,7 @@ public sealed class UndergroundAmbienceSync : MonoBehaviour
     {
         if (_volumeBounds == null) return;
 
-        MapSpawnArea.ApplyWorldBounds(_volumeBounds, bounds);
+        BoxColliderUtility.ApplyWorldBounds(_volumeBounds, bounds);
     }
 
     private void UpdateReflectionProbe(Bounds bounds)
