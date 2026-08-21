@@ -50,8 +50,7 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
         _networkTransform = GetComponent<NetworkTransform>();
 
 		SetLayerRecursively(transform, Layers.Item);
-		_cctvOutline = CctvHighlight.CreateOutline(transform, Layers.Item, _renderers, CctvHighlightKind.Item);
-		CctvHighlight.Register(this);
+		_cctvOutline = CctvHighlight.CreateOutline(this, transform, Layers.Item, _renderers, CctvHighlightKind.Item);
     }
 
 	public override void OnDestroy()

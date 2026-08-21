@@ -68,8 +68,7 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
         base.Awake();
 
         _renderers = GetComponentsInChildren<Renderer>(true);
-        CctvHighlight.CreateOutline(transform, gameObject.layer, _renderers, CctvHighlightKind.MissionMachine);
-        CctvHighlight.Register(this);
+        CctvHighlight.CreateOutline(this, transform, gameObject.layer, _renderers, CctvHighlightKind.MissionMachine);
 
         if (string.IsNullOrEmpty(_cctvDisplayName))
         {
