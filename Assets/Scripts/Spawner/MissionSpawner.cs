@@ -3,10 +3,10 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Box Collider로 나눈 구역의 통합 NavMesh 위에 7개 미션 머신을 서버 권한으로 생성하는 클래스
+// Box Collider로 나눈 구역의 통합 NavMesh 위에 미션 머신을 서버 권한으로 생성하는 클래스
 public sealed class MissionSpawner : MonoBehaviour
 {
-    private const int RequiredMissionMachineCount = 7;
+    private const int RequiredMissionMachineCount = 2;
 
     [Header("미션 머신 데이터")]
     [SerializeField] private MissionMachineData[] _MissionMachine;
