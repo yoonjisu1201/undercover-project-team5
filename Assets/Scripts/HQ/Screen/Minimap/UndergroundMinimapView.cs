@@ -20,7 +20,7 @@ public class UndergroundMinimapView : MonoBehaviour {
 		_minimapScreen = minimapScreen;
 
 		if (_generator != null) {
-			_generator.Generated += HandleGenerated;
+			_generator.OnGenerated += HandleOnGenerated;
 		}
 
 		Hide();
@@ -28,13 +28,13 @@ public class UndergroundMinimapView : MonoBehaviour {
 
 	private void OnDestroy() {
 		if (_generator != null) {
-			_generator.Generated -= HandleGenerated;
+			_generator.OnGenerated -= HandleOnGenerated;
 		}
 	}
 
 	// 맵이 다시 생성되면 지금 지하를 보고 있을 때만 즉시 다시 그린다.
 	// 지상을 보고 있다면 지하로 전환하는 시점에 그려진다.
-	private void HandleGenerated() {
+	private void HandleOnGenerated() {
 		if (_minimapScreen != null && _minimapScreen.Mode == MinimapScreenController.MinimapMode.Underground) {
 			_minimapScreen.RefreshDisplay();
 		}
