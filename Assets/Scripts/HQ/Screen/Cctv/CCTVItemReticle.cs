@@ -72,7 +72,7 @@ public class CCTVItemReticle : MonoBehaviour
 			return;
 		}
 
-		ICctvHighlightTarget hovered = FindHoveredTarget(out Rect itemRect);
+		string hovered = FindHoveredName(out Rect itemRect);
 
 		if (hovered == null)
 		{
@@ -88,10 +88,8 @@ public class CCTVItemReticle : MonoBehaviour
 		UpdateTooltip(hovered);
 	}
 
-	private void UpdateTooltip(ICctvHighlightTarget target)
+	private void UpdateTooltip(string displayName)
 	{
-		string displayName = target.CctvDisplayName;
-
 		if (string.IsNullOrEmpty(displayName))
 		{
 			_tooltip.gameObject.SetActive(false);
@@ -125,8 +123,9 @@ public class CCTVItemReticle : MonoBehaviour
 		_tooltip.anchoredPosition = position;
 	}
 
-	// 커서 아래에 있는 대상(아이템·필드 미션 장치) 중 가장 가까운 것을 찾고, 그 화면 사각형(RawImage 로컬 좌표)을 돌려준다.
-	private ICctvHighlightTarget FindHoveredTarget(out Rect itemRect)
+	// 커서 아래에 있는 대상 중 가장 가까운 것을 찾고, 그 화면 사각형(RawImage 로컬 좌표)과 이름을 돌려준다.
+	// 아이템과 필드 미션 장치를 각각 순회한다. 두 목록은 서로 다른 클래스가 들고 있다.
+	private string FindHoveredName(out Rect itemRect)
 	{
 		itemRect = default;
 
@@ -151,55 +150,81 @@ public class CCTVItemReticle : MonoBehaviour
 
 		_lastCursorLocal = cursorLocal;
 
-		ICctvHighlightTarget best = null;
+		string bestName = null;
 		float bestDistance = float.MaxValue;
 
-		foreach (ICctvHighlightTarget target in CctvHighlight.RegisteredTargets)
+		foreach (ItemBase item in ItemBase.SpawnedItemList)
 		{
-			if (target == null || !target.IsVisibleOnCctv)
+			if (item == null || item.IsStored)
 			{
 				continue;
 			}
 
-			if (!TryGetScreenRect(target, out Rect candidateRect, out Rect itemPixelRect))
-			{
-				continue;
-			}
-
-			// 판정 영역은 화면에 그려진 아이템 크기 그대로다. 괄호를 최소 크기로 키우더라도
-			// 판정까지 커지면, 눈에 안 보이는 아이템이 커서에 잡히게 된다.
-			if (!itemPixelRect.Contains(cursorLocal))
-			{
-				continue;
-			}
-
-			float distance = Vector2.Distance(itemPixelRect.center, cursorLocal);
-			if (distance >= bestDistance)
-			{
-				continue;
-			}
-
-			// 벽 뒤에 있는 대상은 조준 표시를 띄우지 않는다.
-			if (IsOccluded(target))
-			{
-				continue;
-			}
-
-			best = target;
-			bestDistance = distance;
-			itemRect = candidateRect;
+			string displayName = item.ItemData != null ? item.ItemData.DisplayName : null;
+			Consider(item.WorldBounds, displayName, cursorLocal, ref bestName, ref bestDistance, ref itemRect);
 		}
 
-		return best;
+		foreach (MissionInteractable machine in MissionInteractable.SpawnedMachineList)
+		{
+			if (machine == null)
+			{
+				continue;
+			}
+
+			Consider(machine.CctvBounds, machine.CctvDisplayName, cursorLocal, ref bestName, ref bestDistance, ref itemRect);
+		}
+
+		return bestName;
+	}
+
+	// 커서가 대상 위에 있고 지금까지 중 가장 가까우면 후보로 채택한다.
+	private void Consider(
+		Bounds bounds,
+		string displayName,
+		Vector2 cursorLocal,
+		ref string bestName,
+		ref float bestDistance,
+		ref Rect bestRect)
+	{
+		if (string.IsNullOrEmpty(displayName))
+		{
+			return;
+		}
+
+		if (!TryGetScreenRect(bounds, out Rect candidateRect, out Rect itemPixelRect))
+		{
+			return;
+		}
+
+		// 판정 영역은 화면에 그려진 크기 그대로다. 괄호를 최소 크기로 키우더라도
+		// 판정까지 커지면, 눈에 안 보이는 대상이 커서에 잡히게 된다.
+		if (!itemPixelRect.Contains(cursorLocal))
+		{
+			return;
+		}
+
+		float distance = Vector2.Distance(itemPixelRect.center, cursorLocal);
+		if (distance >= bestDistance)
+		{
+			return;
+		}
+
+		// 벽 뒤에 있는 대상은 조준 표시를 띄우지 않는다.
+		if (IsOccluded(bounds))
+		{
+			return;
+		}
+
+		bestName = displayName;
+		bestDistance = distance;
+		bestRect = candidateRect;
 	}
 
 	// 아이템 바운즈의 여덟 꼭짓점을 CCTV 카메라로 투영해 RawImage 로컬 좌표계의 사각형을 만든다.
-	private bool TryGetScreenRect(ICctvHighlightTarget target, out Rect result, out Rect itemPixelRect)
+	private bool TryGetScreenRect(Bounds bounds, out Rect result, out Rect itemPixelRect)
 	{
 		result = default;
 		itemPixelRect = default;
-
-		Bounds bounds = target.CctvBounds;
 
 		float minX = float.MaxValue, minY = float.MaxValue;
 		float maxX = float.MinValue, maxY = float.MinValue;
@@ -244,9 +269,8 @@ public class CCTVItemReticle : MonoBehaviour
 
 	// 바운즈 중심 한 점만 보면 건물 모서리나 기둥에 스쳐도 통째로 가려진 것으로 걸러진다.
 	// 중심과 여덟 꼭짓점 중 하나라도 뚫려 있으면 보이는 것으로 친다.
-	private bool IsOccluded(ICctvHighlightTarget target)
+	private bool IsOccluded(Bounds bounds)
 	{
-		Bounds bounds = target.CctvBounds;
 
 		if (!IsPointOccluded(bounds.center))
 		{
