@@ -1,19 +1,103 @@
+using System;
+using System.Collections.Generic;
 using EPOOutline;
 using UnityEngine;
 
-// CCTV 전용 외곽선을 만드는 공용 도구.
-// 아이템(ItemBase)은 예전부터 자체 구현을 갖고 있고, 이후에 추가된 대상(미션 장치 등)이 이것을 쓴다.
-// 외곽선 모양이 아이템과 같아야 하므로 파라미터는 ItemBase.CreateCctvOutline과 맞춰 둔다.
+// CCTV 외곽선 대상의 종류. 값이 곧 EPO 아웃라인 레이어(EPO 내부 0~7)다.
+// 종류마다 레이어가 다르므로 Outliner의 OutlineLayerMask 비트만 켜고 끄면 종류별로 표시를 나눌 수 있다.
+public enum CctvHighlightKind
+{
+    Item = 5,
+    MissionMachine = 6,
+    Npc = 7
+}
+
+// CCTV 화면에서 외곽선과 이름 표시의 대상이 되는 오브젝트.
+public interface ICctvHighlightTarget
+{
+    CctvHighlightKind CctvKind { get; }
+
+    // 화면 사각형을 잡을 때 쓰는 월드 바운즈.
+    Bounds CctvBounds { get; }
+
+    // 커서를 올렸을 때 띄울 이름.
+    string CctvDisplayName { get; }
+
+    // 인벤토리에 들어간 아이템처럼 월드에 없는 동안은 제외한다.
+    bool IsVisibleOnCctv { get; }
+}
+
+// 아이템·미션 장치·NPC의 CCTV 외곽선을 한곳에서 관리한다.
+// 외곽선 자체는 EPO가 그리고, 여기서는 어떤 종류를 그릴지와 대상 목록을 들고 있다.
 public static class CctvHighlight
 {
-    public static Outlinable CreateOutline(Transform owner, int unityLayer, Renderer[] renderers)
+    // 어떤 종류를 CCTV에 표시할지. 비트를 끄면 그 종류는 외곽선이 그려지지 않는다.
+    private static long _enabledMask = MaskOf(CctvHighlightKind.Item)
+                                      | MaskOf(CctvHighlightKind.MissionMachine)
+                                      | MaskOf(CctvHighlightKind.Npc);
+
+    private static readonly List<ICctvHighlightTarget> Targets = new();
+
+    // CCTV 화면에서 커서 아래 대상을 찾을 때 순회한다.
+    public static IReadOnlyList<ICctvHighlightTarget> RegisteredTargets => Targets;
+
+    // Outliner에 넣을 마스크. 표시하기로 한 종류의 비트만 켜져 있다.
+    public static long EnabledMask => _enabledMask;
+
+    // 1인칭 카메라에서 CCTV 외곽선을 전부 제외할 때 쓴다.
+    public static long AllKindsMask => MaskOf(CctvHighlightKind.Item)
+                                      | MaskOf(CctvHighlightKind.MissionMachine)
+                                      | MaskOf(CctvHighlightKind.Npc);
+
+    // 표시 종류가 바뀌면 알린다. CCTVHub가 Outliner 마스크를 갱신한다.
+    public static event Action EnabledKindsChanged;
+
+    public static long MaskOf(CctvHighlightKind kind) => 1L << (int)kind;
+
+    public static bool IsKindEnabled(CctvHighlightKind kind) => (_enabledMask & MaskOf(kind)) != 0L;
+
+    // 특정 종류만 CCTV에 표시하고 싶을 때 쓴다. 예: 미션 장치만 켜기.
+    public static void SetKindEnabled(CctvHighlightKind kind, bool isEnabled)
+    {
+        long mask = MaskOf(kind);
+        long updated = isEnabled ? _enabledMask | mask : _enabledMask & ~mask;
+
+        if (updated == _enabledMask)
+        {
+            return;
+        }
+
+        _enabledMask = updated;
+        EnabledKindsChanged?.Invoke();
+    }
+
+    public static void Register(ICctvHighlightTarget target)
+    {
+        if (target != null && !Targets.Contains(target))
+        {
+            Targets.Add(target);
+        }
+    }
+
+    public static void Unregister(ICctvHighlightTarget target)
+    {
+        Targets.Remove(target);
+    }
+
+    // 종류마다 EPO 레이어가 다를 뿐, 외곽선 모양은 모두 같다.
+    // 1인칭 외곽선(InteractableBase가 잡는 Outlinable)과 섞이지 않도록 반드시 base.Awake() 뒤에 부른다.
+    public static Outlinable CreateOutline(
+        Transform owner,
+        int unityLayer,
+        Renderer[] renderers,
+        CctvHighlightKind kind)
     {
         GameObject outlineObject = new GameObject("CctvOutline");
         outlineObject.transform.SetParent(owner, false);
         outlineObject.layer = unityLayer;
 
         Outlinable outline = outlineObject.AddComponent<Outlinable>();
-        outline.OutlineLayer = ItemBase.CctvOutlineLayer;
+        outline.OutlineLayer = (int)kind;
         outline.DrawingMode = OutlinableDrawingMode.Normal;
 
         // Single은 깊이 비교가 Always라 벽 뒤 대상까지 비친다.

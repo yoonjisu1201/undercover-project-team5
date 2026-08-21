@@ -10,6 +10,7 @@ public class CCTVHub : MonoBehaviour {
 
 	[SerializeField] private Camera _cctvCamera;
 	private Camera _outlineOverlayCamera;
+	private Outliner _overlayOutliner;
 
 	private readonly List<CCTVPoint> _cctvPoints = new List<CCTVPoint>();
 	private Dictionary<RegionId, CCTVRegion> _cctvRegions = new();
@@ -124,7 +125,7 @@ public class CCTVHub : MonoBehaviour {
 		SetClearDepth(overlayData, false);              // 깊이를 유지해야 벽 뒤 아이템이 비치지 않는다.
 
 		Outliner overlayOutliner = overlayObject.AddComponent<Outliner>();
-		overlayOutliner.OutlineLayerMask = ItemBase.CctvOutlineMask;
+		overlayOutliner.OutlineLayerMask = CctvHighlight.EnabledMask;
 		overlayOutliner.PrimaryRendererScale = 1f;
 		overlayOutliner.PrimarySizeReference = 800;
 		overlayOutliner.DilateShift = 1f;
@@ -142,6 +143,21 @@ public class CCTVHub : MonoBehaviour {
 		// 신호가 완전히 복구된 CCTV에서만 켠다. 실제 On/Off는 CCTVScreenController가 연결 상태를 보고 결정한다.
 		overlayCamera.enabled = false;
 		_outlineOverlayCamera = overlayCamera;
+		_overlayOutliner = overlayOutliner;
+
+		// 표시할 종류가 바뀌면 마스크를 다시 반영한다.
+		CctvHighlight.EnabledKindsChanged -= ApplyEnabledKinds;
+		CctvHighlight.EnabledKindsChanged += ApplyEnabledKinds;
+	}
+
+	private void ApplyEnabledKinds() {
+		if (_overlayOutliner != null) {
+			_overlayOutliner.OutlineLayerMask = CctvHighlight.EnabledMask;
+		}
+	}
+
+	private void OnDestroy() {
+		CctvHighlight.EnabledKindsChanged -= ApplyEnabledKinds;
 	}
 
 	// 아이템 외곽선을 그리는 오버레이 카메라를 켜고 끈다.

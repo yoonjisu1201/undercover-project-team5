@@ -110,7 +110,7 @@ public class Player : NetworkBehaviour
 		Outliner playerOutliner = playerCamera != null ? playerCamera.GetComponent<Outliner>() : null;
 		if (playerOutliner != null)
 		{
-			playerOutliner.OutlineLayerMask &= ~ItemBase.CctvOutlineMask;
+			playerOutliner.OutlineLayerMask &= ~CctvHighlight.AllKindsMask;
 		}
 	}
 

@@ -124,7 +124,6 @@ public class CCTVItemReticle : MonoBehaviour
 	}
 
 	// 커서 아래에 있는 대상 중 가장 가까운 것을 찾고, 그 화면 사각형(RawImage 로컬 좌표)과 이름을 돌려준다.
-	// 아이템과 필드 미션 장치를 각각 순회한다. 두 목록은 서로 다른 클래스가 들고 있다.
 	private string FindHoveredName(out Rect itemRect)
 	{
 		itemRect = default;
@@ -153,25 +152,16 @@ public class CCTVItemReticle : MonoBehaviour
 		string bestName = null;
 		float bestDistance = float.MaxValue;
 
-		foreach (ItemBase item in ItemBase.SpawnedItemList)
+		// 종류(아이템·미션 장치·NPC)를 가리지 않고 한 목록으로 본다.
+		// 외곽선이 꺼진 종류는 화면에 보이지 않으므로 조준 대상에서도 제외한다.
+		foreach (ICctvHighlightTarget target in CctvHighlight.RegisteredTargets)
 		{
-			if (item == null || item.IsStored)
+			if (target == null || !target.IsVisibleOnCctv || !CctvHighlight.IsKindEnabled(target.CctvKind))
 			{
 				continue;
 			}
 
-			string displayName = item.ItemData != null ? item.ItemData.DisplayName : null;
-			Consider(item.WorldBounds, displayName, cursorLocal, ref bestName, ref bestDistance, ref itemRect);
-		}
-
-		foreach (MissionInteractable machine in MissionInteractable.SpawnedMachineList)
-		{
-			if (machine == null)
-			{
-				continue;
-			}
-
-			Consider(machine.CctvBounds, machine.CctvDisplayName, cursorLocal, ref bestName, ref bestDistance, ref itemRect);
+			Consider(target.CctvBounds, target.CctvDisplayName, cursorLocal, ref bestName, ref bestDistance, ref itemRect);
 		}
 
 		return bestName;
@@ -302,8 +292,7 @@ public class CCTVItemReticle : MonoBehaviour
 		for (int i = 0; i < hitCount; i++)
 		{
 			// 표시 대상끼리는 서로 가리는 것으로 치지 않는다. 겹쳐 놓인 아이템도 각각 조준할 수 있어야 한다.
-			if (OcclusionHits[i].collider.GetComponentInParent<ItemBase>() != null ||
-			    OcclusionHits[i].collider.GetComponentInParent<MissionInteractable>() != null)
+			if (OcclusionHits[i].collider.GetComponentInParent<MonoBehaviour>() is ICctvHighlightTarget)
 			{
 				continue;
 			}

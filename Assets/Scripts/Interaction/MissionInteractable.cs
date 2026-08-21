@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 
 // 미션 UI 실행, 완료 동기화, 단서 보상 생성을 공통으로 처리한다.
-public sealed class MissionInteractable : InteractableBase
+public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
 {
     [Header("미션 UI")]
     [SerializeField] private GameObject _uiPrefab;  // 미션 ui
@@ -63,23 +63,21 @@ public sealed class MissionInteractable : InteractableBase
 
     private Renderer[] _renderers;
 
-    // CCTV 화면에서 커서 아래 대상을 찾을 때 순회한다. 아이템 목록(ItemBase.SpawnedItemList)과 같은 역할이다.
-    private static readonly List<MissionInteractable> SpawnedMachines = new();
-    public static IReadOnlyList<MissionInteractable> SpawnedMachineList => SpawnedMachines;
-
     // 1인칭 외곽선(InteractableBase가 잡는 Outlinable)과 섞이지 않도록 base.Awake() 뒤에 CCTV 외곽선을 만든다.
     protected override void Awake()
     {
         base.Awake();
 
         _renderers = GetComponentsInChildren<Renderer>(true);
-        CctvHighlight.CreateOutline(transform, gameObject.layer, _renderers);
-        SpawnedMachines.Add(this);
+        CctvHighlight.CreateOutline(transform, gameObject.layer, _renderers, CctvHighlightKind.MissionMachine);
+        CctvHighlight.Register(this);
     }
 
-    // CCTV 조준 표시가 쓰는 값들.
+    // ICctvHighlightTarget — 필드 미션 장치도 CCTV에서 외곽선과 이름이 보이게 한다.
+    public CctvHighlightKind CctvKind => CctvHighlightKind.MissionMachine;
     public Bounds CctvBounds => CctvHighlight.GetWorldBounds(_renderers);
     public string CctvDisplayName => string.IsNullOrEmpty(_cctvDisplayName) ? name : _cctvDisplayName;
+    public bool IsVisibleOnCctv => true;
 
     // 역할 제한은 여기서 보지 않는다. 조준은 되어야 GetInteractionText로 제한 안내를 띄울 수 있다. (HqScreen과 같은 방식)
     public override bool CanInteract(GameObject interactor) => true;
@@ -422,7 +420,7 @@ public sealed class MissionInteractable : InteractableBase
     // 기계가 제거될 때 열려 있는 UI와 전역 사용 상태를 정리한다.
     public override void OnDestroy()
     {
-        SpawnedMachines.Remove(this);
+        CctvHighlight.Unregister(this);
 
         if (_uiInstance != null)
         {
