@@ -27,6 +27,14 @@ public interface ICctvHighlightTarget
     bool IsVisibleOnCctv { get; }
 }
 
+// 이름 대신 착용 의상 이미지를 보여주는 대상(NPC)이 추가로 구현한다.
+// ICctvHighlightTarget을 늘리지 않도록 별도 인터페이스로 둔다.
+public interface ICctvOutfitPreview
+{
+    // 아직 준비되지 않았으면 null을 돌려도 된다. 다음 프레임에 다시 묻는다.
+    IReadOnlyList<Sprite> CctvOutfitThumbnails { get; }
+}
+
 // 아이템·미션 장치·NPC의 CCTV 외곽선을 한곳에서 관리한다.
 // 외곽선 자체는 EPO가 그리고, 여기서는 어떤 종류를 그릴지와 대상 목록을 들고 있다.
 public static class CctvHighlight
@@ -150,6 +158,12 @@ public static class CctvHighlight
     // 그래서 대상 위치 기준의 작은 바운즈로 대체한다.
     public static Bounds GetWorldBounds(Renderer[] renderers, Vector3 fallbackPosition)
     {
+        // NPC처럼 렌더러를 나중에 모으는 대상이 있어, 아직 준비되지 않은 경우를 막아 둔다.
+        if (renderers == null)
+        {
+            return new Bounds(fallbackPosition, Vector3.one * 0.1f);
+        }
+
         bool hasBounds = false;
         Bounds bounds = default;
 
