@@ -7,7 +7,7 @@ public class PlayerSpawner : MonoBehaviour
     [Header("HQ Spawn Settings")]
     [SerializeField] private Transform _hqSpawnPoint;
 
-    [Header("Field Spawn Points (차 앞 고정 스폰)")]
+    [Header("Field Spawn Points (현재는 본부 내 스폰)")]
     [SerializeField] private Transform[] _fieldSpawnPoints;
 
     // 현장 역할 플레이어들 중 이 플레이어가 몇 번째인지에 따라 고정 스폰 포인트를 배정한다.
