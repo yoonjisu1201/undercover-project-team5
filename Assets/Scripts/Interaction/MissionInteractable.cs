@@ -4,11 +4,15 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 
 // 미션 UI 실행, 완료 동기화, 단서 보상 생성을 공통으로 처리한다.
-public sealed class MissionInteractable : InteractableBase
+public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
 {
     [Header("미션 UI")]
     [SerializeField] private GameObject _uiPrefab;  // 미션 ui
     [SerializeField] private string _interactionText = "미션 시작";
+
+    [Header("CCTV 표시")]
+    [Tooltip("CCTV 화면에서 커서를 올렸을 때 띄울 장치 이름. 비워 두면 오브젝트 이름을 쓴다.")]
+    [SerializeField] private string _cctvDisplayName;
 
     [SerializeField] private ItemData _completionReward;    // 미션이 끝나면 나오는 아이템
     [SerializeField] private Vector3 _rewardSpawnOffset = new(0f, 0.5f, 1.2f);  // 리워드가 앞쪽으로 스폰되는 위치
@@ -55,6 +59,23 @@ public sealed class MissionInteractable : InteractableBase
     // 라운드가 새로 시작될 때 서버에서 알린다. 미션이 자체적으로 들고 있는 정답·진행 상태를 초기화할 시점이다.
     public event System.Action ServerRoundReset;
     public override string InteractionText => IsCompleted ? "완료된 게임" : _interactionText;
+
+    private Renderer[] _renderers;
+
+    // 1인칭 외곽선(InteractableBase가 잡는 Outlinable)과 섞이지 않도록 base.Awake() 뒤에 CCTV 외곽선을 만든다.
+    protected override void Awake()
+    {
+        base.Awake();
+
+        _renderers = GetComponentsInChildren<Renderer>(true);
+        CctvHighlight.CreateOutline(transform, gameObject.layer, _renderers);
+        CctvHighlight.Register(this);
+    }
+
+    // ICctvHighlightTarget — 필드 미션 장치도 CCTV에서 외곽선과 이름이 보이게 한다.
+    public Bounds CctvBounds => CctvHighlight.GetWorldBounds(_renderers);
+    public string CctvDisplayName => string.IsNullOrEmpty(_cctvDisplayName) ? name : _cctvDisplayName;
+    public bool IsVisibleOnCctv => true;
 
     // 역할 제한은 여기서 보지 않는다. 조준은 되어야 GetInteractionText로 제한 안내를 띄울 수 있다. (HqScreen과 같은 방식)
     public override bool CanInteract(GameObject interactor) => true;
@@ -397,6 +418,8 @@ public sealed class MissionInteractable : InteractableBase
     // 기계가 제거될 때 열려 있는 UI와 전역 사용 상태를 정리한다.
     public override void OnDestroy()
     {
+        CctvHighlight.Unregister(this);
+
         if (_uiInstance != null)
         {
             MissionUIController controller = _uiInstance.GetComponent<MissionUIController>();

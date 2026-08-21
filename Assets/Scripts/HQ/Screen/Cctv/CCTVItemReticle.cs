@@ -72,7 +72,7 @@ public class CCTVItemReticle : MonoBehaviour
 			return;
 		}
 
-		ItemBase hovered = FindHoveredItem(out Rect itemRect);
+		ICctvHighlightTarget hovered = FindHoveredTarget(out Rect itemRect);
 
 		if (hovered == null)
 		{
@@ -88,9 +88,9 @@ public class CCTVItemReticle : MonoBehaviour
 		UpdateTooltip(hovered);
 	}
 
-	private void UpdateTooltip(ItemBase item)
+	private void UpdateTooltip(ICctvHighlightTarget target)
 	{
-		string displayName = item.ItemData != null ? item.ItemData.DisplayName : null;
+		string displayName = target.CctvDisplayName;
 
 		if (string.IsNullOrEmpty(displayName))
 		{
@@ -125,8 +125,8 @@ public class CCTVItemReticle : MonoBehaviour
 		_tooltip.anchoredPosition = position;
 	}
 
-	// 커서 아래에 있는 아이템 중 가장 가까운 것을 찾고, 그 아이템의 화면 사각형(RawImage 로컬 좌표)을 돌려준다.
-	private ItemBase FindHoveredItem(out Rect itemRect)
+	// 커서 아래에 있는 대상(아이템·필드 미션 장치) 중 가장 가까운 것을 찾고, 그 화면 사각형(RawImage 로컬 좌표)을 돌려준다.
+	private ICctvHighlightTarget FindHoveredTarget(out Rect itemRect)
 	{
 		itemRect = default;
 
@@ -151,17 +151,17 @@ public class CCTVItemReticle : MonoBehaviour
 
 		_lastCursorLocal = cursorLocal;
 
-		ItemBase best = null;
+		ICctvHighlightTarget best = null;
 		float bestDistance = float.MaxValue;
 
-		foreach (ItemBase item in ItemBase.SpawnedItemList)
+		foreach (ICctvHighlightTarget target in CctvHighlight.RegisteredTargets)
 		{
-			if (item == null || item.IsStored)
+			if (target == null || !target.IsVisibleOnCctv)
 			{
 				continue;
 			}
 
-			if (!TryGetScreenRect(item, out Rect candidateRect, out Rect itemPixelRect))
+			if (!TryGetScreenRect(target, out Rect candidateRect, out Rect itemPixelRect))
 			{
 				continue;
 			}
@@ -179,13 +179,13 @@ public class CCTVItemReticle : MonoBehaviour
 				continue;
 			}
 
-			// 벽 뒤에 있는 아이템은 조준 표시를 띄우지 않는다.
-			if (IsOccluded(item))
+			// 벽 뒤에 있는 대상은 조준 표시를 띄우지 않는다.
+			if (IsOccluded(target))
 			{
 				continue;
 			}
 
-			best = item;
+			best = target;
 			bestDistance = distance;
 			itemRect = candidateRect;
 		}
@@ -194,12 +194,12 @@ public class CCTVItemReticle : MonoBehaviour
 	}
 
 	// 아이템 바운즈의 여덟 꼭짓점을 CCTV 카메라로 투영해 RawImage 로컬 좌표계의 사각형을 만든다.
-	private bool TryGetScreenRect(ItemBase item, out Rect result, out Rect itemPixelRect)
+	private bool TryGetScreenRect(ICctvHighlightTarget target, out Rect result, out Rect itemPixelRect)
 	{
 		result = default;
 		itemPixelRect = default;
 
-		Bounds bounds = item.WorldBounds;
+		Bounds bounds = target.CctvBounds;
 
 		float minX = float.MaxValue, minY = float.MaxValue;
 		float maxX = float.MinValue, maxY = float.MinValue;
@@ -244,9 +244,9 @@ public class CCTVItemReticle : MonoBehaviour
 
 	// 바운즈 중심 한 점만 보면 건물 모서리나 기둥에 스쳐도 통째로 가려진 것으로 걸러진다.
 	// 중심과 여덟 꼭짓점 중 하나라도 뚫려 있으면 보이는 것으로 친다.
-	private bool IsOccluded(ItemBase item)
+	private bool IsOccluded(ICctvHighlightTarget target)
 	{
-		Bounds bounds = item.WorldBounds;
+		Bounds bounds = target.CctvBounds;
 
 		if (!IsPointOccluded(bounds.center))
 		{
@@ -277,8 +277,9 @@ public class CCTVItemReticle : MonoBehaviour
 
 		for (int i = 0; i < hitCount; i++)
 		{
-			// 아이템끼리는 서로 가리는 것으로 치지 않는다. 겹쳐 놓인 아이템도 각각 조준할 수 있어야 한다.
-			if (OcclusionHits[i].collider.GetComponentInParent<ItemBase>() != null)
+			// 표시 대상끼리는 서로 가리는 것으로 치지 않는다. 겹쳐 놓인 아이템도 각각 조준할 수 있어야 한다.
+			if (OcclusionHits[i].collider.GetComponentInParent<ItemBase>() != null ||
+			    OcclusionHits[i].collider.GetComponentInParent<MissionInteractable>() != null)
 			{
 				continue;
 			}

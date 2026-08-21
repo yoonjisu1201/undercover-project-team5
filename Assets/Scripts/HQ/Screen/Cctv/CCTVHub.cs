@@ -124,7 +124,7 @@ public class CCTVHub : MonoBehaviour {
 		SetClearDepth(overlayData, false);              // 깊이를 유지해야 벽 뒤 아이템이 비치지 않는다.
 
 		Outliner overlayOutliner = overlayObject.AddComponent<Outliner>();
-		overlayOutliner.OutlineLayerMask = ItemBase.CctvOutlineMask;
+		overlayOutliner.OutlineLayerMask = CctvHighlight.OutlineMask;
 		overlayOutliner.PrimaryRendererScale = 1f;
 		overlayOutliner.PrimarySizeReference = 800;
 		overlayOutliner.DilateShift = 1f;
