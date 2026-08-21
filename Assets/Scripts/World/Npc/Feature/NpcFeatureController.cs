@@ -62,6 +62,9 @@ public class NpcFeatureController : NetworkBehaviour {
 		light.shadows = LightShadows.None;
 	}
 
+	// CCTV 호버 표시처럼 이 NPC의 착용 의상을 읽어야 하는 쪽에 공개한다.
+	public OutfitFeature Outfit => _feature.Value?.Outfit;
+
 	public override void OnNetworkSpawn() {
 		// 서버에서만, 각 Npc의 Outfit을 설정해준다.
 		if (IsServer) {
@@ -72,6 +75,9 @@ public class NpcFeatureController : NetworkBehaviour {
 
 		// 각 플레이어들은 모두 외형을 적용한다.
 		_outfitController.ApplyOutfit(_feature.Value.Outfit);
+
+		// 의상 파츠가 만들어진 뒤에 CCTV 외곽선을 만들어야 옷까지 포함된다.
+		GetComponent<NpcCctvHighlight>()?.BuildOutline();
 	}
 
 	public void SendFeatureTo(CriminalNpcManager criminalManager) {

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -47,6 +48,13 @@ public class CCTVItemReticle : MonoBehaviour
 	[SerializeField] private RectTransform _tooltip;
 	[SerializeField] private TextMeshProUGUI _tooltipLabel;
 
+	[Header("=== NPC 의상 이미지 창 ===")]
+	// 썸네일은 검은 배경까지 통째로 구워진 어두운 이미지라(평균 밝기 0.03) 그대로 쓰면 안 보인다.
+	// 밝기는 슬롯 Image에 물린 머티리얼(M_CctvOutfitThumbnail)의 _Brightness로 곱해서 올린다.
+	[Tooltip("NPC는 이름 대신 착용 의상 썸네일을 띄운다. 몽타주 선택 UI가 쓰는 그 이미지다.")]
+	[SerializeField] private RectTransform _outfitTooltip;
+	[SerializeField] private Image[] _outfitSlots;
+
 	private RectTransform _screenRect;
 	private Camera _cctvCamera;
 	private Vector2 _lastCursorLocal;
@@ -95,10 +103,17 @@ public class CCTVItemReticle : MonoBehaviour
 			_reticle.gameObject.SetActive(false);
 		}
 
+		HideTooltips();
+	}
+
+	private void HideTooltips()
+	{
 		if (_tooltip != null)
 		{
 			_tooltip.gameObject.SetActive(false);
 		}
+
+		SetOutfitTooltipVisible(false);
 	}
 
 	private void LateUpdate()
@@ -108,12 +123,12 @@ public class CCTVItemReticle : MonoBehaviour
 			return;
 		}
 
-		string hovered = ScanTargets(out Rect itemRect);
+		ICctvHighlightTarget hovered = ScanTargets(out Rect itemRect);
 
 		if (hovered == null)
 		{
 			_reticle.gameObject.SetActive(false);
-			_tooltip.gameObject.SetActive(false);
+			HideTooltips();
 			return;
 		}
 
@@ -121,7 +136,15 @@ public class CCTVItemReticle : MonoBehaviour
 		_reticle.anchoredPosition = itemRect.center;
 		_reticle.sizeDelta = itemRect.size;
 
-		UpdateTooltip(hovered);
+		// NPC는 이름 대신 착용 의상 이미지를 띄운다.
+		if (hovered is ICctvOutfitPreview preview && TryShowOutfitTooltip(preview))
+		{
+			_tooltip.gameObject.SetActive(false);
+			return;
+		}
+
+		SetOutfitTooltipVisible(false);
+		UpdateTooltip(hovered.CctvDisplayName);
 	}
 
 	private void UpdateTooltip(string displayName)
@@ -140,30 +163,36 @@ public class CCTVItemReticle : MonoBehaviour
 		float width = Mathf.Max(TooltipMinWidth, _tooltipLabel.preferredWidth + TooltipPadding);
 		_tooltip.sizeDelta = new Vector2(width, height);
 
-		// 커서 오른쪽 아래에 붙이되, 화면 밖으로 나가면 반대편으로 넘긴다.
+		PlaceNearCursor(_tooltip);
+	}
+
+	// 커서 오른쪽 아래에 붙이되, 화면 밖으로 나가면 반대편으로 넘긴다.
+	private void PlaceNearCursor(RectTransform tooltip)
+	{
 		Rect screenArea = _screenRect.rect;
-		Vector2 position = _tooltip.anchoredPosition;
+		Vector2 size = tooltip.sizeDelta;
+		Vector2 position = tooltip.anchoredPosition;
 		position.x = _lastCursorLocal.x + TooltipCursorGap;
 		position.y = _lastCursorLocal.y - TooltipCursorGap;
 
-		if (position.x + width > screenArea.xMax)
+		if (position.x + size.x > screenArea.xMax)
 		{
-			position.x = _lastCursorLocal.x - TooltipCursorGap - width;
+			position.x = _lastCursorLocal.x - TooltipCursorGap - size.x;
 		}
 
-		if (position.y - height < screenArea.yMin)
+		if (position.y - size.y < screenArea.yMin)
 		{
-			position.y = _lastCursorLocal.y + TooltipCursorGap + height;
+			position.y = _lastCursorLocal.y + TooltipCursorGap + size.y;
 		}
 
-		_tooltip.anchoredPosition = position;
+		tooltip.anchoredPosition = position;
 	}
 
 	// 등록된 대상을 한 번 순회하면서 두 가지를 한다.
 	//   ① 화면에 작게 그려진 대상은 외곽선을 끈다 (커서와 무관하게 매 프레임)
 	//   ② 커서 아래에 있는 대상 중 가장 가까운 것을 골라 이름과 조준 사각형을 돌려준다
 	// 화면 사각형을 한 곳에서만 계산해, 외곽선 판정과 조준 판정이 어긋날 수 없게 한다.
-	private string ScanTargets(out Rect itemRect)
+	private ICctvHighlightTarget ScanTargets(out Rect itemRect)
 	{
 		itemRect = default;
 
@@ -173,7 +202,7 @@ public class CCTVItemReticle : MonoBehaviour
 			_lastCursorLocal = cursorLocal;
 		}
 
-		string bestName = null;
+		ICctvHighlightTarget best = null;
 		float bestDistance = float.MaxValue;
 
 		foreach (ICctvHighlightTarget target in CctvHighlight.RegisteredTargets)
@@ -205,8 +234,8 @@ public class CCTVItemReticle : MonoBehaviour
 				continue;
 			}
 
-			string displayName = target.CctvDisplayName;
-			if (string.IsNullOrEmpty(displayName))
+			// 이름이나 의상 이미지, 둘 중 하나라도 보여줄 것이 있어야 조준 대상이다.
+			if (string.IsNullOrEmpty(target.CctvDisplayName) && !HasOutfitPreview(target))
 			{
 				continue;
 			}
@@ -230,12 +259,64 @@ public class CCTVItemReticle : MonoBehaviour
 				continue;
 			}
 
-			bestName = displayName;
+			best = target;
 			bestDistance = distance;
 			itemRect = reticleRect;
 		}
 
-		return bestName;
+		return best;
+	}
+
+	private static bool HasOutfitPreview(ICctvHighlightTarget target)
+	{
+		return target is ICctvOutfitPreview preview
+		       && preview.CctvOutfitThumbnails != null
+		       && preview.CctvOutfitThumbnails.Count > 0;
+	}
+
+	// 착용 의상 썸네일을 슬롯에 채운다. 보여줄 것이 없으면 false를 돌려 이름 창으로 넘긴다.
+	private bool TryShowOutfitTooltip(ICctvOutfitPreview preview)
+	{
+		if (_outfitTooltip == null || _outfitSlots == null || _outfitSlots.Length == 0)
+		{
+			return false;
+		}
+
+		IReadOnlyList<Sprite> thumbnails = preview.CctvOutfitThumbnails;
+		if (thumbnails == null || thumbnails.Count == 0)
+		{
+			return false;
+		}
+
+		for (int i = 0; i < _outfitSlots.Length; i++)
+		{
+			if (_outfitSlots[i] == null)
+			{
+				continue;
+			}
+
+			bool hasThumbnail = i < thumbnails.Count;
+			_outfitSlots[i].gameObject.SetActive(hasThumbnail);
+
+			if (!hasThumbnail)
+			{
+				continue;
+			}
+
+			_outfitSlots[i].sprite = thumbnails[i];
+		}
+
+		_outfitTooltip.gameObject.SetActive(true);
+		PlaceNearCursor(_outfitTooltip);
+		return true;
+	}
+
+	private void SetOutfitTooltipVisible(bool isVisible)
+	{
+		if (_outfitTooltip != null)
+		{
+			_outfitTooltip.gameObject.SetActive(isVisible);
+		}
 	}
 
 	// 커서가 CCTV 화면 안에 있으면 그 위치를 RawImage 로컬 좌표로 돌려준다.
