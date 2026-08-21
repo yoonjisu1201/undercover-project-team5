@@ -45,6 +45,7 @@ public sealed class BreakerCircuitState : NetworkBehaviour
     public const float ResultDelaySeconds = 2f;
 
     private MissionInteractable _interactable;
+    private FieldLampController _fieldLampController;
 
     private readonly NetworkVariable<bool> _powerOn = new(
         true, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -82,6 +83,12 @@ public sealed class BreakerCircuitState : NetworkBehaviour
         if (_interactable != null)
         {
             _interactable.IsCompletedChanged += HandleCompletionChanged;
+
+            // 늦게 접속한 클라이언트는 이미 동기화된 초기값에 대한 변경 콜백을 받지 못하므로, 완료된 상태면 연출 없이 바로 켠다.
+            if (_interactable.IsCompleted)
+            {
+                ApplyFieldLamps(true, withFade: false);
+            }
         }
     }
 
@@ -305,5 +312,25 @@ public sealed class BreakerCircuitState : NetworkBehaviour
 
 
     // A가 배터리를 다 쓴 뒤 완료 여부를 반영해야 하는 쪽(예: BreakerBatteryMission)에 알린다.
-    private void HandleCompletionChanged(bool completed) => OnCircuitChanged?.Invoke();
+    private void HandleCompletionChanged(bool completed)
+    {
+        ApplyFieldLamps(completed, withFade: true);
+
+        OnCircuitChanged?.Invoke();
+    }
+
+    // 브레이커를 살리면 활성 구역의 가로등이 켜진다.
+    // 가로등을 이벤트가 아니라 완료 상태의 함수로 두어, 이미 복제된 같은 값에서 서버와 클라이언트가 같은 결론을 내게 한다.
+    // 라운드 리셋으로 완료가 풀리는 것이 곧 소등이므로 구역 변경 이벤트 순서에 의존하지 않는다.
+    // 완료 상태 자체가 동기화되므로 추가 RPC 없이 각 피어가 로컬에서 연출만 재생한다.
+    private void ApplyFieldLamps(bool completed, bool withFade)
+    {
+        // 브레이커는 런타임에 스폰되고 가로등은 씬에 배치돼 있어 인스펙터로 연결할 수 없다.
+        if (_fieldLampController == null)
+        {
+            _fieldLampController = FindFirstObjectByType<FieldLampController>();
+        }
+
+        _fieldLampController?.SetLit(completed, withFade);
+    }
 }
