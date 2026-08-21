@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -69,14 +68,20 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
         base.Awake();
 
         _renderers = GetComponentsInChildren<Renderer>(true);
-        CctvHighlight.CreateOutline(transform, gameObject.layer, _renderers, CctvHighlightKind.MissionMachine);
-        CctvHighlight.Register(this);
+        CctvHighlight.CreateOutline(this, transform, gameObject.layer, _renderers, CctvHighlightKind.MissionMachine);
+
+        if (string.IsNullOrEmpty(_cctvDisplayName))
+        {
+            Debug.LogWarning($"'{name}'에 CCTV 표시 이름이 비어 있어 커서를 올려도 이름이 뜨지 않습니다.", this);
+        }
     }
 
     // ICctvHighlightTarget — 필드 미션 장치도 CCTV에서 외곽선과 이름이 보이게 한다.
     public CctvHighlightKind CctvKind => CctvHighlightKind.MissionMachine;
-    public Bounds CctvBounds => CctvHighlight.GetWorldBounds(_renderers);
-    public string CctvDisplayName => string.IsNullOrEmpty(_cctvDisplayName) ? name : _cctvDisplayName;
+    public Bounds CctvBounds => CctvHighlight.GetWorldBounds(_renderers, transform.position);
+    // 런타임 오브젝트 이름은 Instantiate가 붙인 "(Clone)"이 섞이므로 폴백으로 쓰지 않는다.
+    // 비어 있으면 툴팁을 띄우지 않고, 설정 누락은 Awake에서 경고로 알린다.
+    public string CctvDisplayName => _cctvDisplayName;
     public bool IsVisibleOnCctv => true;
 
     // 역할 제한은 여기서 보지 않는다. 조준은 되어야 GetInteractionText로 제한 안내를 띄울 수 있다. (HqScreen과 같은 방식)

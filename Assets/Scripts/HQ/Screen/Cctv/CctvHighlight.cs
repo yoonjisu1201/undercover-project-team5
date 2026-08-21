@@ -38,6 +38,9 @@ public static class CctvHighlight
 
     private static readonly List<ICctvHighlightTarget> Targets = new();
 
+    // 대상별 CCTV 외곽선. 멀어서 점처럼 보이는 대상의 외곽선을 끄는 데 쓴다.
+    private static readonly Dictionary<ICctvHighlightTarget, Outlinable> Outlines = new();
+
     // CCTV 화면에서 커서 아래 대상을 찾을 때 순회한다.
     public static IReadOnlyList<ICctvHighlightTarget> RegisteredTargets => Targets;
 
@@ -71,7 +74,8 @@ public static class CctvHighlight
         EnabledKindsChanged?.Invoke();
     }
 
-    public static void Register(ICctvHighlightTarget target)
+    // 등록은 CreateOutline이 맡는다. 외곽선 없이 목록에만 있는 대상이 생기지 않도록 외부에 열지 않는다.
+    private static void Register(ICctvHighlightTarget target)
     {
         if (target != null && !Targets.Contains(target))
         {
@@ -82,11 +86,28 @@ public static class CctvHighlight
     public static void Unregister(ICctvHighlightTarget target)
     {
         Targets.Remove(target);
+        Outlines.Remove(target);
     }
 
+    public static bool IsOutlineEnabled(ICctvHighlightTarget target)
+    {
+        return Outlines.TryGetValue(target, out Outlinable outline) && outline != null && outline.enabled;
+    }
+
+    // 멀어서 작게 그려진 대상은 외곽선을 끈다. 외곽선이 없으면 조준·이름 표시도 따라서 걸러진다.
+    public static void SetOutlineEnabled(ICctvHighlightTarget target, bool isEnabled)
+    {
+        if (Outlines.TryGetValue(target, out Outlinable outline) && outline != null)
+        {
+            outline.enabled = isEnabled;
+        }
+    }
+
+    // 대상 등록과 외곽선 생성을 함께 한다. 둘로 나누면 외곽선만 있고 목록에는 없는 대상이 생긴다.
     // 종류마다 EPO 레이어가 다를 뿐, 외곽선 모양은 모두 같다.
     // 1인칭 외곽선(InteractableBase가 잡는 Outlinable)과 섞이지 않도록 반드시 base.Awake() 뒤에 부른다.
     public static Outlinable CreateOutline(
+        ICctvHighlightTarget target,
         Transform owner,
         int unityLayer,
         Renderer[] renderers,
@@ -118,11 +139,16 @@ public static class CctvHighlight
             }
         }
 
+        Register(target);
+        Outlines[target] = outline;
+
         return outline;
     }
 
     // 활성화된 렌더러들을 합친 월드 바운즈. CCTV 조준 표시가 화면 사각형을 잡을 때 쓴다.
-    public static Bounds GetWorldBounds(Renderer[] renderers)
+    // 활성 렌더러가 하나도 없으면 default(Bounds)는 월드 원점이 되어 엉뚱한 곳에 조준이 잡힌다.
+    // 그래서 대상 위치 기준의 작은 바운즈로 대체한다.
+    public static Bounds GetWorldBounds(Renderer[] renderers, Vector3 fallbackPosition)
     {
         bool hasBounds = false;
         Bounds bounds = default;
@@ -144,6 +170,6 @@ public static class CctvHighlight
             bounds.Encapsulate(targetRenderer.bounds);
         }
 
-        return bounds;
+        return hasBounds ? bounds : new Bounds(fallbackPosition, Vector3.one * 0.1f);
     }
 }
