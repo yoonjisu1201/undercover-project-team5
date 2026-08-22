@@ -14,6 +14,9 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 	[Header("=== 미니맵 스프라이트를 그릴 Image ===")]
 	[SerializeField] private Image _mapImage;
 
+	[Header("=== 본부 벽에 그려지는 맵 이미지 ===")]
+	[SerializeField] private Image _mapImageOnWall;
+
 	[Header("=== 지상 구역별 미니맵 스프라이트 (E 구역은 아직 없음) ===")]
 	[Tooltip("칸 순서가 RegionId 순서(A, B, C, D, E)와 그대로 맞아야 한다. 없는 구역은 비워둔다. 지하는 그림을 조립하므로 칸이 없다.")]
 	[SerializeField] private Sprite[] _regionSprites = Array.Empty<Sprite>();
@@ -150,7 +153,7 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 		SyncZoomSlider();
 	}
 
-	// 활성 구역이 바뀌면 지상 지도를 갈아끼운다. 지하를 보고 있는 중이면 값만 갱신하고 화면은 그대로 둔다.
+	// 활성 구역이 바뀌면 지상 지도 및 미니맵 Sprite를 갈아끼운다. 지하를 보고 있는 중이면 값만 갱신하고 화면은 그대로 둔다.
 	private void HandleActiveRegionChanged(MapRegion region) {
 		_activeRegion = region;
 
@@ -184,6 +187,7 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 		_mapAngle = _activeRegion != null ? (float)FindRotation(_activeRegion.RegionId) : 0f;
 
 		_mapImage.sprite = sprite;
+		_mapImageOnWall.sprite = sprite;
 		_mapImage.enabled = sprite != null;
 
 		if (sprite != null) {
