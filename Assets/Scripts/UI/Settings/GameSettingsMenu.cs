@@ -19,7 +19,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private const string MicVolumeKey = "MicVolume";
     private const string ResolutionIndexKey = "ResolutionIndex";
     private const string FullScreenKey = "FullScreen";
-    private const string MouseSensitivityKey = "MouseSensitivityOw";
+    private const string MouseSensitivityKey = "MouseSensitivity";
 
     // 지원되는 해상도 목록 (가로 x 세로)
     private static readonly Vector2Int[] SupportedResolutions =
@@ -196,7 +196,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
         SetMouseSensitivity(sensitivity);
     }
 
-    // 슬라이더 값이 곧 오버워치 감도다. 별도 변환이 없다.
+    // 슬라이더를 움직여서 세팅
     public void SetMouseSensitivity(float sensitivity)
     {
         PlayerPrefs.SetFloat(MouseSensitivityKey, sensitivity);

@@ -3,9 +3,7 @@ using UnityEngine;
 
 public class PlayerCameraController : NetworkBehaviour
 {
-    // 눈금 의미가 바뀌었으므로(도/카운트 -> 오버워치 감도) 예전 키를 그대로 쓰면
-    // 저장돼 있던 값이 엉뚱하게 해석된다. 키를 바꿔 한 번 초기화한다.
-    private const string MouseSensitivityKey = "MouseSensitivityOw";
+    private const string MouseSensitivityKey = "MouseSensitivity";
 
     [Header("카메라 관련")]
     [SerializeField] private GameObject _headPivot;
@@ -14,10 +12,8 @@ public class PlayerCameraController : NetworkBehaviour
     [SerializeField] private Transform _headBone;
     [SerializeField] private Transform _downedCameraAnchor;
     [SerializeField, Min(0.01f)] private float _cameraTransitionDuration = 0.35f;
-    // 감도 눈금을 오버워치와 똑같이 맞춘다. 오버워치는 감도 1당 마우스 1카운트에 0.0066도 회전하고,
-    // <Mouse>/delta 를 프로세서 없이 그대로 곱하는 우리 _rotateSpeed 가 바로 그 '카운트당 도'다.
-    // 따라서 같은 DPI 에서 같은 숫자를 넣으면 오버워치와 체감이 같다.
-    // 범위도 오버워치와 같은 1~100 이다. 슬라이더만 있으면 대다수가 쓰는 1~12 가 폭의 11% 로
+
+    // 범위는 1~100 이다. 슬라이더만 있으면 대다수가 쓰는 1~12 가 폭의 11% 로
     // 몰려 조절이 어렵지만, 설정창에서 숫자를 직접 입력할 수 있으므로 문제되지 않는다.
     public const float DegreesPerCountPerSensitivity = 0.0066f;
     public const float MinSensitivity = 1f;
@@ -168,7 +164,7 @@ public class PlayerCameraController : NetworkBehaviour
 
         // 기준 회전에서 현재 시야각을 계산해 매 프레임 회전이 누적되지 않게 한다.
         _headBone.localRotation = _headBoneBaseRotation * Quaternion.Euler(pitch, 0f, 0f);
-        
+
         // 손 IK 타겟은 헤드 본보다 좁은 범위 안에서만 따라가게 별도 피벗에 클램프된 값을 적용한다.
         // 다른 클라이언트에서도 보여야 하므로 헤드 본과 동일하게 이 시점에 갱신한다.
         if (_armFollowPivot != null)
