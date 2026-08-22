@@ -12,7 +12,18 @@ public class PlayerCameraController : NetworkBehaviour
     [SerializeField] private Transform _headBone;
     [SerializeField] private Transform _downedCameraAnchor;
     [SerializeField, Min(0.01f)] private float _cameraTransitionDuration = 0.35f;
-    [SerializeField] private float _rotateSpeed = 0.5f;
+
+    // 범위는 1~100 이다. 슬라이더만 있으면 대다수가 쓰는 1~12 가 폭의 11% 로
+    // 몰려 조절이 어렵지만, 설정창에서 숫자를 직접 입력할 수 있으므로 문제되지 않는다.
+    public const float DegreesPerCountPerSensitivity = 0.0066f;
+    public const float MinSensitivity = 1f;
+    public const float MaxSensitivity = 100f;
+    public const float DefaultSensitivity = 5f;
+
+    public static float ToRotateSpeed(float sensitivity)
+        => Mathf.Clamp(sensitivity, MinSensitivity, MaxSensitivity) * DegreesPerCountPerSensitivity;
+
+    [SerializeField] private float _rotateSpeed = DefaultSensitivity * DegreesPerCountPerSensitivity;
 
     // 카메라 상하 시야 각도 제한 (위로 볼 때 최소, 아래로 볼 때 최대)
     // 값이 작을수록(0에 가까울수록) 시야 제한이 커진다
@@ -48,7 +59,7 @@ public class PlayerCameraController : NetworkBehaviour
 
     private void Awake()
     {
-        _rotateSpeed = PlayerPrefs.GetFloat(MouseSensitivityKey, _rotateSpeed);
+        _rotateSpeed = ToRotateSpeed(PlayerPrefs.GetFloat(MouseSensitivityKey, DefaultSensitivity));
         _actions = new CustomInputActions();
         _actions.Enable();
 
@@ -153,7 +164,7 @@ public class PlayerCameraController : NetworkBehaviour
 
         // 기준 회전에서 현재 시야각을 계산해 매 프레임 회전이 누적되지 않게 한다.
         _headBone.localRotation = _headBoneBaseRotation * Quaternion.Euler(pitch, 0f, 0f);
-        
+
         // 손 IK 타겟은 헤드 본보다 좁은 범위 안에서만 따라가게 별도 피벗에 클램프된 값을 적용한다.
         // 다른 클라이언트에서도 보여야 하므로 헤드 본과 동일하게 이 시점에 갱신한다.
         if (_armFollowPivot != null)
@@ -165,7 +176,7 @@ public class PlayerCameraController : NetworkBehaviour
 
     public void SetMouseSensitivity(float sensitivity)
     {
-        _rotateSpeed = Mathf.Clamp(sensitivity, 0.1f, 2f);
+        _rotateSpeed = ToRotateSpeed(sensitivity);
     }
 
     public void SetYaw(float yaw)
