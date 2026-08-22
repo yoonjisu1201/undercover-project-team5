@@ -122,6 +122,9 @@ public class ArrestJudgementManager : NetworkBehaviour
     {
         LastArrestingPlayerName = arrestingPlayerName.ToString();
         OnJudged?.Invoke(result, candidate.TryGet(out NetworkObject npc) ? npc : null);
+
+        if (result == ArrestResult.Success) SoundManager.Instance?.Play(SoundKey.Arrest_Success);
+        else if (result == ArrestResult.WrongTarget) SoundManager.Instance?.Play(SoundKey.Arrest_Wrong);
     }
 
     private static string GetPlayerName(ulong clientId)

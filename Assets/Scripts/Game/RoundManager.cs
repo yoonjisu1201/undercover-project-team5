@@ -40,6 +40,9 @@ public partial class RoundManager : NetworkBehaviour
     [Header("게임 종료 후 돌아갈 대기방 씬")]
     [SerializeField] private string _waitingRoomSceneName = "WaitingRoom";
 
+    [Header("남은 시간 경고음이 울릴 시점 (초)")]
+    [SerializeField] private float _timeWarningSeconds = 60f;
+
     [Header("스폰 완료 확인 (로딩 화면과 라운드 시작 시점을 맞추기 위함)")]
     [SerializeField] private NpcSpawner _npcSpawner;
     [SerializeField] private ClueSpawner _clueSpawner;
@@ -89,6 +92,9 @@ public partial class RoundManager : NetworkBehaviour
     // Fail/Success 전환 직전에 서버가 RPC로 알려준 남은 시간. 상태가 바뀐 뒤에는 이 값을 그대로 쓴다.
     // 클라이언트가 각자 계산한 값을 얼려두면 상태 변경을 받는 프레임에 따라 사람마다 다른 시간이 표시된다.
     private float _remainingTimeAtResult;
+
+    // 경고음은 라운드마다 한 번만 울린다. 라운드가 시작될 때 초기화한다.
+    private bool _timeWarningPlayed;
 
     private bool _isStartingNextRound;
 
@@ -192,6 +198,13 @@ public partial class RoundManager : NetworkBehaviour
     {
         OnRoundStateChanged?.Invoke(current);
 
+        switch (current)
+        {
+            case RoundState.RoundClear: SoundManager.Instance?.Play(SoundKey.Round_Clear); break;
+            case RoundState.Success: SoundManager.Instance?.Play(SoundKey.Game_Success); break;
+            case RoundState.Fail: SoundManager.Instance?.Play(SoundKey.Game_Fail); break;
+        }
+
         if (current == RoundState.RoundClear || current == RoundState.Fail || current == RoundState.Success)
         {
             OnRoundResult?.Invoke(current);
@@ -200,7 +213,11 @@ public partial class RoundManager : NetworkBehaviour
 
     private void Update()
     {
-        if (!IsSpawned || !IsServer) return;
+        if (!IsSpawned) return;
+
+        UpdateTimeWarning();
+
+        if (!IsServer) return;
         if (_debugTimeStopped.Value) return;
         if (NetworkManager.ServerTime.Time < _roundEndTime.Value) return;
 
@@ -216,6 +233,19 @@ public partial class RoundManager : NetworkBehaviour
                 }
                 break;
         }
+    }
+
+    // 남은 시간이 기준 아래로 내려가면 경고음을 낸다. 각 클라이언트가 _roundEndTime과 서버 시간으로
+    // 직접 계산하므로 서버가 알려줄 필요가 없다. 오검거 페널티나 디버그 시간 정지로 남은 시간이
+    // 갑자기 줄어드는 경우가 있어, 시점을 미리 예약하지 않고 매 프레임 확인한다.
+    private void UpdateTimeWarning()
+    {
+        if (_timeWarningPlayed) return;
+        if (_currentState.Value != RoundState.InRound) return;
+        if (GetRemainingTime() > _timeWarningSeconds) return;
+
+        _timeWarningPlayed = true;
+        SoundManager.Instance?.Play(SoundKey.Round_TimeWarning);
     }
 
     // 최신 필드 해방 상태로 NPC를 다시 배치한 뒤 다음 라운드를 시작합니다.
@@ -395,6 +425,9 @@ public partial class RoundManager : NetworkBehaviour
     private void AnnounceRoundStartRpc(int roundIndex)
     {
         OnRoundStarted?.Invoke(roundIndex);
+
+        _timeWarningPlayed = false;
+        SoundManager.Instance?.Play(SoundKey.Round_Start);
     }
 
     private void SetFail()

@@ -211,6 +211,7 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
 
         _pendingPlacements[battery.EntryId] = slotIndex;
         _circuitState?.RequestPlaceBattery(battery.EntryId, slotIndex);
+        SoundManager.Instance?.Play(SoundKey.Mission_ItemInsert);
         RefreshItemPositions();
     }
 
