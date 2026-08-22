@@ -24,6 +24,10 @@ public class PlayerStamina : NetworkBehaviour
     public float MaxStamina => _maxStamina;
     public float CurrentStamina => _currentStamina.Value;
 
+    // 달리기가 끊기는 기준. 소모는 부동소수 누적 탓에 정확히 0에서 멈추지 않으므로
+    // 0과 비교하지 말고 이 판정을 쓴다.
+    public bool IsEmpty => _currentStamina.Value <= EmptyThreshold;
+
     public override void OnNetworkSpawn()
     {
         if (IsServer)
