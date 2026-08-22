@@ -108,6 +108,9 @@ public class ClueModulePreview : MonoBehaviour
             await UniTask.NextFrame(cancellationToken);
         }
 
+        // 단서 캡처 도중 옷을 입혀가며 찍은 렌더 결과가 벽면에 남지 않도록, 마지막에 벗은 상태로 1회 렌더링한다.
+        _syncManager.CaptureCleanWallState();
+
         Debug.Log($"[ClueModulePreview] 몽타주 카메라 단서 준비 완료 | 총 {_capturedTextures.Count}개", this);
     }
 
