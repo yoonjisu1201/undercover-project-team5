@@ -3,7 +3,9 @@ using UnityEngine;
 
 public class PlayerCameraController : NetworkBehaviour
 {
-    private const string MouseSensitivityKey = "MouseSensitivity";
+    // 눈금 의미가 바뀌었으므로(도/카운트 -> 오버워치 감도) 예전 키를 그대로 쓰면
+    // 저장돼 있던 값이 엉뚱하게 해석된다. 키를 바꿔 한 번 초기화한다.
+    private const string MouseSensitivityKey = "MouseSensitivityOw";
 
     [Header("카메라 관련")]
     [SerializeField] private GameObject _headPivot;
@@ -12,7 +14,20 @@ public class PlayerCameraController : NetworkBehaviour
     [SerializeField] private Transform _headBone;
     [SerializeField] private Transform _downedCameraAnchor;
     [SerializeField, Min(0.01f)] private float _cameraTransitionDuration = 0.35f;
-    [SerializeField] private float _rotateSpeed = 0.5f;
+    // 감도 눈금을 오버워치와 똑같이 맞춘다. 오버워치는 감도 1당 마우스 1카운트에 0.0066도 회전하고,
+    // <Mouse>/delta 를 프로세서 없이 그대로 곱하는 우리 _rotateSpeed 가 바로 그 '카운트당 도'다.
+    // 따라서 같은 DPI 에서 같은 숫자를 넣으면 오버워치와 체감이 같다.
+    // 범위도 오버워치와 같은 1~100 이다. 슬라이더만 있으면 대다수가 쓰는 1~12 가 폭의 11% 로
+    // 몰려 조절이 어렵지만, 설정창에서 숫자를 직접 입력할 수 있으므로 문제되지 않는다.
+    public const float DegreesPerCountPerSensitivity = 0.0066f;
+    public const float MinSensitivity = 1f;
+    public const float MaxSensitivity = 100f;
+    public const float DefaultSensitivity = 5f;
+
+    public static float ToRotateSpeed(float sensitivity)
+        => Mathf.Clamp(sensitivity, MinSensitivity, MaxSensitivity) * DegreesPerCountPerSensitivity;
+
+    [SerializeField] private float _rotateSpeed = DefaultSensitivity * DegreesPerCountPerSensitivity;
 
     // 카메라 상하 시야 각도 제한 (위로 볼 때 최소, 아래로 볼 때 최대)
     // 값이 작을수록(0에 가까울수록) 시야 제한이 커진다
@@ -48,7 +63,7 @@ public class PlayerCameraController : NetworkBehaviour
 
     private void Awake()
     {
-        _rotateSpeed = PlayerPrefs.GetFloat(MouseSensitivityKey, _rotateSpeed);
+        _rotateSpeed = ToRotateSpeed(PlayerPrefs.GetFloat(MouseSensitivityKey, DefaultSensitivity));
         _actions = new CustomInputActions();
         _actions.Enable();
 
@@ -165,7 +180,7 @@ public class PlayerCameraController : NetworkBehaviour
 
     public void SetMouseSensitivity(float sensitivity)
     {
-        _rotateSpeed = Mathf.Clamp(sensitivity, 0.1f, 2f);
+        _rotateSpeed = ToRotateSpeed(sensitivity);
     }
 
     public void SetYaw(float yaw)

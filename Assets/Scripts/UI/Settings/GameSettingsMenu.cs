@@ -8,6 +8,7 @@ using Unity.Services.Vivox;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.InputSystem;
+using UnityEngine.Localization;
 using UnityEngine.UI;
 
 public sealed class GameSettingsMenu : MonoBehaviour
@@ -18,7 +19,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private const string MicVolumeKey = "MicVolume";
     private const string ResolutionIndexKey = "ResolutionIndex";
     private const string FullScreenKey = "FullScreen";
-    private const string MouseSensitivityKey = "MouseSensitivity";
+    private const string MouseSensitivityKey = "MouseSensitivityOw";
 
     // 지원되는 해상도 목록 (가로 x 세로)
     private static readonly Vector2Int[] SupportedResolutions =
@@ -43,6 +44,13 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [SerializeField] private TMP_Text _outputDeviceText;
     [SerializeField] private TMP_Text _micTestButtonText;
 
+    // 조건에 따라 문구가 바뀌므로 LocalizeStringEvent 로는 안 되고 코드에서 조회해야 한다.
+    [Header("Localized Strings")]
+    [SerializeField] private LocalizedString _micTestStartText;
+    [SerializeField] private LocalizedString _micTestStopText;
+    [SerializeField] private LocalizedString _noInputDeviceText;
+    [SerializeField] private LocalizedString _noOutputDeviceText;
+
     [Header("Volume")]
     [SerializeField] private AudioMixer _audioMixer;
     [SerializeField] private Slider _bgmSlider;
@@ -56,7 +64,8 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     [Header("Gameplay Settings")]
     [SerializeField] private Slider _sensitivitySlider;
-    [SerializeField] private TMP_Text _sensitivityValueText;
+    // 슬라이더로는 미세 조절이 어려우므로 숫자를 직접 입력할 수도 있게 한다.
+    [SerializeField] private TMP_InputField _sensitivityInput;
 
     private CustomInputActions _actions;
     private bool _vivoxEventsSubscribed;
@@ -94,7 +103,10 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     private void InitializeSensitivity()
     {
-        float sensitivity = PlayerPrefs.GetFloat(MouseSensitivityKey, 0.5f);
+        float sensitivity = Mathf.Clamp(
+            PlayerPrefs.GetFloat(MouseSensitivityKey, PlayerCameraController.DefaultSensitivity),
+            PlayerCameraController.MinSensitivity,
+            PlayerCameraController.MaxSensitivity);
         _sensitivitySlider?.SetValueWithoutNotify(sensitivity);
         ApplyMouseSensitivity(sensitivity);
     }
@@ -166,7 +178,26 @@ public sealed class GameSettingsMenu : MonoBehaviour
         PlayerPrefs.SetInt(FullScreenKey, isFullScreen ? 1 : 0);
     }
 
-    public void SetMouseSensitivity(float sensitivity)  // 마우스 감도 설정
+    // 입력창에 숫자를 넣고 엔터를 치거나 포커스를 옮겼을 때. 범위를 벗어나면 잘라내고,
+    // 숫자가 아니면 현재 값으로 되돌린다.
+    private void HandleSensitivityInput(string text)
+    {
+        if (!float.TryParse(text, out float sensitivity))
+        {
+            ApplyMouseSensitivity(PlayerPrefs.GetFloat(MouseSensitivityKey, PlayerCameraController.DefaultSensitivity));
+            return;
+        }
+
+        sensitivity = Mathf.Clamp(sensitivity,
+            PlayerCameraController.MinSensitivity,
+            PlayerCameraController.MaxSensitivity);
+
+        _sensitivitySlider?.SetValueWithoutNotify(sensitivity);
+        SetMouseSensitivity(sensitivity);
+    }
+
+    // 슬라이더 값이 곧 오버워치 감도다. 별도 변환이 없다.
+    public void SetMouseSensitivity(float sensitivity)
     {
         PlayerPrefs.SetFloat(MouseSensitivityKey, sensitivity);
         ApplyMouseSensitivity(sensitivity);
@@ -174,9 +205,10 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     private void ApplyMouseSensitivity(float sensitivity)   // 마우스 감도 적용
     {
-        if (_sensitivityValueText != null)
+        if (_sensitivityInput != null)
         {
-            _sensitivityValueText.text = sensitivity.ToString("0.00");
+            // 입력창이 스스로 부른 갱신에서 다시 이벤트가 돌지 않도록 알림 없이 넣는다.
+            _sensitivityInput.SetTextWithoutNotify(sensitivity.ToString("0.0"));
         }
 
         var playerObject = NetworkManager.Singleton?.LocalClient?.PlayerObject;
@@ -258,6 +290,13 @@ public sealed class GameSettingsMenu : MonoBehaviour
         _actions.System.Enable();
         _actions.System.Escape.performed += OnEscape;
 
+        // 프리팹 UnityEvent 는 메서드 이름으로 묶여 조용히 끊기므로 코드에서 구독한다.
+        // onEndEdit 은 엔터와 포커스 이탈 모두에서 불린다.
+        if (_sensitivityInput != null)
+        {
+            _sensitivityInput.onEndEdit.AddListener(HandleSensitivityInput);
+        }
+
         InitializeVivoxSettingsAsync().Forget();
     }
 
@@ -265,6 +304,11 @@ public sealed class GameSettingsMenu : MonoBehaviour
     {
         _actions.System.Escape.performed -= OnEscape;
         _actions.Disable();
+
+        if (_sensitivityInput != null)
+        {
+            _sensitivityInput.onEndEdit.RemoveListener(HandleSensitivityInput);
+        }
 
         if (_vivoxEventsSubscribed && VivoxManager.Instance != null)
         {
@@ -387,19 +431,17 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
     private void RefreshMicTestButtonText(bool isTesting)
     {
-        _micTestButtonText.text = isTesting
-            ? "마이크 테스트 종료"
-            : "마이크 테스트";
+        _micTestButtonText.text = (isTesting ? _micTestStopText : _micTestStartText).GetLocalizedString();
     }
 
     private void RefreshDeviceNames()
     {
         _inputDeviceText.text = GetDeviceDisplayName(
             VivoxManager.Instance.CurrentInputDeviceName,
-            "입력 장치 없음");
+            _noInputDeviceText.GetLocalizedString());
         _outputDeviceText.text = GetDeviceDisplayName(
             VivoxManager.Instance.CurrentOutputDeviceName,
-            "출력 장치 없음");
+            _noOutputDeviceText.GetLocalizedString());
     }
 
     private static string GetDeviceDisplayName(string deviceName, string emptyDeviceName)
