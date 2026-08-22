@@ -3,7 +3,10 @@ using EPOOutline;
 using Unity.Netcode;
 using UnityEngine;
 
-[RequireComponent(typeof(Outlinable), typeof(NetworkObject))]
+// NetworkObject를 여기서 요구하지 않는다. NetworkBehaviour는 부모 체인에 NetworkObject가 있으면 되는데,
+// 같은 오브젝트에 요구하면 다른 네트워크 프리팹의 자식으로 붙일 때 Unity가 자식에 NetworkObject를 자동 생성한다.
+// 그렇게 만들어진 중첩 NetworkObject는 동적 스폰에서 네트워크로 스폰되지 않아 조용히 망가진다.
+[RequireComponent(typeof(Outlinable))]
 public abstract class InteractableBase : NetworkBehaviour, IInteractable
 {
     public abstract string InteractionText { get; }
