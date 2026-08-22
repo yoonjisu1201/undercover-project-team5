@@ -63,6 +63,11 @@ public static class CctvHighlight
     // 표시 종류가 바뀌면 알린다. CCTVHub가 Outliner 마스크를 갱신한다.
     public static event Action EnabledKindsChanged;
 
+    // CCTV 오버레이 카메라가 그리는 레이어. 이 레이어가 아닌 오브젝트는 CCTV 화면에 절대 나오지 않는다.
+    public static int CameraLayerMask => (1 << Layers.Item) | (1 << Layers.NotInMinimap);
+
+    public static bool IsOnCameraLayer(int layer) => (CameraLayerMask & (1 << layer)) != 0;
+
     public static long MaskOf(CctvHighlightKind kind) => 1L << (int)kind;
 
     public static bool IsKindEnabled(CctvHighlightKind kind) => (_enabledMask & MaskOf(kind)) != 0L;

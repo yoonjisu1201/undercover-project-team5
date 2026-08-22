@@ -34,6 +34,10 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
     // 프리팹이 하나뿐이라 인스펙터로는 구분할 수 없어, 스폰할 때 서버가 정해 모든 클라이언트에 배포한다.
     private readonly NetworkVariable<int> _targetNumber = new(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    // MissionSpawner가 스폰 전에 정해 주는 담당 번호. NetworkVariable은 스폰 전에 쓸 수 없으므로
+    // 여기 담아 두고 OnNetworkSpawn에서 옮긴다. 0이면 지정되지 않은 것이다.
+    private int _pendingTargetNumber;
+
     private GameObject _uiInstance; // 열려있는 미션 ui 인스턴스
     private Transform _interactingPlayer;
     private static MissionInteractable _activeInteractable;
@@ -68,6 +72,14 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
         base.Awake();
 
         _renderers = GetComponentsInChildren<Renderer>(true);
+
+        // HQ 내부 콘솔처럼 CCTV 카메라가 보지 않는 레이어에 있는 기계는 CCTV 대상이 아니다.
+        // 외곽선을 만들 이유도, 표시 이름이 없다고 경고할 이유도 없다.
+        if (!CctvHighlight.IsOnCameraLayer(gameObject.layer))
+        {
+            return;
+        }
+
         CctvHighlight.CreateOutline(this, transform, gameObject.layer, _renderers, CctvHighlightKind.MissionMachine);
 
         if (string.IsNullOrEmpty(_cctvDisplayName))
@@ -115,6 +127,12 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
         _isCompleted.OnValueChanged += HandleCompletionChanged;
         _puzzleSeed.OnValueChanged += HandlePuzzleSeedChanged;
 
+        // 스폰 전에 받아 둔 담당 번호를 여기서 넣는다. 담당 번호는 1부터라 0은 미지정을 뜻한다.
+        if (IsServer && _pendingTargetNumber > 0)
+        {
+            _targetNumber.Value = _pendingTargetNumber;
+        }
+
         // 새로 스폰된 기계는 서버가 최초 퍼즐 시드를 한 번만 정한다.
         if (IsServer && _puzzleSeed.Value == 0)
         {
@@ -135,10 +153,12 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
         _completionReward = reward;
     }
 
-    // 서버가 스폰 직전에 이 기계가 담당할 대상 번호를 정한다. (Spawn 전에 넣어야 클라이언트 최초 값으로 배포된다)
+    // 서버가 스폰 직전에 이 기계가 담당할 대상 번호를 정한다.
+    // NetworkVariable에 바로 쓰면 아직 NetworkBehaviour에 연결되지 않아 경고가 난다.
+    // 값만 담아 두고 OnNetworkSpawn에서 넣으면 클라이언트 최초 값으로 함께 배포된다.
     public void ConfigureTargetNumber(int targetNumber)
     {
-        _targetNumber.Value = targetNumber;
+        _pendingTargetNumber = targetNumber;
     }
 
     // 미션 UI를 열고 완료된 게임이면 완료 안내만 표시한다.

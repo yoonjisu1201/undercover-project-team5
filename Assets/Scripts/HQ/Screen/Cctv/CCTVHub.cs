@@ -118,7 +118,7 @@ public class CCTVHub : MonoBehaviour {
 		overlayCamera.CopyFrom(_cctvCamera);
 		overlayCamera.targetTexture = null;             // 오버레이는 베이스 카메라의 타깃에 그린다.
 		// 아이템·미션 장치(Item)와 NPC(NotInMinimap)만 다시 그린다. CCTV 외곽선 대상이 이 레이어들에만 있다.
-		overlayCamera.cullingMask = (1 << Layers.Item) | (1 << Layers.NotInMinimap);
+		overlayCamera.cullingMask = CctvHighlight.CameraLayerMask;
 
 		UniversalAdditionalCameraData overlayData = overlayCamera.GetUniversalAdditionalCameraData();
 		overlayData.renderType = CameraRenderType.Overlay;
