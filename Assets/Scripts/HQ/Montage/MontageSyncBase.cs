@@ -89,9 +89,15 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 		// 준비되기 전에 도착해 무시된 변경도 여기서 최신값으로 함께 반영된다.
 		ApplyFull(_montageState.Value);
 
-		// 초기화 완료 후 카메라 끄고(렉 줄이기 위해)
-		// 초기 렌더 정보 만들기 위해 1회 수동 렌더링
+		// 카메라를 계속 켜두지 않기 위해 끈다(렉 줄이기 위해).
+		// 벽면에 표시할 초기 렌더는 단서 캡처가 모두 끝난 뒤 CaptureCleanWallState에서 만든다.
 		_montageCamera.enabled = false;
+	}
+
+	// 단서 캡처(증거 생성)가 모두 끝난 뒤 호출한다. 캡처 도중 옷을 입혀가며 찍은 렌더 결과가
+	// 벽면에 남지 않도록, 옷을 모두 벗긴 상태로 1회 렌더링해 초기 화면을 만든다.
+	public void CaptureCleanWallState() {
+		_montage.RemoveAllClothes();
 		_montageCamera.Render();
 	}
 
