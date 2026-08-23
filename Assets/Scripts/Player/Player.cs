@@ -37,11 +37,11 @@ public class Player : NetworkBehaviour
 	private static readonly List<Player> _activeInstances = new();
 	public static IReadOnlyList<Player> ActiveInstances => _activeInstances;
 
-	// 플레이어명. 모두 조회 가능하고, 중복 검사를 위해 서버만 수정한다.
+	// 플레이어명. 모두 조회 가능하고, 자기 자신만 수정 가능하도록
 	private readonly NetworkVariable<FixedString32Bytes> _playerName = new NetworkVariable<FixedString32Bytes>(
 		null,
 		NetworkVariableReadPermission.Everyone,
-		NetworkVariableWritePermission.Server
+		NetworkVariableWritePermission.Owner
 	);
 
 	// 플레이어가 사용할 색상
@@ -73,15 +73,9 @@ public class Player : NetworkBehaviour
 	public event Action<FixedString32Bytes, FixedString32Bytes> PlayerNameChanged;
 	public event Action<Color, Color> PlayerColorChanged;
 
-	// 서버의 이름 요청 처리 결과를 요청한 본인에게만 알린다. true면 반영됐다.
-	public event Action<bool> NameRequestResolved;
-
 	// 말하기 시작·종료 시점을 알아야 하는 쪽(음성 오버레이)이 순서까지 정확히 받도록 전환을 그대로 흘려준다.
 	// 매 갱신마다 전체 플레이어를 훑지 않아도 된다.
 	public event Action<bool> SpeakingChanged;
-
-	// 이름을 정하지 않은 플레이어에게 보여줄 기본 이름. 대기방 입력칸도 같은 규칙을 써야 한다.
-	public static string GetDefaultName(ulong clientId) => $"Player {clientId + 1}";
 
 	// PlayerName을 가져오도록 하는 Property. 닉네임을 설정했으면 설정한 닉네임을 제공하고, 설정되지 않았다면 Player 1같은 값을 반환한다.
 	public string PlayerName
@@ -90,7 +84,7 @@ public class Player : NetworkBehaviour
 		{
 			if (!_isNetworkStarted) { throw new InvalidOperationException($"[Player] 네트워크에 연결되지 않았는데 PlayerName을 요청했습니다."); }
 			if (_playerName.Value != null) { return _playerName.Value.ToString(); }
-			return GetDefaultName(OwnerClientId);
+			return $"Player {OwnerClientId + 1}";
 		}
 	}
 
@@ -127,51 +121,11 @@ public class Player : NetworkBehaviour
 			return;
 		}
 
-		// FixedString32Bytes는 담을 수 있는 바이트를 넘기면 예외를 던지므로, RPC 인자를 만들기 전에 자른다.
-		string trimmedName = playerName.Trim();
-		string limitedName = trimmedName.Length > MaxPlayerNameLength
-			? trimmedName.Substring(0, MaxPlayerNameLength)
-			: trimmedName;
+		string limitedName = playerName.Length > MaxPlayerNameLength
+			? playerName.Substring(0, MaxPlayerNameLength)
+			: playerName;
 
-		RequestPlayerNameRpc(new FixedString32Bytes(limitedName));
-	}
-
-	// 중복 검사는 전원의 이름을 볼 수 있는 서버만 할 수 있다. 소유자가 직접 쓰면
-	// 두 사람이 같은 이름을 동시에 확정할 때 둘 다 통과한다.
-	[Rpc(SendTo.Server)]
-	private void RequestPlayerNameRpc(FixedString32Bytes requestedName)
-	{
-		bool accepted = !IsNameUsedByOtherPlayer(requestedName.ToString());
-		if (accepted)
-		{
-			_playerName.Value = requestedName;
-		}
-
-		// 같은 이름을 다시 확정하면 값이 안 바뀌어 OnValueChanged가 발동하지 않는다.
-		// 성공도 함께 알려야 요청한 쪽이 결과를 알 수 있다.
-		NotifyNameResultOwnerRpc(accepted, RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp));
-	}
-
-	// 표시되는 이름으로 비교한다. 이름을 정하지 않은 사람은 "Player 2"처럼 보이는데, 원본 값(빈 문자열)으로
-	// 비교하면 그 이름을 다른 사람이 가져갈 수 있다. 자기 이름을 그대로 재확정하는 경우는 중복이 아니다.
-	private bool IsNameUsedByOtherPlayer(string requestedName)
-	{
-		foreach (Player player in _activeInstances)
-		{
-			if (player != this && player.PlayerName == requestedName)
-			{
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	// 요청한 본인만 결과를 알아야 한다. 남이 어떤 이름을 시도했다 실패했는지는 알 필요가 없다.
-	[Rpc(SendTo.SpecifiedInParams)]
-	private void NotifyNameResultOwnerRpc(bool accepted, RpcParams rpcParams = default)
-	{
-		NameRequestResolved?.Invoke(accepted);
+		_playerName.Value = new FixedString32Bytes(limitedName);
 	}
 
 	public override void OnNetworkSpawn()

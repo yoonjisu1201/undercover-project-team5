@@ -13,7 +13,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 	[Header("참조")]
 	[SerializeField] private Button _leaveButton;
 	[SerializeField] private TextMeshProUGUI _joinCodeText;
-	[SerializeField] private TextMeshProUGUI _roomNameText;
 	[SerializeField] private Button _micMuteButton;
 	[SerializeField] private Button _outputMuteButton;
     [SerializeField] private Button _startGameButton;
@@ -25,7 +24,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     [SerializeField] private TMP_InputField _nicknameInputField;
     [SerializeField] private Button _nicknameConfirmButton;
     [SerializeField] private GameObject _nicknameSettingPanel;
-    [SerializeField] private TextMeshProUGUI _nicknameNoticeText; // "이미 사용 중인 닉네임입니다" 안내
 
     [Header("=== 조인코드 복사 ===")]
     [SerializeField] private TextMeshProUGUI _copyNoticeText; // "복사되었습니다" 안내, 잠깐 표시
@@ -50,8 +48,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     private static string s_savedNickname;
 
     private bool _isNicknamePanelOpen;
-    // 이름 요청 결과를 구독한 Player. OnDestroy에서 해제하려면 대상을 기억해야 한다.
-    private Player _boundPlayer;
 
     // 현재 구독 중인 Player들의 역할 변경. 슬롯이 바뀔 때마다 전부 해제하고 현재 슬롯 기준으로 다시 구독한다.
     private readonly List<Player> _subscribedPlayers = new();
@@ -75,8 +71,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         _nicknameConfirmButton.onClick.AddListener(HandleNicknameConfirmButtonClicked);
 
         bool shouldShowNicknamePanel = !s_hasCompletedNicknameSetup;
-        // 씬에 값을 저장해두면 모든 플레이어에게 같은 이름이 보인다. 접속은 끝난 상태라 자기 기본 이름을 알 수 있다.
-        _nicknameInputField.text = GetCurrentNickname();
         SetNicknamePanelOpen(shouldShowNicknamePanel);
 
         if (!shouldShowNicknamePanel)
@@ -91,8 +85,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         {
             _copyNoticeText.gameObject.SetActive(false);
         }
-
-        _nicknameNoticeText.gameObject.SetActive(false);
 
         _isHost = NetworkManager.Singleton.IsHost;
         _startGameButton.gameObject.SetActive(_isHost); //방장만 스타트 버튼이 보임
@@ -141,8 +133,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         _nicknameConfirmButton.onClick.RemoveListener(HandleNicknameConfirmButtonClicked);
 
-        if (_boundPlayer != null) { _boundPlayer.NameRequestResolved -= HandleNameRequestResolved; }
-
         GameplayUiMode.Instance?.UnregisterUi(this);
 
         // 설정창을 연 채로 씬이 바뀌면 카운트가 남아 다음 씬에서 조작이 계속 막힌다.
@@ -172,7 +162,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     private void UpdateJoinCodeText()
     {
         _joinCodeText.text = GameSessionManager.Instance.JoinCode;
-        _roomNameText.text = GameSessionManager.Instance.RoomName;
     }
 
     // 조인코드를 클립보드에 복사하고 잠깐 안내를 띄운다.
@@ -257,31 +246,10 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         if (localPlayerObject.TryGetComponent(out Player localPlayer))
         {
-            _nicknameNoticeText.gameObject.SetActive(false);
-
-            // 다시 누를 때 구독이 쌓이지 않도록 먼저 해제한다.
-            localPlayer.NameRequestResolved -= HandleNameRequestResolved;
-            localPlayer.NameRequestResolved += HandleNameRequestResolved;
-            _boundPlayer = localPlayer;
-
-            // 서버가 중복을 판정하므로 결과가 올 때까지 패널을 닫지 않는다.
             localPlayer.SetPlayerName(_nicknameInputField.text);
+            SaveNicknameIfValid(_nicknameInputField.text);
+            SetNicknamePanelOpen(false);
         }
-    }
-
-    // 확정 버튼으로 보낸 요청만 여기로 온다. 저장된 닉네임 자동 적용(TryApplySavedNickname)은
-    // 구독하지 않는 경로라, 그쪽이 거절되면 기본 이름으로 남고 안내는 뜨지 않는다.
-    private void HandleNameRequestResolved(bool accepted)
-    {
-        // 확정 버튼을 눌러 여기까지 왔다면 패널은 이미 열려 있으므로 안내만 켜면 된다.
-        if (!accepted)
-        {
-            _nicknameNoticeText.gameObject.SetActive(true);
-            return;
-        }
-
-        SaveNicknameIfValid(_nicknameInputField.text);
-        SetNicknamePanelOpen(false);
     }
 
     // 설정창을 다시 열어 닉네임을 바꾼다. 지금 쓰는 이름을 입력창에 미리 채워 준다.
@@ -312,8 +280,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
             return localPlayer.PlayerName;
         }
 
-        // PlayerObject가 아직 안 왔어도 접속은 끝난 상태라, 같은 규칙으로 기본 이름을 만든다.
-        return Player.GetDefaultName(NetworkManager.Singleton.LocalClientId);
+        return string.Empty;
     }
 
     private void TryApplySavedNickname()
