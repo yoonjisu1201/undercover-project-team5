@@ -39,4 +39,5 @@ public enum SoundKey
     Ui_PopupOpen = 41,
     Ui_PopupClose = 42,
     Ui_ClueToast = 43,
+    Ui_Click2 = 44,
 }

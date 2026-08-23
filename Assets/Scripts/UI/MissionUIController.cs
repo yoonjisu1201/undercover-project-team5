@@ -16,7 +16,8 @@ public sealed class MissionUIController : MonoBehaviour, IClosableUi
 
     private void OnEnable()
     {
-        GameplayUiMode.Instance?.RegisterUi(this);
+        // 열림음은 MissionInteractable이 Mission_UiOpen으로 낸다.
+        GameplayUiMode.Instance?.RegisterUi(this, playOpenSound: false);
     }
 
     private void OnDisable()

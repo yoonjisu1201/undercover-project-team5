@@ -13,15 +13,25 @@ public class GameplayUiMode : MonoBehaviour
     private int _cursorActivationCount;
 
     private readonly List<IClosableUi> _openUIs = new();
-    public void RegisterUi(IClosableUi ui)  // 최근에 연 ui가 맨 위로
+    public void RegisterUi(IClosableUi ui, bool playOpenSound = true)  // 최근에 연 ui가 맨 위로
     {
-        _openUIs.Remove(ui);
+        bool alreadyOpen = _openUIs.Remove(ui);
         _openUIs.Add(ui);
+
+        // 이미 열려 있던 UI를 맨 위로 올리는 경우는 새로 열린 게 아니다.
+        if (!alreadyOpen && playOpenSound)
+        {
+            SoundManager.Instance?.Play(SoundKey.Ui_PopupOpen);
+        }
     }
 
     public void UnregisterUi(IClosableUi ui)
     {
-        _openUIs.Remove(ui);
+        // 방어적으로 여러 번 호출하는 UI가 있어서, 실제로 목록에 있었을 때만 소리를 낸다.
+        if (_openUIs.Remove(ui))
+        {
+            SoundManager.Instance?.Play(SoundKey.Ui_PopupClose);
+        }
     }
 
     public bool CloseTopUi()
@@ -30,7 +40,13 @@ public class GameplayUiMode : MonoBehaviour
         {
             IClosableUi ui = _openUIs[i];
             _openUIs.RemoveAt(i);
-            if (ui != null) { ui.Close(); return true; }
+            if (ui != null)
+            {
+                // 위에서 이미 목록에서 뺐으므로 Close() 안의 UnregisterUi는 소리를 내지 않는다.
+                SoundManager.Instance?.Play(SoundKey.Ui_PopupClose);
+                ui.Close();
+                return true;
+            }
         }
         return false;
     }

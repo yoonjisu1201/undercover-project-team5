@@ -100,7 +100,8 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
         _confirmPanel.SetActive(true);
 
         UpdateCursorState();
-        GameplayUiMode.Instance?.RegisterUi(this);
+        // 검거 결과음(Arrest_Success / Arrest_Wrong)과 겹치지 않게 팝업 열림음은 내지 않는다.
+        GameplayUiMode.Instance?.RegisterUi(this, playOpenSound: false);
     }
 
     // 시민 검거 상호작용이 완료됐을 때 수갑 연출을 재생한다.
@@ -186,7 +187,7 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
 
         // 판정 결과 패널은 한 번 뜨면 Close()(ESC 또는 닫기 버튼)를 눌러야만 닫힌다. 시간 제한을 없애기 위함.
         UpdateCursorState();
-        GameplayUiMode.Instance?.RegisterUi(this);
+        GameplayUiMode.Instance?.RegisterUi(this, playOpenSound: false);
 
         if (result == ArrestResult.Success)
         {
