@@ -25,6 +25,7 @@ public class GameSessionManager : MonoBehaviour
 
 	public ISession CurrentSession { get; private set; }
 	public string JoinCode => CurrentSession?.Code;
+	public string RoomName => CurrentSession?.Name;
 	public string LastLeaveReason { get; set; }
 
 	// 방 이름은 로비 목록에 그대로 노출되므로, 한 줄에 들어가는 길이로 제한한다.
