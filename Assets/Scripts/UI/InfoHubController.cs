@@ -282,7 +282,7 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 
 		ExpandClueList();
 		EnsureMontageShareUI();
-		_montageShareUI?.Expand();
+		_montageShareUI?.Expand(playOpenSound: false);
 	}
 
 	private void CollapseClueList()

@@ -29,6 +29,8 @@ public sealed class BreakerLeverInteractable : InteractableBase
     // 끝까지 내려서 고정된 상태. 손을 떼도 회로를 Off로 유지한다.
     private bool _isLatched;
     private float _holdStartTime;
+    // OnCircuitChanged가 배터리·측정값 변화에도 발동하므로, 전원이 실제로 바뀐 경우만 소리를 낸다.
+    private bool _lastPowerOn = true;
 
     public override string InteractionText => _interactionText;
     public override bool CanInteract(GameObject interactor) => _circuitState != null;
@@ -55,6 +57,7 @@ public sealed class BreakerLeverInteractable : InteractableBase
             // 재컴파일 등으로 OnEnable이 중복 호출돼도 구독이 여러 번 쌓이지 않도록 먼저 해제한다.
             _circuitState.OnCircuitChanged -= HandleCircuitChanged;
             _circuitState.OnCircuitChanged += HandleCircuitChanged;
+            _lastPowerOn = _circuitState.PowerOn;
         }
 
         // 모든 클라이언트가 현재 전원 상태에 맞는 레버 각도로 시작하도록 즉시 반영한다.
@@ -137,6 +140,12 @@ public sealed class BreakerLeverInteractable : InteractableBase
     // 전원 상태를 보는 모든 클라이언트에서 레버 팔이 실제로 오르내리도록 애니메이션한다.
     private void HandleCircuitChanged()
     {
+        if (_circuitState != null && _lastPowerOn != _circuitState.PowerOn)
+        {
+            _lastPowerOn = _circuitState.PowerOn;
+            SoundManager.Instance?.PlayAt(SoundKey.Lever_Toggle, transform.position);
+        }
+
         if (_armPivot == null || _circuitState == null)
         {
             return;

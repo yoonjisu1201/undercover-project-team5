@@ -17,6 +17,8 @@ public abstract class EntranceDoor : InteractableBase {
 		// 플레이어가 아닌 사람이 상호작용하면 제끼기
 		if (!interactor.TryGetComponent<Player>(out var player)) { return; }
 
+		SoundManager.Instance?.Play(SoundKey.Door_Open);
+
 		// 플레이어가 상호작용했다면, 이동시켜주면 됨
 		player.PlayerMove.TeleportToPosition(_targetPoint.position, _targetPoint.rotation);
 	}

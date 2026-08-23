@@ -34,6 +34,11 @@ public class PlayerMoveSample : NetworkBehaviour
 	[Header("지면 판정")]
 	[SerializeField] private Transform _groundCheck;
 	[SerializeField, Min(0.01f)] private float _groundCheckRadius = 0.3f;
+
+	[Header("발소리")]
+	// 한 걸음 사이의 간격. 달리기는 이동 속도가 _runSpeedMultiplier(1.5)배라 간격도 그만큼 짧다.
+	[SerializeField, Min(0.05f)] private float _footstepWalkInterval = 0.45f;
+	[SerializeField, Min(0.05f)] private float _footstepRunInterval = 0.3f;
 	[SerializeField] private LayerMask _jumpableSurfaceMask;
 
 	// 점프 입력 예약 (Update에서 감지 → FixedUpdate에서 힘 적용)
@@ -66,6 +71,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	private bool _isStaminaExhausted;
 	// #392: 실제 소생 후 Getting Up에서 Idle로 돌아갈 때까지 이동을 차단한다.
 	private bool _isGettingUp;
+	private float _footstepTimer;
 
 	// Getting Up 애니메이션 + 블렌딩이 완전히 끝나는 시점(FixedUpdate에서 감지)에 발동한다.
 	public event Action GettingUpFinished;
@@ -146,6 +152,11 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		_isJumping = value;
 		ApplyAnimatorBool(IsJumpingHash, value);
+
+		if (value)
+		{
+			SoundManager.Instance?.PlayAt(SoundKey.Player_Jump, transform.position);
+		}
 	}
 
 	// #392: PlayerHealth.DownedStateChanged -> Animator IsDowned -> Downed/Getting Up 전이 흐름의 연결 지점이다.
@@ -155,6 +166,8 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		if (value)
 		{
+			SoundManager.Instance?.PlayAt(SoundKey.Player_Downed, transform.position);
+
 			_jumpRequested = false;
 
 			SetMovingState(false);
@@ -168,7 +181,12 @@ public class PlayerMoveSample : NetworkBehaviour
 		}		
 
 		_isGettingUp = previousValue && !value;
-	}		
+
+		if (_isGettingUp)
+		{
+			SoundManager.Instance?.PlayAt(SoundKey.Player_Revive, transform.position);
+		}
+	}
 
 	private void UpdateJumpAnimation()
 	{
@@ -208,6 +226,9 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void Update()
 	{
+		// 원격 플레이어 인스턴스에서도 돌아야 하므로 IsOwner 가드보다 앞에 둔다.
+		UpdateFootstep();
+
 		if (!IsOwner)
 		{
 			return;
@@ -380,6 +401,36 @@ public class PlayerMoveSample : NetworkBehaviour
 			multiplier = _riseMultiplier;  // 상승 → 정점에 빨리 도달
 		}
 		_rigidbody.linearVelocity += Vector3.up * Physics.gravity.y * multiplier * Time.fixedDeltaTime;
+	}
+
+	// 각 클라이언트가 자기 화면의 플레이어마다 이 타이머를 돌린다. 동기화된 이동 상태와 위치를
+	// 그대로 쓰므로 발소리 때문에 통신이 발생하지 않는다.
+	private void UpdateFootstep()
+	{
+		if (!_networkIsMoving.Value || _isJumping)
+		{
+			_footstepTimer = 0f;
+			return;
+		}
+
+		_footstepTimer -= Time.deltaTime;
+		if (_footstepTimer > 0f)
+		{
+			return;
+		}
+
+		bool running = _networkIsRunning.Value;
+		_footstepTimer = running ? _footstepRunInterval : _footstepWalkInterval;
+
+		// 발이 땅에 없으면 이번 걸음은 넘긴다. 타이머는 위에서 이미 갱신했다.
+		if (!IsGrounded())
+		{
+			return;
+		}
+
+		SoundManager.Instance?.PlayAt(
+			running ? SoundKey.Player_FootstepRun : SoundKey.Player_FootstepWalk,
+			transform.position);
 	}
 
 	// 긴급 탈출 컴포넌트도 이동 코드와 같은 지면 판정을 재사용한다.

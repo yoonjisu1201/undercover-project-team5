@@ -214,6 +214,7 @@ public class PlayerInventory : NetworkBehaviour
     private void ChangeSelectedNumberRpc(int index, RpcParams rpcParams = default)
     {
         _selectedIndex.Value = index;
+        SoundManager.Instance?.Play(SoundKey.Item_Pickup);
         NotifyInventoryChanged();
         NotifySelectedItem();
     }
@@ -305,6 +306,12 @@ public class PlayerInventory : NetworkBehaviour
     {
         if (index < 0 || index >= InventorySize)
             return;
+
+        // 이미 고른 슬롯을 다시 누른 경우는 바뀐 게 없으니 소리를 내지 않는다.
+        if (_selectedIndex.Value != index)
+        {
+            SoundManager.Instance?.Play(SoundKey.Inventory_SlotSelect);
+        }
 
         _selectedIndex.Value = index;
         NotifyInventoryChanged();
