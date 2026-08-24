@@ -74,6 +74,9 @@ public class MontageDressUpUI : ScreenBase {
 
 	// 파츠별 탭 버튼의 배경 이미지 (활성/비활성 색상 전환용)
 	private readonly Dictionary<ClothPart, Image> _tabBackgrounds = new Dictionary<ClothPart, Image>();
+	private Dictionary<ClothPart, LocalizedString> _partLabels;
+	// 언어 변경 시 탭 라벨을 갱신하기 위해 등록한 핸들러 (파괴 시 해제용)
+	private readonly Dictionary<ClothPart, LocalizedString.ChangeHandler> _partLabelHandlers = new Dictionary<ClothPart, LocalizedString.ChangeHandler>();
 	// 현재 활성 탭에서 생성된 레코드 행 목록 (탭 전환 시 파괴 후 재생성)
 	private readonly List<MontageRecordRow> _spawnedRows = new List<MontageRecordRow>();
 
@@ -145,7 +148,7 @@ public class MontageDressUpUI : ScreenBase {
 	   if (_initialized) { return; }
 
 	   // 탭/레코드 UI에 표시할 파츠별 라벨
-	   var partLabels = new Dictionary<ClothPart, LocalizedString> {
+	   _partLabels = new Dictionary<ClothPart, LocalizedString> {
 	      { ClothPart.Torso, _torsoLabel },
 	      { ClothPart.Arm, _armLabel },
 	      { ClothPart.Pants, _pantsLabel },
@@ -165,11 +168,18 @@ public class MontageDressUpUI : ScreenBase {
 	      tabObj.name = $"Tab_{part}";
 	      tabObj.SetActive(true);
 
-	      // 내부 텍스트 값 수정
+	      // 내부 텍스트 값 수정. StringChanged는 최초 로드 시와 언어 변경 시 모두 호출되므로
+	      // 화면이 이미 만들어진 뒤에 언어가 바뀌어도 라벨이 갱신된다.
 	      TMP_Text label = tabObj.GetComponentInChildren<TMP_Text>();
-	      if (label != null) {
-	         label.text = partLabels.TryGetValue(part, out LocalizedString partLabel) ? partLabel.GetLocalizedString() : part.ToString();
-	         label.ForceMeshUpdate();
+	      if (label != null && _partLabels.TryGetValue(part, out LocalizedString partLabel)) {
+	         LocalizedString.ChangeHandler handler = value => {
+	            label.text = value;
+	            label.ForceMeshUpdate();
+	         };
+	         _partLabelHandlers[part] = handler;
+	         partLabel.StringChanged += handler;
+	      } else if (label != null) {
+	         label.text = part.ToString();
 	      }
 
 	      Button button = tabObj.GetComponent<Button>();
@@ -178,6 +188,14 @@ public class MontageDressUpUI : ScreenBase {
 	   }
 
 	   _initialized = true;
+	}
+
+	private void OnDestroy() {
+	   foreach (KeyValuePair<ClothPart, LocalizedString.ChangeHandler> pair in _partLabelHandlers) {
+	      if (_partLabels.TryGetValue(pair.Key, out LocalizedString partLabel)) {
+	         partLabel.StringChanged -= pair.Value;
+	      }
+	   }
 	}
 
 	private void SetActiveTab(ClothPart part) {
