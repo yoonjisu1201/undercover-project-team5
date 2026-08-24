@@ -3,6 +3,11 @@
 // 스폰 시도 전에 이 스포너가 직접 전용 MapRegionController의 NavMesh 캐시를 갱신해야 한다.
 public class UndergroundAlienCloneSpawner : AlienCloneSpawnerBase
 {
+    // 지하의 적은 보스 하나로 정리했다. 보스와 분신이 같이 쫓아오면 어느 쪽이 어디서 오는지
+    // 읽을 수 없어져, 숨거나 소리를 줄이는 판단 자체가 의미를 잃는다.
+    // 되살리려면 이 값을 true로 돌리거나 디버그 메뉴에서 스폰을 켜면 된다.
+    protected override bool GetDefaultSpawningEnabled() => false;
+
     protected override void OnRoundStarting()
     {
         // 지상과 달리 Basement용 MapRegionController는 필드 구역 해금 추첨(SetActiveRegion)의
