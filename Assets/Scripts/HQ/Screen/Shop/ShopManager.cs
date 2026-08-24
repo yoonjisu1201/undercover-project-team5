@@ -3,6 +3,11 @@ using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
+public enum ShopPurchaseFailReason {
+	InsufficientCredits,
+	InventoryFull
+}
+
 public sealed class ShopManager : NetworkBehaviour {
 	[Header("=== 상품 ===")]
 	[SerializeField] private ShopItemData[] _shopItems;
@@ -22,7 +27,7 @@ public sealed class ShopManager : NetworkBehaviour {
 	public event Action<int> CreditsChanged;
 	public event Action InventoryFull;
 	public event Action<ItemType, int> PurchaseCompleted;
-	public event Action<string> PurchaseFailed;
+	public event Action<ShopPurchaseFailReason> PurchaseFailed;
 
 	public override void OnNetworkSpawn() 
 	{
@@ -65,7 +70,7 @@ public sealed class ShopManager : NetworkBehaviour {
         if (_credits.Value < shopItem.Price)
         {
             Debug.LogWarning($"[ShopManager] 구매 실패: 크레딧이 부족합니다. Credits: {_credits.Value}, Price: {shopItem.Price}");
-			NotifyPurchaseFailedRpc("돈이 부족합니다.", RpcTarget.Single(senderClientId, RpcTargetUse.Temp));
+			NotifyPurchaseFailedRpc(ShopPurchaseFailReason.InsufficientCredits, RpcTarget.Single(senderClientId, RpcTargetUse.Temp));
             return;
         }
 
@@ -87,7 +92,7 @@ public sealed class ShopManager : NetworkBehaviour {
 
 			if (!ItemBase.TrySpawnAndAddToInventory(itemData, inventory))
 			{
-				NotifyPurchaseFailedRpc("인벤토리가 가득 찼습니다.", RpcTarget.Single(senderClientId, RpcTargetUse.Temp));
+				NotifyPurchaseFailedRpc(ShopPurchaseFailReason.InventoryFull, RpcTarget.Single(senderClientId, RpcTargetUse.Temp));
 				return;
 			}
 
@@ -125,7 +130,7 @@ public sealed class ShopManager : NetworkBehaviour {
 	}
 
 	[Rpc(SendTo.SpecifiedInParams)]
-	private void NotifyPurchaseFailedRpc(string reason, RpcParams rpcParams = default)
+	private void NotifyPurchaseFailedRpc(ShopPurchaseFailReason reason, RpcParams rpcParams = default)
 	{
 		PurchaseFailed?.Invoke(reason);
 	}
