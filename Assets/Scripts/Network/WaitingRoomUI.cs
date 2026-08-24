@@ -48,6 +48,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     private bool _isHost;
     private bool _isReady;
 
+    // 월드 준비·시작 버튼이 기존 Canvas UI와 같은 상태를 사용하도록 읽기 전용 상태와 변경 신호를 제공한다.
+    // 네트워크 준비 로직을 월드 버튼에 중복하지 않아 호스트·참가자 규칙의 기준을 WaitingRoomUI 한 곳에 둔다.
     public event Action ReadyStartStateChanged;
     public bool IsHost => _isHost;
     public bool IsReady => _isReady;
@@ -118,6 +120,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
             UpdateReadyButtonColor();
         }
 
+        // 오브젝트 활성화 순서와 관계없이 초기 호스트·준비 상태가 결정된 뒤 월드 버튼에도 현재 상태를 알린다.
         ReadyStartStateChanged?.Invoke();
 
         UpdateMicMuteButtonColor();
@@ -220,6 +223,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         return localize;
     }
 
+	// Canvas 나가기 버튼과 월드 출구 문이 동일한 세션 종료 흐름을 재사용할 수 있도록 공개한다.
 	public void HandleLeaveButtonClicked()
 	{
 		GameSessionManager.Instance.LeaveSession();
@@ -369,6 +373,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 		_outputMuteButton.targetGraphic.color = VivoxManager.IsOutputMuted ? MutedColor : UnmutedColor;
 	}
 
+    // 하나의 월드 스테이션이 호스트에게는 게임 시작, 참가자에게는 준비 토글로 동작하게 역할 분기를 모은다.
+    // 분기를 UI에 유지해 월드 버튼이 네트워크 준비·시작 구현 세부사항에 의존하지 않게 한다.
     public void InteractReadyStart()
     {
         if (_isHost)
@@ -385,6 +391,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         _isReady = !_isReady;
         _readyManager.SetReadyServerRpc(_isReady);
         UpdateReadyButtonColor();
+
+        // Canvas 버튼을 먼저 갱신한 뒤 월드 버튼에도 같은 로컬 준비 상태를 알린다.
         ReadyStartStateChanged?.Invoke();
     }
 
@@ -393,7 +401,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         _readyButton.targetGraphic.color = _isReady ? ReadyColor : NotReadyColor;
     }
 
-    // 입장/퇴장/준비 상태 변경으로 슬롯 구성이 바뀔 때마다 호출된다.
+    // 입장·퇴장·준비 변경은 호스트의 시작 가능 여부를 바꾸므로 Canvas와 월드 시작 버튼을 함께 갱신한다.
+    // 참가자의 월드 버튼은 자신의 준비 토글에서 갱신되므로 여기서는 호스트 상태만 처리한다.
     private void HandleSlotsChanged(NetworkListEvent<WaitingRoomReadyManager.PlayerSlot> _)
     {
         if (!_isHost)
