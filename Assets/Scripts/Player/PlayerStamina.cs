@@ -28,6 +28,10 @@ public class PlayerStamina : NetworkBehaviour
     // 0과 비교하지 말고 이 판정을 쓴다.
     public bool IsEmpty => _currentStamina.Value <= EmptyThreshold;
 
+    // 보스 감지가 "지금 달리는 중인가"를 알아야 한다(달리기가 가장 큰 소음원).
+    // 서버에서만 갱신되는 상태라 클라이언트에서는 항상 false 다.
+    public bool IsSprinting => _isSprinting;
+
     public override void OnNetworkSpawn()
     {
         if (IsServer)

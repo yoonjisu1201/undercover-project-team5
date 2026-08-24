@@ -1440,6 +1440,9 @@ GameObject:
   - component: {fileID: 1543382109063254538}
   - component: {fileID: 8956869327702578604}
   - component: {fileID: 3052364089656010576}
+  - component: {fileID: 2292494492836638870}
+  - component: {fileID: 7673072836558187457}
+  - component: {fileID: 5577988363960709734}
   m_Layer: 0
   m_Name: Player_main
   m_TagString: Untagged
@@ -2016,7 +2019,6 @@ MonoBehaviour:
   _rightHandParent: {fileID: 1209176905634614433}
   _rightHandTarget: {fileID: 5119655668416212038}
   _flashLightPrefab: {fileID: 7554012784043586558, guid: 087327657a2387e4eb88b1905a89de03, type: 3}
-  _lightInCamera: {fileID: 0}
   _headPivot: {fileID: 652807202391233900}
   _playerCameraController: {fileID: 0}
 --- !u!114 &2126864538568221489
@@ -2137,6 +2139,145 @@ MonoBehaviour:
   _lowStaminaRatio: 0.2
   _fillLerpSpeed: 14
   _lowPulseSpeed: 8
+--- !u!82 &2292494492836638870
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 6296281468018362291, guid: ea0a2619f21b9864997ce31ab97dabab, type: 2}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 0
+  MinDistance: 1.5
+  MaxDistance: 25
+  Pan2D: 0
+  rolloffMode: 1
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &7673072836558187457
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: abb2e30979a24394c953d16d1eb17a52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FootstepAudio
+  _source: {fileID: 2292494492836638870}
+  _walkClips: []
+  _runClips: []
+  _walkInterval: 0.5
+  _runInterval: 0.32
+  _runSpeedThreshold: 6.2
+  _idleSpeedThreshold: 0.6
+  _pitchRange: {x: 0.94, y: 1.06}
+--- !u!114 &5577988363960709734
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 908cc05ffe049a846834b2bc6a2fcfc9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerNoiseEmitter
+  ShowTopMostFoldoutHeaderGroup: 1
+  _stepInterval: 0.4
+  _movedThreshold: 0.15
+  _walkRadius: 10
+  _sprintRadius: 30
+  _landingRadius: 20
+  _voiceRadius: 18
+  _voiceInterval: 0.5
+  _muteIncreasesNoise: 1
+  _mutedNoiseMultiplier: 1.8
 --- !u!1 &2732188082477116487
 GameObject:
   m_ObjectHideFlags: 0

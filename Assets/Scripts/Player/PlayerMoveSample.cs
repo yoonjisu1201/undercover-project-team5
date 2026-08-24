@@ -68,6 +68,11 @@ public class PlayerMoveSample : NetworkBehaviour
 			NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
+
+	// 보스 감지가 착지 소리를 내야 해서 점프 여부를 알아야 한다.
+	// _networkIsJumping이 오너가 쓰고 모두가 읽는 값이고, HandleJumpingChanged가 각 피어의
+	// _isJumping을 따라 갱신하므로 서버에서도 이 값이 맞다.
+	public bool IsJumping => _isJumping;
 	private bool _isStaminaExhausted;
 	// #392: 실제 소생 후 Getting Up에서 Idle로 돌아갈 때까지 이동을 차단한다.
 	private bool _isGettingUp;
