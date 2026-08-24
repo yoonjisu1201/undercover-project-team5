@@ -32,7 +32,7 @@ public class RoundTimerDisplay : MonoBehaviour
 		}
 	}
 
-	private void OnDestroy()
+	protected virtual void OnDestroy()
 	{
 		if (RoundManager.Instance != null)
 		{

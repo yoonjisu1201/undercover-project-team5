@@ -64,6 +64,12 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     // 이번 라운드에 배정된 단서 번호(필드 스폰 + 미션 보상 공통). 라운드가 바뀌면 초기화된다.
     private readonly HashSet<int> _usedClueNumbers = new();
 
+    private CriminalNpcManager _criminalManager;
+
+    // 스폰 시점엔 아직 범인이 확정되지 않아 _totalClueCount(8)로 우선 스폰한다.
+    // 범인이 확정되면 실제 캡쳐 가능 개수(N)로 낮춰서 유령 번호가 나오지 않게 한다.
+    private int _clueNumberCap;
+
     // 배치 규칙은 이 스포너가 코디네이터에 넘길 때만 쓴다.
     // private SpawnRule Rule => _useBasement ? _basementSpawnRule : _spawnRule;
     private SpawnRule Rule => _basementSpawnRule;
@@ -72,6 +78,8 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     {
         if (Instance == null) { Instance = this; }
         else { Destroy(gameObject); }
+
+        _clueNumberCap = _totalClueCount;
     }
 
     private void OnEnable()
@@ -86,6 +94,11 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
 
     private void OnDisable()
     {
+        if (_criminalManager != null)
+        {
+            _criminalManager.OnCriminalAssigned -= HandleCriminalAssigned;
+        }
+
         if (NetworkManager.Singleton?.SceneManager == null)
         {
             return;
@@ -94,15 +107,64 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleSceneLoaded;
     }
 
-    // ClueSpawner는 씬이 로딩 완료되면 단서를 스폰한다.
+    // ClueSpawner는 씬이 로딩 완료되면 단서를 스폰한다. 이 시점엔 범인이 아직 정해지지 않으므로
+    // 범인이 확정되는 대로 개수를 다시 맞출 수 있게 CriminalNpcManager도 여기서 구독해둔다.
     private void HandleSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
     {
-        if (_hasSpawned || sceneName != gameObject.scene.name || !NetworkManager.Singleton.IsServer)
+        if (sceneName != gameObject.scene.name || !NetworkManager.Singleton.IsServer)
         {
             return;
         }
 
-        SpawnClues();
+        if (_criminalManager == null)
+        {
+            _criminalManager = FindFirstObjectByType<CriminalNpcManager>();
+            if (_criminalManager != null)
+            {
+                _criminalManager.OnCriminalAssigned += HandleCriminalAssigned;
+            }
+            else
+            {
+                Debug.LogError("[ClueSpawner] CriminalNpcManager를 찾지 못해 단서 개수를 범인 기준으로 맞출 수 없습니다.", this);
+            }
+        }
+
+        if (!_hasSpawned)
+        {
+            SpawnClues();
+        }
+    }
+
+    // 범인 외형이 확정될 때마다(라운드1 최초 지정 + 라운드2 이후 재지정) 호출되어, 이번 판 실제
+    // 캡쳐 가능 개수(N)보다 큰 번호의 필드 단서를 제거하고 번호 풀 상한도 N으로 낮춘다.
+    private void HandleCriminalAssigned()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+        {
+            return;
+        }
+
+        int capturableCount = ClueCaptureRules.CalculateCapturableClueCount(_criminalManager.CriminalFeature);
+        _clueNumberCap = Mathf.Clamp(capturableCount, 0, _totalClueCount);
+
+        for (int i = _spawnedClues.Count - 1; i >= 0; i--)
+        {
+            NetworkObject spawnedClue = _spawnedClues[i];
+            if (spawnedClue == null || !spawnedClue.TryGetComponent(out ClueItem clueItem) || clueItem.ClueNumber <= _clueNumberCap)
+            {
+                continue;
+            }
+
+            _usedClueNumbers.Remove(clueItem.ClueNumber);
+            _spawnedClues.RemoveAt(i);
+
+            if (spawnedClue.IsSpawned)
+            {
+                spawnedClue.Despawn(destroy: true);
+            }
+        }
+
+        Debug.Log($"[ClueSpawner] 범인 확정에 맞춰 이번 판 단서 개수를 {_clueNumberCap}개로 맞췄습니다.", this);
     }
 
     public void SpawnClues()
@@ -210,7 +272,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
     public bool TryClaimRandomClueNumber(out int clueNumber)
     {
         List<int> available = new();
-        for (int number = 1; number <= _totalClueCount; number++)
+        for (int number = 1; number <= _clueNumberCap; number++)
         {
             if (!_usedClueNumbers.Contains(number))
             {
@@ -287,6 +349,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
         DespawnAllFieldClues();
         _spawnedClues.Clear();
         _usedClueNumbers.Clear();
+        _clueNumberCap = _totalClueCount;
         _spawnCoordinator?.ClearPositions(this);
         _hasSpawned = false;
     }
