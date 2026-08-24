@@ -61,10 +61,10 @@ public sealed class ShopScreenUI : ScreenBase, IClosableUi
 	[SerializeField] private Button _purchaseResultConfirmButton;
 	[SerializeField] private LocalizedString _purchaseCompleteMessage;
 	[SerializeField] private LocalizedString _creditsMessage;
+	[SerializeField] private LocalizedString _purchaseUnavailableMessage;
+	[SerializeField] private LocalizedString _insufficientCreditsMessage;
 
 	private const float InventoryFullWarningSeconds = 2f;
-	private const string PurchaseUnavailableMessageFormat = "구매 불가\n{0}";
-	private const string InventoryFullReason = "인벤토리가 가득 찼습니다.";
 	private CancellationTokenSource _inventoryFullWarningCts;
 
 	private readonly List<ShopItemSlotUI> _spawnedSlots = new List<ShopItemSlotUI>();
@@ -253,7 +253,7 @@ public sealed class ShopScreenUI : ScreenBase, IClosableUi
 
 	private void HandleInventoryFull()
 	{
-		HandlePurchaseFailed(InventoryFullReason);
+		HandlePurchaseFailed(ShopPurchaseFailReason.InventoryFull);
 	}
 
 	private void HandlePurchaseCompleted(ItemType itemId, int remainingCredits)
@@ -282,10 +282,18 @@ public sealed class ShopScreenUI : ScreenBase, IClosableUi
 			: $"{purchaseMessage}\n\n{creditsMessage}");
 	}
 
-	private void HandlePurchaseFailed(string reason)
+	private void HandlePurchaseFailed(ShopPurchaseFailReason reason)
 	{
 		HideInventoryFullWarning();
-		ShowPurchaseResultPopup(string.Format(PurchaseUnavailableMessageFormat, reason));
+
+		string reasonText = reason switch
+		{
+			ShopPurchaseFailReason.InventoryFull => _inventoryFullMessage.GetLocalizedString(),
+			ShopPurchaseFailReason.InsufficientCredits => _insufficientCreditsMessage.GetLocalizedString(),
+			_ => string.Empty
+		};
+
+		ShowPurchaseResultPopup(_purchaseUnavailableMessage.GetLocalizedString(reasonText));
 	}
 
 	private async UniTaskVoid HideInventoryFullWarningAfterDelayAsync(CancellationToken cancellationToken)
