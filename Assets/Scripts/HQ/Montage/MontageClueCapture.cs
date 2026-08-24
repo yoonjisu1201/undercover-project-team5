@@ -5,12 +5,12 @@ public sealed class MontageClueCapture {
 	private const float MinCameraDistance = 0.08f;
 	private const float FallbackFieldOfView = 24f;
 	private const float CaptureFieldOfView = 4f;
-	private const float LightIntensityMultiplier = 2.2f;
+	private const float LightIntensityMultiplier = 1.4f;
 	// 팔 바운드의 중심에서 손 끝 쪽으로 얼마나 옮길지의 비율(1이면 바운드 끝).
 	private const float HandCenterRatio = 0.82f;
 	// 손 하나가 들어가는 정도의 한 변 길이(m).
 	private const float HandFocusSize = 0.14f;
-	private const float FillLightIntensity = 2.0f;
+	private const float FillLightIntensity = 1.2f;
 
 	private readonly Montage _montage;
 	private readonly Camera _camera;
@@ -310,20 +310,20 @@ public sealed class MontageClueCapture {
 	private static float GetLightIntensityMultiplier(ClothPart focusPart) {
 		switch (focusPart) {
 			case ClothPart.Shoes:
-				return 1.15f;
+				return 1.05f;
 			case ClothPart.Torso:
-				return 1.1f;
+				return 1.05f;
 			case ClothPart.Pants:
-				return 1.3f;
+				return 1.15f;
 			case ClothPart.Hair:
 			case ClothPart.Hat:
 			case ClothPart.Headphone:
 			case ClothPart.Eyebrow:
 			case ClothPart.Beard:
 			case ClothPart.Mask:
-				return 1.45f;
+				return 1.2f;
 			case ClothPart.Glasses:
-				return 1.3f;
+				return 1.15f;
 			default:
 				return LightIntensityMultiplier;
 		}
