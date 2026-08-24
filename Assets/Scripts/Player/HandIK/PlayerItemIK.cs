@@ -14,11 +14,10 @@ public class PlayerItemIK : HandIKBase {
 	[Header("=== 손전등 오브젝트 ===")]
 	[SerializeField] private GameObject _flashLightPrefab;
 
-	[Header("=== 손전등 꺼질 때 같이 끌 Light오브젝트 ===")] 
-	[SerializeField] private Light _lightInCamera;
-
 	[Header("=== 머리 피벗(참고용) ===")]
 	[SerializeField] private GameObject _headPivot;
+
+	[SerializeField] private PlayerCameraController _playerCameraController;
 
 	private GameObject _itemOnLeftHand;
 	private GameObject _itemOnRightHand;
@@ -28,22 +27,23 @@ public class PlayerItemIK : HandIKBase {
 	// 왼손에는 항상 플래시라이트 있어야 함. 고정으로 leftHand에 스폰
 	protected override void Awake() {
 		base.Awake();
-		
-		// 불빛도 켜져있도록
-		_lightInCamera.enabled = true;
+
+		_playerCameraController ??= GetComponent<PlayerCameraController>();
+
 		_itemOnLeftHand = Instantiate(_flashLightPrefab, _leftHandParent);
+		if (_itemOnLeftHand.TryGetComponent(out Flashlight flashlight)) {
+			flashlight.Initialize(_playerCameraController);
+		}
 	}
 
 	// 다른 걸 잡을 때(카트 잡을 때 등)에는 손에 있는 오브젝트 비활성화한다.
 	public void DisableItems() {
-		_lightInCamera.enabled = false;
 		_itemOnLeftHand?.SetActive(false);
 		_itemOnRightHand?.SetActive(false);
 	}
 
 	public override void ApplyIK(int layerIndex) {
 		// 잡을 때 손에 있는 오브젝트 활성화
-		_lightInCamera.enabled = true;
 		_itemOnLeftHand?.SetActive(true);
 		_itemOnRightHand?.SetActive(true);
 
