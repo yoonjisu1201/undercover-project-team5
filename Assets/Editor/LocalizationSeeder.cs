@@ -19,9 +19,19 @@ public static class LocalizationSeeder
     // ▼▼▼ 여기만 수정하세요: (Key, English, Korean) ▼▼▼
     private static readonly (string key, string en, string ko)[] Entries =
     {
-        ("start_button",    "Start",    "시작"),
-        ("settings_button", "Settings", "설정"),
-        ("exit_button",     "Exit",     "나가기"),
+        ("montage_part_torso",       "Top",       "상의"),
+        ("montage_part_arm",         "Arm",       "팔"),
+        ("montage_part_pants",       "Pants",     "바지"),
+        ("montage_part_shoes",       "Shoes",     "신발"),
+        ("montage_part_hair",        "Hair",      "헤어"),
+        ("montage_part_hat",         "Hat",       "모자"),
+        ("montage_part_glasses",     "Glasses",   "안경"),
+        ("montage_part_eyebrow",     "Eyebrow",   "눈썹"),
+        ("montage_part_beard",       "Beard",     "수염"),
+        ("montage_part_mask",        "Mask",      "마스크"),
+        ("montage_part_headphone",   "Headphone", "헤드폰"),
+        ("shop_purchase_unavailable",  "Purchase unavailable\n{0}", "구매 불가\n{0}"),
+        ("shop_insufficient_credits",  "Not enough credits.",       "돈이 부족합니다."),
     };
     // ▲▲▲ 여기까지 ▲▲▲
 
