@@ -15,6 +15,7 @@ public class LobbyButtonUI : MonoBehaviour
 	[SerializeField] private Button _joinButton;
 	[SerializeField] private TMP_InputField _joinCodeInputField;
 	[SerializeField] private TextMeshProUGUI _leaveReasonText;
+	[SerializeField] private TextMeshProUGUI _buildVersionText;
 
 	[Header("방 만들기")]
 	[SerializeField] private TMP_InputField _roomNameInputField;
@@ -35,6 +36,9 @@ public class LobbyButtonUI : MonoBehaviour
 		_joinButton.onClick.AddListener(HandleJoinButtonClicked);
 
 		_roomNameInputField.characterLimit = GameSessionManager.MaxRoomNameLength;
+
+		// 다른 버전끼리는 방에 참가할 수 없으므로, 참가를 시도하기 전에 서로 버전을 맞춰볼 수 있게 노출한다.
+		_buildVersionText.text = $"v{Application.version}";
 
 		GameSessionManager.Instance.OnSessionCreated += HandleSessionCreated;
 		GameSessionManager.Instance.OnSessionJoined += HandleSessionJoined;

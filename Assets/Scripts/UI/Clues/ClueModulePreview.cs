@@ -146,17 +146,17 @@ public class ClueModulePreview : MonoBehaviour
             return false;
         }
 
-        AddClueState(ClothPart.Beard, criminalManager.CriminalFeature.Outfit.BeardNumber);
-        AddClueState(ClothPart.Eyebrow, criminalManager.CriminalFeature.Outfit.EyebrowsNumber);
-        AddClueState(ClothPart.Glasses, criminalManager.CriminalFeature.Outfit.GlassesNumber);
-        AddClueState(ClothPart.Hair, criminalManager.CriminalFeature.Outfit.HairNumber);
-        AddClueState(ClothPart.Hat, criminalManager.CriminalFeature.Outfit.HatNumber);
-        AddClueState(ClothPart.Headphone, criminalManager.CriminalFeature.Outfit.HeadphoneNumber);
-        AddClueState(ClothPart.Arm, criminalManager.CriminalFeature.Outfit.ArmNumber);
-        AddClueState(ClothPart.Mask, criminalManager.CriminalFeature.Outfit.MaskNumber);
-        AddClueState(ClothPart.Pants, criminalManager.CriminalFeature.Outfit.PantsNumber);
-        AddClueState(ClothPart.Shoes, criminalManager.CriminalFeature.Outfit.ShoesNumber);
-        AddClueState(ClothPart.Torso, criminalManager.CriminalFeature.Outfit.TorsoNumber);
+        OutfitFeature outfit = criminalManager.CriminalFeature.Outfit;
+        LogAndAddIfEquippedButNotCapturable(ClothPart.Beard, outfit.BeardNumber);
+        LogAndAddIfEquippedButNotCapturable(ClothPart.Eyebrow, outfit.EyebrowsNumber);
+        LogAndAddIfEquippedButNotCapturable(ClothPart.Glasses, outfit.GlassesNumber);
+        LogAndAddIfEquippedButNotCapturable(ClothPart.Hair, outfit.HairNumber);
+        LogAndAddIfEquippedButNotCapturable(ClothPart.Hat, outfit.HatNumber);
+        LogAndAddIfEquippedButNotCapturable(ClothPart.Headphone, outfit.HeadphoneNumber);
+        LogAndAddIfEquippedButNotCapturable(ClothPart.Mask, outfit.MaskNumber);
+        LogAndAddIfEquippedButNotCapturable(ClothPart.Pants, outfit.PantsNumber);
+        LogAndAddIfEquippedButNotCapturable(ClothPart.Shoes, outfit.ShoesNumber);
+        LogAndAddIfEquippedButNotCapturable(ClothPart.Torso, outfit.TorsoNumber);
 
         if (_equippedParts.Count > 0)
         {
@@ -167,17 +167,16 @@ public class ClueModulePreview : MonoBehaviour
         return false;
     }
 
-    // NPC가 착용한 ClothData.Id를 그대로 몽타주 상태에 담는다. 예전에는 NPC 인덱스와 몽타주 id가
-    // 서로 다른 번호 체계였지만, 지금은 ClothCatalog 하나를 공유하므로 번역이 필요 없다.
-    private void AddClueState(ClothPart part, int clothId)
+    // 캡쳐 가능한지 확인만 하고 상태를 남기지 않는다. ClueCaptureRules와 같은 기준(clothId >= 0
+    // && MontagePrefab 존재)을 써서 ClueModulePreview와 ClueSpawner가 다른 개수를 세지 않게 한다.
+    private void LogAndAddIfEquippedButNotCapturable(ClothPart part, int clothId)
     {
         if (clothId < 0)
         {
             return;
         }
 
-        ClothData data = ClothCatalog.Find(part, clothId);
-        if (data == null || data.MontagePrefab == null)
+        if (!ClueCaptureRules.IsCapturable(part, clothId, out ClothData data))
         {
             Debug.LogWarning($"[ClueModulePreview] {part} 파츠의 옷 id({clothId})에 몽타주용 프리팹이 없어 단서에서 제외합니다.", this);
             return;
@@ -208,7 +207,6 @@ public class ClueModulePreview : MonoBehaviour
         ClothPart.Torso => "상의",
         ClothPart.Pants => "하의",
         ClothPart.Shoes => "신발",
-        ClothPart.Arm => "손",
         ClothPart.Glasses => "안경",
         ClothPart.Mask => "마스크",
         ClothPart.Headphone => "헤드폰",

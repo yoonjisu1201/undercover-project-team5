@@ -23,7 +23,6 @@ public class MontageDressUpUI : ScreenBase {
 		ClothPart.Mask,
 		ClothPart.Torso,
 		ClothPart.Pants,
-		ClothPart.Arm,
 		ClothPart.Shoes
 	};
 

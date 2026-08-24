@@ -7,6 +7,10 @@ using UnityEngine.SceneManagement;
 
 public class CriminalNpcManager : NetworkBehaviour
 {
+    // CriminalFeature 동기화 값이 실제로 반영된 순간 서버/클라이언트 양쪽에서 발생한다.
+    // ClueSpawner(서버)는 필드 단서 트림에, HQ UI(클라이언트)는 단서 진행률 표시에 쓴다.
+    public event System.Action OnCriminalAssigned;
+
     [Header("외계인 종류")]
     [SerializeField, Min(1)] private int _alienTypeCount = 5;
 
@@ -34,6 +38,7 @@ public class CriminalNpcManager : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _criminalNpcReference.OnValueChanged += HandleCriminalNpcChanged;
+        _criminalFeature.OnValueChanged += HandleCriminalFeatureChanged;
         ResolveCriminalNpc(_criminalNpcReference.Value);
 
         if (IsServer && RoundManager.Instance != null)
@@ -45,6 +50,7 @@ public class CriminalNpcManager : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         _criminalNpcReference.OnValueChanged -= HandleCriminalNpcChanged;
+        _criminalFeature.OnValueChanged -= HandleCriminalFeatureChanged;
 
         if (IsServer && RoundManager.Instance != null)
         {
@@ -202,6 +208,11 @@ public class CriminalNpcManager : NetworkBehaviour
     private void HandleCriminalNpcChanged(NetworkObjectReference previous, NetworkObjectReference current)
     {
         ResolveCriminalNpc(current);
+    }
+
+    private void HandleCriminalFeatureChanged(NpcFeature previous, NpcFeature current)
+    {
+        OnCriminalAssigned?.Invoke();
     }
 
     private void ResolveCriminalNpc(NetworkObjectReference reference)
