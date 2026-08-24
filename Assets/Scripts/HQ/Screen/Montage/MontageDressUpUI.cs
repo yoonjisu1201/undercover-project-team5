@@ -27,20 +27,18 @@ public class MontageDressUpUI : ScreenBase {
 		ClothPart.Shoes
 	};
 
-	// 탭/레코드 UI에 표시할 파츠별 한글 라벨
-	private static readonly Dictionary<ClothPart, string> PartLabels = new Dictionary<ClothPart, string> {
-	   { ClothPart.Torso, "상의" },
-	   { ClothPart.Arm, "팔" },
-	   { ClothPart.Pants, "바지" },
-	   { ClothPart.Shoes, "신발" },
-	   { ClothPart.Hair, "헤어" },
-	   { ClothPart.Hat, "모자" },
-	   { ClothPart.Glasses, "안경" },
-	   { ClothPart.Eyebrow, "눈썹" },
-	   { ClothPart.Beard, "수염" },
-	   { ClothPart.Mask, "마스크" },
-	   { ClothPart.Headphone, "헤드폰" },
-	};
+	[Header("=== 파츠별 탭 라벨 ===")]
+	[SerializeField] private LocalizedString _torsoLabel;
+	[SerializeField] private LocalizedString _armLabel;
+	[SerializeField] private LocalizedString _pantsLabel;
+	[SerializeField] private LocalizedString _shoesLabel;
+	[SerializeField] private LocalizedString _hairLabel;
+	[SerializeField] private LocalizedString _hatLabel;
+	[SerializeField] private LocalizedString _glassesLabel;
+	[SerializeField] private LocalizedString _eyebrowLabel;
+	[SerializeField] private LocalizedString _beardLabel;
+	[SerializeField] private LocalizedString _maskLabel;
+	[SerializeField] private LocalizedString _headphoneLabel;
 
 	[Header("=== 상단 ===")]
 	[SerializeField] private TMP_Text _headerText;
@@ -146,6 +144,21 @@ public class MontageDressUpUI : ScreenBase {
 	   // 중복 생성 막기 위한 코드
 	   if (_initialized) { return; }
 
+	   // 탭/레코드 UI에 표시할 파츠별 라벨
+	   var partLabels = new Dictionary<ClothPart, LocalizedString> {
+	      { ClothPart.Torso, _torsoLabel },
+	      { ClothPart.Arm, _armLabel },
+	      { ClothPart.Pants, _pantsLabel },
+	      { ClothPart.Shoes, _shoesLabel },
+	      { ClothPart.Hair, _hairLabel },
+	      { ClothPart.Hat, _hatLabel },
+	      { ClothPart.Glasses, _glassesLabel },
+	      { ClothPart.Eyebrow, _eyebrowLabel },
+	      { ClothPart.Beard, _beardLabel },
+	      { ClothPart.Mask, _maskLabel },
+	      { ClothPart.Headphone, _headphoneLabel },
+	   };
+
 	   // 순서 맞춰서 기반으로 탭 생성
 	   foreach (ClothPart part in _partOrder) {
 	      GameObject tabObj = Instantiate(_tabButtonPrefab, _tabContainer);
@@ -155,7 +168,7 @@ public class MontageDressUpUI : ScreenBase {
 	      // 내부 텍스트 값 수정
 	      TMP_Text label = tabObj.GetComponentInChildren<TMP_Text>();
 	      if (label != null) {
-	         label.text = PartLabels.TryGetValue(part, out string koreanLabel) ? koreanLabel : part.ToString();
+	         label.text = partLabels.TryGetValue(part, out LocalizedString partLabel) ? partLabel.GetLocalizedString() : part.ToString();
 	         label.ForceMeshUpdate();
 	      }
 
