@@ -81,7 +81,6 @@ public sealed partial class DebugMenuController
         ApplyCriminalMovementFreeze(_criminalFrozen);
 
         // 분신은 라운드 중간에 계속 새로 스폰되므로, 매니저가 정지 상태를 들고 있다가 새 분신에도 적용한다.
-        FindFirstObjectByType<GroundAlienCloneSpawner>()?.SetClonesFrozen(_criminalFrozen);
 
         ApplyCriminalFreezeStateRpc(_criminalFrozen);
     }
@@ -124,7 +123,6 @@ public sealed partial class DebugMenuController
         }
 
         _criminalFrozen = false;
-        FindFirstObjectByType<GroundAlienCloneSpawner>()?.SetClonesFrozen(false);
         ApplyCriminalFreezeStateRpc(false);
     }
 
