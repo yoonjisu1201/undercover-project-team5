@@ -534,7 +534,15 @@ public class GameSessionManager : MonoBehaviour
 
 	private void HandleWaitingRoomSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
 	{
-		if (sceneName != _waitingRoomSceneName || !NetworkManager.Singleton.IsServer) return;
+		if (sceneName != _waitingRoomSceneName) return;
+
+		var localPlayerObject = NetworkManager.Singleton.LocalClient?.PlayerObject;
+		if (localPlayerObject != null && localPlayerObject.TryGetComponent(out PlayerInteraction localPlayerInteraction))
+		{
+			localPlayerInteraction.InitializeOnGameScene();
+		}
+
+		if (!NetworkManager.Singleton.IsServer) return;
 
 		// 라운드가 끝나 대기방으로 돌아왔으면 다시 입장을 받아야 한다.
 		// 방 생성 직후의 첫 진입에서도 호출되지만, 이미 풀려 있으면 서버 요청 없이 그냥 반환된다.
@@ -621,8 +629,15 @@ public class GameSessionManager : MonoBehaviour
 	{
 		if (NetworkManager.Singleton.ConnectedClients[clientId].PlayerObject != null) return;
 
-		var playerInstance = Instantiate(NetworkManager.Singleton.NetworkConfig.PlayerPrefab);
+		var playerInstance = InstantiatePlayerAtWaitingRoomSpawn(
+			NetworkManager.Singleton.NetworkConfig.PlayerPrefab);
 		playerInstance.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
+	}
+
+	private static GameObject InstantiatePlayerAtWaitingRoomSpawn(GameObject playerPrefab)
+	{
+		Transform spawnPoint = GameObject.Find("WaitingRoomSpawnPoint").transform;
+		return Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
 	}
 
 	// 내 연결이 끊긴 경우에만 로비로 돌아간다 (자진 퇴장/호스트가 나가서 강제로 끊긴 경우 모두 포함).

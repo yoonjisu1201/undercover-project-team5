@@ -172,6 +172,7 @@ GameObject:
   - component: {fileID: 1611122213306370892}
   - component: {fileID: 8338574086789212156}
   - component: {fileID: 5223612735513084}
+  - component: {fileID: 7302593068295588897}
   m_Layer: 0
   m_Name: AngledTop
   m_TagString: Untagged
@@ -272,6 +273,18 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &7302593068295588897
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 137254604946480182}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1 &174615495156397462
 GameObject:
   m_ObjectHideFlags: 0
@@ -1588,6 +1601,7 @@ GameObject:
   - component: {fileID: 7433518612465896476}
   - component: {fileID: 8127198000025835162}
   - component: {fileID: 6667313687236051417}
+  - component: {fileID: 966499634070742095}
   m_Layer: 0
   m_Name: StationBody
   m_TagString: Untagged
@@ -1688,6 +1702,18 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &966499634070742095
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1373421700093712634}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1 &1389052839209704423
 GameObject:
   m_ObjectHideFlags: 0
@@ -1700,6 +1726,7 @@ GameObject:
   - component: {fileID: 3928038941653475087}
   - component: {fileID: 2315576801783360435}
   - component: {fileID: 2258081114416735309}
+  - component: {fileID: 8321808714841049657}
   m_Layer: 0
   m_Name: StationBody
   m_TagString: Untagged
@@ -1800,6 +1827,18 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &8321808714841049657
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1389052839209704423}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1 &1550761430131001342
 GameObject:
   m_ObjectHideFlags: 0
@@ -6412,6 +6451,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7382778480330107662}
+  - component: {fileID: 5198036859807708122}
+  - component: {fileID: 5828509670533810861}
   m_Layer: 0
   m_Name: NicknameChangeStation
   m_TagString: Untagged
@@ -6437,6 +6478,98 @@ Transform:
   - {fileID: 4511577060121313510}
   m_Father: {fileID: 1884132822470340201}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5198036859807708122
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5992286058001953985}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3fe91dc294731a9428c0941ea7579110, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.Outlinable
+  complexMaskingMode: 0
+  drawingMode: 1
+  outlineLayer: 0
+  outlineTargets:
+  - CutoutMask: 8
+    renderer: {fileID: 2258081114416735309}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 5090681203999367937}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 263847388729258460}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  renderStyle: 1
+  outlineParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+  backParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+  frontParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+--- !u!114 &5828509670533810861
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5992286058001953985}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b56858f8d1a99847b436f6b79c63600, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NicknameWorldButton
+  ShowTopMostFoldoutHeaderGroup: 1
+  _aimIgnoredColliders: []
+  _outlineFadeDuration: 0.15
+  _buttonTransform: {fileID: 4511577060121313510}
+  _pressDepth: 0.025
+  _pressDuration: 0.08
 --- !u!1 &6004971385643210878
 GameObject:
   m_ObjectHideFlags: 0
@@ -8918,6 +9051,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4946432994678943874}
+  - component: {fileID: 897157263646114746}
+  - component: {fileID: 7659910489529516949}
   m_Layer: 0
   m_Name: ReadyStartStation
   m_TagString: Untagged
@@ -8944,6 +9079,115 @@ Transform:
   - {fileID: 4520775955345560611}
   m_Father: {fileID: 1884132822470340201}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &897157263646114746
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8264695081545658118}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3fe91dc294731a9428c0941ea7579110, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.Outlinable
+  complexMaskingMode: 0
+  drawingMode: 1
+  outlineLayer: 0
+  outlineTargets:
+  - CutoutMask: 8
+    renderer: {fileID: 6667313687236051417}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 5223612735513084}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 7462849430337129181}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  - CutoutMask: 8
+    renderer: {fileID: 3383937369502658380}
+    SubmeshIndex: 0
+    BoundsMode: 0
+    Bounds:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0.5, y: 0.5, z: 0.5}
+    CutoutThreshold: 0.5
+    CullMode: 2
+    cutoutTextureName: 
+    cutoutTextureIndex: 0
+  renderStyle: 1
+  outlineParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+  backParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+  frontParameters:
+    enabled: 1
+    color: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    dilateShift: 1
+    blurShift: 1
+    fillPass:
+      shader: {fileID: 0}
+      serializedProperties: []
+--- !u!114 &7659910489529516949
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8264695081545658118}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d4b386942b65b84ca521c586bee3195, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ReadyStartWorldButton
+  ShowTopMostFoldoutHeaderGroup: 1
+  _aimIgnoredColliders: []
+  _outlineFadeDuration: 0.15
+  _buttonTransform: {fileID: 6531440638313020391}
+  _pressDepth: 0.025
+  _pressDuration: 0.08
+  _buttonRenderer: {fileID: 7462849430337129181}
+  _statusLampRenderer: {fileID: 3383937369502658380}
+  _inactiveBaseColor: {r: 0.025, g: 0.16, b: 0.7, a: 1}
+  _inactiveEmissionColor: {r: 0.05, g: 1.2, b: 7, a: 1}
+  _activeBaseColor: {r: 0.7, g: 0.025, b: 0.015, a: 1}
+  _activeEmissionColor: {r: 7, g: 0.08, b: 0.03, a: 1}
 --- !u!1 &8356918014311899784
 GameObject:
   m_ObjectHideFlags: 0
@@ -10092,6 +10336,7 @@ GameObject:
   - component: {fileID: 2838440983722833181}
   - component: {fileID: 7288917537312472300}
   - component: {fileID: 5090681203999367937}
+  - component: {fileID: 4055285713450478809}
   m_Layer: 0
   m_Name: AngledTop
   m_TagString: Untagged
@@ -10192,6 +10437,18 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &4055285713450478809
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9143246221049416354}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1001 &138607560882987201
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10987,11 +11244,36 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4020815586502455939, guid: 68d9a329c3bd026429dc78f7db0204d9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7146504035304006943}
   m_SourcePrefab: {fileID: 100100000, guid: 68d9a329c3bd026429dc78f7db0204d9, type: 3}
+--- !u!1 &2073414858198269666 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4020815586502455939, guid: 68d9a329c3bd026429dc78f7db0204d9, type: 3}
+  m_PrefabInstance: {fileID: 3101557010042817633}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7146504035304006943
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2073414858198269666}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!4 &6531440638313020391 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8191668447383074694, guid: 68d9a329c3bd026429dc78f7db0204d9, type: 3}
+  m_PrefabInstance: {fileID: 3101557010042817633}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &7462849430337129181 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 5520198932837238460, guid: 68d9a329c3bd026429dc78f7db0204d9, type: 3}
   m_PrefabInstance: {fileID: 3101557010042817633}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &3704141179564185583
@@ -11061,8 +11343,33 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 473183268089256310, guid: 7c33f221164915f4783a70226e2b6635, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3370399375333519188}
   m_SourcePrefab: {fileID: 100100000, guid: 7c33f221164915f4783a70226e2b6635, type: 3}
+--- !u!23 &3383937369502658380 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 2130741233427019939, guid: 7c33f221164915f4783a70226e2b6635, type: 3}
+  m_PrefabInstance: {fileID: 3704141179564185583}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &3888529987674803865 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 473183268089256310, guid: 7c33f221164915f4783a70226e2b6635, type: 3}
+  m_PrefabInstance: {fileID: 3704141179564185583}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3370399375333519188
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3888529987674803865}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!4 &4520775955345560611 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 998326873264882636, guid: 7c33f221164915f4783a70226e2b6635, type: 3}
@@ -11538,13 +11845,38 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4020815586502455939, guid: 68d9a329c3bd026429dc78f7db0204d9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2991005500993086917}
   m_SourcePrefab: {fileID: 100100000, guid: 68d9a329c3bd026429dc78f7db0204d9, type: 3}
+--- !u!23 &263847388729258460 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 5520198932837238460, guid: 68d9a329c3bd026429dc78f7db0204d9, type: 3}
+  m_PrefabInstance: {fileID: 5706887990007969632}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &4511577060121313510 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8191668447383074694, guid: 68d9a329c3bd026429dc78f7db0204d9, type: 3}
   m_PrefabInstance: {fileID: 5706887990007969632}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &8718474214279677411 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4020815586502455939, guid: 68d9a329c3bd026429dc78f7db0204d9, type: 3}
+  m_PrefabInstance: {fileID: 5706887990007969632}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2991005500993086917
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8718474214279677411}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
 --- !u!1001 &5936437030012201841
 PrefabInstance:
   m_ObjectHideFlags: 0

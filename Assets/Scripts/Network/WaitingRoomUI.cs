@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -46,6 +47,13 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
     private bool _isHost;
     private bool _isReady;
+
+    public event Action ReadyStartStateChanged;
+    public bool IsHost => _isHost;
+    public bool IsReady => _isReady;
+    public bool CanUseReadyStart => !_isHost || _readyManager.CanStart;
+    public bool IsReadyStartActive => _isHost ? _readyManager.CanStart : _isReady;
+
     private static bool s_hasCompletedNicknameSetup;
     private static string s_savedNickname;
 
@@ -109,6 +117,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         {
             UpdateReadyButtonColor();
         }
+
+        ReadyStartStateChanged?.Invoke();
 
         UpdateMicMuteButtonColor();
         UpdateOutputMuteButtonColor();
@@ -210,7 +220,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         return localize;
     }
 
-	private void HandleLeaveButtonClicked()
+	public void HandleLeaveButtonClicked()
 	{
 		GameSessionManager.Instance.LeaveSession();
 	}
@@ -359,11 +369,23 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 		_outputMuteButton.targetGraphic.color = VivoxManager.IsOutputMuted ? MutedColor : UnmutedColor;
 	}
 
+    public void InteractReadyStart()
+    {
+        if (_isHost)
+        {
+            HandleStartGameButtonClicked();
+            return;
+        }
+
+        HandleReadyButtonClicked();
+    }
+
     private void HandleReadyButtonClicked()
     {
         _isReady = !_isReady;
         _readyManager.SetReadyServerRpc(_isReady);
         UpdateReadyButtonColor();
+        ReadyStartStateChanged?.Invoke();
     }
 
     private void UpdateReadyButtonColor()
@@ -374,10 +396,13 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     // 입장/퇴장/준비 상태 변경으로 슬롯 구성이 바뀔 때마다 호출된다.
     private void HandleSlotsChanged(NetworkListEvent<WaitingRoomReadyManager.PlayerSlot> _)
     {
-        if (_isHost)
+        if (!_isHost)
         {
-            UpdateStartButtonAndText();
+            return;
         }
+
+        UpdateStartButtonAndText();
+        ReadyStartStateChanged?.Invoke();
     }
 
     // 시작 버튼 및 알림 텍스트 갱신한다.
