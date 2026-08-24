@@ -27,11 +27,7 @@ public class GameplayUiMode : MonoBehaviour
 
     public void UnregisterUi(IClosableUi ui)
     {
-        // 방어적으로 여러 번 호출하는 UI가 있어서, 실제로 목록에 있었을 때만 소리를 낸다.
-        if (_openUIs.Remove(ui))
-        {
-            SoundManager.Instance?.Play(SoundKey.Ui_PopupClose);
-        }
+        _openUIs.Remove(ui);
     }
 
     public bool CloseTopUi()
@@ -42,7 +38,7 @@ public class GameplayUiMode : MonoBehaviour
             _openUIs.RemoveAt(i);
             if (ui != null)
             {
-                // 위에서 이미 목록에서 뺐으므로 Close() 안의 UnregisterUi는 소리를 내지 않는다.
+                // 버튼으로 닫을 땐 클릭음이 대신 나므로, 클릭음이 없는 ESC 경로에서만 닫힘음을 낸다.
                 SoundManager.Instance?.Play(SoundKey.Ui_PopupClose);
                 ui.Close();
                 return true;

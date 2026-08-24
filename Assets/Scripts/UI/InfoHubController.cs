@@ -121,6 +121,8 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
         {
             if (_isOpen)
             {
+                // ESC는 GameplayUiMode.CloseTopUi가 닫힘음을 낸다. Tab은 그 경로를 안 타므로 여기서 낸다.
+                SoundManager.Instance?.Play(SoundKey.Ui_PopupClose);
                 Close();
             }
             else
