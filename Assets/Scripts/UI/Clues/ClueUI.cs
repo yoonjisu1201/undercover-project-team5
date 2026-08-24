@@ -62,7 +62,8 @@ public class ClueUI : MonoBehaviour, IClosableUi
     private void OnEnable()
     {
         EnsureInitialized();    // 씬 커서 설정 초기화
-        GameplayUiMode.Instance?.RegisterUi(this);
+        // 단서 창은 허브의 단서 버튼으로만 열린다. 버튼 클릭음이 나므로 열림음은 생략한다.
+        GameplayUiMode.Instance?.RegisterUi(this, playOpenSound: false);
         _closeButton.onClick.AddListener(Close);
         GameplayUiMode.Instance?.ActivateCursor();
     }

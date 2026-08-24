@@ -302,6 +302,11 @@ public class PlayerInteraction : NetworkBehaviour
                 {
                     RequestApplyItemRpc(new NetworkBehaviourReference(completedItem), new NetworkBehaviourReference(completedTarget), _inventory.SelectedIndex);
 
+                    if (completedTarget is MissionInteractable)
+                    {
+                        SoundManager.Instance?.Play(SoundKey.Mission_ItemInsert);
+                    }
+
                     if (completedThreshold > 0f)
                     {
                         _promptRefreshUntil = Time.time + 0.75f;

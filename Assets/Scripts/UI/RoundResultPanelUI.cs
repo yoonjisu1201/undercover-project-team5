@@ -147,7 +147,8 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
     {
         _panel.SetActive(true);
         _inventoryCanvas.SetActive(false);
-        GameplayUiMode.Instance?.RegisterUi(this);
+        // 라운드 결과음(Round_Clear / Game_Success / Game_Fail)과 겹치지 않게 팝업 열림음은 내지 않는다.
+        GameplayUiMode.Instance?.RegisterUi(this, playOpenSound: false);
         GameplayUiMode.Instance?.ActivateCursor();
         CaptureCriminalPortrait();
         ShowRandomClueImages();

@@ -13,10 +13,16 @@ public class GameplayUiMode : MonoBehaviour
     private int _cursorActivationCount;
 
     private readonly List<IClosableUi> _openUIs = new();
-    public void RegisterUi(IClosableUi ui)  // 최근에 연 ui가 맨 위로
+    public void RegisterUi(IClosableUi ui, bool playOpenSound = true)  // 최근에 연 ui가 맨 위로
     {
-        _openUIs.Remove(ui);
+        bool alreadyOpen = _openUIs.Remove(ui);
         _openUIs.Add(ui);
+
+        // 이미 열려 있던 UI를 맨 위로 올리는 경우는 새로 열린 게 아니다.
+        if (!alreadyOpen && playOpenSound)
+        {
+            SoundManager.Instance?.Play(SoundKey.Ui_PopupOpen);
+        }
     }
 
     public void UnregisterUi(IClosableUi ui)
@@ -30,7 +36,13 @@ public class GameplayUiMode : MonoBehaviour
         {
             IClosableUi ui = _openUIs[i];
             _openUIs.RemoveAt(i);
-            if (ui != null) { ui.Close(); return true; }
+            if (ui != null)
+            {
+                // 버튼으로 닫을 땐 클릭음이 대신 나므로, 클릭음이 없는 ESC 경로에서만 닫힘음을 낸다.
+                SoundManager.Instance?.Play(SoundKey.Ui_PopupClose);
+                ui.Close();
+                return true;
+            }
         }
         return false;
     }

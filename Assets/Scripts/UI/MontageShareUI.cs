@@ -128,7 +128,7 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	}
 
 	// 패널을 열거나 닫을 때 사용. 패널을 열거나 닫으면 새 메세지 상태 갱신
-	private void TogglePanelState()
+	private void TogglePanelState(bool playOpenSound = true)
 	{
 		bool willExpand = !_expandedUI.activeSelf;
 
@@ -143,7 +143,7 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 		// 펼쳐졌을 때만 ESC 닫기 스택에 등록한다. (접힌 HUD 상태는 ESC 대상이 아님)
 		if (willExpand)
 		{
-			GameplayUiMode.Instance?.RegisterUi(this);
+			GameplayUiMode.Instance?.RegisterUi(this, playOpenSound);
 		}
 		else
 		{
@@ -374,11 +374,12 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	}
 
 	// 정보 허브의 몽타주 버튼에서 호출한다. 이미 펼쳐져 있으면 그대로 둔다.
-	public void Expand()
+	// 허브가 Tab으로 함께 펼칠 때는 열림음을 내지 않는다. Tab 한 번에 소리가 두 번 나기 때문이다.
+	public void Expand(bool playOpenSound = true)
 	{
 		if (!_expandedUI.activeSelf)
 		{
-			TogglePanelState();
+			TogglePanelState(playOpenSound);
 		}
 	}
 

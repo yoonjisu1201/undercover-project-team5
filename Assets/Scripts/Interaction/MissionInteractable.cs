@@ -171,6 +171,8 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
             return;
         }
 
+        SoundManager.Instance?.Play(SoundKey.Mission_UiOpen);
+
         _activeInteractable = this;
         _interactingPlayer = interactor.transform;
 
@@ -297,6 +299,11 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
     private void HandleCompletionChanged(bool previousValue, bool currentValue)
     {
         IsCompletedChanged?.Invoke(currentValue);
+
+        if (currentValue)
+        {
+            SoundManager.Instance?.PlayAt(SoundKey.Mission_Complete, transform.position);
+        }
 
         if (!currentValue || _uiInstance == null)
         {

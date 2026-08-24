@@ -97,6 +97,7 @@ public sealed class ClueToast : MonoBehaviour
         _thumbnail.texture = thumbnail;
         _thumbnail.gameObject.SetActive(thumbnail != null);
 
+		SoundManager.Instance?.Play(SoundKey.Ui_ClueToast);
 		PlayNotification();
     }
 
