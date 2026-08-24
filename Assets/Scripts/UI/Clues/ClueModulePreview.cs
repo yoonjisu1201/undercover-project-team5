@@ -152,7 +152,6 @@ public class ClueModulePreview : MonoBehaviour
         AddClueState(ClothPart.Hair, criminalManager.CriminalFeature.Outfit.HairNumber);
         AddClueState(ClothPart.Hat, criminalManager.CriminalFeature.Outfit.HatNumber);
         AddClueState(ClothPart.Headphone, criminalManager.CriminalFeature.Outfit.HeadphoneNumber);
-        AddClueState(ClothPart.Arm, criminalManager.CriminalFeature.Outfit.ArmNumber);
         AddClueState(ClothPart.Mask, criminalManager.CriminalFeature.Outfit.MaskNumber);
         AddClueState(ClothPart.Pants, criminalManager.CriminalFeature.Outfit.PantsNumber);
         AddClueState(ClothPart.Shoes, criminalManager.CriminalFeature.Outfit.ShoesNumber);
@@ -208,7 +207,6 @@ public class ClueModulePreview : MonoBehaviour
         ClothPart.Torso => "상의",
         ClothPart.Pants => "하의",
         ClothPart.Shoes => "신발",
-        ClothPart.Arm => "손",
         ClothPart.Glasses => "안경",
         ClothPart.Mask => "마스크",
         ClothPart.Headphone => "헤드폰",

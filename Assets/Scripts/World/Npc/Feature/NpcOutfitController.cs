@@ -4,6 +4,9 @@ using UnityEngine;
 using Random = UnityEngine.Random;
 
 public class NpcOutfitController : MonoBehaviour {
+	// 손은 랜덤 대상에서 빠졌지만, 스켈레톤에 기본 손 메시가 없어 뭐라도 달아줘야 한다. id 0은 맨손(M3CPCV2_HAND_01).
+	private const int DefaultArmClothId = 0;
+
 	[Header("=== 외형 생성 시에 사용할 각종 변수들 ===")]
 	[Range(0.0f, 1.0f)] [SerializeField] private float _beardPossibility = 0.5f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _eyebrowPossibility = 1.0f;
@@ -11,7 +14,6 @@ public class NpcOutfitController : MonoBehaviour {
 	[Range(0.0f, 1.0f)] [SerializeField] private float _hairPossibility = 0.8f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _hatPossibility = 0.5f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _headphonePossibility = 0.5f;
-	[Range(0.0f, 1.0f)] [SerializeField] private float _glovePossibility = 1f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _maskPossibility = 0.5f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _pantPossibility = 1f;
 	[Range(0.0f, 1.0f)] [SerializeField] private float _shoePossibility = 1f;
@@ -37,7 +39,7 @@ public class NpcOutfitController : MonoBehaviour {
 		feature.HairNumber = GetRandomPartNumber(ClothPart.Hair, _hairPossibility);
 		feature.HatNumber = GetRandomPartNumber(ClothPart.Hat, _hatPossibility);
 		feature.HeadphoneNumber = GetRandomPartNumber(ClothPart.Headphone, _headphonePossibility);
-		feature.ArmNumber = GetRandomPartNumber(ClothPart.Arm, _glovePossibility);
+		feature.ArmNumber = DefaultArmClothId; // 손은 더 이상 랜덤/장식 대상이 아니라 항상 기본 손을 단다
 		feature.MaskNumber = GetRandomPartNumber(ClothPart.Mask, _maskPossibility);
 		feature.PantsNumber = GetRandomPartNumber(ClothPart.Pants, _pantPossibility);
 		feature.ShoesNumber = GetRandomPartNumber(ClothPart.Shoes, _shoePossibility);

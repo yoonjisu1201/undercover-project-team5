@@ -23,14 +23,12 @@ public class MontageDressUpUI : ScreenBase {
 		ClothPart.Mask,
 		ClothPart.Torso,
 		ClothPart.Pants,
-		ClothPart.Arm,
 		ClothPart.Shoes
 	};
 
 	// 탭/레코드 UI에 표시할 파츠별 한글 라벨
 	private static readonly Dictionary<ClothPart, string> PartLabels = new Dictionary<ClothPart, string> {
 	   { ClothPart.Torso, "상의" },
-	   { ClothPart.Arm, "팔" },
 	   { ClothPart.Pants, "바지" },
 	   { ClothPart.Shoes, "신발" },
 	   { ClothPart.Hair, "헤어" },
