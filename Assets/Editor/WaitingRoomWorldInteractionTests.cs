@@ -5,12 +5,15 @@ using DG.Tweening;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public sealed class WaitingRoomWorldInteractionTests
 {
     private const string WaitingRoomScenePath = "Assets/Scenes/WaitingRoom.unity";
+    private const string BatteryMissionDisplayPrefabPath =
+        "Assets/Prefabs/WaitingRoom/TutorialLayoutTemp/04_AlternatingGallery/ImportedCopies/MS_04_BreakerRepair_Display.prefab";
 
     private static readonly string[] LayoutPrefabPaths =
     {
@@ -290,6 +293,56 @@ public sealed class WaitingRoomWorldInteractionTests
 
         Assert.That(material, Is.Not.Null);
         Assert.That(material.IsKeywordEnabled("_EMISSION"), Is.True);
+    }
+
+    [Test]
+    public void WaitingRoomBatteryMissionDisplay_IsNonInteractiveDisplayPrefab()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BatteryMissionDisplayPrefabPath);
+        Assert.That(prefab, Is.Not.Null);
+
+        GameObject root = PrefabUtility.LoadPrefabContents(BatteryMissionDisplayPrefabPath);
+
+        try
+        {
+            Assert.That(root.name, Is.EqualTo("MS_04_BreakerRepair_Display"));
+            Assert.That(root.GetComponentsInChildren<MonoBehaviour>(true), Is.Empty);
+            Assert.That(root.GetComponentsInChildren<NetworkBehaviour>(true), Is.Empty);
+            Assert.That(root.GetComponentsInChildren<InteractableBase>(true), Is.Empty);
+            Assert.That(root.GetComponentsInChildren<Collider>(true), Is.Empty);
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
+    [Test]
+    public void LayoutPrefab_PlacesBatteryMissionDisplayOnBatteryExhibit()
+    {
+        const string layoutPrefabPath =
+            "Assets/Prefabs/WaitingRoom/TutorialLayoutTemp/04_AlternatingGallery/Created/04_AlternatingGallery.prefab";
+        GameObject root = PrefabUtility.LoadPrefabContents(layoutPrefabPath);
+
+        try
+        {
+            GameObject batteryExhibit = FindChild(root, "Battery_Exhibit");
+            GameObject missionDisplay = FindChild(root, "MS_04_BreakerRepair_Display");
+
+            Assert.That(missionDisplay.transform.parent.gameObject, Is.SameAs(batteryExhibit));
+            Assert.That(missionDisplay.transform.localPosition.y, Is.GreaterThan(0.24f));
+            Assert.That(Mathf.Abs(missionDisplay.transform.localPosition.x), Is.LessThan(1.2f));
+            Assert.That(Mathf.Abs(missionDisplay.transform.localPosition.z), Is.LessThan(1.2f));
+            Assert.That(
+                Quaternion.Angle(
+                    missionDisplay.transform.localRotation,
+                    Quaternion.Euler(0f, 180f, 0f)),
+                Is.LessThan(0.01f));
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
     }
 
     private static Type RequireType(string fullName)

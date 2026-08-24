@@ -11,6 +11,7 @@ public class GameplayUiMode : MonoBehaviour
     public static bool IsMovementBlocked { get; private set; } // 플레이어 이동을 제한하는 상태
     private SceneCursorSettings _sceneCursorSettings;
     private int _cursorActivationCount;
+    private int _inputBlockActivationCount;
 
     private readonly List<IClosableUi> _openUIs = new();
     public void RegisterUi(IClosableUi ui, bool playOpenSound = true)  // 최근에 연 ui가 맨 위로
@@ -52,6 +53,7 @@ public class GameplayUiMode : MonoBehaviour
         Instance = this;
         _sceneCursorSettings = GetComponent<SceneCursorSettings>();
         _cursorActivationCount = 0;
+        _inputBlockActivationCount = 0;
         IsActive = false;
         IsMovementBlocked = false;
         _sceneCursorSettings.ApplyDefaultCursorState();
@@ -60,6 +62,7 @@ public class GameplayUiMode : MonoBehaviour
     private void OnDisable()
     {
         _cursorActivationCount = 0;
+        _inputBlockActivationCount = 0;
         _openUIs.Clear();
         IsActive = false;
         IsMovementBlocked = false;
@@ -70,14 +73,19 @@ public class GameplayUiMode : MonoBehaviour
     // 다른 UI가 짝 없이 DeactivateCursor를 불러 커서가 다시 잠기는 일을 여기서 막는다.
     private void LateUpdate()
     {
-        if (_cursorActivationCount <= 0)
+        if (_cursorActivationCount > 0)
         {
+            if (!Cursor.visible || Cursor.lockState != CursorLockMode.None)
+            {
+                ForceUnlockCursor();
+            }
             return;
         }
 
-        if (!Cursor.visible || Cursor.lockState != CursorLockMode.None)
+        if (_inputBlockActivationCount > 0 &&
+            (Cursor.visible || Cursor.lockState != CursorLockMode.Locked))
         {
-            ForceUnlockCursor();
+            ForceLockCursor();
         }
     }
 
@@ -90,12 +98,16 @@ public class GameplayUiMode : MonoBehaviour
         Cursor.visible = true;
     }
 
+    private static void ForceLockCursor()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
     public void ActivateCursor()
     {
         _cursorActivationCount++;
-        IsActive = true;
-        IsMovementBlocked = true;
-        ForceUnlockCursor();
+        ApplyInputState();
     }
 
     // 커서를 씬 기본 상태로 되돌린다. 대기방·로비는 기본값이 '커서 보임'이라
@@ -103,18 +115,39 @@ public class GameplayUiMode : MonoBehaviour
     public void DeactivateCursor()
     {
         _cursorActivationCount = Mathf.Max(0, _cursorActivationCount - 1);
+        ApplyInputState();
+    }
+
+    public void ActivateInputBlock()
+    {
+        _inputBlockActivationCount++;
+        ApplyInputState();
+    }
+
+    public void DeactivateInputBlock()
+    {
+        _inputBlockActivationCount = Mathf.Max(0, _inputBlockActivationCount - 1);
+        ApplyInputState();
+    }
+
+    private void ApplyInputState()
+    {
+        bool isBlocked = _cursorActivationCount > 0 || _inputBlockActivationCount > 0;
+        IsActive = isBlocked;
+        IsMovementBlocked = isBlocked;
 
         if (_cursorActivationCount > 0)
         {
-            IsActive = true;
-            IsMovementBlocked = true;
             ForceUnlockCursor();
-            return;
         }
-
-        IsActive = false;
-        IsMovementBlocked = false;
-        _sceneCursorSettings.ApplyDefaultCursorState();
+        else if (_inputBlockActivationCount > 0)
+        {
+            ForceLockCursor();
+        }
+        else
+        {
+            _sceneCursorSettings.ApplyDefaultCursorState();
+        }
     }
 
     private void OnDestroy()
