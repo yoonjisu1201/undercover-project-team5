@@ -111,6 +111,38 @@ public partial class RoundManager
         }
 
         ReportSpawnReadyServerRpc();
+
+        // 보고를 마치면 위 타임아웃이 해제된다. 서버가 라운드를 시작해 줄 때까지 남는 구간에
+        // 서버가 사라지고 끊김 통보까지 유실되면 로딩 화면에 영구히 갇힌다.
+        // 호스트는 서버 감시 타이머가 전원을 정리하므로 대상이 아니다.
+        if (IsServer) return;
+
+        await WaitForRoundStartAsync(cancellationToken);
+    }
+
+    // 서버 감시 타이머와 같은 길이를 쓴다. 이 대기는 준비 보고 뒤에 시작하므로 항상 그 타이머보다
+    // 늦게 만료되고, 서버가 살아 있으면 서버가 먼저 상황을 정리한다.
+    private async UniTask WaitForRoundStartAsync(CancellationToken cancellationToken)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var timeoutTimer = timeoutCts.CancelAfterSlim(
+            TimeSpan.FromSeconds(_spawnReadyTimeoutSeconds + ServerKickGraceSeconds), DelayType.Realtime);
+
+        try
+        {
+            await UniTask.WaitUntil(
+                () => _currentState.Value != RoundState.Waiting,
+                cancellationToken: timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 씬 전환/오브젝트 파괴로 인한 취소는 실패가 아니다
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+        {
+            Debug.LogWarning("[RoundManager] 준비 보고 후 라운드 시작 신호를 받지 못했습니다.", this);
+            GameSessionManager.Instance.LeaveSessionWithReason(SpawnReadyTimeoutReason);
+        }
     }
 
     // 접속자 전원의 준비 보고가 모이면 게임을 시작한다.
