@@ -189,7 +189,7 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
 
         if (!_isDowned.Value) return;
 
-        _currentHp.Value = _reviveHpAmount;
+        _currentHp.Value = Mathf.Min(_reviveHpAmount, _maxHp);
         _isDowned.Value = false;
     }
 
