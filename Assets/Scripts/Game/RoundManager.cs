@@ -280,6 +280,8 @@ public partial class RoundManager : NetworkBehaviour
 
             FindFirstObjectByType<MissionSpawner>()?.RespawnMissionMachines();
             FindFirstObjectByType<BatterySpawner>()?.RespawnBatteries();
+            // 보스는 지하 맵 재생성 뒤에 다시 놓아야 사라진 모듈 안에 갇히지 않는다.
+            FindFirstObjectByType<BossSpawner>()?.RespawnBoss();
             _clueSpawner?.SpawnForNextRound();
             _captureGunSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 검거도구 재생성
             _shotgunSpawner?.RespawnTools(); // 다음 라운드 마다 본부에 에일리언 샷건 재생성
