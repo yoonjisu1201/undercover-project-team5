@@ -24,7 +24,7 @@ public class Flashlight : MonoBehaviour
         _lights = GetComponentsInChildren<Light>(true);
     }
 
-    public void SetOn(bool isOn)
+    public void SetIsOn(bool isOn)
     {
         foreach (Light light in _lights)
         {

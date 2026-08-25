@@ -54,7 +54,7 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 
 	public override void OnNetworkSpawn() {
 		_isFlashlightOn.OnValueChanged += HandleFlashlightOnChanged;
-		_flashlight?.SetOn(_isFlashlightOn.Value);
+		_flashlight?.SetIsOn(_isFlashlightOn.Value);
 	}
 
 	public override void OnNetworkDespawn() {
@@ -72,7 +72,7 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	}
 
 	private void HandleFlashlightOnChanged(bool previousValue, bool newValue) {
-		_flashlight?.SetOn(newValue);
+		_flashlight?.SetIsOn(newValue);
 	}
 
 	// 다른 걸 잡을 때(카트 잡을 때 등)에는 손에 있는 오브젝트 비활성화한다.
