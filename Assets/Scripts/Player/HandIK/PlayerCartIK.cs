@@ -1,21 +1,22 @@
 ﻿using UnityEngine;
 
 [RequireComponent(typeof(PlayerInteraction))]
-public class PlayerCartIK : HandIKBase
+public class PlayerCartIK : MonoBehaviour, IHandIK
 {
+	private Animator _animator;
 	private PlayerInteraction _playerInteraction;
 
-	protected override void Awake()
+	private void Awake()
 	{
-		base.Awake();
+		_animator = GetComponent<Animator>();
 		_playerInteraction = GetComponent<PlayerInteraction>();
 	}
 
 	// PlayerItemIK가 이 값을 보고 지금 이 IK를 적용할지 판단한다.
-	public override bool IsActive => _playerInteraction.CarryingCart != null;
+	public bool IsActive => _playerInteraction.CarryingCart != null;
 
 	// 카트를 잡고있으면 IK를 카트 손잡이에 붙인다. PlayerItemIK가 IsActive를 확인한 뒤 호출한다.
-	public override void ApplyIK(int layerIndex)
+	public void ApplyIK(int layerIndex)
 	{
 		CartBase cart = _playerInteraction.CarryingCart;
 
