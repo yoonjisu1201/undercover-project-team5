@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Localization;
 
 // 로딩 패널이 떠 있는 동안 안내 문구를 일정 간격으로 바꿔준다. 스폰이 오래 걸려도 화면이 멈춘 것처럼
 // 보이지 않게 하는 것이 목적이다. 
@@ -12,8 +13,11 @@ public class LoadingMessageRotator : MonoBehaviour
     private float _changeInterval = 0.5f;
 
     // UI에 순환 할 문구배열
-    [SerializeField, TextArea]
-    private string[] _messages;
+    //
+    // 이 컴포넌트가 매 주기 텍스트를 직접 덮어쓰므로, 같은 오브젝트에 LocalizeStringEvent 를
+    // 붙여도 그 값이 곧바로 지워진다. 그래서 순환 문구 자체를 현지화 대상으로 들고 있는다.
+    [SerializeField]
+    private LocalizedString[] _messages;
 
     private TMP_Text _messageText;
 
@@ -62,7 +66,7 @@ public class LoadingMessageRotator : MonoBehaviour
 
         while (true)
         {
-            _messageText.text = _messages[index];
+            _messageText.text = _messages[index].GetLocalizedString();
             index = (index + 1) % _messages.Length;
 
             // ignoreTimeScale: 로딩 중 timeScale이 0으로 내려가도 문구는 계속 바뀌어야 한다.(방어코드)
