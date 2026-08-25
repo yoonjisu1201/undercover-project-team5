@@ -66,6 +66,12 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	}
 
 	private void Update() {
+		// 손전등 NetworkObject가 PlayerItemIK보다 늦게 동기화되는 클라이언트가 있어서(도착 순서 경쟁),
+		// 한 번 실패해도 resolve될 때까지 계속 재시도한다.
+		if (_flashlight == null) {
+			ResolveLeftHand(_leftHandItemRef.Value);
+		}
+
 		if (!IsOwner) {
 			return;
 		}
