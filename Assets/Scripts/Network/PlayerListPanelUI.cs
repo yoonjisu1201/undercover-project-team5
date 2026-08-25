@@ -4,6 +4,7 @@ using TMPro;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -21,6 +22,11 @@ public sealed class PlayerListPanelUI : MonoBehaviour
     [SerializeField] private PlayerVoiceIconUI[] _voiceIcons = new PlayerVoiceIconUI[MaxPlayerCount];
 
     [Header("상태 아이콘 스프라이트")]
+    [Header("현지화 문구")]
+    [SerializeField] private LocalizedString _stateHost;
+    [SerializeField] private LocalizedString _stateReady;
+    [SerializeField] private LocalizedString _stateNotReady;
+
     [SerializeField] private Sprite _hostIconSprite;
     [SerializeField] private Sprite _readyIconSprite;
     [SerializeField] private Sprite _notReadyIconSprite;
@@ -143,11 +149,9 @@ public sealed class PlayerListPanelUI : MonoBehaviour
             _stateIconImages[i].sprite = isHost
                 ? _hostIconSprite
                 : slot.IsReady ? _readyIconSprite : _notReadyIconSprite;
-            _stateTexts[i].text = isHost
-                ? $"방장"
-                : slot.IsReady
-                    ? $"준비 완료"
-                    : $"준비 중";
+            _stateTexts[i].text = (isHost
+                ? _stateHost
+                : slot.IsReady ? _stateReady : _stateNotReady).GetLocalizedString();
 
             Color stateColor = isHost ? HostColor : slot.IsReady ? ReadyColor : NotReadyColor;
             _stateIconImages[i].color = stateColor;
