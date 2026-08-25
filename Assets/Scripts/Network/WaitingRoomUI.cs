@@ -15,6 +15,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 	[SerializeField] private Button _leaveButton;
 	[SerializeField] private TextMeshProUGUI _joinCodeText;
 	[SerializeField] private TextMeshProUGUI _roomNameText;
+	[SerializeField] private LocalizeStringEvent _rearGalleryGuideLocalize;
 	[SerializeField] private Button _micMuteButton;
 	[SerializeField] private Button _outputMuteButton;
     [SerializeField] private Button _startGameButton;
@@ -94,8 +95,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
             TryApplySavedNickname();
         }
 
-        UpdateJoinCodeText();
-        GameSessionManager.Instance.OnSessionJoined += UpdateJoinCodeText; // 조인 완료가 씬 로드보다 늦을 때를 대비한 재확인용
+        UpdateSessionInfoText();
+        GameSessionManager.Instance.OnSessionJoined += UpdateSessionInfoText; // 조인 완료가 씬 로드보다 늦을 때를 대비한 재확인용
 
         if (_copyNoticeText != null)
         {
@@ -167,7 +168,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         if (GameSessionManager.Instance != null)
         {
-            GameSessionManager.Instance.OnSessionJoined -= UpdateJoinCodeText;
+            GameSessionManager.Instance.OnSessionJoined -= UpdateSessionInfoText;
         }
 
         if (_readyManager != null)
@@ -182,11 +183,19 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         }
     }
 
-    private void UpdateJoinCodeText()
+    private void UpdateSessionInfoText()
     {
+        string roomName = GameSessionManager.Instance.RoomName;
+
         _joinCodeText.text = GameSessionManager.Instance.JoinCode;
-        _roomNameText.text = GameSessionManager.Instance.RoomName;
+        _roomNameText.text = roomName;
+
+        SetRoomNameArgument(_rearGalleryGuideLocalize, roomName);
+        _rearGalleryGuideLocalize.RefreshString();
     }
+
+    private static void SetRoomNameArgument(LocalizeStringEvent localizer, string roomName)
+        => localizer.StringReference.Arguments = new object[] { roomName };
 
     // 조인코드를 클립보드에 복사하고 잠깐 안내를 띄운다.
     // 조인코드 복사 버튼의 OnClick에 연결한다.
