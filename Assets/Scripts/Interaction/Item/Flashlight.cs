@@ -11,6 +11,7 @@ public class Flashlight : MonoBehaviour
     [SerializeField, Min(0f)] private float _rotationLerpSpeed = 15f;
 
     private PlayerCameraController _playerCameraController;
+    // 프리팹 안에 Spot Light, Point Light 두 개가 있어서 배열로 한꺼번에 켜고 끈다.
     private Light[] _lights;
 
     public void Initialize(PlayerCameraController playerCameraController)
