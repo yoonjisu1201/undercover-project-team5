@@ -4,6 +4,7 @@ using DG.Tweening;
 using TMPro;
 using Unity.Services.Multiplayer;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
@@ -26,6 +27,9 @@ public class LobbyButtonUI : MonoBehaviour
 	[SerializeField] private RectTransform _refreshIcon;
 	[SerializeField] private RoomListEntryUI _roomEntryPrefab;
 	[SerializeField] private Transform _roomListContent;
+
+	[Header("현지화 문구")]
+	[SerializeField] private LocalizedString _enterRoomCodeMessage;
 
 	[Header("새로고침 연출")]
 	[SerializeField, Min(0f)] private float _refreshIconRotationDuration = 0.8f;
@@ -204,7 +208,7 @@ public class LobbyButtonUI : MonoBehaviour
 		// 빈 값으로 요청하면 서버까지 갔다 와서 애매한 오류가 뜨므로 여기서 먼저 막는다.
 		if (string.IsNullOrWhiteSpace(_joinCodeInputField.text))
 		{
-			ShowReasonText("방 코드를 입력해주세요");
+			ShowReasonText(_enterRoomCodeMessage.GetLocalizedString());
 			return;
 		}
 

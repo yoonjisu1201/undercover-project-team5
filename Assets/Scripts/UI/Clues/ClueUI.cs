@@ -1,6 +1,7 @@
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(SceneCursorSettings))]
@@ -11,6 +12,10 @@ public class ClueUI : MonoBehaviour, IClosableUi
 
     [Header("Clue Description")]
     [SerializeField] private TMP_Text _discriptionText; // 단서 설명 텍스트
+
+    [Header("현지화 문구")]
+    [Tooltip("{parts} 자리에 부위명이 들어간다. Smart String 을 켜면 안 된다 — 치환은 코드가 한다.")]
+    [SerializeField] private LocalizedString _description;
     [SerializeField] private TMP_Text _discriptionHint; // 단서 힌트 텍스트
 
     [Header("Clue Image")]
@@ -154,7 +159,9 @@ public class ClueUI : MonoBehaviour, IClosableUi
             return;
         }
 
-        _descriptionTemplate ??= _discriptionText.text;
+        // 템플릿을 화면의 현재 텍스트에서 읽으면 안 된다. 이 메서드가 그 텍스트를 덮어쓰기 때문에
+        // 두 번째 호출부터는 이미 치환된 문장을 템플릿으로 잡게 되고, 언어를 바꿔도 따라오지 않는다.
+        _descriptionTemplate = _description.GetLocalizedString();
 
         // 부위명을 볼드 + 짙은 빨간색으로 강조한다. (TMP Rich Text 필요)
         string highlighted = $"<b><size=110%><color=#8B0000>{partName}</color></size></b>";
