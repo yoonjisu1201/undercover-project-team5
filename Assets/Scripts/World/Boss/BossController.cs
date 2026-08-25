@@ -60,15 +60,32 @@ public class BossController : NetworkBehaviour
     // 순간이동 직후 그래프를 다시 시작해야 하는지. 노드 실행 중에 Restart를 부르면 재진입이
     // 되므로 한 프레임 미뤄서 처리한다.
     private bool _restartGraphPending;
+
+    // 굳음 판정용. 마지막으로 의미 있게 움직인 지점과 그 뒤로 흐른 시간.
+    private Vector3 _stuckAnchor;
+    private float _stuckSeconds;
+    private BossDormancy _dormancy;
+    private BossAttack _attack;
+
     private Transform _waypointRoot;
     private readonly List<GameObject> _waypoints = new();
+
+    // 이 시간 넘게 제자리에 있으면 굳은 것으로 본다.
+    // 그래프의 Wait 노드 중 가장 긴 것(0.5초)과 공격 쿨다운(2초)보다 길게 둬야 정상 대기를 끊지 않는다.
+    private const float StuckRecoverySeconds = 3f;
+
+    // 이 거리 안에서만 움직였으면 제자리로 본다.
+    private const float StuckMoveThreshold = 0.3f;
 
     private void Awake()
     {
         _agent = GetComponent<NavMeshAgent>();
         _brain = GetComponent<BehaviorGraphAgent>();
         _visual = GetComponent<BossVisual>();
+        _dormancy = GetComponent<BossDormancy>();
+        _attack = GetComponent<BossAttack>();
         _lastAnimationPosition = transform.position;
+        _stuckAnchor = transform.position;
     }
 
     public override void OnNetworkSpawn()
@@ -123,11 +140,61 @@ public class BossController : NetworkBehaviour
         // 애니메이션은 각 클라이언트가 자기 화면의 Animator에 직접 넣는다.
         UpdateAnimatorState();
 
-        if (IsServer && _restartGraphPending)
+        if (!IsServer)
+        {
+            return;
+        }
+
+        if (_restartGraphPending)
         {
             _restartGraphPending = false;
             _brain.Restart();
+            _stuckSeconds = 0f;
+            return;
         }
+
+        UpdateStuckWatchdog();
+    }
+
+    // 보스가 이유 없이 굳어 있으면 그래프를 다시 시작한다.
+    //
+    // 경로 상태로 판정하면 안 된다. 굳는 원인이 여러 가지인데(경로가 무효해진 이동 노드,
+    // 꺼지지 않은 isStopped, 도달 판정이 안 서는 목적지) 그중 일부는 hasPath 가 켜진 채로
+    // 멈춰 있어서 경로 기준 판정에는 아예 걸리지 않는다. 그래서 "실제로 안 움직였는지"만 본다.
+    //
+    // 패키지의 Navigate 노드는 경로가 PathInvalid 가 되면 실패로 빠져나오지 못하고 영원히
+    // Running 을 돌려준다(PathPartial 만 걸러낸다). 그 노드를 감싼 Repeat While 은 자식이
+    // 끝난 뒤에만 조건을 다시 보고, Selector 직속 자식이 아니라서 Observer Abort 도 걸 수 없다.
+    // 그래서 한 번 매달리면 스스로 나올 길이 없다 — 사람이 바로 뒤에 있어도, 소리가 나도
+    // 그 노드에 갇힌 채로 서 있게 된다. 패키지 노드를 고칠 수 없으니 밖에서 끊는다.
+    private void UpdateStuckWatchdog()
+    {
+        // 멈춰 있는 것이 의도된 상황은 제외한다. 잠복 중이거나 공격 모션 중이다.
+        bool shouldBeMoving = (_dormancy == null || !_dormancy.IsDormant)
+            && (_attack == null || !_attack.IsAttacking);
+
+        Vector3 position = transform.position;
+        if (!shouldBeMoving ||
+            (position - _stuckAnchor).sqrMagnitude > StuckMoveThreshold * StuckMoveThreshold)
+        {
+            _stuckAnchor = position;
+            _stuckSeconds = 0f;
+            return;
+        }
+
+        _stuckSeconds += Time.deltaTime;
+        if (_stuckSeconds < StuckRecoverySeconds)
+        {
+            return;
+        }
+
+        _stuckAnchor = position;
+        _stuckSeconds = 0f;
+        Debug.LogWarning(
+            $"[보스] {StuckRecoverySeconds}초 동안 제자리에 있어 행동 트리를 다시 시작합니다. " +
+            $"위치={position}, 경로={_agent.pathStatus}, hasPath={_agent.hasPath}, isStopped={_agent.isStopped}",
+            this);
+        _brain.Restart();
     }
 
     // 서버는 NavMeshAgent 속도를 그대로 쓰고, 클라이언트는 동기화된 위치 변화량으로 속도를 낸다.
