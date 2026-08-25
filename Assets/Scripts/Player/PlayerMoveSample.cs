@@ -39,6 +39,8 @@ public class PlayerMoveSample : NetworkBehaviour
 	// 한 걸음 사이의 간격. 달리기는 이동 속도가 _runSpeedMultiplier(1.5)배라 간격도 그만큼 짧다.
 	[SerializeField, Min(0.05f)] private float _footstepWalkInterval = 0.45f;
 	[SerializeField, Min(0.05f)] private float _footstepRunInterval = 0.3f;
+
+	private readonly FootstepLoop _footsteps = new(SoundKey.Player_FootstepWalk, SoundKey.Player_FootstepRun);
 	[SerializeField] private LayerMask _jumpableSurfaceMask;
 
 	// 점프 입력 예약 (Update에서 감지 → FixedUpdate에서 힘 적용)
@@ -76,7 +78,6 @@ public class PlayerMoveSample : NetworkBehaviour
 	private bool _isStaminaExhausted;
 	// #392: 실제 소생 후 Getting Up에서 Idle로 돌아갈 때까지 이동을 차단한다.
 	private bool _isGettingUp;
-	private float _footstepTimer;
 
 	// Getting Up 애니메이션 + 블렌딩이 완전히 끝나는 시점(FixedUpdate에서 감지)에 발동한다.
 	public event Action GettingUpFinished;
@@ -414,18 +415,15 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		if (!_networkIsMoving.Value || _isJumping)
 		{
-			_footstepTimer = 0f;
-			return;
-		}
-
-		_footstepTimer -= Time.deltaTime;
-		if (_footstepTimer > 0f)
-		{
+			_footsteps.Stop();
 			return;
 		}
 
 		bool running = _networkIsRunning.Value;
-		_footstepTimer = running ? _footstepRunInterval : _footstepWalkInterval;
+		if (!_footsteps.Tick(running, _footstepWalkInterval, _footstepRunInterval))
+		{
+			return;
+		}
 
 		// 발이 땅에 없으면 이번 걸음은 넘긴다. 타이머는 위에서 이미 갱신했다.
 		if (!IsGrounded())
@@ -433,9 +431,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		SoundManager.Instance?.PlayAt(
-			running ? SoundKey.Player_FootstepRun : SoundKey.Player_FootstepWalk,
-			transform.position);
+		_footsteps.Play(transform.position, running);
 	}
 
 	// 긴급 탈출 컴포넌트도 이동 코드와 같은 지면 판정을 재사용한다.

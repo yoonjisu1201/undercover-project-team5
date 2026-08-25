@@ -14,8 +14,6 @@ GameObject:
   - component: {fileID: 1821968764860214326}
   - component: {fileID: 9022935502193842648}
   - component: {fileID: 273377232695388839}
-  - component: {fileID: 1117789549935551237}
-  - component: {fileID: 4557671581942879350}
   - component: {fileID: 7706144973958048022}
   - component: {fileID: 6899750055277642548}
   - component: {fileID: 867195548031847311}
@@ -187,123 +185,6 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 0
---- !u!82 &1117789549935551237
-AudioSource:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1669351557380495861}
-  m_Enabled: 1
-  serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 0}
-  m_PlayOnAwake: 0
-  m_Volume: 1
-  m_Pitch: 1
-  Loop: 0
-  Mute: 0
-  Spatialize: 0
-  SpatializePostEffects: 0
-  Priority: 128
-  DopplerLevel: 0
-  MinDistance: 2
-  MaxDistance: 35
-  Pan2D: 0
-  rolloffMode: 1
-  BypassEffects: 0
-  BypassListenerEffects: 0
-  BypassReverbZones: 0
-  rolloffCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  panLevelCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  spreadCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  reverbZoneMixCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
---- !u!114 &4557671581942879350
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1669351557380495861}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: abb2e30979a24394c953d16d1eb17a52, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FootstepAudio
-  _source: {fileID: 1117789549935551237}
-  _walkClips: []
-  _runClips: []
-  _walkInterval: 0.7
-  _runInterval: 0.45
-  _runSpeedThreshold: 4
-  _idleSpeedThreshold: 0.6
-  _pitchRange: {x: 0.94, y: 1.06}
 --- !u!114 &7706144973958048022
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -372,12 +253,12 @@ MonoBehaviour:
   _waypointHeightOffset: 0.5
   _waypointSampleRadius: 6
   _teleportMinPlayerDistance: 25
-  _teleportCueSource: {fileID: 7423328124234925756}
-  _teleportCueClip: {fileID: 0}
   _walkParameter: IsWalking
   _runParameter: IsRunning
   _runSpeedThreshold: 3.2
   _walkSpeedThreshold: 0.2
+  _footstepWalkInterval: 0.7
+  _footstepRunInterval: 0.45
 --- !u!114 &8525054553018698352
 MonoBehaviour:
   m_ObjectHideFlags: 0

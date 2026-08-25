@@ -23,6 +23,11 @@ public class GameSessionManager : MonoBehaviour
 	[FormerlySerializedAs("_roundSceneName")]
 	[SerializeField] private string _gameSceneName = "GameScene";
 
+	[Header("로컬 테스트")]
+	[Tooltip("켜면 Relay 대신 직접 연결(127.0.0.1)로 방을 만든다. 같은 PC에서만 들어올 수 있다. "
+		+ "Relay 장애로 방이 안 만들어질 때 테스트를 이어가려는 용도이므로, 배포 전에는 반드시 끈다.")]
+	[SerializeField] private bool _useDirectNetworkForLocalTest;
+
 	public ISession CurrentSession { get; private set; }
 	public string JoinCode => CurrentSession?.Code;
 	public string RoomName => CurrentSession?.Name;
@@ -114,7 +119,18 @@ public class GameSessionManager : MonoBehaviour
 				{
 					[BuildVersionPropertyKey] = new(Application.version, VisibilityPropertyOptions.Public)
 				}
-			}.WithRelayNetwork();
+			};
+
+			// Relay 는 Unity 서버를 거쳐 연결한다. 그쪽이 죽으면(504 등) 방 생성 자체가 실패해서
+			// 로컬 테스트도 못 한다. 직접 연결은 Relay 를 건너뛰지만 같은 PC 안에서만 통한다.
+			options = _useDirectNetworkForLocalTest
+				? options.WithDirectNetwork()
+				: options.WithRelayNetwork();
+
+			if (_useDirectNetworkForLocalTest)
+			{
+				Debug.LogWarning("[GameSessionManager] 직접 연결(로컬 전용)로 방을 만듭니다. 배포 전에 끄세요.", this);
+			}
 
 			stage = "세션 생성 요청";
 			CurrentSession = await MultiplayerService.Instance.CreateSessionAsync(options);

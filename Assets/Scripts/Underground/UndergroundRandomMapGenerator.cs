@@ -102,7 +102,16 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
             return;
         }
 
-        _doors[change.Index].Open();
+        UndergroundDoor door = _doors[change.Index];
+        door.Open();
+
+        // 문소리는 모든 클라이언트가 문 위치에서 듣는다. 이 콜백 자체가 NetworkList 변경으로
+        // 각자에게 도달하므로 소리 때문에 RPC 를 따로 보낼 필요가 없다.
+        //
+        // 뒤늦게 들어온 클라이언트가 이미 열려 있던 문들을 한꺼번에 반영하는 경로는
+        // OnNetworkSpawn 에서 Open() 을 직접 부르므로 여기를 타지 않는다. 접속하자마자
+        // 열린 문 개수만큼 문소리가 몰아서 나는 일은 없다.
+        SoundManager.Instance?.PlayAt(SoundKey.Basement_Door_Open, door.transform.position);
     }
 
     // 문과 상호작용한 클라이언트가 이 문을 열어달라고 요청할 때 부른다. 실제 상태 변경은 서버만 할 수 있다.

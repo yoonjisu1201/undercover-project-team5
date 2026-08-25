@@ -7,7 +7,7 @@ using UnityEngine;
 // 위치 변화량으로 움직였는지를 알 수 있다. 달리기·점프·음소거·발화처럼 클라이언트만 아는 상태는
 // 오너가 NetworkVariable로 올린다.
 //
-// 사람에게 들려주는 발소리는 FootstepAudio가 따로 담당한다. 이쪽은 판정만 한다.
+// 사람에게 들려주는 발소리는 PlayerMoveSample 이 SoundManager 로 재생한다. 이쪽은 판정만 한다.
 [RequireComponent(typeof(PlayerStamina))]
 public class PlayerNoiseEmitter : NetworkBehaviour
 {

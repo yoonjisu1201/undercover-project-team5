@@ -10,6 +10,7 @@ using UnityEngine.AI;
 //  - 서버가 아닌 인스턴스에서 NavMeshAgent가 트랜스폼을 건드리지 않게 막는다(NetworkTransform과 충돌).
 //  - 매 라운드 새로 생성되는 지하 모듈에서 배회 지점을 만들어 그래프 Blackboard에 넣는다.
 //  - 먼 모듈로 순간이동시키고, 위치를 알 수 없는 쿵 소리로 "옮겨왔다"는 것만 알린다.
+//  - 발소리를 낸다. 소리는 전부 SoundManager/SoundData 를 거친다.
 //    옮긴 뒤에는 그래프를 다시 시작해서 이동 노드가 목적지를 새로 잡게 한다.
 //  - 이동 속도를 애니메이터 파라미터로 옮긴다. Behavior의 이동 노드는 float 하나만 쓰는데
 //    이 프로젝트 애니메이터는 걷기/달리기 bool 두 개를 쓰기 때문이다. 라운드마다 외형이 바뀌고
@@ -34,11 +35,6 @@ public class BossController : NetworkBehaviour
     [Tooltip("이 거리 안에 사람이 있는 모듈로는 옮기지 않는다. 눈앞에 나타나면 대응할 여지가 없다.")]
     [SerializeField, Min(0f)] private float _teleportMinPlayerDistance = 25f;
 
-    [Tooltip("옮겨온 직후 들리는 쿵 소리. 방향을 알 수 없게 2D로 재생한다.")]
-    [SerializeField] private AudioSource _teleportCueSource;
-
-    [SerializeField] private AudioClip _teleportCueClip;
-
     [Header("애니메이션")]
     [SerializeField] private string _walkParameter = "IsWalking";
     [SerializeField] private string _runParameter = "IsRunning";
@@ -48,10 +44,17 @@ public class BossController : NetworkBehaviour
 
     [SerializeField, Min(0f)] private float _walkSpeedThreshold = 0.2f;
 
+    [Header("발소리")]
+    [Tooltip("걸을 때 발소리 간격(초). 보스는 사람보다 느리고 무겁게 걷는다.")]
+    [SerializeField, Min(0.05f)] private float _footstepWalkInterval = 0.7f;
+
+    [SerializeField, Min(0.05f)] private float _footstepRunInterval = 0.45f;
+
     private NavMeshAgent _agent;
     private BehaviorGraphAgent _brain;
     private BossVisual _visual;
     private Vector3 _lastAnimationPosition;
+    private readonly FootstepLoop _footsteps = new(SoundKey.Boss_FootstepWalk, SoundKey.Boss_FootstepRun);
     private UndergroundRandomMapGenerator _mapGenerator;
 
     // 순간이동 직후 그래프를 다시 시작해야 하는지. 노드 실행 중에 Restart를 부르면 재진입이
@@ -145,8 +148,27 @@ public class BossController : NetworkBehaviour
 
         float speed = IsServer ? _agent.velocity.magnitude : clientSpeed;
 
-        animator.SetBool(_walkParameter, speed > _walkSpeedThreshold);
-        animator.SetBool(_runParameter, speed >= _runSpeedThreshold);
+        bool walking = speed > _walkSpeedThreshold;
+        bool running = speed >= _runSpeedThreshold;
+        animator.SetBool(_walkParameter, walking);
+        animator.SetBool(_runParameter, running);
+
+        UpdateFootstep(walking, running);
+    }
+
+    // 발소리도 각 클라이언트가 자기 화면에서 낸다. 위치가 이미 동기화돼 있어 통신이 필요 없다.
+    private void UpdateFootstep(bool walking, bool running)
+    {
+        if (!walking)
+        {
+            _footsteps.Stop();
+            return;
+        }
+
+        if (_footsteps.Tick(running, _footstepWalkInterval, _footstepRunInterval))
+        {
+            _footsteps.Play(transform.position, running);
+        }
     }
 
     #region 순간이동
@@ -198,6 +220,10 @@ public class BossController : NetworkBehaviour
             return false;
         }
 
+        // 소리는 "보스가 있던 자리"에서 나야 한다. Warp 뒤에 읽으면 도착 지점이 되어,
+        // 어디로 갔는지 알려주는 소리가 되어 버린다.
+        Vector3 departurePosition = transform.position;
+
         // Warp 는 경로를 버리고 위치만 옮긴다. 이동 중이던 경로가 남으면 새 자리에서 되돌아가려 한다.
         _agent.Warp(bestPosition);
 
@@ -211,7 +237,7 @@ public class BossController : NetworkBehaviour
         // 그래프를 다시 시작해서 이동 노드가 목적지를 새로 계산하게 만든다.
         _restartGraphPending = true;
 
-        PlayTeleportCueRpc();
+        PlayTeleportCueRpc(departurePosition);
         return true;
     }
 
@@ -239,17 +265,14 @@ public class BossController : NetworkBehaviour
         return nearest;
     }
 
-    // 방향을 알 수 없어야 한다. 어디서 났는지 알면 "저쪽에 있다"가 되어 오히려 안심하게 된다.
+    // 보스가 떠난 자리에서 낸다. 근처에 있던 사람은 "옆에 있던 것이 사라졌다"를 알아채고,
+    // 멀리 있던 사람에게는 들리지 않는다. 어디로 갔는지는 여전히 아무도 모른다.
+    //
+    // 위치는 인자로 받는다. 이 시점이면 NetworkTransform 이 이미 새 위치를 퍼뜨렸을 수 있어서
+    // 클라이언트에서 transform.position 을 읽으면 도착 지점이 나온다.
     [Rpc(SendTo.Everyone)]
-    private void PlayTeleportCueRpc()
-    {
-        if (_teleportCueSource == null || _teleportCueClip == null)
-        {
-            return;
-        }
-
-        _teleportCueSource.PlayOneShot(_teleportCueClip);
-    }
+    private void PlayTeleportCueRpc(Vector3 departurePosition)
+        => SoundManager.Instance?.PlayAt(SoundKey.Boss_TeleportCue, departurePosition);
 
     #endregion
 

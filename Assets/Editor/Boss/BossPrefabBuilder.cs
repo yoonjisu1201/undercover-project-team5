@@ -13,7 +13,6 @@ public static class BossPrefabBuilder
 {
     private const string PrefabPath = "Assets/Prefabs/Npc/Boss/Boss_main.prefab";
     private const string GraphPath = "Assets/Behavior/BossBehavior.asset";
-    private const string TeleportCueName = "TeleportCue";
     private const string DefaultModelName = "Character_01_Model";
 
     // 라운드마다 골라 쓸 외형. 각 프리팹이 자기 Animator(AlienAnimator)와 Avatar를 들고 있어서
@@ -41,10 +40,9 @@ public static class BossPrefabBuilder
         try
         {
             ConfigureNavAgent(root);
-            ConfigureAudio(root);
             ConfigureBrain(root);
             ConfigurePerception(root);
-            ConfigureController(root);
+            Require<BossController>(root);
             ConfigureVisual(root);
             RemoveUnusedNetworkAnimator(root);
             ConfigureAttack(root);
@@ -90,30 +88,6 @@ public static class BossPrefabBuilder
         }
     }
 
-    private static void ConfigureAudio(GameObject root)
-    {
-        AudioSource source = Require<AudioSource>(root);
-        source.playOnAwake = false;
-        source.loop = false;
-        source.spatialBlend = 1f;
-        source.dopplerLevel = 0f;
-        source.rolloffMode = AudioRolloffMode.Linear;
-
-        // 발소리가 들리는 거리. 보스 발소리는 멀리서도 들려야 "어디 있는지" 감이 잡힌다.
-        source.minDistance = 2f;
-        source.maxDistance = 35f;
-
-        FootstepAudio footstep = Require<FootstepAudio>(root);
-        SetPrivateField(footstep, "_source", source);
-
-        // 보스는 사람보다 느리고 무겁게 걷는다.
-        SetPrivateField(footstep, "_walkInterval", 0.7f);
-        SetPrivateField(footstep, "_runInterval", 0.45f);
-
-        // 추격(4.5)과 배회·수색(2.2~3.5) 사이. NavMeshAgent 실제 속도로 판정한다.
-        SetPrivateField(footstep, "_runSpeedThreshold", 4f);
-    }
-
     private static void ConfigureBrain(GameObject root)
     {
         BehaviorGraphAgent brain = Require<BehaviorGraphAgent>(root);
@@ -155,30 +129,6 @@ public static class BossPrefabBuilder
         // 시야각 밖이라도 알아채는 거리. 시야(16)보다 짧게 둬서, 멀리서는 보고 있어야만 걸리고
         // 가까이서는 방향과 무관하게 걸리게 한다.
         SetPrivateField(perception, "_senseRadius", 14f);
-    }
-
-    private static void ConfigureController(GameObject root)
-    {
-        BossController controller = Require<BossController>(root);
-
-        // 순간이동 쿵 소리는 방향을 알 수 없어야 한다. 발소리용 3D AudioSource 와 설정이 정반대라
-        // 같은 컴포넌트를 공유할 수 없어서 자식 오브젝트로 따로 둔다.
-        Transform cue = root.transform.Find(TeleportCueName);
-        if (cue == null)
-        {
-            var cueObject = new GameObject(TeleportCueName);
-            cueObject.transform.SetParent(root.transform, worldPositionStays: false);
-            cue = cueObject.transform;
-        }
-
-        AudioSource cueSource = Require<AudioSource>(cue.gameObject);
-        cueSource.playOnAwake = false;
-        cueSource.loop = false;
-
-        // 0 이면 완전한 2D. 보스가 어디로 옮겨갔든 같은 크기로 들려서 방향을 짐작할 수 없다.
-        cueSource.spatialBlend = 0f;
-
-        SetPrivateField(controller, "_teleportCueSource", cueSource);
     }
 
     // 외형마다 Animator가 달라져서 루트에 묶인 NetworkAnimator는 아무것도 동기화하지 않는다.
