@@ -1,6 +1,7 @@
 using TMPro;
 using Unity.Services.Multiplayer;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.UI;
 
 // 로비 방 목록의 한 줄. 방 이름과 인원을 보여주고, 들어갈 수 없는 방은 회색으로 표시한다.
@@ -14,6 +15,14 @@ public class RoomListEntryUI : MonoBehaviour
 	[SerializeField] private GameObject _lockIcon;
 	// 클릭 처리는 인스펙터의 OnClick()에 연결한다. 이 참조는 입장 불가 방을 비활성화하는 데만 쓴다.
 	[SerializeField] private Button _joinButton;
+
+	[Header("현지화 문구")]
+	[SerializeField] private LocalizedString _statusInGame;
+	[SerializeField] private LocalizedString _statusFull;
+	[SerializeField] private LocalizedString _statusVersionUnknown;
+
+	[Tooltip("방 버전 표시. {0} 에 버전 문자열이 들어간다.")]
+	[SerializeField] private LocalizedString _statusVersion;
 
 	[Header("글자 색")]
 	[SerializeField] private Color _joinableColor = Color.white;
@@ -37,18 +46,20 @@ public class RoomListEntryUI : MonoBehaviour
 
 		if (room.IsLocked)
 		{
-			_statusText.text = "게임 중";
+			_statusText.text = _statusInGame.GetLocalizedString();
 			_statusText.color = _inGameColor;
 		}
 		else if (room.AvailableSlots <= 0)
 		{
-			_statusText.text = "정원 FULL";
+			_statusText.text = _statusFull.GetLocalizedString();
 			_statusText.color = _fullColor;
 		}
 		else if (!GameSessionManager.IsVersionMatched(room))
 		{
 			string roomVersion = GameSessionManager.ReadRoomVersion(room.Properties);
-			_statusText.text = string.IsNullOrEmpty(roomVersion) ? "버전 불명" : $"버전 {roomVersion}";
+			_statusText.text = string.IsNullOrEmpty(roomVersion)
+				? _statusVersionUnknown.GetLocalizedString()
+				: _statusVersion.GetLocalizedString(roomVersion);
 			_statusText.color = _versionMismatchColor;
 		}
 		else
