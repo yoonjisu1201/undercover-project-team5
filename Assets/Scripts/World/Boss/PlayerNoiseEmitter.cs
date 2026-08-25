@@ -178,6 +178,19 @@ public class PlayerNoiseEmitter : NetworkBehaviour
     // 음소거 보정은 한곳에서만 곱해야 종류별로 빠지는 곳이 생기지 않는다.
     private void Report(Vector3 position, float radius, string kind)
     {
+        // 표적이 될 수 없는 상태면 아무 소음도 내지 않는다.
+        //
+        // 쓰러지면 이동·착지 소음은 입력이 막혀 저절로 멈추지만 목소리는 그렇지 않다. Vivox 마이크는
+        // 다운과 무관하게 살아 있어서, 쓰러진 사람이 계속 말하면 보스가 그 소리를 듣고 시신 주변을
+        // 떠나지 못한다. 소생하면 조건이 다시 참이 되므로 따로 되돌릴 것은 없다.
+        //
+        // 판정을 SurvivorRegistry 에 맡기는 이유는 보스 감지·기억과 조건을 어긋나지 않게 두려는 것이다.
+        // 여기서 IsDowned 만 따로 보면 본부에 있는 사람이 내는 소음이 또 다른 예외로 남는다.
+        if (!SurvivorRegistry.IsActive(gameObject))
+        {
+            return;
+        }
+
         float multiplier = NoiseMultiplier;
         NoiseSystem.Report(position, radius * multiplier, multiplier > 1f ? kind + "(음소거)" : kind);
     }
