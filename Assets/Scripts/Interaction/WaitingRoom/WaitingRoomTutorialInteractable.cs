@@ -1,15 +1,24 @@
 using UnityEngine;
 using UnityEngine.Localization;
 
-// 그림 튜토리얼 Pedestal별 이미지 데이터만 보관하고, 실제 표시는 씬의 공용 그림 튜토리얼 UI에 맡긴다.
+// 그림 튜토리얼 Pedestal별 설명 문구를 보관하고, 실제 표시는 Pedestal과 씬의 공용 튜토리얼 UI에 맡긴다.
 // Pedestal마다 Canvas를 복제하지 않아 동일한 표시 방식과 입력 차단 수명 주기를 한 곳에서 관리한다.
 public sealed class WaitingRoomTutorialInteractable : InteractableBase
 {
-    [SerializeField] private LocalizedTexture _informationImage;
+    [SerializeField] private LocalizedString _title;
+    [SerializeField] private LocalizedString _subtitle;
+    [SerializeField] private LocalizedString _body;
+    [SerializeField] private WaitingRoomTutorialInfoView _pedestalInfo;
 
     private WaitingRoomTutorialUI _tutorialUI;
 
     public override string InteractionText => "정보 보기";
+
+    protected override void Awake()
+    {
+        base.Awake();
+        _pedestalInfo.SetContent(_title, _subtitle, _body);
+    }
 
     public override bool CanInteract(GameObject interactor)
     {
@@ -18,7 +27,7 @@ public sealed class WaitingRoomTutorialInteractable : InteractableBase
 
     public override void Interact(GameObject interactor)
     {
-        GetTutorialUI()?.Open(_informationImage);
+        GetTutorialUI()?.Open(_title, _subtitle, _body);
     }
 
     private WaitingRoomTutorialUI GetTutorialUI()

@@ -56,7 +56,6 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     public bool IsHost => _isHost;
     public bool IsReady => _isReady;
     public bool CanUseReadyStart => !_isHost || _readyManager.CanStart;
-    public bool IsReadyStartActive => _isHost ? _readyManager.CanStart : _isReady;
 
     private static bool s_hasCompletedNicknameSetup;
     private static string s_savedNickname;

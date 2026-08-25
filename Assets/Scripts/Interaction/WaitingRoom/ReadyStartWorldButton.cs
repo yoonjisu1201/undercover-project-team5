@@ -12,17 +12,28 @@ public sealed class ReadyStartWorldButton : WaitingRoomButtonBase
     [SerializeField] private Renderer _buttonRenderer;
     [SerializeField] private Renderer _statusLampRenderer;
 
-    [SerializeField] private Color _inactiveBaseColor = new Color(0.025f, 0.16f, 0.7f, 1f);
+    [SerializeField] private Color _participantNotReadyBaseColor = new Color(0.55f, 0.62f, 0.68f, 1f);
 
     [ColorUsage(false, true)]
-    [SerializeField] private Color _inactiveEmissionColor = new Color(0.05f, 1.2f, 7f, 1f);
+    [SerializeField] private Color _participantNotReadyEmissionColor = new Color(1.2f, 1.35f, 1.5f, 1f);
 
-    [SerializeField] private Color _activeBaseColor = new Color(0.7f, 0.025f, 0.015f, 1f);
+    [SerializeField] private Color _readyBaseColor = new Color(0.02f, 0.2f, 0.05f, 1f);
 
     [ColorUsage(false, true)]
-    [SerializeField] private Color _activeEmissionColor = new Color(7f, 0.08f, 0.03f, 1f);
+    [SerializeField] private Color _readyEmissionColor = new Color(0.1f, 0.75f, 0.2f, 1f);
+
+    [SerializeField] private Color _startUnavailableBaseColor = new Color(0.7f, 0.025f, 0.015f, 1f);
+
+    [ColorUsage(false, true)]
+    [SerializeField] private Color _startUnavailableEmissionColor = new Color(7f, 0.08f, 0.03f, 1f);
+
+    [SerializeField] private Color _startingBaseColor = new Color(0.025f, 0.16f, 0.7f, 1f);
+
+    [ColorUsage(false, true)]
+    [SerializeField] private Color _startingEmissionColor = new Color(0.05f, 1.2f, 7f, 1f);
 
     private MaterialPropertyBlock _materialProperties;
+    private bool _hasStarted;
 
     public override string InteractionText => RoomUI.IsHost ? "게임 시작" : "준비";
 
@@ -66,15 +77,48 @@ public sealed class ReadyStartWorldButton : WaitingRoomButtonBase
 
     protected override void ExecuteButtonAction()
     {
+        if (RoomUI.IsHost)
+        {
+            _hasStarted = true;
+            RefreshVisual();
+        }
+
         RoomUI.InteractReadyStart();
     }
 
     private void RefreshVisual()
     {
-        bool isActive = RoomUI.IsReadyStartActive;
+        Color baseColor;
+        Color emissionColor;
 
-        Color baseColor = isActive ? _activeBaseColor : _inactiveBaseColor;
-        Color emissionColor = isActive ? _activeEmissionColor : _inactiveEmissionColor;
+        if (RoomUI.IsHost)
+        {
+            if (_hasStarted)
+            {
+                baseColor = _startingBaseColor;
+                emissionColor = _startingEmissionColor;
+            }
+            else if (RoomUI.CanUseReadyStart)
+            {
+                baseColor = _readyBaseColor;
+                emissionColor = _readyEmissionColor;
+            }
+            else
+            {
+                baseColor = _startUnavailableBaseColor;
+                emissionColor = _startUnavailableEmissionColor;
+            }
+        }
+        else if (RoomUI.IsReady)
+        {
+            baseColor = _readyBaseColor;
+            emissionColor = _readyEmissionColor;
+        }
+        else
+        {
+            baseColor = _participantNotReadyBaseColor;
+            emissionColor = _participantNotReadyEmissionColor;
+        }
 
         // 공유 Material을 복제하지 않고 이 버튼 인스턴스의 색만 바꾸며, 기존 PropertyBlock 값은 보존한다.
         _buttonRenderer.GetPropertyBlock(_materialProperties);

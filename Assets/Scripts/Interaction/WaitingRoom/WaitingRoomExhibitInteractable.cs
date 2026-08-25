@@ -2,16 +2,25 @@ using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Video;
 
-// 전시물별 설명 이미지와 영상 데이터만 보관하고, 실제 표시는 씬의 공용 튜토리얼 UI에 맡긴다.
+// 전시물별 설명 문구와 영상 데이터만 보관하고, 실제 표시는 Pedestal과 씬의 공용 튜토리얼 UI에 맡긴다.
 // 전시물마다 Canvas와 VideoPlayer를 복제하지 않아 표시와 입력 차단 수명 주기를 한 곳에서 관리한다.
 public sealed class WaitingRoomExhibitInteractable : InteractableBase
 {
-    [SerializeField] private LocalizedTexture _informationImage;
+    [SerializeField] private LocalizedString _title;
+    [SerializeField] private LocalizedString _subtitle;
+    [SerializeField] private LocalizedString _body;
+    [SerializeField] private WaitingRoomTutorialInfoView _pedestalInfo;
     [SerializeField] private VideoClip _videoClip;
 
     private WaitingRoomObjectTutorialUI _tutorialUI;
 
     public override string InteractionText => "정보 보기";
+
+    protected override void Awake()
+    {
+        base.Awake();
+        _pedestalInfo.SetContent(_title, _subtitle, _body);
+    }
 
     public override bool CanInteract(GameObject interactor)
     {
@@ -20,7 +29,7 @@ public sealed class WaitingRoomExhibitInteractable : InteractableBase
 
     public override void Interact(GameObject interactor)
     {
-        GetTutorialUI()?.Open(_informationImage, _videoClip);
+        GetTutorialUI()?.Open(_title, _subtitle, _body, _videoClip);
     }
 
     private WaitingRoomObjectTutorialUI GetTutorialUI()

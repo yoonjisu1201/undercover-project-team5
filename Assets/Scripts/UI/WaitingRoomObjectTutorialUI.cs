@@ -3,17 +3,16 @@ using UnityEngine.Localization;
 using UnityEngine.UI;
 using UnityEngine.Video;
 
-// 모든 대기방 전시물이 공유하는 설명 UI로, 선택한 전시물의 이미지와 영상을 교체해 표시한다.
-// UI가 열린 동안 월드 입력은 차단되므로 닫기 입력과 미디어·Localization 수명 주기를 이 컴포넌트가 직접 관리한다.
+// 모든 대기방 전시물이 공유하는 설명 UI로, 선택한 전시물의 문구와 영상을 교체해 표시한다.
+// UI가 열린 동안 월드 입력은 차단되므로 닫기 입력과 미디어 수명 주기를 이 컴포넌트가 직접 관리한다.
 public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
 {
     [SerializeField] private Button _closeButton;
     [SerializeField] private RawImage _videoImage;
     [SerializeField] private VideoPlayer _videoPlayer;
-    [SerializeField] private RawImage _informationImage;
+    [SerializeField] private WaitingRoomTutorialInfoView _informationView;
 
     private CustomInputActions _actions;
-    private LocalizedTexture _localizedInformationImage;
     private bool _isOpen;
     private bool _canCloseWithInteract;
 
@@ -44,7 +43,11 @@ public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
         }
     }
 
-    public void Open(LocalizedTexture informationImage, VideoClip videoClip)
+    public void Open(
+        LocalizedString title,
+        LocalizedString subtitle,
+        LocalizedString body,
+        VideoClip videoClip)
     {
         gameObject.SetActive(true);
 
@@ -57,7 +60,7 @@ public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
         }
 
         _canCloseWithInteract = false;
-        SetInformationImage(informationImage);
+        _informationView.SetContent(title, subtitle, body);
         SetVideo(videoClip);
     }
 
@@ -89,24 +92,6 @@ public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
         _actions?.Dispose();
     }
 
-    private void SetInformationImage(LocalizedTexture informationImage)
-    {
-        // 이전 전시물의 언어 변경 구독을 먼저 해제해 현재 전시물의 이미지 콜백만 UI에 반영되게 한다.
-        ReleaseInformationImage();
-        _localizedInformationImage = informationImage;
-
-        if (_localizedInformationImage != null)
-        {
-            // 현재 로케일의 Texture 적용과 UI가 열린 중의 언어 변경을 같은 콜백으로 처리한다.
-            _localizedInformationImage.AssetChanged += ApplyInformationImage;
-        }
-    }
-
-    private void ApplyInformationImage(Texture texture)
-    {
-        _informationImage.texture = texture;
-    }
-
     private void SetVideo(VideoClip videoClip)
     {
         // 이전 영상의 재생 상태와 마지막 프레임이 새 전시물에 남지 않도록 정지한 뒤 Clip과 표시 여부를 교체한다.
@@ -124,7 +109,6 @@ public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
     {
         // Open에서 등록한 UI 스택과 입력 차단을 함께 해제해 닫힌 뒤 플레이어 조작이 정상 복원되게 한다.
         _isOpen = false;
-        ReleaseInformationImage();
 
         _videoPlayer.Stop();
         _videoPlayer.clip = null;
@@ -132,16 +116,5 @@ public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
 
         GameplayUiMode.Instance?.UnregisterUi(this);
         GameplayUiMode.Instance?.DeactivateCursor();
-    }
-
-    private void ReleaseInformationImage()
-    {
-        if (_localizedInformationImage != null)
-        {
-            _localizedInformationImage.AssetChanged -= ApplyInformationImage;
-            _localizedInformationImage = null;
-        }
-
-        _informationImage.texture = null;
     }
 }
