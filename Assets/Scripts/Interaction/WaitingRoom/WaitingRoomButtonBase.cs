@@ -5,6 +5,9 @@ using UnityEngine;
 // 실제 기능은 파생 클래스에 맡기되 Interact 흐름은 고정해 모든 버튼이 같은 입력 피드백을 거치게 한다.
 public abstract class WaitingRoomButtonBase : InteractableBase
 {
+    [Header("홀드 상호작용")]
+    [SerializeField, Min(0f)] private float _interactHoldDuration;
+
     [Header("버튼 눌림 연출")]
     [SerializeField] private Transform _buttonTransform;
     [SerializeField, Min(0f)] private float _pressDepth = 0.025f;
@@ -14,6 +17,7 @@ public abstract class WaitingRoomButtonBase : InteractableBase
     private Tween _pressTween;
 
     protected WaitingRoomUI RoomUI { get; private set; }
+    public sealed override float InteractHoldThreshold => _interactHoldDuration;
 
     protected override void Awake()
     {

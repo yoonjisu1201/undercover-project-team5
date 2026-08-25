@@ -4,9 +4,12 @@ using UnityEngine;
 // Canvas 버튼과 별도 퇴장 로직을 만들지 않아 세션 종료 처리를 한 곳에서 유지한다.
 public sealed class WaitingRoomExitInteractable : InteractableBase
 {
+    [SerializeField, Min(0f)] private float _interactHoldDuration = 1.2f;
+
     private WaitingRoomUI _roomUI;
 
     public override string InteractionText => "방 나가기";
+    public override float InteractHoldThreshold => _interactHoldDuration;
     public override bool CanInteract(GameObject interactor) => true;
 
     protected override void Awake()

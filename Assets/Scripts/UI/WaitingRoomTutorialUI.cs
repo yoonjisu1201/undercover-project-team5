@@ -6,6 +6,7 @@ using UnityEngine.UI;
 // 오브젝트 전시 UI와 용도를 분리해 그림 튜토리얼의 레이아웃과 입력 수명 주기를 독립적으로 관리한다.
 public sealed class WaitingRoomTutorialUI : MonoBehaviour, IClosableUi
 {
+    [SerializeField] private Button _closeButton;
     [SerializeField] private RawImage _informationImage;
 
     private CustomInputActions _actions;
@@ -17,6 +18,7 @@ public sealed class WaitingRoomTutorialUI : MonoBehaviour, IClosableUi
     {
         _actions ??= new CustomInputActions();
         _actions.Enable();
+        _closeButton.onClick.AddListener(Close);
     }
 
     private void Update()
@@ -48,7 +50,7 @@ public sealed class WaitingRoomTutorialUI : MonoBehaviour, IClosableUi
             // 이미 열린 UI의 내용만 교체할 때는 UI 등록과 입력 차단을 중복 적용하지 않는다.
             _isOpen = true;
             GameplayUiMode.Instance?.RegisterUi(this);
-            GameplayUiMode.Instance?.ActivateInputBlock();
+            GameplayUiMode.Instance?.ActivateCursor();
         }
 
         _canCloseWithInteract = false;
@@ -68,6 +70,7 @@ public sealed class WaitingRoomTutorialUI : MonoBehaviour, IClosableUi
 
     private void OnDisable()
     {
+        _closeButton.onClick.RemoveListener(Close);
         _actions?.Disable();
 
         if (_isOpen)
@@ -106,7 +109,7 @@ public sealed class WaitingRoomTutorialUI : MonoBehaviour, IClosableUi
         _isOpen = false;
         ReleaseInformationImage();
         GameplayUiMode.Instance?.UnregisterUi(this);
-        GameplayUiMode.Instance?.DeactivateInputBlock();
+        GameplayUiMode.Instance?.DeactivateCursor();
     }
 
     private void ReleaseInformationImage()

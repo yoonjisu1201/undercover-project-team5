@@ -26,6 +26,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     [Header("=== 닉네임 설정 ===")]
     [SerializeField] private TMP_InputField _nicknameInputField;
     [SerializeField] private Button _nicknameConfirmButton;
+    [SerializeField] private Button _nicknameCloseButton;
     [SerializeField] private GameObject _nicknameSettingPanel;
     [SerializeField] private TextMeshProUGUI _nicknameNoticeText; // "이미 사용 중인 닉네임입니다" 안내
 
@@ -84,6 +85,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         _nicknameInputField.characterLimit = Player.MaxPlayerNameLength;
         _nicknameConfirmButton.onClick.AddListener(HandleNicknameConfirmButtonClicked);
+        _nicknameCloseButton.onClick.AddListener(Close);
 
         bool shouldShowNicknamePanel = !s_hasCompletedNicknameSetup;
         // 씬에 값을 저장해두면 모든 플레이어에게 같은 이름이 보인다. 접속은 끝난 상태라 자기 기본 이름을 알 수 있다.
@@ -154,6 +156,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         _readyButton.onClick.RemoveListener(HandleReadyButtonClicked);
 
         _nicknameConfirmButton.onClick.RemoveListener(HandleNicknameConfirmButtonClicked);
+        _nicknameCloseButton.onClick.RemoveListener(Close);
 
         if (_boundPlayer != null) { _boundPlayer.NameRequestResolved -= HandleNameRequestResolved; }
 

@@ -7,6 +7,7 @@ using UnityEngine.Video;
 // UI가 열린 동안 월드 입력은 차단되므로 닫기 입력과 미디어·Localization 수명 주기를 이 컴포넌트가 직접 관리한다.
 public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
 {
+    [SerializeField] private Button _closeButton;
     [SerializeField] private RawImage _videoImage;
     [SerializeField] private VideoPlayer _videoPlayer;
     [SerializeField] private RawImage _informationImage;
@@ -20,6 +21,7 @@ public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
     {
         _actions ??= new CustomInputActions();
         _actions.Enable();
+        _closeButton.onClick.AddListener(Close);
     }
 
     private void Update()
@@ -51,7 +53,7 @@ public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
             // 이미 열린 UI의 내용만 교체할 때는 등록과 카운터를 중복 적용하지 않아 해제 호출과 균형을 맞춘다.
             _isOpen = true;
             GameplayUiMode.Instance?.RegisterUi(this);
-            GameplayUiMode.Instance?.ActivateInputBlock();
+            GameplayUiMode.Instance?.ActivateCursor();
         }
 
         _canCloseWithInteract = false;
@@ -72,6 +74,7 @@ public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
 
     private void OnDisable()
     {
+        _closeButton.onClick.RemoveListener(Close);
         _actions?.Disable();
 
         if (_isOpen)
@@ -128,7 +131,7 @@ public sealed class WaitingRoomObjectTutorialUI : MonoBehaviour, IClosableUi
         _videoImage.enabled = false;
 
         GameplayUiMode.Instance?.UnregisterUi(this);
-        GameplayUiMode.Instance?.DeactivateInputBlock();
+        GameplayUiMode.Instance?.DeactivateCursor();
     }
 
     private void ReleaseInformationImage()
