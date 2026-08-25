@@ -170,6 +170,8 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		ApplyAnimatorBool(IsDownedHash, value);
 
+		SetBossCollisionIgnored(value);
+
 		if (value)
 		{
 			SoundManager.Instance?.PlayAt(SoundKey.Player_Downed, transform.position);
@@ -192,6 +194,35 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			SoundManager.Instance?.PlayAt(SoundKey.Player_Revive, transform.position);
 		}
+	}
+
+	// 쓰러진 동안에는 보스가 몸을 통과하게 한다.
+	//
+	// 보스는 Rigidbody 없이 콜라이더만 들고 transform 으로 움직인다. 그러면 겹침이 질량 없이
+	// 밀어내기로만 해소돼서, 지나갈 때마다 쓰러진 몸이 떠밀린다. 다운 중에는 입력이 막혀
+	// 스스로 되돌아올 수도 없고, NetworkTransform 이 소유자 권한이라 밀려난 위치를 본인이
+	// 그대로 확정해 전원에게 퍼뜨린다. 서버가 교정해 주지 않으므로 접촉 자체를 없앤다.
+	//
+	// 몸을 고정하는 방법도 있지만 그러면 보스가 시신에 막히거나 타고 올라간다.
+	// 레이어로 가르는 것도 안 된다. 보스와 플레이어가 같은 Default 레이어라, 그 조합을 끄면
+	// 시신이 벽과 바닥까지 통과한다.
+	//
+	// 이 호출은 각 피어에서 자기 물리 씬에만 적용되므로 모든 클라이언트가 각자 호출해야 한다.
+	// 다운 상태는 NetworkVariable 이라 이 콜백이 전원에게서 돌아간다.
+	private void SetBossCollisionIgnored(bool ignored)
+	{
+		if (_bodyCollider == null)
+		{
+			return;
+		}
+
+		BossController boss = FindFirstObjectByType<BossController>();
+		if (boss == null || !boss.TryGetComponent(out CapsuleCollider bossCollider))
+		{
+			return;
+		}
+
+		Physics.IgnoreCollision(bossCollider, _bodyCollider, ignored);
 	}
 
 	private void UpdateJumpAnimation()
