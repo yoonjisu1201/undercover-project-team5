@@ -47,17 +47,14 @@ public static class BossBehaviorGraphBuilder
     // BossController 의 달리기 판정(3.2)보다 낮아야 걷기 모션이 나온다.
     private const float SearchSpeed = 2.8f;
 
-    // 소리를 따라간 지점에서 한 번 둘러보는 시간(초). "무슨 소리지?" 한 박자만 준다.
-    private const float SearchLookDuration = 1.2f;
+    // 소리 지점에 도착했을 때의 짧은 멈춤(초). 다음 소리를 기다리는 한 박자다.
+    private const float SearchLookDuration = 0.4f;
 
     // 수색 지점에 도착했을 때의 아주 짧은 멈춤(초). 0으로 두면 노드가 실패한다.
     private const float SearchPassDuration = 0.2f;
 
-    // 소리를 따라온 지점에서 둘러보는 시간(초).
-    private const float NoiseLookDuration = 1.5f;
-
-    // 둘러볼 때 좌우로 돌아보는 최대 각도. 시야각이 넓어졌으니 조금만 틀어도 충분하다.
-    private const float ScanSweepAngle = 45f;
+    // 소리를 따라온 지점에서의 짧은 멈춤(초).
+    private const float NoiseLookDuration = 0.5f;
 
     [MenuItem("Tools/Undercover/보스 Behavior 그래프 생성")]
     public static void Build()
@@ -149,11 +146,11 @@ public static class BossBehaviorGraphBuilder
         noiseNav.SetField("AnimatorSpeedParam", NoAnimatorSpeedParam);
         Connect(noiseSequence, noiseNav);
 
-        // 소리를 따라온 지점에서도 그대로 서 있으면 뒤에 있는 사람을 못 본다.
-        BehaviorGraphNodeModel noiseLook = CreateNode(graph, "Scan Around", new Vector2(0f, 820f));
-        noiseLook.SetField("Agent", self, typeof(GameObject));
-        noiseLook.SetField("Duration", NoiseLookDuration);
-        noiseLook.SetField("SweepAngle", ScanSweepAngle);
+        // 도착해서 고개를 돌리지 않는다. 제자리 회전은 "찾는 중"이 아니라 "고장난 것"으로 보이고,
+        // 소리가 계속 나면 이동이 즉시 끝나 회전만 반복된다. 대신 다음 소리로 계속 걸어간다.
+        // 시야각을 150°로 넓혀둔 것이 둘러보는 역할을 대신한다.
+        BehaviorGraphNodeModel noiseLook = CreateNode(graph, "Wait (Seconds)", new Vector2(0f, 820f));
+        noiseLook.SetField("SecondsToWait", NoiseLookDuration);
         Connect(noiseSequence, noiseLook);
 
         // 4순위: 아무 단서도 없으면 배회한다. 이 가지는 조건이 없어서 항상 성공한다.
@@ -275,10 +272,8 @@ public static class BossBehaviorGraphBuilder
         chaseNoiseNav.SetField("AnimatorSpeedParam", NoAnimatorSpeedParam);
         Connect(chaseNoise, chaseNoiseNav);
 
-        BehaviorGraphNodeModel chaseNoiseLook = CreateNode(graph, "Scan Around", position + new Vector2(180f, 960f));
-        chaseNoiseLook.SetField("Agent", self, typeof(GameObject));
-        chaseNoiseLook.SetField("Duration", SearchLookDuration);
-        chaseNoiseLook.SetField("SweepAngle", ScanSweepAngle);
+        BehaviorGraphNodeModel chaseNoiseLook = CreateNode(graph, "Wait (Seconds)", position + new Vector2(180f, 960f));
+        chaseNoiseLook.SetField("SecondsToWait", SearchLookDuration);
         Connect(chaseNoise, chaseNoiseLook);
 
         // 아무 소리도 없으면 마지막으로 본 지점을 뒤진다. 조건 노드가 매 주기 지점을 갱신하고, 도착하면
