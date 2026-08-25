@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using TMPro;
 using Unity.Services.Multiplayer;
 using UnityEngine;
@@ -22,16 +23,30 @@ public class LobbyButtonUI : MonoBehaviour
 
 	[Header("방 목록")]
 	[SerializeField] private Button _refreshButton;
+	[SerializeField] private RectTransform _refreshIcon;
 	[SerializeField] private RoomListEntryUI _roomEntryPrefab;
 	[SerializeField] private Transform _roomListContent;
 
+	[Header("새로고침 연출")]
+	[SerializeField, Min(0f)] private float _refreshIconRotationDuration = 0.8f;
+	[SerializeField, Range(0.5f, 1f)] private float _refreshButtonPressedScale = 0.94f;
+	[SerializeField, Min(0f)] private float _refreshButtonPressDuration = 0.06f;
+	[SerializeField, Min(0f)] private float _refreshButtonReleaseDuration = 0.12f;
+
 	// 목록 조회는 서비스에서 초당 1회로 제한되어 있어, 새로고침 연타가 그대로 조회 실패로 이어진다.
-	private const int RefreshCooldownMilliseconds = 2000;
+	private const int RefreshCooldownMilliseconds = 1000;
 
 	private bool _isRefreshing;
+	private Tween _refreshIconTween;
+	private Sequence _refreshButtonTween;
+	private Quaternion _refreshIconInitialRotation;
+	private Vector3 _refreshButtonInitialScale;
 
 	private void Start()
 	{
+		_refreshIconInitialRotation = _refreshIcon.localRotation;
+		_refreshButtonInitialScale = _refreshButton.transform.localScale;
+
 		_createButton.onClick.AddListener(HandleCreateButtonClicked);
 		_joinButton.onClick.AddListener(HandleJoinButtonClicked);
 
@@ -47,11 +62,17 @@ public class LobbyButtonUI : MonoBehaviour
 		ShowLeaveReasonIfAny();
 
 		// 방에서 나와 로비로 돌아올 때도 이 씬이 새로 로드되므로, 여기서 한 번만 조회하면 된다.
-		RefreshRoomList();
+		RefreshRoomListAsync().Forget();
 	}
 
 	// 인스펙터의 새로고침 버튼 OnClick()과 빠른 시작 버튼 OnClick()에 연결한다.
-	public void RefreshRoomList() => RefreshRoomListAsync().Forget();
+	public void RefreshRoomList()
+	{
+		if (_isRefreshing) return;
+
+		PlayRefreshButtonPress();
+		RefreshRoomListAsync().Forget();
+	}
 
 	public void QuickStart() => GameSessionManager.Instance.QuickJoinRandomRoom();
 
@@ -63,6 +84,7 @@ public class LobbyButtonUI : MonoBehaviour
 
 		_isRefreshing = true;
 		_refreshButton.interactable = false; // 눌리지 않는 이유가 보이도록 비활성 상태로 둔다
+		StartRefreshIconRotation();
 
 		IList<ISessionInfo> rooms = await GameSessionManager.Instance.QueryRoomsAsync();
 
@@ -80,6 +102,44 @@ public class LobbyButtonUI : MonoBehaviour
 
 		_isRefreshing = false;
 		_refreshButton.interactable = true;
+		StopRefreshIconRotation();
+	}
+
+	// 클릭을 인지할 수 있도록 버튼을 짧게 눌렀다가 원래 크기로 되돌린다.
+	private void PlayRefreshButtonPress()
+	{
+		_refreshButtonTween?.Kill();
+		_refreshButton.transform.localScale = _refreshButtonInitialScale;
+
+		_refreshButtonTween = DOTween.Sequence()
+			.Append(_refreshButton.transform.DOScale(
+				_refreshButtonInitialScale * _refreshButtonPressedScale,
+				_refreshButtonPressDuration).SetEase(Ease.OutQuad))
+			.Append(_refreshButton.transform.DOScale(
+				_refreshButtonInitialScale,
+				_refreshButtonReleaseDuration).SetEase(Ease.OutBack))
+			.SetUpdate(true);
+	}
+
+	// 방 목록을 조회하는 동안 새로고침 아이콘을 제자리에서 계속 회전시킨다.
+	private void StartRefreshIconRotation()
+	{
+		_refreshIconTween?.Kill();
+		_refreshIcon.localRotation = _refreshIconInitialRotation;
+		_refreshIconTween = _refreshIcon
+			.DOLocalRotate(new Vector3(0f, 0f, -360f), _refreshIconRotationDuration, RotateMode.FastBeyond360)
+			.SetRelative()
+			.SetEase(Ease.Linear)
+			.SetLoops(-1)
+			.SetUpdate(true);
+	}
+
+	// 조회가 끝나면 아이콘 회전을 멈추고 처음 각도로 되돌린다.
+	private void StopRefreshIconRotation()
+	{
+		_refreshIconTween?.Kill();
+		_refreshIconTween = null;
+		_refreshIcon.localRotation = _refreshIconInitialRotation;
 	}
 
 	// 목록은 매번 통째로 다시 만든다. 방 개수가 많지 않아 재사용 풀을 둘 이유가 없다.
@@ -122,6 +182,9 @@ public class LobbyButtonUI : MonoBehaviour
 
 	private void OnDestroy()
 	{
+		_refreshIconTween?.Kill();
+		_refreshButtonTween?.Kill();
+
 		_createButton.onClick.RemoveListener(HandleCreateButtonClicked);
 		_joinButton.onClick.RemoveListener(HandleJoinButtonClicked);
 
