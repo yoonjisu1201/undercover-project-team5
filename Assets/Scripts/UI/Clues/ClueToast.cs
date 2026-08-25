@@ -1,6 +1,7 @@
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.UI;
 
 // 단서를 주운 순간 좌측에서 슬라이드로 나타났다가 잠시 뒤 사라지는 획득 알림.
@@ -8,6 +9,13 @@ public sealed class ClueToast : MonoBehaviour
 {
     [SerializeField] private RectTransform _card;
     [SerializeField] private TMP_Text _label;
+
+    [Header("현지화 문구")]
+    [Tooltip("{0} 에 부위명이 들어간다.")]
+    [SerializeField] private LocalizedString _clueAcquired;
+
+    [Tooltip("부위명을 모를 때. {0} 에 단서 번호가 들어간다.")]
+    [SerializeField] private LocalizedString _clueAcquiredNumber;
     [SerializeField] private RawImage _thumbnail;
 
     [Header("슬라이드")]
@@ -90,9 +98,10 @@ public sealed class ClueToast : MonoBehaviour
             return;
         }
 
+        // 강조 서식은 코드에 두고 부위명만 인자로 넘긴다. 번역문에 색상 코드가 섞이지 않게 하려는 것이다.
         _label.text = !string.IsNullOrEmpty(partLabel)
-            ? $"단서 획득 — <color=#54E6D4>{partLabel}</color>"
-            : $"단서 {clueNumber} 획득";
+            ? _clueAcquired.GetLocalizedString($"<color=#54E6D4>{partLabel}</color>")
+            : _clueAcquiredNumber.GetLocalizedString(clueNumber);
 
         _thumbnail.texture = thumbnail;
         _thumbnail.gameObject.SetActive(thumbnail != null);

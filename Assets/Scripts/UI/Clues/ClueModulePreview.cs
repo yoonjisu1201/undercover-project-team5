@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
 
 public class ClueModulePreview : MonoBehaviour
 {
@@ -13,6 +14,9 @@ public class ClueModulePreview : MonoBehaviour
     private readonly List<ClothPart> _equippedParts = new();
     private readonly List<MontageState> _equippedStates = new();
     private readonly List<Texture2D> _capturedTextures = new();
+    [Tooltip("확대 이미지 라벨. {0} 에 단서 번호가 들어간다.")]
+    [SerializeField] private LocalizedString _magnifiedImageLabel;
+
     private readonly List<string> _capturedPartLabels = new();
 
     private CriminalNpcManager _criminalManager;
@@ -200,20 +204,27 @@ public class ClueModulePreview : MonoBehaviour
         }
     }
 
-    private static string GetPartLabel(ClothPart part) => part switch
+    // 부위명은 몽타주 화면이 쓰는 키를 그대로 재사용한다. 같은 부위를 두 화면이 다르게 부르면 안 된다.
+    private static string GetPartLabel(ClothPart part) => Localize(part switch
     {
-        ClothPart.Hat => "모자",
-        ClothPart.Hair => "머리",
-        ClothPart.Torso => "상의",
-        ClothPart.Pants => "하의",
-        ClothPart.Shoes => "신발",
-        ClothPart.Glasses => "안경",
-        ClothPart.Mask => "마스크",
-        ClothPart.Headphone => "헤드폰",
-        ClothPart.Beard => "수염",
-        ClothPart.Eyebrow => "눈썹",
-        _ => "의상"
-    };
+        ClothPart.Hat => "montage_part_hat",
+        ClothPart.Hair => "montage_part_hair",
+        ClothPart.Torso => "montage_part_torso",
+        ClothPart.Pants => "montage_part_pants",
+        ClothPart.Shoes => "montage_part_shoes",
+        ClothPart.Glasses => "montage_part_glasses",
+        ClothPart.Mask => "montage_part_mask",
+        ClothPart.Headphone => "montage_part_headphone",
+        ClothPart.Beard => "montage_part_beard",
+        ClothPart.Eyebrow => "montage_part_eyebrow",
+        _ => "montage_part_outfit"
+    });
+
+    // 부위명은 캡처 시점에 문자열로 굳는다. 라운드 도중 언어를 바꾸면 이미 담아둔 값은 그대로 남는다.
+    private static string Localize(string key)
+        => new LocalizedString(LocalizationTable, key).GetLocalizedString();
+
+    private const string LocalizationTable = "Language Table";
 
     // 단서 목록에서 썸네일과 부위명만 필요할 때 쓴다. clueNumber는 1부터 시작한다.
     public bool TryGetCapture(int clueNumber, out Texture2D texture, out string partLabel)
@@ -242,7 +253,7 @@ public class ClueModulePreview : MonoBehaviour
 
         clueUi.ShowClueImage(
             _capturedTextures[clueIndex],
-            $"확대 이미지 단서 {clueNumber}",
+            _magnifiedImageLabel.GetLocalizedString(clueNumber),
             _capturedPartLabels[clueIndex]);
         return true;
     }

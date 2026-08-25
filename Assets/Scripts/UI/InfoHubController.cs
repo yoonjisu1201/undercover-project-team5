@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.UI;
 
 // Tab으로 여는 정보 허브. 화면이 어두워지고 좌측에서 단서 목록 버튼이 밀려 들어온다.
@@ -19,6 +20,12 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
     [SerializeField] private Button _clueButton;
     [SerializeField] private RectTransform _clueBody;         // 펼쳐질 영역. 높이 0에서 늘린다
     [SerializeField] private Transform _entryParent;
+    [Header("현지화 문구")]
+    [SerializeField] private LocalizedString _clueListEmpty;
+
+    [Tooltip("단서 항목 제목. {0} 에 단서 번호가 들어간다.")]
+    [SerializeField] private LocalizedString _clueEntryNumber;
+
     [SerializeField] private ClueBookEntry _entryTemplate;    // 비활성 상태로 두는 항목 원본
     [SerializeField] private float _cluePeekX = -300f;        // 닫혀 있을 때 왼쪽에 살짝 걸쳐 둔다
     [SerializeField] private float _clueShownX = 24f;
@@ -617,13 +624,13 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
                     continue;
                 }
 
-                AddEntry($"단서 {captured}", partLabel ?? string.Empty, thumbnail, () => ShowClue(captured));
+                AddEntry(_clueEntryNumber.GetLocalizedString(captured), partLabel ?? string.Empty, thumbnail, () => ShowClue(captured));
             }
         }
 
         if (_entries.Count == 0)
         {
-            AddEntry("아직 획득한 단서가 없습니다", string.Empty, null, null);
+            AddEntry(_clueListEmpty.GetLocalizedString(), string.Empty, null, null);
         }
     }
 
