@@ -199,6 +199,15 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""Flashlight"",
+                    ""type"": ""Button"",
+                    ""id"": ""6c4b5a2e-1d3f-4a6b-9c8d-2e5f7a1b3c4d"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -377,6 +386,17 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
                     ""action"": ""InventoryScroll"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""7e1f4c8a-3b6d-4f9e-a2c5-8d1b6e4f7a9c"",
+                    ""path"": ""<Keyboard>/f"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Flashlight"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         },
@@ -473,6 +493,7 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         m_Player_Slot4 = m_Player.FindAction("Slot4", throwIfNotFound: true);
         m_Player_ArrestTool = m_Player.FindAction("ArrestTool", throwIfNotFound: true);
         m_Player_InventoryScroll = m_Player.FindAction("InventoryScroll", throwIfNotFound: true);
+        m_Player_Flashlight = m_Player.FindAction("Flashlight", throwIfNotFound: true);
         // System
         m_System = asset.FindActionMap("System", throwIfNotFound: true);
         m_System_Escape = m_System.FindAction("Escape", throwIfNotFound: true);
@@ -574,6 +595,7 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_Slot4;
     private readonly InputAction m_Player_ArrestTool;
     private readonly InputAction m_Player_InventoryScroll;
+    private readonly InputAction m_Player_Flashlight;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
     /// </summary>
@@ -633,6 +655,10 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Player/InventoryScroll".
         /// </summary>
         public InputAction @InventoryScroll => m_Wrapper.m_Player_InventoryScroll;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/Flashlight".
+        /// </summary>
+        public InputAction @Flashlight => m_Wrapper.m_Player_Flashlight;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -695,6 +721,9 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
             @InventoryScroll.started += instance.OnInventoryScroll;
             @InventoryScroll.performed += instance.OnInventoryScroll;
             @InventoryScroll.canceled += instance.OnInventoryScroll;
+            @Flashlight.started += instance.OnFlashlight;
+            @Flashlight.performed += instance.OnFlashlight;
+            @Flashlight.canceled += instance.OnFlashlight;
         }
 
         /// <summary>
@@ -742,6 +771,9 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
             @InventoryScroll.started -= instance.OnInventoryScroll;
             @InventoryScroll.performed -= instance.OnInventoryScroll;
             @InventoryScroll.canceled -= instance.OnInventoryScroll;
+            @Flashlight.started -= instance.OnFlashlight;
+            @Flashlight.performed -= instance.OnFlashlight;
+            @Flashlight.canceled -= instance.OnFlashlight;
         }
 
         /// <summary>
@@ -1069,6 +1101,13 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnInventoryScroll(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Flashlight" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnFlashlight(InputAction.CallbackContext context);
     }
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "System" which allows adding and removing callbacks.
