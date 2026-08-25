@@ -22,7 +22,6 @@ public class GameSessionManager : MonoBehaviour
 	[SerializeField] private string _lobbySceneName = "Lobby2";
 	[FormerlySerializedAs("_roundSceneName")]
 	[SerializeField] private string _gameSceneName = "GameScene";
-
 	[Header("로컬 테스트")]
 	[Tooltip("켜면 Relay 대신 직접 연결(127.0.0.1)로 방을 만든다. 같은 PC에서만 들어올 수 있다. "
 		+ "Relay 장애로 방이 안 만들어질 때 테스트를 이어가려는 용도이므로, 배포 전에는 반드시 끈다.")]
@@ -534,7 +533,20 @@ public class GameSessionManager : MonoBehaviour
 
 	private void HandleWaitingRoomSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
 	{
-		if (sceneName != _waitingRoomSceneName || !NetworkManager.Singleton.IsServer) return;
+		if (sceneName != _waitingRoomSceneName) return;
+
+		// 플레이어 오브젝트는 씬 전환에도 유지되어 대기방 복귀 시 OnNetworkSpawn이 다시 호출되지 않는다.
+		// 따라서 서버 여부와 관계없이 각 클라이언트가 자신의 로컬 PlayerInteraction을 다시 초기화해
+		// 새 대기방의 상호작용 UI 참조를 연결한다.
+		var localPlayerObject = NetworkManager.Singleton.LocalClient?.PlayerObject;
+
+		if (localPlayerObject != null && localPlayerObject.TryGetComponent(out PlayerInteraction localPlayerInteraction))
+		{
+			localPlayerInteraction.InitializeOnGameScene();
+		}
+
+		// 위의 UI 재연결은 각 클라이언트의 로컬 작업이고, 아래 세션 해제와 플레이어 초기화는 서버 권한 작업이다.
+		if (!NetworkManager.Singleton.IsServer) return;
 
 		// 라운드가 끝나 대기방으로 돌아왔으면 다시 입장을 받아야 한다.
 		// 방 생성 직후의 첫 진입에서도 호출되지만, 이미 풀려 있으면 서버 요청 없이 그냥 반환된다.
@@ -572,8 +584,14 @@ public class GameSessionManager : MonoBehaviour
 					// 서버/네트워크 권한이 필요하면 여기서 검증하거나 서버-side 초기화로 옮기세요.
 					playerHealth.ResetForNewRound();
 				}
+				// 새 대기방 레이아웃의 명시적 입장 위치로 복귀시키되, 지점 누락 시 전체 복귀가 중단되지 않게 원점을 사용한다.
+                GameObject WaitingRoomSpawnPointObj = GameObject.Find("WaitingRoomSpawnPoint");
 
-				player.TeleportToPosition(Vector3.zero, playerObject.transform.rotation);
+                Vector3 WaitingroomSpawnPoint = WaitingRoomSpawnPointObj != null
+					? WaitingRoomSpawnPointObj.transform.position
+					: Vector3.zero;
+
+				player.TeleportToPosition(WaitingroomSpawnPoint, playerObject.transform.rotation);
 			}
 		}
 	}
@@ -616,8 +634,15 @@ public class GameSessionManager : MonoBehaviour
 	{
 		if (NetworkManager.Singleton.ConnectedClients[clientId].PlayerObject != null) return;
 
-		var playerInstance = Instantiate(NetworkManager.Singleton.NetworkConfig.PlayerPrefab);
+		var playerInstance = InstantiatePlayerAtWaitingRoomSpawn(NetworkManager.Singleton.NetworkConfig.PlayerPrefab);
 		playerInstance.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
+	}
+
+	private static GameObject InstantiatePlayerAtWaitingRoomSpawn(GameObject playerPrefab)
+	{
+		// 최초 입장도 씬에 배치한 위치와 방향을 사용해 원점이나 구조물 내부에 생성되지 않게 한다.
+		Transform spawnPoint = GameObject.Find("WaitingRoomSpawnPoint").transform;
+		return Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
 	}
 
 	// 내 연결이 끊긴 경우에만 로비로 돌아간다 (자진 퇴장/호스트가 나가서 강제로 끊긴 경우 모두 포함).

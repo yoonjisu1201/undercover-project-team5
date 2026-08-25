@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -14,6 +15,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 	[SerializeField] private Button _leaveButton;
 	[SerializeField] private TextMeshProUGUI _joinCodeText;
 	[SerializeField] private TextMeshProUGUI _roomNameText;
+	[SerializeField] private LocalizeStringEvent _rearGalleryGuideLocalize;
 	[SerializeField] private Button _micMuteButton;
 	[SerializeField] private Button _outputMuteButton;
     [SerializeField] private Button _startGameButton;
@@ -24,6 +26,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     [Header("=== 닉네임 설정 ===")]
     [SerializeField] private TMP_InputField _nicknameInputField;
     [SerializeField] private Button _nicknameConfirmButton;
+    [SerializeField] private Button _nicknameCloseButton;
     [SerializeField] private GameObject _nicknameSettingPanel;
     [SerializeField] private TextMeshProUGUI _nicknameNoticeText; // "이미 사용 중인 닉네임입니다" 안내
 
@@ -46,6 +49,14 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
     private bool _isHost;
     private bool _isReady;
+
+    // 월드 준비·시작 버튼이 기존 Canvas UI와 같은 상태를 사용하도록 읽기 전용 상태와 변경 신호를 제공한다.
+    // 네트워크 준비 로직을 월드 버튼에 중복하지 않아 호스트·참가자 규칙의 기준을 WaitingRoomUI 한 곳에 둔다.
+    public event Action ReadyStartStateChanged;
+    public bool IsHost => _isHost;
+    public bool IsReady => _isReady;
+    public bool CanUseReadyStart => !_isHost || _readyManager.CanStart;
+
     private static bool s_hasCompletedNicknameSetup;
     private static string s_savedNickname;
 
@@ -73,6 +84,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         _nicknameInputField.characterLimit = Player.MaxPlayerNameLength;
         _nicknameConfirmButton.onClick.AddListener(HandleNicknameConfirmButtonClicked);
+        _nicknameCloseButton.onClick.AddListener(Close);
 
         bool shouldShowNicknamePanel = !s_hasCompletedNicknameSetup;
         // 씬에 값을 저장해두면 모든 플레이어에게 같은 이름이 보인다. 접속은 끝난 상태라 자기 기본 이름을 알 수 있다.
@@ -84,8 +96,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
             TryApplySavedNickname();
         }
 
-        UpdateJoinCodeText();
-        GameSessionManager.Instance.OnSessionJoined += UpdateJoinCodeText; // 조인 완료가 씬 로드보다 늦을 때를 대비한 재확인용
+        UpdateSessionInfoText();
+        GameSessionManager.Instance.OnSessionJoined += UpdateSessionInfoText; // 조인 완료가 씬 로드보다 늦을 때를 대비한 재확인용
 
         if (_copyNoticeText != null)
         {
@@ -109,6 +121,9 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         {
             UpdateReadyButtonColor();
         }
+
+        // 오브젝트 활성화 순서와 관계없이 초기 호스트·준비 상태가 결정된 뒤 월드 버튼에도 현재 상태를 알린다.
+        ReadyStartStateChanged?.Invoke();
 
         UpdateMicMuteButtonColor();
         UpdateOutputMuteButtonColor();
@@ -140,6 +155,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         _readyButton.onClick.RemoveListener(HandleReadyButtonClicked);
 
         _nicknameConfirmButton.onClick.RemoveListener(HandleNicknameConfirmButtonClicked);
+        _nicknameCloseButton.onClick.RemoveListener(Close);
 
         if (_boundPlayer != null) { _boundPlayer.NameRequestResolved -= HandleNameRequestResolved; }
 
@@ -154,7 +170,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
         if (GameSessionManager.Instance != null)
         {
-            GameSessionManager.Instance.OnSessionJoined -= UpdateJoinCodeText;
+            GameSessionManager.Instance.OnSessionJoined -= UpdateSessionInfoText;
         }
 
         if (_readyManager != null)
@@ -169,11 +185,19 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         }
     }
 
-    private void UpdateJoinCodeText()
+    private void UpdateSessionInfoText()
     {
+        string roomName = GameSessionManager.Instance.RoomName;
+
         _joinCodeText.text = GameSessionManager.Instance.JoinCode;
-        _roomNameText.text = GameSessionManager.Instance.RoomName;
+        _roomNameText.text = roomName;
+
+        SetRoomNameArgument(_rearGalleryGuideLocalize, roomName);
+        _rearGalleryGuideLocalize.RefreshString();
     }
+
+    private static void SetRoomNameArgument(LocalizeStringEvent localizer, string roomName)
+        => localizer.StringReference.Arguments = new object[] { roomName };
 
     // 조인코드를 클립보드에 복사하고 잠깐 안내를 띄운다.
     // 조인코드 복사 버튼의 OnClick에 연결한다.
@@ -210,7 +234,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         return localize;
     }
 
-	private void HandleLeaveButtonClicked()
+	// Canvas 나가기 버튼과 월드 출구 문이 동일한 세션 종료 흐름을 재사용할 수 있도록 공개한다.
+	public void HandleLeaveButtonClicked()
 	{
 		GameSessionManager.Instance.LeaveSession();
 	}
@@ -359,11 +384,27 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 		_outputMuteButton.targetGraphic.color = VivoxManager.IsOutputMuted ? MutedColor : UnmutedColor;
 	}
 
+    // 하나의 월드 스테이션이 호스트에게는 게임 시작, 참가자에게는 준비 토글로 동작하게 역할 분기를 모은다.
+    // 분기를 UI에 유지해 월드 버튼이 네트워크 준비·시작 구현 세부사항에 의존하지 않게 한다.
+    public void InteractReadyStart()
+    {
+        if (_isHost)
+        {
+            HandleStartGameButtonClicked();
+            return;
+        }
+
+        HandleReadyButtonClicked();
+    }
+
     private void HandleReadyButtonClicked()
     {
         _isReady = !_isReady;
         _readyManager.SetReadyServerRpc(_isReady);
         UpdateReadyButtonColor();
+
+        // Canvas 버튼을 먼저 갱신한 뒤 월드 버튼에도 같은 로컬 준비 상태를 알린다.
+        ReadyStartStateChanged?.Invoke();
     }
 
     private void UpdateReadyButtonColor()
@@ -371,13 +412,17 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         _readyButton.targetGraphic.color = _isReady ? ReadyColor : NotReadyColor;
     }
 
-    // 입장/퇴장/준비 상태 변경으로 슬롯 구성이 바뀔 때마다 호출된다.
+    // 입장·퇴장·준비 변경은 호스트의 시작 가능 여부를 바꾸므로 Canvas와 월드 시작 버튼을 함께 갱신한다.
+    // 참가자의 월드 버튼은 자신의 준비 토글에서 갱신되므로 여기서는 호스트 상태만 처리한다.
     private void HandleSlotsChanged(NetworkListEvent<WaitingRoomReadyManager.PlayerSlot> _)
     {
-        if (_isHost)
+        if (!_isHost)
         {
-            UpdateStartButtonAndText();
+            return;
         }
+
+        UpdateStartButtonAndText();
+        ReadyStartStateChanged?.Invoke();
     }
 
     // 시작 버튼 및 알림 텍스트 갱신한다.
