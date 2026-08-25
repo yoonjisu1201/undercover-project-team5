@@ -61,4 +61,27 @@ public static class SurvivorRegistry
 
         return Buffer;
     }
+
+    // 이 오브젝트가 아직 표적이 될 수 있는지. 보스가 들고 있는 표적(기억, 공격 대상)이
+    // 그 사이 다운되거나 본부로 빠졌는지 확인할 때 쓴다.
+    //
+    // 조건을 여기 한곳에 두는 것이 이 클래스의 목적이다. 호출부마다 IsDowned 를 따로 보면
+    // "감지에서는 빠졌는데 기억에는 남아 있는" 어긋남이 다시 생긴다.
+    public static bool IsActive(GameObject candidate)
+    {
+        if (candidate == null)
+        {
+            return false;
+        }
+
+        foreach (PlayerHealth survivor in Active())
+        {
+            if (survivor.gameObject == candidate)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

@@ -47,7 +47,24 @@ public class BossTargetMemory : MonoBehaviour
     // 그 자리로 되돌아와 제자리에서 맴돌게 된다.
     private Vector3 _searchOrigin;
 
-    public bool HasMemory => _survivor != null && Time.time < _forgetTime;
+    // 표적이 다운되거나 본부로 빠지면 시간이 남았어도 기억을 버린다.
+    //
+    // 감지(SurvivorRegistry)는 그 사람을 이미 제외하지만 기억은 별도로 남아서, 그냥 두면
+    // 추격 가지가 최대 _memoryDuration 동안 유지된다. 그동안 보스가 쓰러진 사람 자리를
+    // 왕복하며 시신을 밀어낸다.
+    public bool HasMemory
+    {
+        get
+        {
+            if (_survivor != null && !SurvivorRegistry.IsActive(_survivor))
+            {
+                Forget();
+            }
+
+            return _survivor != null && Time.time < _forgetTime;
+        }
+    }
+
     public GameObject Survivor => _survivor;
 
     // 감지 조건이 대상을 찾았을 때 부른다. 볼 때마다 기억이 갱신되므로,

@@ -97,6 +97,13 @@ public class BossAttack : NetworkBehaviour
             return false;
         }
 
+        // 피해 계산(ApplySwingDamage)에서 한 번 더 거르지만 여기서도 막아야 한다.
+        // 안 그러면 쓰러진 사람에게 피해 없는 공격 모션만 계속 나가고, 그동안 agent 가 멈춰 선다.
+        if (!SurvivorRegistry.IsActive(target))
+        {
+            return false;
+        }
+
         if (!IsInAttackRange(target.transform.position))
         {
             return false;
