@@ -13,20 +13,19 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	[SerializeField] private Transform _rightHandTarget;
 
 	[Header("=== 손전등 오브젝트 ===")]
-	[SerializeField] private GameObject _flashLightPrefab;
+	[SerializeField] private Flashlight _flashLightPrefab;
 
 	[Header("=== 머리 피벗(참고용) ===")]
 	[SerializeField] private GameObject _headPivot;
 
 	[SerializeField] private PlayerCameraController _playerCameraController;
 
-	// 손전등 On/Off 상태. 오너가 직접 토글하는 값이라 Owner 권한으로 쓴다.
-	private readonly NetworkVariable<bool> _isFlashlightOn =
-		new(true, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+	// 왼손에 실제로 스폰된 네트워크 아이템(손전등) 참조. 서버만 쓰고 전원이 읽는다.
+	private readonly NetworkVariable<NetworkObjectReference> _leftHandItemRef =
+		new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
 	private Animator _animator;
 	private CustomInputActions _actions;
-	private GameObject _itemOnLeftHand;
 	private GameObject _itemOnRightHand;
 	private Flashlight _flashlight;
 
@@ -35,12 +34,6 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	private void Awake() {
 		_animator = GetComponent<Animator>();
 		_playerCameraController ??= GetComponent<PlayerCameraController>();
-
-		// 왼손에는 항상 플래시라이트 있어야 함. 각자 로컬로 만든다.
-		_itemOnLeftHand = Instantiate(_flashLightPrefab, _leftHandParent);
-		if (_itemOnLeftHand.TryGetComponent(out _flashlight)) {
-			_flashlight.Initialize(_playerCameraController);
-		}
 	}
 
 	private void OnEnable() {
@@ -53,12 +46,23 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	}
 
 	public override void OnNetworkSpawn() {
-		_isFlashlightOn.OnValueChanged += HandleFlashlightOnChanged;
-		_flashlight?.SetIsOn(_isFlashlightOn.Value);
+		_leftHandItemRef.OnValueChanged += HandleLeftHandItemChanged;
+
+		// 스폰 시점에 이미 값이 채워져 있는 경우(뒤늦게 관전하는 클라이언트 등)를 대비해 한 번 직접 반영한다.
+		ResolveLeftHand(_leftHandItemRef.Value);
+
+		// 왼손에는 항상 플래시라이트 있어야 함. 서버만 스폰한다.
+		if (IsServer) {
+			SpawnFlashlight();
+		}
 	}
 
 	public override void OnNetworkDespawn() {
-		_isFlashlightOn.OnValueChanged -= HandleFlashlightOnChanged;
+		_leftHandItemRef.OnValueChanged -= HandleLeftHandItemChanged;
+
+		if (IsServer && _leftHandItemRef.Value.TryGet(out NetworkObject networkObject)) {
+			networkObject.Despawn(true);
+		}
 	}
 
 	private void Update() {
@@ -67,27 +71,46 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 		}
 
 		if (_actions.Player.Flashlight.WasPressedThisFrame()) {
-			_isFlashlightOn.Value = !_isFlashlightOn.Value;
+			_flashlight?.ToggleOnOff();
 		}
 	}
 
-	private void HandleFlashlightOnChanged(bool previousValue, bool newValue) {
-		_flashlight?.SetIsOn(newValue);
+	private void SpawnFlashlight() {
+		Flashlight instance = Instantiate(_flashLightPrefab, _leftHandParent.position, _leftHandParent.rotation);
+		NetworkObject networkObject = instance.GetComponent<NetworkObject>();
+		networkObject.SpawnWithOwnership(OwnerClientId, destroyWithScene: true); 
+		// 플레이어 자신의 NetworkObject로 파렌팅하고, 정확한 위치는 Flashlight가 매 프레임 로컬로 따라간다.
+		networkObject.TrySetParent(NetworkObject, worldPositionStays: true);
+
+		_leftHandItemRef.Value = networkObject;
+		
+		// OnValueChanged 콜백에 암묵적으로 기대지 않고, 스폰한 직후 바로 명시적으로 반영한다.
+		ResolveLeftHand(networkObject);
+	}
+
+	private void HandleLeftHandItemChanged(NetworkObjectReference previousValue, NetworkObjectReference newValue) {
+		ResolveLeftHand(newValue);
+	}
+
+	private void ResolveLeftHand(NetworkObjectReference reference) {
+		if (reference.TryGet(out NetworkObject networkObject) && networkObject.TryGetComponent(out _flashlight)) {
+			_flashlight.Initialize(_playerCameraController, _leftHandParent);
+		}
 	}
 
 	// 다른 걸 잡을 때(카트 잡을 때 등)에는 손에 있는 오브젝트 비활성화한다.
 	public void DisableItems() {
-		_itemOnLeftHand?.SetActive(false);
+		_flashlight?.SetVisible(false);
 		_itemOnRightHand?.SetActive(false);
 	}
 
 	public void ApplyIK(int layerIndex) {
 		// 잡을 때 손에 있는 오브젝트 활성화
-		_itemOnLeftHand?.SetActive(true);
+		_flashlight?.SetVisible(true);
 		_itemOnRightHand?.SetActive(true);
 
 		// 왼손에 아이템 있으면, 왼손 위치 옮기기
-		if (_itemOnLeftHand != null) {
+		if (_leftHandItemRef.Value.TryGet(out NetworkObject _)) {
 			_animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 1f);
 			_animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 1f);
 			_animator.SetIKPosition(AvatarIKGoal.LeftHand, _leftHandTarget.position);
