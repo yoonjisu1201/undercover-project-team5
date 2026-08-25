@@ -56,12 +56,7 @@ public sealed partial class DebugMenuController
     public void OnItemMenuClick() => ToggleRootSubMenu(_itemPanel);
     public void OnInterferenceMenuClick() => ToggleRootSubMenu(_interferencePanel);
 
-    // 범인 메뉴를 열 때 외계인 하위 메뉴는 접은 상태에서 시작합니다.
-    public void OnCriminalMenuClick()
-    {
-        ToggleRootSubMenu(_criminalPanel);
-        _alienPanel?.SetActive(false);
-    }
+    public void OnCriminalMenuClick() => ToggleRootSubMenu(_criminalPanel);
     public void OnCctvMenuClick() => ToggleRootSubMenu(_cctvPanel);
     public void OnRoundMenuClick() => ToggleRootSubMenu(_roundPanel);
     public void OnHpMenuClick() => ToggleRootSubMenu(_hpPanel);
@@ -115,8 +110,7 @@ public sealed partial class DebugMenuController
         {
             _teleportPanel, _playerPanel, _missionTeleportPanel, _itemPanel,
             _criminalPanel, _interferencePanel, _cctvPanel, _cctvPowerPanel, _regionPanel,
-            _roundPanel, _hpPanel, _missionPanel,
-            _alienPanel
+            _roundPanel, _hpPanel, _missionPanel
         };
 
         foreach (GameObject panel in panels) panel?.SetActive(false);

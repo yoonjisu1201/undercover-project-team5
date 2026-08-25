@@ -13,12 +13,20 @@ public enum SoundKey
     Player_Downed = 4,
     Player_Revive = 5,
 
+    // 보스
+    Boss_FootstepWalk = 50,
+    Boss_FootstepRun = 51,
+    Boss_TeleportCue = 52,
+
     // 상호작용
     Item_Pickup = 10,
     Inventory_SlotSelect = 11,
     Interact_Fail = 12,
     Door_Open = 13,
     Lever_Toggle = 14,
+
+    // 지하 미로 문. 본부 출입구(Door_Open)와 소리가 달라야 해서 따로 둔다.
+    Basement_Door_Open = 15,
 
     // 미션
     Mission_UiOpen = 20,

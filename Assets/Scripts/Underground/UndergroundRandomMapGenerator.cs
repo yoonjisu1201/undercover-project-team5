@@ -35,6 +35,9 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
     // 문 열림/닫힘 상태. 서버만 쓰고 클라이언트는 OnListChanged로 읽기만 한다.
     private readonly NetworkList<bool> _doorOpenStates = new();
 
+    // 문 여는 소리가 들리는 거리(m). 보스 감지용이라 연출 사운드와는 별개다.
+    [SerializeField, Min(0f)] private float _doorNoiseRadius = 35f;
+
     private NavMeshSurface _navMeshSurface;
     private Random _random;
     
@@ -49,6 +52,9 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
 
     // 생성이 끝난 뒤 배치된 조각 목록. 미니맵처럼 배치 결과를 그대로 다시 그려야 하는 쪽에서 참조한다.
     public IReadOnlyList<UndergroundModule> PlacedModules => _placedModules;
+
+    // 플레이어가 지하로 들어오는 입구 조각. 입구에서 얼마나 떨어졌는지를 따져야 하는 쪽에서 참조한다.
+    public UndergroundModule StartModule => _startModule;
 
     private void Awake() {
         _navMeshSurface = GetComponent<NavMeshSurface>();
@@ -96,13 +102,22 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
             return;
         }
 
-        _doors[change.Index].Open();
+        UndergroundDoor door = _doors[change.Index];
+        door.Open();
+
+        // 문소리는 모든 클라이언트가 문 위치에서 듣는다. 이 콜백 자체가 NetworkList 변경으로
+        // 각자에게 도달하므로 소리 때문에 RPC 를 따로 보낼 필요가 없다.
+        //
+        // 뒤늦게 들어온 클라이언트가 이미 열려 있던 문들을 한꺼번에 반영하는 경로는
+        // OnNetworkSpawn 에서 Open() 을 직접 부르므로 여기를 타지 않는다. 접속하자마자
+        // 열린 문 개수만큼 문소리가 몰아서 나는 일은 없다.
+        SoundManager.Instance?.PlayAt(SoundKey.Basement_Door_Open, door.transform.position);
     }
 
     // 문과 상호작용한 클라이언트가 이 문을 열어달라고 요청할 때 부른다. 실제 상태 변경은 서버만 할 수 있다.
     // 기본값(소유자만 호출 가능)으로는 막히므로 Everyone으로 열어둔다.
     [Rpc(SendTo.Server)]
-    public void OpenDoorRpc(int doorIndex)
+    public void OpenDoorRpc(int doorIndex, RpcParams rpcParams = default)
     {
         if (doorIndex < 0 || doorIndex >= _doorOpenStates.Count)
         {
@@ -110,6 +125,33 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
         }
 
         _doorOpenStates[doorIndex] = true;
+
+        // 문 여는 소리는 보스를 부르는 가장 큰 소음원이다. 지하에서는 문을 반드시 지나야 하므로
+        // 회피할 수 없는 긴장이 된다.
+        if (doorIndex < _doors.Count && _doors[doorIndex] != null)
+        {
+            // 문을 연 사람의 음소거 보정을 그대로 적용한다. 소음 종류마다 보정이 빠지면
+            // 음소거로 조용해지는 구멍이 생긴다.
+            float multiplier = GetOpenerNoiseMultiplier(rpcParams.Receive.SenderClientId);
+            NoiseSystem.Report(
+                _doors[doorIndex].transform.position,
+                _doorNoiseRadius * multiplier,
+                multiplier > 1f ? "문 열림(음소거)" : "문 열림");
+        }
+    }
+
+    // 문을 연 클라이언트의 소음 배율. 찾지 못하면 보정 없이 1을 돌려준다.
+    private float GetOpenerNoiseMultiplier(ulong senderClientId)
+    {
+        if (!NetworkManager.ConnectedClients.TryGetValue(senderClientId, out NetworkClient client))
+        {
+            return 1f;
+        }
+
+        NetworkObject playerObject = client.PlayerObject;
+        return playerObject != null && playerObject.TryGetComponent(out PlayerNoiseEmitter emitter)
+            ? emitter.NoiseMultiplier
+            : 1f;
     }
 
     // 서버는 OnNetworkSpawn에서 이미 직접 생성했으니 중복 실행하지 않는다.
@@ -131,6 +173,7 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
 
     // 라운드가 바뀔 때 RoundManager가 명시적으로 호출한다. 새 시드를 뽑아 동기화하고 서버에서 바로 생성하면,
     // 클라이언트는 _mapSeed.OnValueChanged(HandleMapSeedChanged)로 따라와 각자 같은 맵을 만든다.
+    // 라운드가 바뀌면 이전 라운드 지하에서 난 소음이 새 맵으로 넘어오지 않게 비운다.
     public void RegenerateForNewRound()
     {
         if (!IsServer)
@@ -138,6 +181,7 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
             return;
         }
 
+        NoiseSystem.Clear();
         _mapSeed.Value = RoundManager.Instance == null ? _debugSeed : RoundManager.Instance.GetRandomSeed(MapSeedTag);
         Generate(_mapSeed.Value);
     }

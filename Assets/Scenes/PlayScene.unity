@@ -57307,6 +57307,7 @@ Transform:
   - {fileID: 413286407}
   - {fileID: 761441141}
   - {fileID: 1287236953}
+  - {fileID: 1284753762}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &361850273
@@ -210551,61 +210552,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4488086140463336, guid: d014f8cbd48f94d4b8e0f39ad8a212cb, type: 3}
   m_PrefabInstance: {fileID: 1172582311}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1175554273
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1175554275}
-  - component: {fileID: 1175554274}
-  m_Layer: 0
-  m_Name: UndergroundAlienCloneSpawner
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1175554274
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1175554273}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5744d69e871da114182c4804aa26743c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UndergroundAlienCloneSpawner
-  _alienClonePrefabs:
-  - {fileID: 1669351557380495861, guid: 613ec59ec1c17854789e187201e5a23d, type: 3}
-  - {fileID: 1669351557380495861, guid: 157de7464ade55548b90342c17fdf27b, type: 3}
-  - {fileID: 1669351557380495861, guid: 4bbccfbae73672a479080a4b07e56124, type: 3}
-  - {fileID: 1669351557380495861, guid: c7845b652d7eb3543aa73759bbb1fe9e, type: 3}
-  - {fileID: 1669351557380495861, guid: ad874b67a6e216448aa2c7a3924f3dbc, type: 3}
-  _criminalNpcManager: {fileID: 771327263}
-  _mapRegionController: {fileID: 760304395}
-  _spawnCountPerCycle: 1
-  _spawnInterval: 120
-  _minimumPlayerDistance: 10
---- !u!4 &1175554275
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1175554273}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1175656991
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -223638,6 +223584,56 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4306058549097042, guid: 772f18ca86e1d4c24afea6aafc9abd1e, type: 3}
   m_PrefabInstance: {fileID: 1284178573}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1284753761
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1284753762}
+  - component: {fileID: 1284753763}
+  m_Layer: 0
+  m_Name: BossSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1284753762
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1284753761}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 361850272}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1284753763
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1284753761}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3517c89cdbb7c8342aff21d6eb6a6e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BossSpawner
+  _bossPrefab: {fileID: 1669351557380495861, guid: eacf26b95a4570341a3858733d364f5c, type: 3}
+  _spawnBoss: 1
+  _minEntranceDepth: 3
+  _minEntranceDistance: 30
+  _navMeshSampleRadius: 6
+  _heightOffset: 0.5
 --- !u!1001 &1285860901
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -235093,6 +235089,14 @@ PrefabInstance:
       propertyPath: GlobalObjectIdHash
       value: 3292330570
       objectReference: {fileID: 0}
+    - target: {fileID: 6986113795858634931, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
+      propertyPath: _minimapCamera
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6986113795858634931, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
+      propertyPath: _mapImageOnWall
+      value: 
+      objectReference: {fileID: 6316111097820034839}
     - target: {fileID: 6986113795858634931, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
       propertyPath: _regionController
       value: 
@@ -326362,61 +326366,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4755125321900414, guid: ad9d3c1bf87264ed8a89c188f2c1018c, type: 3}
   m_PrefabInstance: {fileID: 1883366967}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1888115736
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1888115738}
-  - component: {fileID: 1888115737}
-  m_Layer: 0
-  m_Name: AlienCloneSpawner
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1888115737
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1888115736}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4f731bb1885badb478de838655452772, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AlienCloneManager
-  _alienClonePrefabs:
-  - {fileID: 1669351557380495861, guid: 613ec59ec1c17854789e187201e5a23d, type: 3}
-  - {fileID: 1669351557380495861, guid: 157de7464ade55548b90342c17fdf27b, type: 3}
-  - {fileID: 1669351557380495861, guid: 4bbccfbae73672a479080a4b07e56124, type: 3}
-  - {fileID: 1669351557380495861, guid: c7845b652d7eb3543aa73759bbb1fe9e, type: 3}
-  - {fileID: 1669351557380495861, guid: ad874b67a6e216448aa2c7a3924f3dbc, type: 3}
-  _criminalNpcManager: {fileID: 771327263}
-  _mapRegionController: {fileID: 361850273}
-  _spawnCountPerCycle: 5
-  _spawnInterval: 120
-  _minimumPlayerDistance: 30
---- !u!4 &1888115738
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1888115736}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -53.31998, y: -0.19999, z: 29.59129}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1889761856
 GameObject:
   m_ObjectHideFlags: 0
@@ -373364,6 +373313,10 @@ PrefabInstance:
       value: 3761757390
       objectReference: {fileID: 0}
     - target: {fileID: 1559359446245562680, guid: b2a42fb41f410014c985215d765f6e81, type: 3}
+      propertyPath: _doorNoiseRadius
+      value: 35
+      objectReference: {fileID: 0}
+    - target: {fileID: 1559359446245562680, guid: b2a42fb41f410014c985215d765f6e81, type: 3}
       propertyPath: _targetModuleCount
       value: 25
       objectReference: {fileID: 0}
@@ -378303,6 +378256,17 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 11.000002, y: 7.8, z: 9.000002}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &6316111097820034839 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8598566323809609774, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
+  m_PrefabInstance: {fileID: 1339301587}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
 --- !u!4 &6316875304616657487
 Transform:
   m_ObjectHideFlags: 0
@@ -382819,7 +382783,6 @@ SceneRoots:
   - {fileID: 939449155}
   - {fileID: 4262154682092237414}
   - {fileID: 1943957800}
-  - {fileID: 1888115738}
   - {fileID: 831025680}
   - {fileID: 771327264}
   - {fileID: 1076327737}
@@ -382836,6 +382799,5 @@ SceneRoots:
   - {fileID: 481654506}
   - {fileID: 554461019}
   - {fileID: 2008239900}
-  - {fileID: 1175554275}
   - {fileID: 1461910634}
   - {fileID: 2044527702}
