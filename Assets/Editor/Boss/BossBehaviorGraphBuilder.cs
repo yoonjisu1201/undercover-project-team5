@@ -158,7 +158,15 @@ public static class BossBehaviorGraphBuilder
         patrol.SetField("Agent", self, typeof(GameObject));
         patrol.SetField("Waypoints", waypoints, typeof(List<GameObject>));
         patrol.SetField("Speed", 2.2f);
-        patrol.SetField("WaypointWaitTime", 2f);
+
+        // 0이어야 한다. 지점마다 멈춰 서면 "사람을 못 찾아 돌아다니는" 것이 아니라 굳은 것처럼 보인다.
+        // 시야를 훑는 것은 복도를 따라 걷다 방향이 꺾이는 것으로 이미 이루어진다.
+        patrol.SetField("WaypointWaitTime", 0f);
+
+        // 배회가 끊겼다 다시 시작될 때 이어서 돈다. 기본값(false)이면 매번 첫 지점으로
+        // 되돌아가서, 조우가 끝날 때마다 같은 모듈로 돌아오는 것이 반복된다.
+        patrol.SetField("PreserveLatestPatrolPoint", true);
+
         patrol.SetField("AnimatorSpeedParam", NoAnimatorSpeedParam);
         Connect(selector, patrol);
     }

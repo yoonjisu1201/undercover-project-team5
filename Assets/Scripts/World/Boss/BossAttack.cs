@@ -229,7 +229,10 @@ public class BossAttack : NetworkBehaviour
         _isSwingActive = false;
         _attackStateTimer = 0f;
 
-        if (_agent != null && _agent.isOnNavMesh)
+        // isOnNavMesh 를 조건으로 걸면 안 된다. 공격을 끝내는 순간 에이전트가 NavMesh 를
+        // 벗어나 있으면(순간이동 직후 등) isStopped 가 켜진 채로 남고, 다시 NavMesh 로
+        // 돌아와도 꺼주는 곳이 없어서 보스가 그대로 굳는다.
+        if (_agent != null)
         {
             _agent.isStopped = false;
         }
