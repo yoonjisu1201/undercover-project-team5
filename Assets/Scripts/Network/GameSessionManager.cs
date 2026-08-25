@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Services.Multiplayer;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 
@@ -45,10 +46,34 @@ public class GameSessionManager : MonoBehaviour
 	private const string BuildVersionPropertyKey = "buildVersion";
 
 	// 게임 중에는 방장이 나갔는지 다른 인원이 빠졌는지가 남은 사람 입장에서 다르지 않으므로 문구를 구분하지 않는다.
-	private const string InGameHostLeftReason = "다른 플레이어의 접속이 끊어졌습니다";
+	private const string InGameHostLeftKey = "lobby_leave_peer_disconnected";
 
 	// 대기방은 아직 게임이 시작되지 않아 방장 퇴장이 곧 방 해산이라, 그 사실을 그대로 알린다.
-	private const string WaitingRoomHostLeftReason = "방장이 방을 나갔습니다";
+	private const string WaitingRoomHostLeftKey = "lobby_leave_host_left";
+
+	// 현지화 테이블 이름. 서버가 보낸 키를 받는 쪽에서 풀 때 쓴다.
+	private const string LocalizationTable = "Language Table";
+
+	[Header("현지화 문구")]
+	[Tooltip("방 이름을 비워두고 만들 때 붙는 기본 이름. {0} 에 번호가 들어간다.")]
+	[SerializeField] private LocalizedString _defaultRoomName;
+
+	[SerializeField] private LocalizedString _errorNetwork;
+	[SerializeField] private LocalizedString _errorInvalidCode;
+	[SerializeField] private LocalizedString _errorRoomGone;
+	[SerializeField] private LocalizedString _errorRoomFull;
+	[SerializeField] private LocalizedString _errorAlreadyJoined;
+	[SerializeField] private LocalizedString _errorRateLimited;
+	[SerializeField] private LocalizedString _errorRoomListFailed;
+
+	[Tooltip("{0} 내 버전, {1} 방 버전")]
+	[SerializeField] private LocalizedString _errorVersionMismatch;
+
+	[SerializeField] private LocalizedString _versionUnknown;
+	[SerializeField] private LocalizedString _leaveLeftRoom;
+	[SerializeField] private LocalizedString _leaveDisconnected;
+	[SerializeField] private LocalizedString _leaveServerDisconnected;
+	[SerializeField] private LocalizedString _leavePeerDisconnected;
 
 	public event Action<string> OnSessionCreated; // 조인코드 발급 완료
 	public event Action OnSessionJoined;          // 조인코드로 참가 완료
@@ -166,9 +191,13 @@ public class GameSessionManager : MonoBehaviour
 	}
 
 	// 입력이 비어 있을 때만 기본 이름을 만든다. 번호를 붙여 목록에서 서로 구분되게 한다.
-	private static string ResolveRoomName(string roomName)
+	//
+	// 방 이름은 세션에 저장되는 데이터라 보는 사람마다 다르게 보여줄 수 없다. 만드는 사람의
+	// 언어로 한 번 정해지고 그대로 모두에게 노출된다. 그래도 여기서 현지화 문구를 쓰는 이유는,
+	// 영어로 플레이하는 사람이 만든 방이 한글 이름을 갖는 것을 막기 위해서다.
+	private string ResolveRoomName(string roomName)
 		=> string.IsNullOrWhiteSpace(roomName)
-			? $"방 {UnityEngine.Random.Range(1000, 10000)}"
+			? _defaultRoomName.GetLocalizedString(UnityEngine.Random.Range(1000, 10000))
 			: roomName.Trim();
 
 	// 같은 실패라도 어떤 경로로 시도했는지에 따라 사용자에게 알려줄 원인이 다르다.
@@ -208,8 +237,8 @@ public class GameSessionManager : MonoBehaviour
 			if (roomVersion != Application.version)
 			{
 				await ReleaseCurrentSessionAsync();
-				OnSessionError?.Invoke(
-					$"파일 버전이 달라서 방에 참가할 수 없습니다. (내 버전 {Application.version} / 방 버전 {DescribeVersion(roomVersion)})");
+				OnSessionError?.Invoke(_errorVersionMismatch.GetLocalizedString(
+					Application.version, DescribeVersion(roomVersion)));
 				return;
 			}
 
@@ -258,7 +287,7 @@ public class GameSessionManager : MonoBehaviour
 		{
 			Debug.LogError($"[GameSessionManager] 방 목록 조회 중 오류가 발생했습니다.\n" +
 						   $"오류 내용: [{DescribeError(e)}] {e.Message}");
-			OnSessionError?.Invoke("방 목록을 불러오지 못했습니다");
+			OnSessionError?.Invoke(_errorRoomListFailed.GetLocalizedString());
 			return null;
 		}
 	}
@@ -340,11 +369,11 @@ public class GameSessionManager : MonoBehaviour
 	// Unity Services 예외 메시지는 영문 원문이라 그대로 띄우면 알아볼 수 없어 한글 문구로 바꿔준다.
 	// (원문은 호출부의 Debug.LogError에 그대로 남는다)
 	// 참가는 방 생성과 달리 잘못된 방 코드가 압도적으로 흔해서 원인 불명일 때의 기본 문구가 다르다.
-	private static string ToUserMessage(Exception e, JoinRoute? route = null)
+	private string ToUserMessage(Exception e, JoinRoute? route = null)
 	{
-		const string networkMessage = "네트워크 오류로 연결하지 못했습니다";
-		const string invalidCodeMessage = "방 코드를 다시 확인해주세요";
-		const string roomGoneMessage = "방이 사라졌거나 이미 시작되었습니다";
+		string networkMessage = _errorNetwork.GetLocalizedString();
+		string invalidCodeMessage = _errorInvalidCode.GetLocalizedString();
+		string roomGoneMessage = _errorRoomGone.GetLocalizedString();
 
 		// 로그인이나 서비스 초기화 실패는 SessionException이 아니다. 방 코드와 무관한 실패다.
 		if (e is not SessionException sessionException) return networkMessage;
@@ -374,15 +403,15 @@ public class GameSessionManager : MonoBehaviour
 			case SessionError.NetworkSetupFailed:
 				return sessionNotFoundMessage;
 			case SessionError.SessionConflict:
-				return "이미 같은 플레이어가 이 방에 참가 중입니다";
+				return _errorAlreadyJoined.GetLocalizedString();
 			case SessionError.RateLimitExceeded:
-				return "요청이 너무 잦습니다. 잠시 후 다시 시도해주세요";
+				return _errorRateLimited.GetLocalizedString();
 			default:
 				// 정원 초과와 잠긴 방은 별도 SessionError 없이 Unknown으로 넘어와 메시지로만 구분할 수 있다.
 				// (각각 "lobby is full", "lobby is locked"로 온다)
 				if (sessionException.Message.Contains("full", StringComparison.OrdinalIgnoreCase))
 				{
-					return "방 정원이 가득 찼습니다";
+					return _errorRoomFull.GetLocalizedString();
 				}
 
 				if (sessionException.Message.Contains("locked", StringComparison.OrdinalIgnoreCase))
@@ -427,7 +456,16 @@ public class GameSessionManager : MonoBehaviour
 		return IsNetworkReady(networkManager, requireServer);
 	}
 
-	// 우리 서버가 붙인 사유. 없으면 null.
+	// 서버가 클라이언트에게 보낼 사유. 문장이 아니라 현지화 키를 싣는다.
+	//
+	// 문장을 그대로 보내면 서버(방장) 언어로 굳어져서, 다른 언어를 쓰는 참가자에게도 그 언어로 뜬다.
+	// 키만 보내고 받는 쪽에서 풀면 각자 자기 언어로 본다. 인자가 있으면 '|' 로 이어 붙인다.
+	public static string ServerReason(string localizationKey, params string[] arguments)
+		=> arguments == null || arguments.Length == 0
+			? ServerReasonPrefix + localizationKey
+			: ServerReasonPrefix + localizationKey + "|" + string.Join("|", arguments);
+
+	// 우리 서버가 붙인 사유를 받는 쪽 언어로 풀어서 돌려준다. 없으면 null.
 	// NGO는 서버가 사유를 보내지 않아도 영문 문자열을 채워두므로, 표식이 있을 때만 채택한다.
 	private static string ReadServerReason()
 	{
@@ -435,9 +473,34 @@ public class GameSessionManager : MonoBehaviour
 		if (networkManager == null) return null;
 
 		string reason = networkManager.DisconnectReason;
-		return !string.IsNullOrEmpty(reason) && reason.StartsWith(ServerReasonPrefix)
-			? reason.Substring(ServerReasonPrefix.Length)
-			: null;
+		if (string.IsNullOrEmpty(reason) || !reason.StartsWith(ServerReasonPrefix))
+		{
+			return null;
+		}
+
+		string[] parts = reason.Substring(ServerReasonPrefix.Length).Split('|');
+		string[] arguments = new string[parts.Length - 1];
+		for (int i = 1; i < parts.Length; i++) arguments[i - 1] = parts[i];
+
+		// 키가 테이블에 없으면 빈 문자열이 온다. 그때는 사유가 없는 것으로 취급해 기본 문구가 뜨게 한다.
+		string text = Localize(parts[0], arguments);
+		return string.IsNullOrEmpty(text) ? null : text;
+	}
+
+	// 현지화 키를 지금 언어의 문장으로 바꾼다. 서버가 보낸 키와 로컬에서 만든 키 모두 이 경로를 쓴다.
+	private static string Localize(string localizationKey, params string[] arguments)
+	{
+		if (string.IsNullOrEmpty(localizationKey)) return null;
+
+		var localized = new LocalizedString(LocalizationTable, localizationKey);
+		if (arguments != null && arguments.Length > 0)
+		{
+			object[] boxed = new object[arguments.Length];
+			for (int i = 0; i < arguments.Length; i++) boxed[i] = arguments[i];
+			localized.Arguments = boxed;
+		}
+
+		return localized.GetLocalizedString();
 	}
 
 	private static bool IsNetworkReady(NetworkManager networkManager, bool requireServer)
@@ -505,7 +568,7 @@ public class GameSessionManager : MonoBehaviour
 		if (_isSessionLocked)
 		{
 			response.Approved = false;
-			response.Reason = ServerReasonPrefix + "이미 시작된 방입니다";
+			response.Reason = ServerReason("lobby_error_room_started");
 			return;
 		}
 
@@ -515,8 +578,8 @@ public class GameSessionManager : MonoBehaviour
 		if (clientVersion != Application.version)
 		{
 			response.Approved = false;
-			response.Reason = ServerReasonPrefix +
-				$"파일 버전이 달라서 방에 참가할 수 없습니다. (내 버전 {DescribeVersion(clientVersion)} / 방 버전 {Application.version})";
+			response.Reason = ServerReason(
+				"lobby_error_version_mismatch", DescribeVersion(clientVersion), Application.version);
 			return;
 		}
 
@@ -528,8 +591,8 @@ public class GameSessionManager : MonoBehaviour
 	private static string ReadClientVersion(byte[] payload)
 		=> payload == null || payload.Length == 0 ? string.Empty : Encoding.UTF8.GetString(payload);
 
-	private static string DescribeVersion(string version)
-		=> string.IsNullOrEmpty(version) ? "알 수 없음" : version;
+	private string DescribeVersion(string version)
+		=> string.IsNullOrEmpty(version) ? _versionUnknown.GetLocalizedString() : version;
 
 	private void HandleWaitingRoomSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
 	{
@@ -667,32 +730,37 @@ public class GameSessionManager : MonoBehaviour
 		string serverReason = ReadServerReason();
 		if (serverReason != null) return serverReason;
 
-		if (_isLeavingVoluntarily) return "방을 나왔습니다";
-		if (NetworkManager.Singleton.IsHost) return "연결이 끊겼습니다";
+		if (_isLeavingVoluntarily) return _leaveLeftRoom.GetLocalizedString();
+		if (NetworkManager.Singleton.IsHost) return _leaveDisconnected.GetLocalizedString();
 
 		// 내 연결이 끊겨 밀려난 경우와 호스트가 방을 닫은 경우는 원인이 달라 문구도 달라야 한다.
 		return NetworkManager.Singleton.NetworkConfig.NetworkTransport.DisconnectEvent
 			is NetworkTransport.DisconnectEvents.ProtocolTimeout
 			or NetworkTransport.DisconnectEvents.ProtocolError
 			or NetworkTransport.DisconnectEvents.MaxConnectionAttempts
-			? "서버와의 연결이 끊어졌습니다"
-			: "다른 플레이어의 접속이 끊어졌습니다";
+			? _leaveServerDisconnected.GetLocalizedString()
+			: _leavePeerDisconnected.GetLocalizedString();
 	}
 
-	// 사유를 지정하지 않으면 ResolveLeaveReason의 기본 문구("방을 나왔습니다")가 표시된다.
+	// 사유를 지정하지 않으면 ResolveLeaveReason의 기본 문구가 표시된다.
 	public void LeaveSession() => LeaveSessionWithReason(null);
 
-	// 로비에 표시할 사유를 지정해 퇴장한다.
-	public void LeaveSessionWithReason(string reason)
+	// 로비에 표시할 사유를 현지화 키로 지정해 퇴장한다.
+	//
+	// 나가는 본인은 지금 언어로 풀어서 들고 가고, 남는 사람들에게는 키를 그대로 보낸다.
+	// 문장을 보내면 방장 언어로 굳어져 다른 언어 참가자에게도 그 언어로 뜬다.
+	public void LeaveSessionWithReason(string localizationKey, params string[] arguments)
 	{
-		_pendingLeaveReason = reason;
+		_pendingLeaveReason = Localize(localizationKey, arguments);
 		_isLeavingVoluntarily = true;
 
 		// 호스트가 그냥 Shutdown하면 끊김 통보가 전달되지 못한 클라이언트는 전송 계층
 		// 타임아웃이 다 돌 때까지 방에 남아 있게 된다. 나가기 전에 사유를 붙여 직접 내보낸다.
 		if (NetworkManager.Singleton.IsServer)
 		{
-			DisconnectRemoteClients(reason ?? DefaultRemainingClientsReason());
+			DisconnectRemoteClients(string.IsNullOrEmpty(localizationKey)
+				? DefaultRemainingClientsReason()
+				: ServerReason(localizationKey, arguments));
 		}
 
 		// LeaveAsync()의 로비 서비스 왕복을 먼저 기다리면 로비 복귀가 그만큼 늦어지고,
@@ -703,11 +771,12 @@ public class GameSessionManager : MonoBehaviour
 
 	// 방장이 사유를 지정하지 않고 나갈 때, 남은 인원에게 보낼 문구를 상황에 맞게 고른다.
 	private string DefaultRemainingClientsReason()
-		=> SceneManager.GetActiveScene().name == _waitingRoomSceneName
-			? WaitingRoomHostLeftReason
-			: InGameHostLeftReason;
+		=> ServerReason(SceneManager.GetActiveScene().name == _waitingRoomSceneName
+			? WaitingRoomHostLeftKey
+			: InGameHostLeftKey);
 
 	// DisconnectClient가 순회 중인 목록을 바꾸므로, 대상을 먼저 모아두고 나서 내보낸다.
+	// reason 은 ServerReason() 으로 만든 값이어야 한다(표식 + 현지화 키).
 	private static void DisconnectRemoteClients(string reason)
 	{
 		var networkManager = NetworkManager.Singleton;
@@ -723,7 +792,7 @@ public class GameSessionManager : MonoBehaviour
 
 		foreach (ulong clientId in clientsToDisconnect)
 		{
-			networkManager.DisconnectClient(clientId, ServerReasonPrefix + reason);
+			networkManager.DisconnectClient(clientId, reason);
 		}
 	}
 

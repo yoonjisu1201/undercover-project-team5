@@ -22,9 +22,12 @@ public partial class RoundManager
 
     // 유저에게는 누가/왜 실패했는지가 아니라 로비로 돌아간다는 사실만 필요하므로,
     // 원인 구분은 각 발생 지점의 로그에만 남기고 표시 문구는 두 가지로 통일한다.
-    private const string SpawnReadyTimeoutReason = "게임 입장 시간이 초과되어 로비로 이동합니다";
-    private static readonly string PlayerLeftReason =
-        $"다른 플레이어의 접속이 끊어졌습니다 (최소 {WaitingRoomReadyManager.MinPlayersToStart}명 필요)";
+    //
+    // 문장이 아니라 현지화 키를 넘긴다. 이 사유는 남은 인원에게도 전송되는데, 문장을 보내면
+    // 보내는 쪽 언어로 굳어져 다른 언어를 쓰는 참가자에게도 그 언어로 뜬다.
+    private const string SpawnReadyTimeoutKey = "lobby_leave_spawn_timeout";
+    private const string PlayerLeftKey = "lobby_leave_player_left";
+    private const string GamePrepareFailedKey = "lobby_error_game_prepare_failed";
 
     // 스폰 완료 확인 응답을 보낸 클라이언트 목록 (서버만 사용, 네트워크 동기화 불필요)
     private readonly HashSet<ulong> _spawnReadyConfirmedClients = new();
@@ -95,7 +98,7 @@ public partial class RoundManager
             // 호스트가 나가면 방이 사라지므로, 호스트는 서버 감시 타이머가 전원을 정리하도록 넘긴다.
             if (IsServer) return;
 
-            GameSessionManager.Instance.LeaveSessionWithReason(SpawnReadyTimeoutReason);
+            GameSessionManager.Instance.LeaveSessionWithReason(SpawnReadyTimeoutKey);
             return;
         }
         catch (Exception e)
@@ -106,7 +109,7 @@ public partial class RoundManager
             // 그래서 호스트는 여기서 방을 나가지 않고, 서버 감시 타이머가 전원을 정리하도록 넘긴다.
             if (IsServer) return;
 
-            GameSessionManager.Instance.LeaveSessionWithReason("게임 준비 중 오류가 발생했습니다");
+            GameSessionManager.Instance.LeaveSessionWithReason(GamePrepareFailedKey);
             return;
         }
 
@@ -141,7 +144,7 @@ public partial class RoundManager
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
             Debug.LogWarning("[RoundManager] 준비 보고 후 라운드 시작 신호를 받지 못했습니다.", this);
-            GameSessionManager.Instance.LeaveSessionWithReason(SpawnReadyTimeoutReason);
+            GameSessionManager.Instance.LeaveSessionWithReason(SpawnReadyTimeoutKey);
         }
     }
 
@@ -196,7 +199,7 @@ public partial class RoundManager
         // 최소 인원을 못 채우면 로딩 중이든 라운드 중이든 게임을 이어갈 수 없다.
         if (NetworkManager.ConnectedClientsIds.Count < WaitingRoomReadyManager.MinPlayersToStart)
         {
-            SendEveryoneToLobby(PlayerLeftReason);
+            SendEveryoneToLobby(PlayerLeftKey, WaitingRoomReadyManager.MinPlayersToStart.ToString());
             return;
         }
 
@@ -224,7 +227,7 @@ public partial class RoundManager
         if (!_spawnReadyConfirmedClients.Contains(NetworkManager.LocalClientId))
         {
             Debug.LogError("[RoundManager] 호스트의 스폰 준비가 제한 시간 안에 끝나지 않았습니다.", this);
-            SendEveryoneToLobby(SpawnReadyTimeoutReason);
+            SendEveryoneToLobby(SpawnReadyTimeoutKey);
             return;
         }
 
@@ -241,7 +244,7 @@ public partial class RoundManager
         foreach (ulong clientId in pendingClients)
         {
             Debug.LogWarning($"[RoundManager] 클라이언트 {clientId}의 스폰 준비가 제한 시간을 초과해 내보냅니다.", this);
-            DisconnectWithReason(clientId, SpawnReadyTimeoutReason);
+            DisconnectWithReason(clientId, SpawnReadyTimeoutKey);
         }
 
         // DisconnectClient는 사유가 붙으면 실제 끊기를 다음 프레임으로 미루므로 ConnectedClientsIds가
@@ -249,7 +252,7 @@ public partial class RoundManager
         if (NetworkManager.ConnectedClientsIds.Count - pendingClients.Count
             < WaitingRoomReadyManager.MinPlayersToStart)
         {
-            SendEveryoneToLobby(PlayerLeftReason);
+            SendEveryoneToLobby(PlayerLeftKey, WaitingRoomReadyManager.MinPlayersToStart.ToString());
             return;
         }
 
@@ -258,10 +261,10 @@ public partial class RoundManager
 
     // 남은 인원으로는 게임을 시작할 수 없으므로 방을 정리하고 전원을 로비로 돌려보낸다.
     // 호스트 퇴장은 남은 인원에게 사유를 보낸 뒤 나가는 것까지 LeaveSessionWithReason이 처리한다.
-    private void SendEveryoneToLobby(string reason)
-        => GameSessionManager.Instance.LeaveSessionWithReason(reason);
+    private void SendEveryoneToLobby(string localizationKey, params string[] arguments)
+        => GameSessionManager.Instance.LeaveSessionWithReason(localizationKey, arguments);
 
-    // NGO가 자동으로 채우는 영문 사유와 구분되도록 표식을 붙여 내보낸다.
-    private void DisconnectWithReason(ulong clientId, string reason)
-        => NetworkManager.DisconnectClient(clientId, GameSessionManager.ServerReasonPrefix + reason);
+    // NGO가 자동으로 채우는 영문 사유와 구분되도록 표식을 붙이고, 문장 대신 현지화 키를 싣는다.
+    private void DisconnectWithReason(ulong clientId, string localizationKey)
+        => NetworkManager.DisconnectClient(clientId, GameSessionManager.ServerReason(localizationKey));
 }
