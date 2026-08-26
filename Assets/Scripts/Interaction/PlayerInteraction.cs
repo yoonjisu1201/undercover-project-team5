@@ -417,6 +417,13 @@ public class PlayerInteraction : NetworkBehaviour
         }
 
         _overlapCounts.Remove(outTarget);
+
+        // 확장 거리를 쓰는 대상(NPC)은 트리거를 벗어나도 후보로 남기고, 거리로만 정리한다.
+        if (outTarget.ExtendedInteractionRange > 0f)
+        {
+            return;
+        }
+
         _nearbyInteractables.Remove(outTarget);
         if (ReferenceEquals(outTarget, _currentTarget))
         {
@@ -536,8 +543,8 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
-        _nearbyInteractables.RemoveWhere(target => target == null); // 파괴된 대상 제거
-        // 파괴된 대상을 정리한 뒤, 가장 가까운 후보를 찾는다.
+        // 파괴된 대상과, 트리거를 벗어난 뒤 확장 거리까지 벗어난 대상을 정리한 뒤 가장 가까운 후보를 찾는다.
+        _nearbyInteractables.RemoveWhere(target => target == null || IsBeyondExtendedRange(target));
 
         InteractableBase closestTarget = null;
         float closestDistanceSqr = float.MaxValue;
@@ -586,6 +593,21 @@ public class PlayerInteraction : NetworkBehaviour
             }
         }
         SetCurrentTarget(closestTarget);
+    }
+
+    // 트리거를 벗어난 뒤에도 남겨둔 대상이 확장 거리까지 벗어났는지.
+    private bool IsBeyondExtendedRange(InteractableBase target)
+    {
+        // 아직 트리거 안에 있으면 거리로 빼지 않는다. 다시 넣어 줄 OnTriggerEnter가 오지 않아
+        // 영구히 상호작용 불가가 되기 때문이다.
+        if (_overlapCounts.ContainsKey(target))
+        {
+            return false;
+        }
+
+        float range = target.ExtendedInteractionRange;
+        return range > 0f
+            && (target.InteractionPosition - transform.position).sqrMagnitude > range * range;
     }
 
     public void RemoveNearbyInteractable(InteractableBase target)
