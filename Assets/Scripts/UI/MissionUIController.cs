@@ -1,13 +1,16 @@
 using System.Linq;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Localization;
 
 // 모든 미션 UI의 종료와 완료 확인을 공통 처리한다.
 public sealed class MissionUIController : MonoBehaviour, IClosableUi
 {
     [Header("결과 문구 (비워 두면 프리팹에 적힌 문구를 그대로 쓴다)")]
-    [SerializeField] private string _resultTitle;
-    [SerializeField] private string _resultMessage;
+    [SerializeField] private LocalizedString _resultTitle;
+
+    [Tooltip("{0} 에 기계 번호가 들어간다.")]
+    [SerializeField] private LocalizedString _resultMessage;
 
     private MissionInteractable _owner;
     private TMP_Text _timerText;
@@ -42,6 +45,9 @@ public sealed class MissionUIController : MonoBehaviour, IClosableUi
 
     }
 
+    [Tooltip("{0} 에 mm:ss 가 들어간다.")]
+    [SerializeField] private LocalizedString _timeLeftFormat;
+
     // 네트워크 서버 시간으로 계산된 현재 라운드의 남은 시간을 표시한다.
     private void Update()
     {
@@ -53,7 +59,7 @@ public sealed class MissionUIController : MonoBehaviour, IClosableUi
         float remaining = RoundManager.Instance.GetRemainingTime();
         int minutes = Mathf.FloorToInt(remaining / 60f);
         int seconds = Mathf.FloorToInt(remaining % 60f);
-        _timerText.text = $"남은 시간  {minutes:00}:{seconds:00}";
+        _timerText.text = _timeLeftFormat.GetLocalizedString($"{minutes:00}:{seconds:00}");
     }
 
     // UI를 연 월드 미션 기계를 연결한다.
@@ -84,19 +90,18 @@ public sealed class MissionUIController : MonoBehaviour, IClosableUi
         overlay.gameObject.SetActive(true);
     }
 
-    // 미션마다 결과 문구가 다르므로, 값이 채워져 있을 때만 프리팹 문구를 덮어쓴다.
+    // 미션마다 결과 문구가 다르므로, 키가 지정된 경우에만 프리팹 문구를 덮어쓴다.
     // UI 프리팹은 여러 기계가 공유하므로, 기계별로 다른 번호는 {0} 자리에 채워 넣는다.
-    private void ApplyResultText(string childName, string text)
+    private void ApplyResultText(string childName, LocalizedString localized)
     {
-        if (string.IsNullOrEmpty(text))
+        if (localized == null || localized.IsEmpty)
         {
             return;
         }
 
-        if (_owner != null)
-        {
-            text = text.Replace("{0}", _owner.TargetNumber.ToString());
-        }
+        string text = _owner != null
+            ? localized.GetLocalizedString(_owner.TargetNumber)
+            : localized.GetLocalizedString();
 
         Transform target = FindChild(childName);
         if (target != null && target.TryGetComponent(out TMP_Text label))

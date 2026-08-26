@@ -5,6 +5,7 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -40,6 +41,28 @@ public sealed class PlayerListPanelUI : MonoBehaviour
 
     // 현재 구독 중인 Player들. 슬롯이 바뀔 때마다 전부 해제하고 현재 슬롯 기준으로 다시 구독한다.
     private readonly List<Player> _subscribedPlayers = new();
+
+    private void OnEnable()
+    {
+        // 상태 문구는 Render 가 그릴 때만 계산된다. 그래서 목록이 다시 그려지기 전에는 언어를 바꿔도
+        // 이미 찍힌 문구가 그대로 남는다. 언어 변경 때마다, 그리고 꺼져 있는 동안 바뀐 경우를 위해
+        // 켜질 때도 다시 그린다.
+        LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
+    }
+
+    // 언어 변경은 대기실에 들어오기 전(_manager 가 아직 없을 때)에도 올 수 있다.
+    private void HandleLocaleChanged(Locale locale)
+    {
+        if (_manager != null)
+        {
+            Render();
+        }
+    }
 
     private void Start()
     {

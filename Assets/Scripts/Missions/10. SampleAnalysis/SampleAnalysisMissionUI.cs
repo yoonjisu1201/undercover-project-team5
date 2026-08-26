@@ -3,6 +3,8 @@ using DG.Tweening;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.UI;
 
 // 샘플 분석 장치의 화면이다. 세 역할이 같은 프리팹을 쓰고, 고른 자리에 따라 보여줄 패널만 바뀐다.
@@ -20,9 +22,17 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
     // 이 이름으로 시작하는 자식은 막대형으로, 나머지는 선분형으로 움직인다.
     private const string WaveBarNamePrefix = "WaveBar";
 
-    private const string ObserverName = "관찰 모니터";
-    private const string TemperatureName = "온도 조절";
-    private const string ConcentrationName = "농도 조절";
+    [Header("현지화 문구")]
+    [SerializeField] private LocalizedString _roleObserver;
+    [SerializeField] private LocalizedString _roleTemperature;
+    [SerializeField] private LocalizedString _roleConcentration;
+    [SerializeField] private LocalizedString _slotFree;
+    [SerializeField] private LocalizedString _slotTaken;
+
+    [Tooltip("{0} 현재 초, {1} 필요한 초")]
+    [SerializeField] private LocalizedString _secondsFormat;
+
+    [SerializeField] private LocalizedString _reactionStable;
 
     // 비어 있는 자리는 초록, 사용 중인 자리는 회색으로 칠한다.
     private static readonly Color AvailableRoleColor = new(0.08f, 0.58f, 0.34f, 1f);    // Green
@@ -115,8 +125,19 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
         KillWaveformTweens();
     }
 
+    private void OnEnable()
+    {
+        // 이 화면의 문구는 코드가 계산해 넣는 값이라 LocalizeStringEvent 의 자동 갱신을 받지 못한다.
+        // 패널을 연 채로 언어를 바꾸면 이미 찍힌 문구가 그대로 남으므로 여기서 다시 그린다.
+        LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
+    }
+
+    private void HandleLocaleChanged(Locale locale) => Redraw();
+
     private void OnDisable()
     {
+        LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
+
         // 화면이 꺼져도 DOTween은 계속 돌기 때문에 직접 끊어 준다.
         KillWaveformTweens();
     }
@@ -255,7 +276,8 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
         }
 
         button.interactable = usable;
-        label.text = $"{roleName}{(multiline ? "\n" : "  |  ")}{(usable ? "비어 있음" : "사용 중")}";
+        string separator = multiline ? "\n" : "  |  ";
+        label.text = roleName + separator + (usable ? _slotFree : _slotTaken).GetLocalizedString();
 
         if (!button.TryGetComponent(out Image image))
         {
@@ -283,7 +305,8 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
 
         if (view.ProgressText != null)
         {
-            view.ProgressText.text = $"{_state.StableSeconds:0.0} / {_state.RequiredStableSeconds:0.#}초";
+            view.ProgressText.text = _secondsFormat.GetLocalizedString(
+                _state.StableSeconds.ToString("0.0"), _state.RequiredStableSeconds.ToString("0.#"));
         }
     }
 
@@ -305,7 +328,7 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
         }
         else if (_state.IsStable)
         {
-            view.ValueText.text = "반응 안정\n현재 값을 유지하세요";
+            view.ValueText.text = _reactionStable.GetLocalizedString();
         }
         else
         {
@@ -434,13 +457,13 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
     }
 
     // role enum을 화면에 보여줄 한글 이름으로 바꾸는 함수입니다.
-    private static string GetRoleName(SampleAnalysisRole role)
+    private string GetRoleName(SampleAnalysisRole role)
     {
         switch (role)
         {
-            case SampleAnalysisRole.Observer: return ObserverName;
-            case SampleAnalysisRole.Temperature: return TemperatureName;
-            default: return ConcentrationName;
+            case SampleAnalysisRole.Observer: return _roleObserver.GetLocalizedString();
+            case SampleAnalysisRole.Temperature: return _roleTemperature.GetLocalizedString();
+            default: return _roleConcentration.GetLocalizedString();
         }
     }
 

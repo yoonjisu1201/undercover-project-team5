@@ -1,6 +1,7 @@
 ﻿using System;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
 
 // 통신 주파수 동기화 미션에서 세 역할이 공유해야 하는 상태를 서버 권한으로 관리한다.
 // P1(파형 화면)  : 안테나 방향을 돌려 신호가 가장 센 방향(=목표 방향)을 찾아 P2에게 알려준다.
@@ -25,6 +26,9 @@ public sealed class FrequencySyncState : NetworkBehaviour
     private const int TwoZoneFromRound = 3;
 
     // 좌표를 뽑는 거리 범위다. 기계에서 이 사이의 거리에 세 지점이 생긴다.
+    [Header("현지화 문구")]
+    [SerializeField] private LocalizedString _antennaInstalled;
+
     [SerializeField] private float _minZoneDistance = 10f;
     [SerializeField] private float _maxZoneDistance = 28f;
     // 구역 경계에서 안쪽으로 이만큼 띄운다. 경계에 딱 붙으면 벽 밖이나 못 가는 자리에 생긴다.
@@ -544,7 +548,7 @@ public sealed class FrequencySyncState : NetworkBehaviour
     [Rpc(SendTo.SpecifiedInParams)]
     private void ShowAntennaInstalledMessageOwnerRpc(RpcParams rpcParams = default)
     {
-        FindFirstObjectByType<InteractionPromptUI>(FindObjectsInactive.Include)?.ShowTemporaryPrompt("안테나 설치 완료");
+        FindFirstObjectByType<InteractionPromptUI>(FindObjectsInactive.Include)?.ShowTemporaryPrompt(_antennaInstalled.GetLocalizedString());
     }
 
     // 이 기계는 서버 소유지만 RPC를 호출하는 쪽은 각 화면을 조작하는 클라이언트다. Breaker와 같은 이유로 Everyone으로 열어둔다.

@@ -59,8 +59,11 @@ public class UndergroundDoor : InteractableBase
         gameObject.SetActive(false);
     }
 
-    public override string InteractionText => "문 열기";
     
+    // 이 프리팹은 Assets/Imported 안에 있어 gitignore 대상이다. 인스펙터로 키를 지정하면
+    // 팀원에게 전파되지 않으므로 코드에 남긴다.
+    public override string InteractionText => LocalizeInteractionText("underground_door_interaction");
+
     public override bool CanInteract(GameObject interactor) => !_isOpened;
     
     public override void Interact(GameObject interactor) {

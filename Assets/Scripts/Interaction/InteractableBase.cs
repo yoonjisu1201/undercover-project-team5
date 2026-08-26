@@ -2,6 +2,7 @@ using DG.Tweening;
 using EPOOutline;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
 
 // NetworkObject를 여기서 요구하지 않는다. NetworkBehaviour는 부모 체인에 NetworkObject가 있으면 되는데,
 // 같은 오브젝트에 요구하면 다른 네트워크 프리팹의 자식으로 붙일 때 Unity가 자식에 NetworkObject를 자동 생성한다.
@@ -9,7 +10,22 @@ using UnityEngine;
 [RequireComponent(typeof(Outlinable))]
 public abstract class InteractableBase : NetworkBehaviour, IInteractable
 {
-    public abstract string InteractionText { get; }
+    [Header("상호작용 안내 문구")]
+    [Tooltip("조준했을 때 보여줄 문구. 문구가 상황에 따라 달라지는 대상만 InteractionText 를 오버라이드한다.")]
+    // 이름을 그대로 두면 안 된다. MissionInteractable·BreakerLeverInteractable 이 같은 이름의
+    // string 필드를 이미 갖고 있어서 직렬화 이름이 겹친다.
+    [SerializeField] private LocalizedString _localizedInteractionText;
+
+    // 문구를 인스펙터에서 지정하게 두는 이유는, 파생 클래스마다 같은 코드를 반복하지 않으려는 것이다.
+    // 상황에 따라 문구가 갈리는 대상(예: 방장인지에 따라 다른 준비 버튼)만 이 프로퍼티를 오버라이드한다.
+    public virtual string InteractionText => _localizedInteractionText.GetLocalizedString();
+
+    // 프리팹이 Assets/Imported 처럼 gitignore 대상인 대상은 인스펙터 지정이 팀원에게 전파되지 않는다.
+    // 그런 경우만 이 헬퍼로 키를 코드에 남기고 InteractionText 를 오버라이드한다.
+    protected static string LocalizeInteractionText(string localizationKey)
+        => new LocalizedString(InteractionTextTable, localizationKey).GetLocalizedString();
+
+    private const string InteractionTextTable = "Language Table";
     public abstract bool CanInteract(GameObject interactor);
     public abstract void Interact(GameObject interactor);
 

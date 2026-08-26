@@ -139,7 +139,6 @@ MonoBehaviour:
   _hairPossibility: 0.8
   _hatPossibility: 0.5
   _headphonePossibility: 0.5
-  _glovePossibility: 1
   _maskPossibility: 0.5
   _pantPossibility: 1
   _shoePossibility: 1
@@ -388,11 +387,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ArrestCandidateInteractable
   ShowTopMostFoldoutHeaderGroup: 1
+  _localizedInteractionText:
+    m_TableReference:
+      m_TableCollectionName: GUID:b4adb9a06522cf14a884424803a753e1
+    m_TableEntryReference:
+      m_KeyId: 17190790764363779
+      m_Key: 
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
   _aimIgnoredColliders: []
   _outlineFadeDuration: 0.15
   _arrestHoldDuration: 1.2
   _aimRadiusMultiplier: 3
   _rangeTolerance: 2
+  references:
+    version: 2
+    RefIds: []
 --- !u!114 &-7868924145277073855
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -438,6 +449,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 484e93f5e2dae7e4c9c55a2613244eaf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcCctvHighlight
+  _revealCount: 2
 --- !u!1001 &3531404826064359957
 PrefabInstance:
   m_ObjectHideFlags: 0

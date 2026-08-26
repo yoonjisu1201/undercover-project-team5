@@ -16,6 +16,9 @@ public sealed class ClueToast : MonoBehaviour
 
     [Tooltip("부위명을 모를 때. {0} 에 단서 번호가 들어간다.")]
     [SerializeField] private LocalizedString _clueAcquiredNumber;
+
+    [Tooltip("단서를 아직 하나도 얻지 않았을 때 보여줄 문구.")]
+    [SerializeField] private LocalizedString _clueIdle;
     [SerializeField] private RawImage _thumbnail;
 
     [Header("슬라이드")]
@@ -40,6 +43,13 @@ public sealed class ClueToast : MonoBehaviour
     {
         _card.anchoredPosition = new Vector2(_hiddenX, _card.anchoredPosition.y);
 		_card.gameObject.SetActive(false);
+
+        // 프리팹에 남아 있던 문구를 대신한다. 이 라벨은 단서를 얻을 때 HandleClueAdded 가 덮어쓰므로
+        // LocalizeStringEvent 를 붙이면 서로 지운다. 그래서 첫 문구도 여기서 넣는다.
+        if (_label != null)
+        {
+            _label.text = _clueIdle.GetLocalizedString();
+        }
     }
 
     private void OnDisable()
