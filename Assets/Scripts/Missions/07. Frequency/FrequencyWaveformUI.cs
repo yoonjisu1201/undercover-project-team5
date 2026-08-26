@@ -320,17 +320,15 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         if (absolute <= FrequencySyncState.MatchTolerance)
         {
             float remain = Mathf.Max(0f, FrequencySyncState.RequiredHoldSeconds - _syncState.HoldSeconds);
-            return $"주파수 일치 · 유지 {remain:0.0}초";
+            return Localize("mission_freq_tune_matched", remain.ToString("0.0"));
         }
 
         if (absolute <= FrequencySyncState.NearTolerance)
         {
-            return "목표 주파수 근처 · 미세 조정 필요";
+            return Localize("mission_freq_tune_near");
         }
 
-        return difference > 0f
-            ? "목표 주파수 높음 · 크게 조정 필요"
-            : "목표 주파수 낮음 · 크게 조정 필요";
+        return Localize(difference > 0f ? "mission_freq_tune_high" : "mission_freq_tune_low");
     }
 
     // 요원이 보는 방향과 목표 좌표 사이의 각도 차이를 보여준다.
@@ -340,12 +338,12 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         // 설치를 마치면 안테나가 소모되어 소지자가 없어진다. 설치 완료를 미소지보다 먼저 판단해야 한다.
         if (_syncState.AntennaPlaced)
         {
-            return "설치 완료";
+            return Localize("mission_freq_antenna_placed");
         }
 
         if (!_syncState.HasHolder)
         {
-            return "안테나 미소지";
+            return _noAntenna.GetLocalizedString();
         }
 
         float difference = _syncState.HolderRelativeBearing;
@@ -353,11 +351,11 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
 
         if (degrees <= AlignedDegrees)
         {
-            return "정면 0° · 직진";
+            return Localize("mission_freq_bearing_front");
         }
 
         // 양수면 목표가 요원의 오른쪽에 있다.
-        return difference > 0f ? $"오른쪽 {degrees}°" : $"왼쪽 {degrees}°";
+        return Localize(difference > 0f ? "mission_freq_bearing_right" : "mission_freq_bearing_left", degrees);
     }
 
     private void ApplyRadarMarks()
@@ -464,5 +462,13 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         }
 
         return null;
+    }
+
+    private static string Localize(string key, params object[] args)
+    {
+        var localized = new UnityEngine.Localization.LocalizedString("Language Table", key);
+        return args == null || args.Length == 0
+            ? localized.GetLocalizedString()
+            : localized.GetLocalizedString(args);
     }
 }

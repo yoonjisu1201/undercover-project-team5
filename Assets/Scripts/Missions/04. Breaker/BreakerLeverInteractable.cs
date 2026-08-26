@@ -1,5 +1,6 @@
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.InputSystem;
 
 // B 역할의 레버. 상호작용 키를 누르고 있는 동안 회로를 Off로 유지한다.
@@ -16,8 +17,8 @@ public sealed class BreakerLeverInteractable : InteractableBase
     private static readonly Vector3 PulledRotation = new(-179.9f, 0f, 0f);
     private const float ArmTweenDuration = 1.5f;
 
-    [SerializeField] private string _interactionText = "레버 누르고 있기";
-    [SerializeField] private string _releaseInteractionText = "레버 올리기";
+    [SerializeField] private LocalizedString _interactionText;
+    [SerializeField] private LocalizedString _releaseInteractionText;
 
     private BreakerCircuitState _circuitState;
     private CustomInputActions _actions;
@@ -32,12 +33,12 @@ public sealed class BreakerLeverInteractable : InteractableBase
     // OnCircuitChanged가 배터리·측정값 변화에도 발동하므로, 전원이 실제로 바뀐 경우만 소리를 낸다.
     private bool _lastPowerOn = true;
 
-    public override string InteractionText => _interactionText;
+    public override string InteractionText => _interactionText.GetLocalizedString();
     public override bool CanInteract(GameObject interactor) => _circuitState != null;
 
     // 고정돼 있을 때는 "누르고 있기"가 아니라 한 번 눌러 올리는 동작이므로 안내 문구를 바꾼다.
     public override string GetInteractionText(GameObject interactor)
-        => _isLatched ? _releaseInteractionText : _interactionText;
+        => (_isLatched ? _releaseInteractionText : _interactionText).GetLocalizedString();
 
     protected override void Awake()
     {

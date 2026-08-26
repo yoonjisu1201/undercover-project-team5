@@ -78,7 +78,7 @@ public abstract class CartBase : InteractableBase
 		}
 	}
 
-	public override string InteractionText => $"{CartName}카트 끌기";
+	public override string InteractionText => LocalizeInteractionText("interact_pull_cart");
 
 	// 일반적으로 카트는 이미 사용중인 사람이 있으면 상호작용 불가능하게 한다
 	public override bool CanInteract(GameObject interactor) => !IsHolderExists;

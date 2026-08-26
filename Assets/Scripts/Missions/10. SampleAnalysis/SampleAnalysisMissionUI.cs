@@ -472,10 +472,10 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
     {
         if (direction > 0)
         {
-            return "온도 낮음";
+            return Localize("mission_sample_temp_low");
         }
 
-        return direction < 0 ? "온도 높음" : "온도 적정 범위";
+        return Localize(direction < 0 ? "mission_sample_temp_high" : "mission_sample_temp_ok");
     }
 
     // 농도는 낮음/높음보다 부족/과포화가 플레이어에게 더 직관적이다.
@@ -483,25 +483,25 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
     {
         if (direction > 0)
         {
-            return "농도 부족";
+            return Localize("mission_sample_conc_low");
         }
 
-        return direction < 0 ? "농도 과포화" : "농도 적정";
+        return Localize(direction < 0 ? "mission_sample_conc_high" : "mission_sample_conc_ok");
     }
 
     private static string GetActivationText(int direction)
     {
-        return direction == 0 ? "생체반응 활성화" : "생체반응 비활성화";
+        return Localize(direction == 0 ? "mission_sample_reaction_on" : "mission_sample_reaction_off");
     }
 
     private static string GetDirectionText(int direction)
     {
         if (direction > 0)
         {
-            return "올리기";
+            return Localize("mission_sample_dir_up");
         }
 
-        return direction < 0 ? "내리기" : "적정 범위";
+        return Localize(direction < 0 ? "mission_sample_dir_down" : "mission_sample_dir_ok");
     }
 
     // 적정은 초록, 부족·낮음은 노랑, 과포화·높음은 주황으로 가른다.
@@ -803,5 +803,13 @@ public sealed class SampleAnalysisMissionUI : MonoBehaviour
                     .SetTarget(root);
             }
         }
+    }
+
+    private static string Localize(string key, params object[] args)
+    {
+        var localized = new UnityEngine.Localization.LocalizedString("Language Table", key);
+        return args == null || args.Length == 0
+            ? localized.GetLocalizedString()
+            : localized.GetLocalizedString(args);
     }
 }

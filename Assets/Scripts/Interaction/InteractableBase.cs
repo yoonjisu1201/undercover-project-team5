@@ -22,8 +22,13 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
 
     // 프리팹이 Assets/Imported 처럼 gitignore 대상인 대상은 인스펙터 지정이 팀원에게 전파되지 않는다.
     // 그런 경우만 이 헬퍼로 키를 코드에 남기고 InteractionText 를 오버라이드한다.
-    protected static string LocalizeInteractionText(string localizationKey)
-        => new LocalizedString(InteractionTextTable, localizationKey).GetLocalizedString();
+    protected static string LocalizeInteractionText(string localizationKey, params object[] arguments)
+    {
+        var localized = new LocalizedString(InteractionTextTable, localizationKey);
+        return arguments == null || arguments.Length == 0
+            ? localized.GetLocalizedString()
+            : localized.GetLocalizedString(arguments);
+    }
 
     private const string InteractionTextTable = "Language Table";
     public abstract bool CanInteract(GameObject interactor);

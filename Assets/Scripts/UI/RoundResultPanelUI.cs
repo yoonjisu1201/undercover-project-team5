@@ -2,12 +2,20 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.UI;
 
 // 라운드 결과(라운드 클리어/성공/실패)를 표시하고, 확인 버튼을 누르면 대기방으로 돌아가도록 서버에 알린다.
 public class RoundResultPanelUI : MonoBehaviour, IClosableUi
 {
     [SerializeField] private GameObject _panel;
+    [Header("현지화 문구")]
+    [Tooltip("{0} 에 라운드 번호가 들어간다.")]
+    [SerializeField] private LocalizedString _roundClearedFormat;
+
+    [SerializeField] private LocalizedString _arrestSuccess;
+    [SerializeField] private LocalizedString _arrestFailed;
+
     [SerializeField] private TMP_Text _resultText;
     [SerializeField] private Button _confirmButton;
     [SerializeField] private GameObject _inventoryCanvas;
@@ -88,14 +96,14 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
         switch (state)
         {
             case RoundState.RoundClear:
-                _resultText.text = $"{RoundManager.Instance.CurrentRoundIndex + 1}라운드 클리어";
+                _resultText.text = _roundClearedFormat.GetLocalizedString(RoundManager.Instance.CurrentRoundIndex + 1);
                 _confirmButton.gameObject.SetActive(false); // 자동으로 다음 라운드 전환
                 _nextRoundText.SetActive(true);
                 _creditSection.SetActive(_showCreditSection);
                 ShowPanel();
                 break;
             case RoundState.Success:
-                _resultText.text = "검거 성공";
+                _resultText.text = _arrestSuccess.GetLocalizedString();
                 _confirmButton.gameObject.SetActive(true);
                 _nextRoundText.SetActive(false);
                 _creditSection.SetActive(false);
@@ -103,7 +111,7 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
                 ShowPanel();
                 break;
             case RoundState.Fail:
-                _resultText.text = "검거 실패";
+                _resultText.text = _arrestFailed.GetLocalizedString();
                 _confirmButton.gameObject.SetActive(true);
                 _nextRoundText.SetActive(false);
                 _creditSection.SetActive(false);
