@@ -185,6 +185,8 @@ public class Player : NetworkBehaviour
 
 			// 스폰 시 내 머리 안보이게 해야 함
 			PlayerRenderer.SetHeadObjectsLayer(Layers.LocalPlayerHead);
+			// 머리가 숨겨지면 그림자도 같이 사라지므로 전용 그림자 캐스터를 켠다
+			PlayerRenderer.SetHeadShadowCastersActive(true);
 		}
 
 		_playerName.OnValueChanged += HandlePlayerNameChanged;
