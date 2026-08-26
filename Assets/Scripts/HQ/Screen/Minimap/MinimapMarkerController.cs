@@ -19,6 +19,9 @@ public class MinimapMarkerController : MonoBehaviour {
 	[Header("=== CCTV Hub 등록 ===")]
 	[SerializeField] private CCTVHub _cctvHub;
 
+	[Header("=== CCTV 화면 컨트롤러 등록 ===")]
+	[SerializeField] private HqScreenController _hqScreenController;
+
 	[Header("=== 본부(StartPoint) 마커 등록 ===")]
 	[SerializeField] private Transform _startPoint;
 	[SerializeField] private GameObject _startPointMarkerPrefab;
@@ -55,7 +58,9 @@ public class MinimapMarkerController : MonoBehaviour {
 		public CCTVPoint Point;
 		public RectTransform RectTransform;
 		public Image Icon;
+		public CctvMapMarker ClickTarget;
 		public Action<CCTVConnectionState> OnStateChanged;
+		public Action OnClicked;
 	}
 
 	private void OnEnable() {
@@ -96,13 +101,17 @@ public class MinimapMarkerController : MonoBehaviour {
 			MarkerInstance instance = new MarkerInstance {
 				Point = point,
 				RectTransform = markerObject.GetComponent<RectTransform>(),
-				Icon = markerObject.transform.Find("CctvIcon").GetComponent<Image>()
+				Icon = markerObject.transform.Find("CctvIcon").GetComponent<Image>(),
+				ClickTarget = markerObject.AddComponent<CctvMapMarker>()
 			};
 
 			// 상태가 바뀔 때마다 색을 갱신하고, 등록 시점 상태도 바로 반영
 			instance.OnStateChanged = state => ApplyConnectionColor(instance.Icon, state);
 			point.OnConnectionStateChanged += instance.OnStateChanged;
 			ApplyConnectionColor(instance.Icon, point.ConnectionState);
+
+			instance.OnClicked = () => HandleCctvMarkerClicked(point);
+			instance.ClickTarget.Clicked += instance.OnClicked;
 
 			_markerInstances.Add(instance);
 		}
@@ -111,9 +120,22 @@ public class MinimapMarkerController : MonoBehaviour {
 	private void ClearCctvMarkers() {
 		foreach (MarkerInstance instance in _markerInstances) {
 			instance.Point.OnConnectionStateChanged -= instance.OnStateChanged;
+			instance.ClickTarget.Clicked -= instance.OnClicked;
 			Destroy(instance.RectTransform.gameObject);
 		}
 		_markerInstances.Clear();
+	}
+
+	// 마커 클릭: 카메라를 해당 CCTV로 옮기고 CCTV 화면을 연다.
+	private void HandleCctvMarkerClicked(CCTVPoint point) {
+		_cctvHub.SwitchToIndex(point.CameraNumber);
+
+		if (_hqScreenController == null) {
+			Debug.LogWarning("[MinimapMarkerController] HqScreenController가 등록되지 않아 CCTV 화면을 열 수 없습니다.", this);
+			return;
+		}
+
+		_hqScreenController.OpenCctvScreen();
 	}
 
 	// 구역이 바뀌거나 대상이 움직일 수 있으므로 매 프레임 위치를 다시 계산한다.

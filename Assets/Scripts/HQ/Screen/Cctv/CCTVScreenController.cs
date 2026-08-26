@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,11 +10,17 @@ public class CCTVScreenController : ScreenBase
 	[SerializeField] private Button _leftButton;
 	[SerializeField] private Button _rightButton;
 
+	[Header("=== 지도 화면으로 돌아가는 닫기 버튼 ===")]
+	[SerializeField] private Button _closeButton;
+
 	[Header("=== CCTV Hub 들어가야 함. ===")]
 	[SerializeField] private CCTVHub _cctvHub;
 
 	[Header("=== CCTV 텍스트 들어갈 곳 ===")]
 	[SerializeField] private TMP_Text _cctvText;
+
+	// 닫기가 콘솔 종료가 아니라 지도 화면 복귀임을 HqScreenController가 결정하므로 요청만 던진다.
+	public event Action OnCloseRequested;
 
 	private GameObject _disconnectedOverlay;
 	private CCTVItemReticle _itemReticle;
@@ -46,6 +53,7 @@ public class CCTVScreenController : ScreenBase
 		// 미션에서 연결 상태가 바뀌면 현재 CCTV 오버레이도 즉시 갱신합니다.
 		_leftButton.onClick.AddListener(OnPreviousClicked);
 		_rightButton.onClick.AddListener(OnNextClicked);
+		_closeButton.onClick.AddListener(HandleCloseClicked);
 
 		SetUiText(_cctvHub.UsingCctvNumber);
 		_cctvHub.OnCctvNumberChanged += SetUiText;
@@ -63,6 +71,7 @@ public class CCTVScreenController : ScreenBase
 
 		_leftButton.onClick.RemoveListener(OnPreviousClicked);
 		_rightButton.onClick.RemoveListener(OnNextClicked);
+		_closeButton.onClick.RemoveListener(HandleCloseClicked);
 
 		_cctvHub.OnCctvNumberChanged -= SetUiText;
 
@@ -96,6 +105,12 @@ public class CCTVScreenController : ScreenBase
 	private void OnNextClicked()
 	{
 		_cctvHub.SwitchToNext();
+	}
+
+	// 닫기 버튼: 콘솔 종료가 아니라 지도 화면 복귀를 요청합니다.
+	private void HandleCloseClicked()
+	{
+		OnCloseRequested?.Invoke();
 	}
 
 	// 현재 카메라 번호를 표시하고 해당 카메라의 단절 화면을 갱신합니다.
