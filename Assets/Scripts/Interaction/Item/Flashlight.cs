@@ -6,10 +6,12 @@ using UnityEngine;
 // PlayerCameraController.ViewPitch(오너/논오너 모두 동기화됨)로 다시 계산한다.
 // 맞는 표면이 바뀌면 목표 지점이 순간적으로 튈 수 있어서, 회전은 Slerp로 따라가게 해 흔들림을 완화한다.
 // 손 소켓(NetworkObject 아님)엔 파렌팅할 수 없어서, 위치는 매 프레임 handAnchor를 따라간다.
+// handAnchor는 손 뼈(Hand.L) 자체라 손에 자연스럽게 들리도록 로컬 오프셋을 따로 둔다.
 public class Flashlight : NetworkBehaviour
 {
     [SerializeField, Min(0f)] private float _maxDistance = 30f;
     [SerializeField, Min(0f)] private float _rotationLerpSpeed = 15f;
+    [SerializeField] private Vector3 _holdOffset;
 
     // On/Off 상태는 오너가 직접 토글하는 값이라 Owner 권한으로 쓴다.
     private readonly NetworkVariable<bool> _isOn =
@@ -85,7 +87,7 @@ public class Flashlight : NetworkBehaviour
     {
         if (_handAnchor != null)
         {
-            transform.position = _handAnchor.position;
+            transform.position = _handAnchor.TransformPoint(_holdOffset);
         }
 
         if (_playerCameraController == null)
