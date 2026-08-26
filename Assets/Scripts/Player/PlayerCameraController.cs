@@ -37,6 +37,7 @@ public class PlayerCameraController : NetworkBehaviour
     private readonly float _armFollowMaxPitch = 20f;
 
     private CustomInputActions _actions;
+    private PlayerRenderer _playerRenderer;
     private float _yaw;
     private float _pitch;
     private Quaternion _headBoneBaseRotation;
@@ -62,6 +63,7 @@ public class PlayerCameraController : NetworkBehaviour
         _rotateSpeed = ToRotateSpeed(PlayerPrefs.GetFloat(MouseSensitivityKey, DefaultSensitivity));
         _actions = new CustomInputActions();
         _actions.Enable();
+        _playerRenderer = GetComponentInParent<PlayerRenderer>();
 
         if (_headBone != null)
         {
@@ -188,6 +190,8 @@ public class PlayerCameraController : NetworkBehaviour
     {
         _useDownedCameraView = true;
         Layers.ShowLayerToCamera(_camera, Layers.LocalPlayerHead);
+        // 머리가 다시 보이므로 전용 그림자 캐스터는 꺼서 그림자가 겹치지 않게 한다
+        _playerRenderer?.SetHeadShadowCastersActive(false);
         BeginCameraTransition();
     }
 
@@ -228,6 +232,7 @@ public class PlayerCameraController : NetworkBehaviour
         if (!_isCameraTransitioning && !_useDownedCameraView)
         {
             Layers.HideLayerFromCamera(_camera, Layers.LocalPlayerHead);
+            _playerRenderer?.SetHeadShadowCastersActive(true);
         }
     }
 }
