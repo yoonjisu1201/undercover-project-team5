@@ -204,6 +204,11 @@ public class CCTVHub : MonoBehaviour {
 	public void SwitchToNext() {
 		SwitchCCTV(_usingCctvNumber + 1);
 	}
+
+	// 번호를 지정해 해당 CCTV로 바로 전환한다. 미니맵 마커 클릭 같은 외부 진입용.
+	public void SwitchToIndex(int number) {
+		SwitchCCTV(number);
+	}
 	
 	private void SwitchCCTV(int number) {
 		if (_cctvPoints.Count == 0) {
