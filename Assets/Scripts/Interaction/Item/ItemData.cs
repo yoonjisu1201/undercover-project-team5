@@ -11,6 +11,11 @@ public class ItemData : ScriptableObject
     [SerializeField] private GameObject _worldPrefab;
     [SerializeField] private AudioClip _audioClip;
 
+    [Header("=== 오른손에 들었을 때 ===")]
+    [SerializeField] private Vector3 _holdPositionOffset;
+    [SerializeField] private Vector3 _holdRotationOffset;
+    [SerializeField, Range(0.1f, 1f)] private float _holdScale = 1f;
+
     public ItemType ItemId => _itemId;
     // 반환 타입은 string 그대로 둔다. 이 이름은 줍기 안내·인벤토리·CCTV·미션 안내 등
     // 여러 화면이 문자열로 조립해 쓰고 있어서, 타입을 바꾸면 호출부가 전부 흔들린다.
@@ -20,4 +25,7 @@ public class ItemData : ScriptableObject
     public Sprite Icon => _icon;
     public GameObject WorldPrefab => _worldPrefab;
     public AudioClip AudioClip => _audioClip;
+    public Vector3 HoldPositionOffset => _holdPositionOffset;
+    public Vector3 HoldRotationOffset => _holdRotationOffset;
+    public float HoldScale => _holdScale;
 }

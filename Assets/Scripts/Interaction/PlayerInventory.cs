@@ -109,7 +109,8 @@ public class PlayerInventory : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _slots.OnListChanged += HandleSlotsChanged;
-        
+        _selectedIndex.OnValueChanged += HandleSelectedIndexChanged;
+
         // 슬롯 초기 구성은 서버만 한다. NetworkList는 스폰 이후에만 쓸 수 있어 여기서 채운다.
         if (IsServer)
         {
@@ -118,6 +119,13 @@ public class PlayerInventory : NetworkBehaviour
                 _slots.Add(InventorySlot.Empty);
             }
         }
+    }
+
+    // 선택 변경은 오너만 감지할 수 있었는데(NotifyInventoryChanged 직접 호출), 다른 클라이언트가
+    // "지금 이 사람 손에 뭐가 들렸는지"를 알려면 이 값도 전원이 구독해야 한다.
+    private void HandleSelectedIndexChanged(int previousValue, int newValue)
+    {
+        NotifyInventoryChanged();
     }
     
     // 이 인벤토리를 조작하는 클라이언트에서만 씬의 인벤토리 UI를 나 자신에게 연결한다.
@@ -149,6 +157,7 @@ public class PlayerInventory : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         _slots.OnListChanged -= HandleSlotsChanged;
+        _selectedIndex.OnValueChanged -= HandleSelectedIndexChanged;
     }
     
     // 슬롯 변경을 감지하고 필요한 이벤트를 호출한다.
