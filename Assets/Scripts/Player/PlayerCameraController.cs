@@ -36,9 +36,36 @@ public class PlayerCameraController : NetworkBehaviour
     private readonly float _armFollowMinPitch = -40f;
     private readonly float _armFollowMaxPitch = 20f;
 
+    // 스태미나가 바닥나 심장 소리가 날 때 카메라를 조금 흔들어 헐떡이는 느낌을 준다.
+    // 소리만 나고 화면은 멀쩡하면 어색해서 넣는 연출이다.
+    [Header("탈진 호흡 흔들림")]
+    [Tooltip("헐떡임 1회 주기. 심장 박동(90 BPM)보다 느려야 호흡으로 읽힌다.")]
+    [SerializeField, Min(0.01f)] private float _breathsPerSecond = 1.1f;
+
+    [Tooltip("위아래로 흔들리는 거리(m). 크게 주면 멀미가 난다.")]
+    [SerializeField, Min(0f)] private float _breathBobDistance = 0.02f;
+
+    [Tooltip("고개를 끄덕이는 각도.")]
+    [SerializeField, Min(0f)] private float _breathPitchDegrees = 0.5f;
+
+    [Tooltip("좌우로 기우는 각도. 끄덕임의 절반 주기로 흔들려 기계적으로 보이지 않게 한다.")]
+    [SerializeField, Min(0f)] private float _breathRollDegrees = 0.35f;
+
+    [Tooltip("흔들림이 올라오는 시간(초).")]
+    [SerializeField, Min(0.01f)] private float _breathFadeIn = 0.4f;
+
+    [Tooltip("잦아드는 시간(초). 올라올 때보다 길어야 회복이 천천히 느껴진다.")]
+    [SerializeField, Min(0.01f)] private float _breathFadeOut = 1.2f;
+
     private CustomInputActions _actions;
     private float _yaw;
     private float _pitch;
+    private PlayerHeartbeat _heartbeat;
+    private Vector3 _cameraBaseLocalPosition;
+    private float _breathPhase;   // 0~1 로 감아서 쓴다. 계속 더하면 정밀도가 떨어진다.
+    private float _breathWeight;  // 0~1. 흔들림 세기.
+    private float _breathPitch;
+    private float _breathRoll;
     private Quaternion _headBoneBaseRotation;
     private Vector3 _cameraTransitionStartPosition;
     private Quaternion _cameraTransitionStartRotation;
@@ -62,6 +89,7 @@ public class PlayerCameraController : NetworkBehaviour
         _rotateSpeed = ToRotateSpeed(PlayerPrefs.GetFloat(MouseSensitivityKey, DefaultSensitivity));
         _actions = new CustomInputActions();
         _actions.Enable();
+        _heartbeat = GetComponent<PlayerHeartbeat>();
 
         if (_headBone != null)
         {
@@ -78,6 +106,7 @@ public class PlayerCameraController : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _camera ??= GetComponentInChildren<Camera>(true);
+        _cameraBaseLocalPosition = _camera.transform.localPosition;
 
         if (!IsOwner)
         {
@@ -134,7 +163,12 @@ public class PlayerCameraController : NetworkBehaviour
         _pitch = Mathf.Clamp(_pitch, _minPitch, _maxPitch);
 
         transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
-        _headPivot.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+
+        UpdateExhaustedBreath();
+        _headPivot.transform.localRotation = Quaternion.Euler(_pitch + _breathPitch, 0f, _breathRoll);
+
+        // 흔들림은 각자 화면의 연출이라 pitch 동기화 값에는 섞지 않는다.
+        // 섞으면 남의 캐릭터 머리가 같이 떨린다.
         _networkPitch.Value = _pitch;
     }
 
@@ -172,6 +206,37 @@ public class PlayerCameraController : NetworkBehaviour
             float armPitch = Mathf.Clamp(pitch, _armFollowMinPitch, _armFollowMaxPitch);
             _armFollowPivot.localRotation = Quaternion.Euler(armPitch, 0f, 0f);
         }
+    }
+
+    // 탈진 심장 박동이 나는 동안만 호흡 흔들림을 채운다. 세기는 서서히 오르고 내려서
+    // 소리가 켜지는 순간에 화면이 튀지 않게 한다.
+    private void UpdateExhaustedBreath()
+    {
+        bool isExhausted = _heartbeat != null
+            && _heartbeat.CurrentKey == SoundKey.Player_HeartBeat_Exhausted;
+
+        float target = isExhausted ? 1f : 0f;
+        float fadeDuration = target > _breathWeight ? _breathFadeIn : _breathFadeOut;
+        _breathWeight = Mathf.MoveTowards(_breathWeight, target, Time.deltaTime / fadeDuration);
+
+        // 완전히 잦아들었으면 흔들림이 이미 0으로 적용된 상태라 매 프레임 계산할 필요가 없다.
+        if (_breathWeight <= 0f)
+        {
+            _breathPitch = 0f;
+            _breathRoll = 0f;
+            return;
+        }
+
+        _breathPhase = Mathf.Repeat(_breathPhase + Time.deltaTime * _breathsPerSecond, 1f);
+
+        float wave = Mathf.Sin(_breathPhase * Mathf.PI * 2f);
+        float swayWave = Mathf.Sin(_breathPhase * Mathf.PI); // 절반 주기
+
+        _breathPitch = wave * _breathPitchDegrees * _breathWeight;
+        _breathRoll = swayWave * _breathRollDegrees * _breathWeight;
+
+        _camera.transform.localPosition =
+            _cameraBaseLocalPosition + Vector3.up * (wave * _breathBobDistance * _breathWeight);
     }
 
     public void SetMouseSensitivity(float sensitivity)
