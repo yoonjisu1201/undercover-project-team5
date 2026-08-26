@@ -1,6 +1,9 @@
 using UnityEngine;
 
 public class HqEntrance : EntranceDoor {
+    // 본부로 들어간다.
+    protected override SoundKey DoorSoundKey => SoundKey.Door_In;
+
     // 차량 모델의 바퀴+차체 콜라이더를 합친 bounds 중심 하나로 조준 판정을 하다 보니,
     // 오브젝트가 커서 그 중심점을 정확히 조준해야만 상호작용이 잡히는 문제가 있었다.
     // NPC와 마찬가지로 판정 반경을 넉넉하게 잡아준다.

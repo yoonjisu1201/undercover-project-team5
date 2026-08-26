@@ -25,6 +25,12 @@ public class SoundData : ScriptableObject
     // 기본값은 1~1이라 설정하지 않으면 원음 그대로 난다.
     [SerializeField] private Vector2 _pitchRange = new Vector2(1f, 1f);
 
+    [Header("이어지는 소리")]
+    // 재생 방식을 데이터가 정한다. Is 3D 가 Play / PlayAt 을 가르는 것과 같은 자리다.
+    [Tooltip("체크하면 이 소리를 끊기지 않고 반복해서 낸다. BGM·심장 박동처럼 상태가 유지되는 "
+        + "동안 계속 나야 하는 소리에 켠다. 끄면 PlayLoop 로 불러도 나지 않는다.")]
+    [SerializeField] private bool _isLoop;
+
     [Header("3D (위치가 있는 소리)")]
     [SerializeField] private bool _is3D;
     // 이 거리를 넘으면 들리지 않는다. 발소리처럼 근처에서만 들려야 하는 소리를 여기서 조정한다.
@@ -104,6 +110,7 @@ public class SoundData : ScriptableObject
 
     public float Volume => _volume;
     public SoundGroup Group => _group;
+    public bool IsLoop => _isLoop;
     public bool Is3D => _is3D;
     public float MaxDistance => _maxDistance;
 }

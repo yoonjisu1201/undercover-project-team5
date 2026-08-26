@@ -22,6 +22,7 @@ GameObject:
   - component: {fileID: 2511602559090208259}
   - component: {fileID: 4465659730489223631}
   - component: {fileID: 709870034923616331}
+  - component: {fileID: 1350405527293648409}
   m_Layer: 0
   m_Name: Boss_main
   m_TagString: Untagged
@@ -348,9 +349,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c122542b62be3794f9b06e0bd6b6fdd3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BossDebugView
-  _enabled: 0
   _toggleKey: 101
   _showOverlay: 1
+--- !u!114 &1350405527293648409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1669351557380495861}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00d11feaa379f67419ab9abc753a5a10, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BossThreatReporter
+  _searchDistance: 25
+  _playerSightRange: 12
+  _playerSightAngle: 60
+  _sightBlockers:
+    serializedVersion: 2
+    m_Bits: 9
+  _interval: 0.2
 --- !u!1 &3132281043987041345
 GameObject:
   m_ObjectHideFlags: 0
