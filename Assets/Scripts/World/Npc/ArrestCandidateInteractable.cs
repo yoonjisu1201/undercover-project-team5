@@ -14,7 +14,9 @@ public class ArrestCandidateInteractable : InteractableBase
             return InteractionText;
         }
 
-        return tracker.IsTracked ? "이미 위치추적중인 시민입니다." : "위치 추적기 부착";
+        return tracker.IsTracked
+            ? LocalizeInteractionText("interact_tracker_already")
+            : LocalizeInteractionText("interact_tracker_attach");
     }
 
     // 이미 부착된 NPC에 추적기를 선택 중일 때는 눌러도 아무 동작이 없으므로 키 힌트를 보여주지 않는다.

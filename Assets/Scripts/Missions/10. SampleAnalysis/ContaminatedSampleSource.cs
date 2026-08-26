@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
 
 // 현장에 놓인 오염 흔적이다. E를 길게 눌러 채취하면 인벤토리에 샘플 아이템만 들어가고, 바닥의 흔적은 그대로 남는다.
 // 흔적을 지우지 않는 이유는, 다른 요원이 나중에 와도 이곳에서 무슨 일이 있었는지 알 수 있어야 하기 때문이다.
@@ -13,7 +14,9 @@ public sealed class ContaminatedSampleSource : InteractableBase
     // 이미 채취한 플레이어 목록이다. 요원마다 한 번씩 샘플을 가져갈 수 있게 서버가 관리한다.
     private readonly NetworkList<ulong> _collectorClientIds = new(readPerm: NetworkVariableReadPermission.Everyone, writePerm: NetworkVariableWritePermission.Server);
 
-    public override string InteractionText => _sampleItem != null ? $"{_sampleItem.DisplayName} 채취" : "샘플 채취";
+    public override string InteractionText => _sampleItem != null
+        ? LocalizeInteractionText("interact_collect_sample", _sampleItem.DisplayName)
+        : LocalizeInteractionText("interact_collect_sample_generic");
 
 
     // 스포너가 샘플 아이템을 지정해준다. 샘플 아이템을 설정하지 않으면 채취 불가

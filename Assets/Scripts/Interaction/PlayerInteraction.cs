@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
 
 // 플레이어 상호작용: 참조/라이프사이클, 프레임별 입력 분배, 화면 중심 조준을 통한 대상 감지·선택을 담당한다.
 [RequireComponent(typeof(PlayerInventory), typeof(PlayerHealth))]
@@ -467,7 +468,9 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
-        _promptUI?.ShowTemporaryPrompt(AppendUsageDescription($"[{item.ItemData.DisplayName}]", item.ItemData));
+        string selected = new LocalizedString(LocalizationTable, "interact_selected_item")
+            .GetLocalizedString(item.ItemData.DisplayName);
+        _promptUI?.ShowTemporaryPrompt(AppendUsageDescription(selected, item.ItemData));
     }
 
     // ItemData에 사용 방법이 적혀 있으면 안내 문구 뒤에 " : "로 이어 붙인다.
@@ -511,11 +514,19 @@ public class PlayerInteraction : NetworkBehaviour
         _promptUI?.SetInteractionPrompt(null, false);
     }
 
-    // 길게 눌러야 하는 상호작용이면(threshold > 0) 안내 문구에 "(길게 누르기)"를 붙인다.
+    // 길게 눌러야 하는 상호작용이면(threshold > 0) 안내 문구에 길게 누르기 표시를 붙인다.
+    // 접미사를 이어 붙이지 않고 인자로 넘긴다. 언어에 따라 앞에 오거나 표현이 달라질 수 있다.
     private static string AppendHoldSuffix(string text, float holdThreshold)
     {
-        return holdThreshold > 0f && !string.IsNullOrWhiteSpace(text) ? $"{text} (길게 누르기)" : text;
+        if (holdThreshold <= 0f || string.IsNullOrWhiteSpace(text))
+        {
+            return text;
+        }
+
+        return new LocalizedString(LocalizationTable, "interact_hold_suffix").GetLocalizedString(text);
     }
+
+    private const string LocalizationTable = "Language Table";
 
     private void UpdateCurrentTarget()
     {

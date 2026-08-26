@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 
@@ -8,11 +9,15 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
 {
     [Header("미션 UI")]
     [SerializeField] private GameObject _uiPrefab;  // 미션 ui
-    [SerializeField] private string _interactionText = "미션 시작";
+    [Tooltip("기계마다 다른 안내 문구.")]
+    [SerializeField] private LocalizedString _interactionText;
+
+    [Tooltip("이미 완료된 기계에 표시할 문구.")]
+    [SerializeField] private LocalizedString _completedText;
 
     [Header("CCTV 표시")]
     [Tooltip("CCTV 화면에서 커서를 올렸을 때 띄울 장치 이름. 비워 두면 오브젝트 이름을 쓴다.")]
-    [SerializeField] private string _cctvDisplayName;
+    [SerializeField] private LocalizedString _cctvDisplayName;
 
     [SerializeField] private ItemData _completionReward;    // 미션이 끝나면 나오는 아이템
     [SerializeField] private Vector3 _rewardSpawnOffset = new(0f, 0.5f, 1.2f);  // 리워드가 앞쪽으로 스폰되는 위치
@@ -21,8 +26,11 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
     // 미션을 하기 위한 조건을 설정합니다. 조건의 충족 여부따라서 상호작용 안내 문구가 달라집니다.
     [Header("미션 시작 아이템")]
     [SerializeField] private ItemData _requiredItem;
-    [SerializeField] private string _requiredItemMissingText = "필요";
-    [SerializeField] private string _requiredItemInsertedText = "분석 가능";
+    [Tooltip("{0} 에 필요한 아이템 이름이 들어간다.")]
+    [SerializeField] private LocalizedString _requiredItemMissingText;
+
+    [Tooltip("{0} 에 넣은 아이템 이름이 들어간다.")]
+    [SerializeField] private LocalizedString _requiredItemInsertedText;
 
 
     // 완료 여부와 퍼즐 시드는 서버가 기록하고 모든 클라이언트가 읽는다. (서버에서만 쓰기 가능)
@@ -62,7 +70,8 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
 
     // 라운드가 새로 시작될 때 서버에서 알린다. 미션이 자체적으로 들고 있는 정답·진행 상태를 초기화할 시점이다.
     public event System.Action ServerRoundReset;
-    public override string InteractionText => IsCompleted ? "완료된 게임" : _interactionText;
+    public override string InteractionText =>
+        (IsCompleted ? _completedText : _interactionText).GetLocalizedString();
 
     private Renderer[] _renderers;
 
@@ -82,7 +91,7 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
 
         CctvHighlight.CreateOutline(this, transform, gameObject.layer, _renderers, CctvHighlightKind.MissionMachine);
 
-        if (string.IsNullOrEmpty(_cctvDisplayName))
+        if (_cctvDisplayName.IsEmpty)
         {
             Debug.LogWarning($"'{name}'에 CCTV 표시 이름이 비어 있어 커서를 올려도 이름이 뜨지 않습니다.", this);
         }
@@ -93,7 +102,7 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
     public Bounds CctvBounds => CctvHighlight.GetWorldBounds(_renderers, transform.position);
     // 런타임 오브젝트 이름은 Instantiate가 붙인 "(Clone)"이 섞이므로 폴백으로 쓰지 않는다.
     // 비어 있으면 툴팁을 띄우지 않고, 설정 누락은 Awake에서 경고로 알린다.
-    public string CctvDisplayName => _cctvDisplayName;
+    public string CctvDisplayName => _cctvDisplayName.IsEmpty ? null : _cctvDisplayName.GetLocalizedString();
     public bool IsVisibleOnCctv => true;
 
     // 역할 제한은 여기서 보지 않는다. 조준은 되어야 GetInteractionText로 제한 안내를 띄울 수 있다. (HqScreen과 같은 방식)
@@ -109,9 +118,9 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
             return InteractionText;
         }
 
-        return IsRequiredItemInserted
-            ? $"{_requiredItem.DisplayName} {_requiredItemInsertedText}"
-            : $"{_requiredItem.DisplayName} {_requiredItemMissingText}";
+        // 아이템 이름을 이어 붙이지 않고 인자로 넘긴다. 어순이 다른 언어에서 순서를 바꿀 수 있어야 한다.
+        return (IsRequiredItemInserted ? _requiredItemInsertedText : _requiredItemMissingText)
+            .GetLocalizedString(_requiredItem.DisplayName);
     }
 
     // 아이템이 없으면 눌러도 아무 일이 없으므로 [E] 힌트를 감춰 안내 문구만 남긴다.

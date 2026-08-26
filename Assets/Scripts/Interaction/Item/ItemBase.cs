@@ -2,6 +2,7 @@ using Unity.Netcode;
 using Unity.Netcode.Components;
 using EPOOutline;
 using UnityEngine;
+using UnityEngine.Localization;
 
 [RequireComponent(typeof(NetworkTransform),
     typeof(ItemRigidbodySetter))]
@@ -35,7 +36,10 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
     public bool IsStored => _isStored.Value;
     public float ItemHoldThreshold => _itemHoldThreshold;
 
-    public override string InteractionText => _itemData != null ? $"{_itemData.DisplayName} 줍기" : "줍기";
+    // 아이템 이름을 이어 붙이지 않고 인자로 넘긴다. 어순이 다른 언어에서 순서를 바꿀 수 있어야 한다.
+    public override string InteractionText => _itemData != null
+        ? LocalizeInteractionText("interact_pick_up", _itemData.DisplayName)
+        : LocalizeInteractionText("interact_pick_up_generic");
 
     protected override void Awake()
     {
