@@ -13,9 +13,6 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
              "바닥에 놓인 이 아이템을 줍는 시간과는 별개다 (그건 InteractHoldThreshold, 코드에서만 오버라이드).")]
     [SerializeField, Min(0f)] private float _itemHoldThreshold;
 
-    // 손에 들고 있을 때 원래 크기의 몇 배로 보일지.
-    [SerializeField, Range(0.1f, 1f)] private float _handScale = 0.6f;
-
     // 프리팹 하나를 여러 ItemData가 공유하는 경우(예: Clue)가 있어서, 런타임에 주입된 종류를
     // 모든 클라이언트가 알 수 있도록 별도로 동기화한다.
     // 인벤토리 안에 들어가 있는 동안 true. 월드에 놓여 있으면 false.
@@ -34,6 +31,8 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
     private Vector3 _initialScale = Vector3.one;
 
     // 손에 들려 있는 동안의 앵커. null이면 손에 없는 상태.
+    // NGO가 NetworkObject를 non-NetworkObject 밑으로 파렌팅하는 걸 막아서(OnTransformParentChanged
+    // 검증), 실제 파렌팅 대신 매 프레임 위치·회전을 복사한다 (Flashlight와 동일한 이유).
     private Transform _handAnchor;
     private bool _isHandVisible = true;
 
@@ -135,21 +134,25 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
             return;
         }
 
-        // 손 소켓(NetworkObject 아님)엔 파렌팅할 수 없어서, 매 프레임 위치·회전을 복사한다 (Flashlight와 동일한 이유).
-        transform.SetPositionAndRotation(_handAnchor.position, _handAnchor.rotation * _initialRotation);
+        Vector3 positionOffset = _itemData != null ? _itemData.HoldPositionOffset : Vector3.zero;
+        Quaternion rotationOffset = _itemData != null ? Quaternion.Euler(_itemData.HoldRotationOffset) : Quaternion.identity;
+        transform.SetPositionAndRotation(_handAnchor.TransformPoint(positionOffset), _handAnchor.rotation * rotationOffset);
     }
 
-    // PlayerItemIK가 이 아이템을 손에 들리거나(handAnchor != null) 내려놓을 때(null) 호출한다.
-    public void SetEquipped(Transform handAnchor)
+    // PlayerItemIK가 이 아이템을 오른손에 들리거나(rightHand != null) 내려놓을 때(null) 호출한다.
+    public void SetEquipped(Transform rightHand)
     {
-        _handAnchor = handAnchor;
-        transform.localScale = handAnchor != null ? _initialScale * _handScale : _initialScale;
+        _handAnchor = rightHand;
 
         // 들고 있는 동안은 서버 권한 NetworkTransform이 위치를 되돌리지 않도록 끈다.
         if (_networkTransform != null)
         {
-            _networkTransform.enabled = handAnchor == null;
+            _networkTransform.enabled = rightHand == null;
         }
+
+        transform.localScale = rightHand != null && _itemData != null
+            ? _initialScale * _itemData.HoldScale
+            : _initialScale;
 
         ApplyStoredPresentation(_isStored.Value);
     }
