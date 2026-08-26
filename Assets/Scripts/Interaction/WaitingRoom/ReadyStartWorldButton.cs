@@ -20,25 +20,25 @@ public sealed class ReadyStartWorldButton : WaitingRoomButtonBase
     [SerializeField] private Renderer _buttonRenderer;
     [SerializeField] private Renderer _statusLampRenderer;
 
-    [SerializeField] private Color _participantNotReadyBaseColor = new Color(0.55f, 0.62f, 0.68f, 1f);
+    [SerializeField] private Color _participantNotReadyBaseColor = new Color(0.13f, 0.13f, 0.13f, 1f);
 
     [ColorUsage(false, true)]
-    [SerializeField] private Color _participantNotReadyEmissionColor = new Color(1.2f, 1.35f, 1.5f, 1f);
+    [SerializeField] private Color _participantNotReadyEmissionColor = new Color(0.5f, 0.5f, 0.5f, 1f);
 
     [SerializeField] private Color _readyBaseColor = new Color(0.02f, 0.2f, 0.05f, 1f);
 
     [ColorUsage(false, true)]
     [SerializeField] private Color _readyEmissionColor = new Color(0.1f, 0.75f, 0.2f, 1f);
 
-    [SerializeField] private Color _startUnavailableBaseColor = new Color(0.7f, 0.025f, 0.015f, 1f);
+    [SerializeField] private Color _startUnavailableBaseColor = new Color(0.2f, 0.02f, 0.02f, 1f);
 
     [ColorUsage(false, true)]
-    [SerializeField] private Color _startUnavailableEmissionColor = new Color(7f, 0.08f, 0.03f, 1f);
+    [SerializeField] private Color _startUnavailableEmissionColor = new Color(0.75f, 0.1f, 0.08f, 1f);
 
-    [SerializeField] private Color _startingBaseColor = new Color(0.025f, 0.16f, 0.7f, 1f);
+    [SerializeField] private Color _startingBaseColor = new Color(0.01f, 0.06f, 0.2f, 1f);
 
     [ColorUsage(false, true)]
-    [SerializeField] private Color _startingEmissionColor = new Color(0.05f, 1.2f, 7f, 1f);
+    [SerializeField] private Color _startingEmissionColor = new Color(0.04f, 0.45f, 2.05f, 1f);
 
     private MaterialPropertyBlock _materialProperties;
     private bool _hasStarted;

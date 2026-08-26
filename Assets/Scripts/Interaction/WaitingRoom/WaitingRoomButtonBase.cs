@@ -39,8 +39,8 @@ public abstract class WaitingRoomButtonBase : InteractableBase
     {
         StopPressAnimation();
 
-        // 레이아웃마다 버튼 회전이 달라도 표면 안쪽으로 눌리도록 로컬 -Z를 부모 좌표의 이동 방향으로 변환한다.
-        Vector3 pressDirection = _buttonTransform.localRotation * Vector3.back;
+        // 기울어진 버튼의 높이축을 따라 내려가도록 로컬 -Y를 부모 좌표의 이동 방향으로 변환한다.
+        Vector3 pressDirection = _buttonTransform.localRotation * Vector3.down;
         Vector3 pressedPosition = _releasedButtonLocalPosition + pressDirection * _pressDepth;
 
         Sequence sequence = DOTween.Sequence();
