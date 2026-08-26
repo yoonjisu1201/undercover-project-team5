@@ -14,9 +14,6 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(BossPerception))]
 public class BossDebugView : MonoBehaviour
 {
-    [Tooltip("끄면 아무것도 그리지 않는다. 빌드에 실수로 남아도 조용하도록 기본은 꺼둔다.")]
-    [SerializeField] private bool _enabled;
-
     // F9는 기존 디버그 메뉴가 이미 쓰고 있어서 겹치지 않게 F8로 둔다.
     [Tooltip("이 키로 표시를 켜고 끈다.")]
     [SerializeField] private Key _toggleKey = Key.F8;
@@ -29,6 +26,7 @@ public class BossDebugView : MonoBehaviour
     private BossTargetMemory _memory;
     private BossDormancy _dormancy;
     private BossAttack _attack;
+    private BossThreatReporter _threat;
     // 표시 내용을 다시 만드는 간격(초). 매 프레임 만들면 디버그 표시가 오히려 부하가 된다.
     private const float TextRefreshInterval = 0.2f;
 
@@ -43,6 +41,7 @@ public class BossDebugView : MonoBehaviour
         _memory = GetComponent<BossTargetMemory>();
         _dormancy = GetComponent<BossDormancy>();
         _attack = GetComponent<BossAttack>();
+        _threat = GetComponent<BossThreatReporter>();
 
         // 필드 타입이 바뀌면 예전 직렬화 값이 그대로 남아 Key 범위를 벗어난다. 그 값을 그대로
         // 인덱서에 넣으면 매 프레임 예외가 쏟아지므로, 여기서 한 번 걸러 기본값으로 되돌린다.
@@ -58,13 +57,15 @@ public class BossDebugView : MonoBehaviour
         // 이 프로젝트는 Input System 패키지를 쓴다. 구 Input 클래스는 예외를 던진다.
         if (Keyboard.current != null && Keyboard.current[_toggleKey].wasPressedThisFrame)
         {
-            _enabled = !_enabled;
+            // 상태는 DebugOverlayToggle 이 들고 있다. 플레이어 쪽 표시와 함께 움직여야 하는데,
+            // 보스와 플레이어 오브젝트의 수명이 달라서 각자 들고 있으면 어긋난다.
+            DebugOverlayToggle.RequestToggle();
         }
     }
 
     private void OnGUI()
     {
-        if (!_enabled || !_showOverlay)
+        if (!DebugOverlayToggle.Shown || !_showOverlay)
         {
             return;
         }
@@ -88,6 +89,7 @@ public class BossDebugView : MonoBehaviour
             _nextTextTime = Time.unscaledTime + TextRefreshInterval;
             _text.Clear();
             AppendState();
+            AppendHeartbeatThreat();
             AppendGraphState();
             AppendNoises();
         }
@@ -131,6 +133,19 @@ public class BossDebugView : MonoBehaviour
             _text.AppendLine($"공격 중: {_attack.IsAttacking}");
         }
 
+        _text.AppendLine();
+    }
+
+    // 누구에게 어떤 심장 박동 단계를 내려보내고 있는지, 그리고 왜 그렇게 됐는지.
+    //
+    // "마주쳤는데 180 이 안 난다"를 가리려면 거리·각도·가린 물체를 봐야 한다. 판정은 서버에서만
+    // 돌기 때문에 플레이어 쪽 표시(F8 오른쪽)에서는 결과만 보이고 이유가 안 보인다.
+    private void AppendHeartbeatThreat()
+    {
+        if (_threat == null) return;
+
+        _text.AppendLine("=== 심장 박동 위협도 ===");
+        _text.Append(_threat.Diagnosis);
         _text.AppendLine();
     }
 
@@ -262,7 +277,7 @@ public class BossDebugView : MonoBehaviour
     // 씬/게임 뷰에서 Gizmos를 켜면 보인다. 위에서 내려다보면 소음 반경이 한눈에 들어온다.
     private void OnDrawGizmos()
     {
-        if (!_enabled || !Application.isPlaying)
+        if (!DebugOverlayToggle.Shown || !Application.isPlaying)
         {
             return;
         }

@@ -1440,6 +1440,8 @@ GameObject:
   - component: {fileID: 3052364089656010576}
   - component: {fileID: 2292494492836638870}
   - component: {fileID: 5577988363960709734}
+  - component: {fileID: 7933810664180496248}
+  - component: {fileID: 7226893051603640153}
   m_Layer: 0
   m_Name: Player_main
   m_TagString: Untagged
@@ -2271,6 +2273,44 @@ MonoBehaviour:
   _voiceInterval: 0.5
   _muteIncreasesNoise: 1
   _mutedNoiseMultiplier: 1.8
+--- !u!114 &7933810664180496248
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10fd610a78ec5154e90dddc044d77758, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerHeartbeat
+  ShowTopMostFoldoutHeaderGroup: 1
+  _tiredRatio: 0.3
+  _exhaustedRatio: 0.07
+  _exhaustedRecoveredRatio: 0.35
+  _fadeStartRatio: 0.5
+  _silencedRatio: 0.65
+  _spottedHold: 5
+  _searchTail: 5
+  _fadeIn: 0.6
+  _fadeOut: 2
+  _fadeSwap: 0.5
+--- !u!114 &7226893051603640153
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c71d3c2cd8cbe044583d936ee807e7ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HeartbeatDebugView
+  ShowTopMostFoldoutHeaderGroup: 1
+  _toggleKey: 101
+  _forceKey: 10
 --- !u!1 &2732188082477116487
 GameObject:
   m_ObjectHideFlags: 0

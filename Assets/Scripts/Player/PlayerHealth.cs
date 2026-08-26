@@ -191,6 +191,10 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
 
         _currentHp.Value = Mathf.Min(_reviveHpAmount, _maxHp);
         _isDowned.Value = false;
+
+        // 일어선 직후에는 숨이 차 있어야 한다. 스태미나를 그대로 두면 쓰러진 자리에서
+        // 바로 전력 질주가 가능해서, 소생이 위험을 벗어나는 공짜 수단이 된다.
+        GetComponent<PlayerStamina>()?.Deplete();
     }
 
     private void HandleHpChanged(float previousValue, float newValue)

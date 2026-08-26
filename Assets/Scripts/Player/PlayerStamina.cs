@@ -111,6 +111,16 @@ public class PlayerStamina : NetworkBehaviour
         _isSprinting = false;
     }
 
+    // 소생 직후에 부르면 스태미나가 바닥에서 시작한다. 쓰러졌다 일어난 사람이 곧바로
+    // 전력으로 달아날 수 있으면 소생의 무게가 사라진다. 서버에서만 호출 가능하다.
+    public void Deplete()
+    {
+        if (!IsServer) return;
+
+        _currentStamina.Value = 0f;
+        _isSprinting = false;
+    }
+
     private void HandleStaminaChanged(float previousValue, float newValue)
     {
         StaminaChanged?.Invoke(previousValue, newValue);
