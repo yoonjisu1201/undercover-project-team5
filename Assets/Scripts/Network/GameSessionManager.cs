@@ -27,9 +27,12 @@ public class GameSessionManager : MonoBehaviour
 	[Tooltip("켜면 Relay 대신 직접 연결(127.0.0.1)로 방을 만든다. 같은 PC에서만 들어올 수 있다. "
 		+ "Relay 장애로 방이 안 만들어질 때 테스트를 이어가려는 용도이므로, 배포 전에는 반드시 끈다.")]
 	[SerializeField] private bool _useDirectNetworkForLocalTest;
+	[Tooltip("켜면 최소 인원 제한을 무시하고 혼자서도 게임을 시작할 수 있다. 배포 전에는 반드시 끈다.")]
+	[SerializeField] private bool _allowSoloStart;
 
 	public ISession CurrentSession { get; private set; }
 	public string JoinCode => CurrentSession?.Code;
+	public bool AllowSoloStart => _allowSoloStart;
 	public string RoomName => CurrentSession?.Name;
 	public string LastLeaveReason { get; set; }
 
@@ -79,8 +82,9 @@ public class GameSessionManager : MonoBehaviour
 	public event Action OnSessionJoined;          // 조인코드로 참가 완료
 	public event Action<string> OnSessionError;   // 실패 사유 전달
 	public event Action OnSessionStarting;                            // 세션 생성/참가 시도 시작
-	public event Action<AsyncOperation> OnWaitingRoomSceneLoadStarted; // 내 로컬 씬 로딩이 시작됨 (진행률 포함)
-	public event Action OnWaitingRoomSceneLoadComplete; // 내 로컬 씬 로딩이 완료됨 (진행률 포함)
+	public event Action<AsyncOperation> OnWaitingRoomSceneLoadStarted; // 내 로컬 웨이팅룸씬 로딩이 시작됨 (진행률 포함)
+	public event Action OnWaitingRoomSceneLoadComplete; // 내 로컬 웨이팅룸씬 로딩이 완료됨 (진행률 포함)
+	public event Action<AsyncOperation> OnGameSceneLoadStarted; // 내 로컬 게임씬 로딩이 시작됨
 
 	private bool _isLeavingVoluntarily;
 	private string _pendingLeaveReason;
@@ -116,6 +120,8 @@ public class GameSessionManager : MonoBehaviour
 		NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleGameSceneLoaded;
 		NetworkManager.Singleton.SceneManager.OnSynchronizeComplete -= HandleClientSynchronized;
 		NetworkManager.Singleton.SceneManager.OnLoad -= HandleWaitingRoomSceneLoadStarted;
+		NetworkManager.Singleton.SceneManager.OnLoad -= HandleGameSceneLoadStarted;
+		NetworkManager.Singleton.SceneManager.OnLoadComplete -= HandleWaitingRoomSceneLoadCompleted;
 		NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
 	}
 
@@ -530,6 +536,7 @@ public class GameSessionManager : MonoBehaviour
 		networkManager.SceneManager.OnLoadEventCompleted += HandleGameSceneLoaded;
 		networkManager.SceneManager.OnSynchronizeComplete += HandleClientSynchronized;
 		networkManager.SceneManager.OnLoad += HandleWaitingRoomSceneLoadStarted;
+		networkManager.SceneManager.OnLoad += HandleGameSceneLoadStarted;
 		networkManager.SceneManager.OnLoadComplete += HandleWaitingRoomSceneLoadCompleted;
 		networkManager.OnClientDisconnectCallback += HandleClientDisconnected;
 	}
@@ -543,6 +550,8 @@ public class GameSessionManager : MonoBehaviour
 			networkManager.SceneManager.OnLoadEventCompleted -= HandleGameSceneLoaded;
 			networkManager.SceneManager.OnSynchronizeComplete -= HandleClientSynchronized;
 			networkManager.SceneManager.OnLoad -= HandleWaitingRoomSceneLoadStarted;
+			networkManager.SceneManager.OnLoad -= HandleGameSceneLoadStarted;
+			networkManager.SceneManager.OnLoadComplete -= HandleWaitingRoomSceneLoadCompleted;
 		}
 		networkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
 	}
@@ -559,6 +568,15 @@ public class GameSessionManager : MonoBehaviour
 		if (sceneName != _waitingRoomSceneName || clientId != NetworkManager.Singleton.LocalClientId) return;
 
 		OnWaitingRoomSceneLoadComplete?.Invoke();
+	}
+
+	// 게임씬은 대기방과 달리 로드가 끝나도 스폰 대기가 남아 로딩 표시를 끄는 시점이 다르다.
+	// 그래서 대기방 이벤트에 합치지 않고 따로 알린다.
+	private void HandleGameSceneLoadStarted(ulong clientId, string sceneName, LoadSceneMode loadSceneMode, AsyncOperation asyncOperation)
+	{
+		if (sceneName != _gameSceneName || clientId != NetworkManager.Singleton.LocalClientId) return;
+
+		OnGameSceneLoadStarted?.Invoke(asyncOperation);
 	}
 
 	private void HandleConnectionApproval(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)

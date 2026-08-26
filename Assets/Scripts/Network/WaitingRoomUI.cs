@@ -441,7 +441,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         if (!_readyManager.HasEnoughPlayers) {
 	        // 사람 부족해서 시작 못하는 경우
 	        _startGameButtonInfoLocalize.StringReference = _startInfoNeedsMorePlayer;
-	        _startGameButtonInfoLocalize.StringReference.Arguments = new object[] { WaitingRoomReadyManager.MinPlayersToStart };
+	        _startGameButtonInfoLocalize.StringReference.Arguments = new object[] { WaitingRoomReadyManager.RequiredPlayers };
         } else if (!_readyManager.IsAllReady) {
 	        // 레디 다 안해서 시작 못하는 경우
 	        _startGameButtonInfoLocalize.StringReference = _startInfoAllReady;
