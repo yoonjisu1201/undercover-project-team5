@@ -4,11 +4,22 @@ using System.Linq;
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.UI;
 
 // 프리팹에 제작된 UI 셀을 데이터에 맞게 채우고 드래그 위치를 갱신한다.
 public sealed partial class BreakerBatteryMission
 {
+    [Header("현지화 문구")]
+    [SerializeField] private LocalizedString _statusWaitCircuit;
+    [SerializeField] private LocalizedString _statusPowerDone;
+    [SerializeField] private LocalizedString _statusCannotMeasure;
+    [SerializeField] private LocalizedString _statusMeasuring;
+    [SerializeField] private LocalizedString _statusCanMeasure;
+
+    [Tooltip("{0} 완료 수, {1} 전체 수")]
+    [SerializeField] private LocalizedString _progressFormat;
+
     private const int MinimumVisibleCellCount = 8;  // 인벤토리 영역에 항상 표시할 최소 셀 수이다. 실제 보관함 배터리 수가 적어도 8칸은 보여야 한다.
     private static readonly Color UnderTargetColor = new(1f, 0.78f, 0.12f);
     private static readonly Color TargetMatchedColor = new(0.15f, 0.85f, 0.45f);
@@ -241,14 +252,14 @@ public sealed partial class BreakerBatteryMission
         if (_circuitState == null)
         {
             UpdateProgressText(false);
-            _statusText.text = "회로 연결 대기 중";
+            _statusText.text = _statusWaitCircuit.GetLocalizedString();
             return;
         }
 
         if (_circuitState.IsCompleted)
         {
             UpdateProgressText(true);
-            _statusText.text = "전력 연결 완료";
+            _statusText.text = _statusPowerDone.GetLocalizedString();
             return;
         }
 
@@ -257,14 +268,14 @@ public sealed partial class BreakerBatteryMission
         if (!_circuitState.PowerOn)
         {
             // 레버가 내려가 있으면 전류가 흐르지 않아 측정 자체를 할 수 없다.
-            _statusText.text = "측정 불가 — 레버를 올려서 전력을 측정하세요";
+            _statusText.text = _statusCannotMeasure.GetLocalizedString();
             return;
         }
 
         // 확인을 누른 뒤 계기판 바늘이 올라가는 동안이다.
         if (_isMeasuring)
         {
-            _statusText.text = "측정 중 — 전력을 측정하고 있습니다";
+            _statusText.text = _statusMeasuring.GetLocalizedString();
             return;
         }
 
@@ -278,14 +289,14 @@ public sealed partial class BreakerBatteryMission
             return;
         }
 
-        _statusText.text = "측정 가능 — 확인 버튼을 눌러서 전력을 측정하세요";
+        _statusText.text = _statusCanMeasure.GetLocalizedString();
     }
 
     private void UpdateProgressText(bool completed)
     {
         if (_progressText != null)
         {
-            _progressText.text = completed ? "진행도  1 / 1" : "진행도  0 / 1";
+            _progressText.text = _progressFormat.GetLocalizedString(completed ? 1 : 0, 1);
         }
     }
 

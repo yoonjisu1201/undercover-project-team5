@@ -3,8 +3,6 @@ using UnityEngine;
 
 public class ArrestCandidateInteractable : InteractableBase
 {
-    public override string InteractionText => "검거하기";
-
     [SerializeField, Min(0f)] private float _arrestHoldDuration = 1.2f;
     public override float InteractHoldThreshold => _arrestHoldDuration;
 

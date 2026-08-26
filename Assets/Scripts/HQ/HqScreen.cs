@@ -7,8 +7,6 @@ public class HqScreen : InteractableBase {
 	[SerializeField] private InventoryUI _inventoryUI;
 	[SerializeField] private MontageShareUI _montageUI;
 	
-	public override string InteractionText => "관제 콘솔 사용하기";
-
 	// 역할 체크는 여기서 빼고 점유 여부만 본다.
 	// GetInteractionText로 안내 문구를 보여줄 수 있다.
 	public override bool CanInteract(GameObject interactor) {

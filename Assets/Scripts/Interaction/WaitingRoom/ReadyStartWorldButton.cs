@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Localization;
 
 // 하나의 월드 버튼을 호스트에게는 게임 시작, 참가자에게는 준비·취소 기능으로 제공한다.
 // 역할과 준비 상태는 WaitingRoomUI에서 조회해 기존 Canvas UI와 같은 규칙과 상태를 공유한다.
@@ -7,6 +8,13 @@ public sealed class ReadyStartWorldButton : WaitingRoomButtonBase
     private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
     private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
+
+    // 이 버튼은 조준한 사람의 역할과 준비 상태에 따라 문구가 갈리므로, 공통 필드 하나로는 안 된다.
+    // 그래서 InteractableBase 의 기본 구현 대신 아래 세 문구를 직접 고른다.
+    [Header("상호작용 안내 문구 (역할·상태별)")]
+    [SerializeField] private LocalizedString _gameStart;
+    [SerializeField] private LocalizedString _ready;
+    [SerializeField] private LocalizedString _readyCancel;
 
     [Header("준비·시작 표시")]
     [SerializeField] private Renderer _buttonRenderer;
@@ -35,7 +43,8 @@ public sealed class ReadyStartWorldButton : WaitingRoomButtonBase
     private MaterialPropertyBlock _materialProperties;
     private bool _hasStarted;
 
-    public override string InteractionText => RoomUI.IsHost ? "게임 시작" : "준비";
+    public override string InteractionText =>
+        (RoomUI.IsHost ? _gameStart : _ready).GetLocalizedString();
 
     public override bool CanInteract(GameObject interactor) => RoomUI.CanUseReadyStart;
 
@@ -43,11 +52,11 @@ public sealed class ReadyStartWorldButton : WaitingRoomButtonBase
     {
         if (RoomUI.IsHost)
         {
-            return "게임 시작";
+            return _gameStart.GetLocalizedString();
         }
 
         // 참가자는 같은 버튼으로 준비 상태를 토글하므로 현재 상태에 맞는 다음 동작을 안내한다.
-        return RoomUI.IsReady ? "준비 취소" : "준비";
+        return (RoomUI.IsReady ? _readyCancel : _ready).GetLocalizedString();
     }
 
     protected override void Awake()

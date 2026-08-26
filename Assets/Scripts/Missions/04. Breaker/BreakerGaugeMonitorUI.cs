@@ -1,6 +1,8 @@
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 
 // C 역할이 HQ에서 보는 배터리 회로 게이지 전용 화면. 배터리 슬롯이나 확인 버튼 없이 보기만 한다.
 // 목표 전력은 수치로 보여주지 않는다. 대신 목표 전력이 곧 게이지의 최대값이라, 바늘이 끝까지 차면 정답이다.
@@ -15,9 +17,19 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
     private const float SweepDuration = BreakerCircuitState.MeasurementSweepSeconds;
     private const float ResultDelaySeconds = BreakerCircuitState.ResultDelaySeconds;
 
-    private const string UnderTargetStatus = "전력 복구 필요";
-    private const string OverTargetStatus = "전력 초과";
-    private const string MatchedStatus = "전력 충족";
+    [Header("현지화 문구")]
+    [SerializeField] private LocalizedString _statusUnderTarget;
+    [SerializeField] private LocalizedString _statusOverTarget;
+    [SerializeField] private LocalizedString _statusMatched;
+
+    [Tooltip("{0} 에 측정 전력이 들어간다.")]
+    [SerializeField] private LocalizedString _wattFormat;
+
+    [Tooltip("측정 전 표시. 프리팹 기본 텍스트를 대신한다.")]
+    [SerializeField] private LocalizedString _wattUnknown;
+
+    [Tooltip("{0} 완료 수, {1} 전체 수")]
+    [SerializeField] private LocalizedString _progressFormat;
 
     [SerializeField] private RectTransform _needle;
     [SerializeField] private TMP_Text _progressText;
@@ -42,6 +54,8 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
         _circuitState = FindFirstObjectByType<BreakerCircuitState>();
         _progressText ??= FindText("ProgressText") ?? FindText("ResultProgressText");
 
+        ApplyIdleTexts();
+
         if (_circuitState != null)
         {
             _circuitState.OnCircuitChanged += HandleCircuitChanged;
@@ -49,6 +63,48 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
         }
 
         HandleCircuitChanged();
+    }
+
+    private void OnEnable()
+    {
+        // 이 화면의 문구는 코드가 계산해 넣는 값이라 LocalizeStringEvent 의 자동 갱신을 받지 못한다.
+        // 패널을 연 채로 언어를 바꾸면 이미 찍힌 문구가 그대로 남으므로 여기서 다시 그린다.
+        LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
+    }
+
+    private void HandleLocaleChanged(Locale locale)
+    {
+        // 측정 전에는 HandleCircuitChanged 가 조기 반환해서 전력·상태 문구를 쓰지 않는다.
+        // 그래서 그 두 문구는 여기서 직접 다시 그려야 한다.
+        if (!_hasMeasured)
+        {
+            ApplyIdleTexts();
+        }
+
+        if (_circuitState != null)
+        {
+            HandleCircuitChanged();
+        }
+    }
+
+    // 측정 전 상태의 문구. 프리팹에 박힌 한글을 대신하고, 언어가 바뀌면 다시 불린다.
+    // 측정이 시작되면 ApplyWattText·ApplyStatusText 가 덮어쓰므로 동작은 그대로다.
+    private void ApplyIdleTexts()
+    {
+        if (_wattText != null)
+        {
+            _wattText.text = _wattUnknown.GetLocalizedString();
+        }
+
+        if (_statusText != null)
+        {
+            _statusText.text = _statusUnderTarget.GetLocalizedString();
+        }
     }
 
     private void OnDestroy()
@@ -196,7 +252,7 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
 
         if (_wattText != null)
         {
-            _wattText.text = $"[전력] : {watt:00}W";
+            _wattText.text = _wattFormat.GetLocalizedString(watt.ToString("00"));
         }
     }
 
@@ -224,15 +280,15 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
 
         if (targetWatt <= 0 || currentWatt < targetWatt)
         {
-            _statusText.text = $"[시스템] : {UnderTargetStatus}";
+            _statusText.text = _statusUnderTarget.GetLocalizedString();
         }
         else if (currentWatt > targetWatt)
         {
-            _statusText.text = $"[시스템] : {OverTargetStatus}";
+            _statusText.text = _statusOverTarget.GetLocalizedString();
         }
         else
         {
-            _statusText.text = $"[시스템] : {MatchedStatus}";
+            _statusText.text = _statusMatched.GetLocalizedString();
         }
     }
 
@@ -241,7 +297,7 @@ public sealed class BreakerGaugeMonitorUI : MonoBehaviour
         if (_progressText != null)
         {
             bool completed = _circuitState != null && _circuitState.IsCompleted;
-            _progressText.text = completed ? "진행도  1 / 1" : "진행도  0 / 1";
+            _progressText.text = _progressFormat.GetLocalizedString(completed ? 1 : 0, 1);
         }
     }
 

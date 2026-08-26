@@ -36,7 +36,7 @@ public class RoomListEntryUI : MonoBehaviour
 	public void Bind(ISessionInfo room)
 	{
 		_sessionId = room.Id;
-		_roomNameText.text = room.Name;
+		_roomNameText.text = GameSessionManager.Instance.DescribeRoomName(room.Name, room.Properties);
 		_playerCountText.text = $"{room.MaxPlayers - room.AvailableSlots}/{room.MaxPlayers}";
 
 		// 정원이 찬 방과 이미 시작된 방도 방이 있다는 건 보여야 하므로, 지우지 않고 회색으로만 표시한다.
