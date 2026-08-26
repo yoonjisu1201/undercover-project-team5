@@ -160,7 +160,7 @@ public partial class RoundManager
     {
         // 인원이 모자란 상태로는 시작하지 않는다. (감시 타이머의 킥 루프가 이 검사를 다시 타므로,
         //  이 조건이 없으면 내보내는 도중에 최소 인원 미만으로 라운드가 시작될 수 있다)
-        if (NetworkManager.ConnectedClientsIds.Count < WaitingRoomReadyManager.MinPlayersToStart) return;
+        if (NetworkManager.ConnectedClientsIds.Count < WaitingRoomReadyManager.RequiredPlayers) return;
 
         if (_spawnReadyConfirmedClients.Count >= CountClientsExpectedToReport())
         {
@@ -197,9 +197,9 @@ public partial class RoundManager
         if (NetworkManager.ShutdownInProgress) return;
 
         // 최소 인원을 못 채우면 로딩 중이든 라운드 중이든 게임을 이어갈 수 없다.
-        if (NetworkManager.ConnectedClientsIds.Count < WaitingRoomReadyManager.MinPlayersToStart)
+        if (NetworkManager.ConnectedClientsIds.Count < WaitingRoomReadyManager.RequiredPlayers)
         {
-            SendEveryoneToLobby(PlayerLeftKey, WaitingRoomReadyManager.MinPlayersToStart.ToString());
+            SendEveryoneToLobby(PlayerLeftKey, WaitingRoomReadyManager.RequiredPlayers.ToString());
             return;
         }
 
@@ -250,9 +250,9 @@ public partial class RoundManager
         // DisconnectClient는 사유가 붙으면 실제 끊기를 다음 프레임으로 미루므로 ConnectedClientsIds가
         // 아직 줄지 않는다. 방금 내보낸 인원을 직접 빼야 라운드가 한 프레임 잘못 시작되지 않는다.
         if (NetworkManager.ConnectedClientsIds.Count - pendingClients.Count
-            < WaitingRoomReadyManager.MinPlayersToStart)
+            < WaitingRoomReadyManager.RequiredPlayers)
         {
-            SendEveryoneToLobby(PlayerLeftKey, WaitingRoomReadyManager.MinPlayersToStart.ToString());
+            SendEveryoneToLobby(PlayerLeftKey, WaitingRoomReadyManager.RequiredPlayers.ToString());
             return;
         }
 

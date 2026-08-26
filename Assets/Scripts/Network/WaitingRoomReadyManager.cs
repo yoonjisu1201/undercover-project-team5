@@ -18,7 +18,11 @@ public class WaitingRoomReadyManager : NetworkBehaviour
             ClientId == other.ClientId && IsReady == other.IsReady;
     }
 
-    public const int MinPlayersToStart = 1;  //최소 시작 인원.  테스트할때는 1, 빌드할때는 3
+    public const int MinPlayersToStart = 3;  //최소 시작 인원
+
+    // 혼자 테스트할 때는 GameSessionManager의 Allow Solo Start를 체크한다.
+    public static int RequiredPlayers =>
+        GameSessionManager.Instance != null && GameSessionManager.Instance.AllowSoloStart ? 1 : MinPlayersToStart;
 
     private readonly NetworkList<PlayerSlot> _slots = new();
 
@@ -26,7 +30,7 @@ public class WaitingRoomReadyManager : NetworkBehaviour
     // 접속 인원이 최소 인원 이상이고, 방장을 제외한 전원이 준비를 마쳤을 때 시작 가능하다.
     public bool CanStart => HasEnoughPlayers && IsAllReady;
     // 인원수 확인
-    public bool HasEnoughPlayers => _slots.Count >= MinPlayersToStart;
+    public bool HasEnoughPlayers => _slots.Count >= RequiredPlayers;
     // 전체가 준비했는지 확인
     public bool IsAllReady
     {
