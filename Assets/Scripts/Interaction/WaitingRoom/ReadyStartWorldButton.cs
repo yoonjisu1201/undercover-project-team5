@@ -12,15 +12,15 @@ public sealed class ReadyStartWorldButton : WaitingRoomButtonBase
     [SerializeField] private Renderer _buttonRenderer;
     [SerializeField] private Renderer _statusLampRenderer;
 
-    [SerializeField] private Color _participantNotReadyBaseColor = new Color(0.55f, 0.62f, 0.68f, 1f);
+    [SerializeField] private Color _participantNotReadyBaseColor = new Color(0.5f, 0.53f, 0.56f, 1f);
 
     [ColorUsage(false, true)]
-    [SerializeField] private Color _participantNotReadyEmissionColor = new Color(1.2f, 1.35f, 1.5f, 1f);
+    [SerializeField] private Color _participantNotReadyEmissionColor = new Color(0.85f, 0.95f, 1.05f, 1f);
 
     [SerializeField] private Color _readyBaseColor = new Color(0.02f, 0.2f, 0.05f, 1f);
 
     [ColorUsage(false, true)]
-    [SerializeField] private Color _readyEmissionColor = new Color(0.1f, 0.75f, 0.2f, 1f);
+    [SerializeField] private Color _readyEmissionColor = new Color(0.67f, 5f, 1.33f, 1f);
 
     [SerializeField] private Color _startUnavailableBaseColor = new Color(0.7f, 0.025f, 0.015f, 1f);
 
