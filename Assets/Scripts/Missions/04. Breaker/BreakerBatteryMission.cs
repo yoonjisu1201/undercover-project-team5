@@ -4,6 +4,8 @@ using System.Linq;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.UI;
 
 // 배터리 배치 상태, 정답 판정, 실제 플레이어 인벤토리 연결을 관리한다.
@@ -71,7 +73,18 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
     private void OnEnable()
     {
         StageNewBatteries();
+
+        // 상태·진행도 문구는 코드가 계산해 넣는 값이라 LocalizeStringEvent 의 자동 갱신을 받지 못한다.
+        // 패널을 연 채로 언어를 바꾸면 이미 찍힌 문구가 그대로 남으므로 여기서 다시 그린다.
+        LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
     }
+
+    private void OnDisable()
+    {
+        LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
+    }
+
+    private void HandleLocaleChanged(Locale locale) => UpdateStatusText();
 
     private void OnDestroy()
     {

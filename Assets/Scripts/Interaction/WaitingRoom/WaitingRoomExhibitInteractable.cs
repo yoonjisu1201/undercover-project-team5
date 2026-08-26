@@ -14,8 +14,6 @@ public sealed class WaitingRoomExhibitInteractable : InteractableBase
 
     private WaitingRoomObjectTutorialUI _tutorialUI;
 
-    public override string InteractionText => "정보 보기";
-
     protected override void Awake()
     {
         base.Awake();

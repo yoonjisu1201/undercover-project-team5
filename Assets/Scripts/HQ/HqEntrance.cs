@@ -7,5 +7,4 @@ public class HqEntrance : EntranceDoor {
     [SerializeField, Min(1f)] private float _aimRadiusMultiplier = 3f;
     public override float AimRadiusMultiplier => _aimRadiusMultiplier;
 
-    public override string InteractionText => "본부로 이동하기";
 }

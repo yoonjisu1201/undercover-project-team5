@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using Unity.Netcode;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Components;
+using UnityEngine.Localization.Settings;
 using UnityEngine.SceneManagement;
 
 // TestRoom1 씬의 나가기 버튼, 조인코드 표시 텍스트와 GameSessionManager를 연결한다.
@@ -99,6 +100,10 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         UpdateSessionInfoText();
         GameSessionManager.Instance.OnSessionJoined += UpdateSessionInfoText; // 조인 완료가 씬 로드보다 늦을 때를 대비한 재확인용
 
+        // 방 이름은 코드가 문자열로 만들어 넣는 값이라 LocalizeStringEvent 의 자동 갱신을 받지 못한다.
+        // 대기실에 머문 채로 언어를 바꾸면 이미 찍힌 문구가 그대로 남으므로 여기서 다시 그린다.
+        LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
+
         if (_copyNoticeText != null)
         {
             _copyNoticeText.gameObject.SetActive(false);
@@ -173,6 +178,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
             GameSessionManager.Instance.OnSessionJoined -= UpdateSessionInfoText;
         }
 
+        LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
+
         if (_readyManager != null)
         {
             _readyManager.Slots.OnListChanged -= HandleSlotsChanged;
@@ -184,6 +191,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
             NetworkManager.Singleton.SceneManager.OnLoadEventCompleted -= HandleInitialLoadCompleted;
         }
     }
+
+    private void HandleLocaleChanged(Locale locale) => UpdateSessionInfoText();
 
     private void UpdateSessionInfoText()
     {

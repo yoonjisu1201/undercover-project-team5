@@ -33,7 +33,10 @@ public class GameSessionManager : MonoBehaviour
 	public ISession CurrentSession { get; private set; }
 	public string JoinCode => CurrentSession?.Code;
 	public bool AllowSoloStart => _allowSoloStart;
-	public string RoomName => CurrentSession?.Name;
+	// 표시용 방 이름. 자동 생성된 방은 보는 사람의 언어로 다시 만들어 돌려준다.
+	public string RoomName => CurrentSession == null
+		? null
+		: DescribeRoomName(CurrentSession.Name, CurrentSession.Properties);
 	public string LastLeaveReason { get; set; }
 
 	// 방 이름은 로비 목록에 그대로 노출되므로, 한 줄에 들어가는 길이로 제한한다.
@@ -47,6 +50,10 @@ public class GameSessionManager : MonoBehaviour
 	// 방 목록에서 빌드 버전을 대조하려면 세션 프로퍼티로 공개해야 한다.
 	// 이 키가 없는 방은 버전 검사가 없던 구버전 빌드가 만든 방이다.
 	private const string BuildVersionPropertyKey = "buildVersion";
+
+	// 방 이름을 자동 생성했는지와 그때 뽑은 번호. 이름 자체는 세션에 저장되는 데이터라
+	// 보는 사람마다 다르게 보여줄 수 없어서, 번호만 싣고 문구는 각자 자기 언어로 만든다.
+	private const string AutoRoomNumberPropertyKey = "autoRoomNumber";
 
 	// 게임 중에는 방장이 나갔는지 다른 인원이 빠졌는지가 남은 사람 입장에서 다르지 않으므로 문구를 구분하지 않는다.
 	private const string InGameHostLeftKey = "lobby_leave_peer_disconnected";
@@ -139,16 +146,30 @@ public class GameSessionManager : MonoBehaviour
 			PrepareConnectionApproval();
 
 			// IsPrivate이면 목록 조회에 잡히지 않는다. 로비에 방을 노출하려면 공개로 만들어야 한다.
+			// 이름을 비워두고 만들면 번호를 뽑아 세션에 싣는다. 목록과 대기실이 그 번호로
+			// 각자 언어의 문구를 만든다.
+			bool isAutoNamed = string.IsNullOrWhiteSpace(roomName);
+			int autoRoomNumber = isAutoNamed ? UnityEngine.Random.Range(1000, 10000) : 0;
+
+			var properties = new Dictionary<string, SessionProperty>
+			{
+				[BuildVersionPropertyKey] = new(Application.version, VisibilityPropertyOptions.Public)
+			};
+			if (isAutoNamed)
+			{
+				properties[AutoRoomNumberPropertyKey] =
+					new(autoRoomNumber.ToString(), VisibilityPropertyOptions.Public);
+			}
+
 			var options = new SessionOptions
 			{
-				Name = ResolveRoomName(roomName),
+				// 자동 이름도 세션에는 저장돼야 한다. 표시에는 쓰지 않지만, 목록 API가 이름을 요구하고
+				// 프로퍼티를 못 읽는 경로(구버전 등)에서는 이 값이 그대로 보인다.
+				Name = isAutoNamed ? _defaultRoomName.GetLocalizedString(autoRoomNumber) : roomName.Trim(),
 				MaxPlayers = _maxPlayers,
 				IsPrivate = false,
 				// 목록 조회 결과에 실려야 하므로 Public으로 공개한다.
-				SessionProperties = new Dictionary<string, SessionProperty>
-				{
-					[BuildVersionPropertyKey] = new(Application.version, VisibilityPropertyOptions.Public)
-				}
+				SessionProperties = properties
 			};
 
 			// Relay 는 Unity 서버를 거쳐 연결한다. 그쪽이 죽으면(504 등) 방 생성 자체가 실패해서
@@ -196,15 +217,19 @@ public class GameSessionManager : MonoBehaviour
 		}
 	}
 
-	// 입력이 비어 있을 때만 기본 이름을 만든다. 번호를 붙여 목록에서 서로 구분되게 한다.
-	//
-	// 방 이름은 세션에 저장되는 데이터라 보는 사람마다 다르게 보여줄 수 없다. 만드는 사람의
-	// 언어로 한 번 정해지고 그대로 모두에게 노출된다. 그래도 여기서 현지화 문구를 쓰는 이유는,
-	// 영어로 플레이하는 사람이 만든 방이 한글 이름을 갖는 것을 막기 위해서다.
-	private string ResolveRoomName(string roomName)
-		=> string.IsNullOrWhiteSpace(roomName)
-			? _defaultRoomName.GetLocalizedString(UnityEngine.Random.Range(1000, 10000))
-			: roomName.Trim();
+	// 화면에 보여줄 방 이름. 자동 생성된 방은 저장된 이름 대신 보는 사람의 언어로 다시 만든다.
+	// 직접 지은 이름은 그 사람이 쓴 그대로 둔다.
+	public string DescribeRoomName(string storedName, IReadOnlyDictionary<string, SessionProperty> properties)
+	{
+		if (properties != null
+			&& properties.TryGetValue(AutoRoomNumberPropertyKey, out var property)
+			&& int.TryParse(property.Value, out int number))
+		{
+			return _defaultRoomName.GetLocalizedString(number);
+		}
+
+		return storedName;
+	}
 
 	// 같은 실패라도 어떤 경로로 시도했는지에 따라 사용자에게 알려줄 원인이 다르다.
 	private enum JoinRoute

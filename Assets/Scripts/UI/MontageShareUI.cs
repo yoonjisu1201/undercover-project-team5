@@ -4,6 +4,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Components;
+using UnityEngine.Localization.Settings;
 
 public class MontageShareUI : MonoBehaviour, IClosableUi
 {
@@ -90,10 +91,20 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 	private void OnEnable()
 	{
 		InfoHubController.HubStateChanged += HandleHubStateChanged;
+
+		// 상태 문구는 UpdateUiState 가 StringReference 를 갈아끼우는 방식이라, 상태가 바뀌지 않는 한
+		// 다시 계산되지 않는다. 그래서 언어를 바꿔도 이미 표시된 문구는 그대로 남는다.
+		// 언어 변경 때마다, 그리고 꺼져 있는 동안 언어가 바뀐 경우를 위해 켜질 때도 다시 적용한다.
+		LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
+		if (_montageShareManager != null)
+		{
+			UpdateUiState();
+		}
 	}
 	private void OnDisable()
 	{
 		InfoHubController.HubStateChanged -= HandleHubStateChanged;
+		LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
 		StopNotification();
 		_slide?.Kill();
 		_compactSlide?.Kill();
@@ -414,6 +425,8 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 			PlayNotification();
 		}
 	}
+
+	private void HandleLocaleChanged(Locale locale) => UpdateUiState();
 
 	private void UpdateUiState()
 	{

@@ -1,5 +1,7 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
@@ -9,6 +11,13 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     private const int WireCount = CCTVPoint.RequiredConnectionCount;
 
     [Header("CCTV 표시")]
+    [Header("현지화 문구")]
+    [Tooltip("{0} 에 CCTV 번호가 들어간다.")]
+    [SerializeField] private LocalizedString _objectiveDone;
+
+    [Tooltip("{0} 에 CCTV 번호가 들어간다.")]
+    [SerializeField] private LocalizedString _objectiveTodo;
+
     [SerializeField] private TMP_Text _cameraLabel;
     [SerializeField] private TMP_Text _cameraFeed;
 
@@ -95,6 +104,10 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     // 화면을 다시 열면 그동안 서버에서 바뀐 연결 상태를 복구하고 구독을 되살립니다.
     private void OnEnable()
     {
+        // 이 화면의 문구는 코드가 계산해 넣는 값이라 LocalizeStringEvent 의 자동 갱신을 받지 못한다.
+        // 패널을 연 채로 언어를 바꾸면 이미 찍힌 문구가 그대로 남으므로 여기서 다시 그린다.
+        LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
+
         if (_cctvHub == null)
         {
             return;
@@ -109,6 +122,8 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     // 화면이 비활성화되면 서버 상태 변경 구독을 해제합니다.
     private void OnDisable()
     {
+        LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
+
         if (_cctvHub == null)
         {
             return;
@@ -307,10 +322,12 @@ public sealed class CCTVSignalRepairGame : MonoBehaviour
     }
 
     // 담당 CCTV의 단자 색상과 현재 연결된 전선을 배선 보드에 표시한다.
+    private void HandleLocaleChanged(Locale locale) => RefreshBoard();
+
     private void RefreshBoard()
     {
-        _objectiveText.text = _state.IsRepaired ? $"CCTV {_cameraIndex + 1} 연결 완료"
-        : $"CCTV {_cameraIndex + 1}: 같은 색 단자를 드래그해서 연결하세요.";
+        _objectiveText.text = (_state.IsRepaired ? _objectiveDone : _objectiveTodo)
+            .GetLocalizedString(_cameraIndex + 1);
 
         for (int wireIndex = 0; wireIndex < WireCount; wireIndex++)
         {

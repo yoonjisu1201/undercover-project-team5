@@ -8,7 +8,6 @@ public sealed class WaitingRoomExitInteractable : InteractableBase
 
     private WaitingRoomUI _roomUI;
 
-    public override string InteractionText => "방 나가기";
     public override float InteractHoldThreshold => _interactHoldDuration;
     public override bool CanInteract(GameObject interactor) => true;
 

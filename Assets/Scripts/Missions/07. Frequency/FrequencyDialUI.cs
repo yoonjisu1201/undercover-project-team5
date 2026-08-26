@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine.Serialization;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.UI;
 
 // P3 역할의 주파수 다이얼 화면. 안테나가 존에 자리 잡기 전에는 잠겨 있고, 열린 뒤 목표 주파수를 맞추면 즉시 완료된다.
@@ -16,6 +17,9 @@ public sealed class FrequencyDialUI : MonoBehaviour
 
     [Header("조작 방식")]
     // 0 = 노브, 1 = 슬라이더, 2 = 롤러. ◀▶ 버튼으로 골라 쓴다.
+    [Header("현지화 문구")]
+    [SerializeField] private LocalizedString _hint;
+
     [SerializeField] private GameObject[] _controlRoots;
     [SerializeField] private Button _prevControlButton;
     [SerializeField] private Button _nextControlButton;
@@ -387,7 +391,7 @@ public sealed class FrequencyDialUI : MonoBehaviour
             return;
         }
 
-        _hintText.text = "본부의 지시에 따라 주파수를 맞추세요";
+        _hintText.text = _hint.GetLocalizedString();
     }
 
     private void ApplyProgressText()

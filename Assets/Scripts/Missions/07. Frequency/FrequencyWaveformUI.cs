@@ -2,6 +2,7 @@
 using UnityEngine.Serialization;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Localization;
 
 // P1 역할의 신호 파형 화면. 세 좌표 중 어디를 진행할지 고르고, 레이더로 요원을 그 좌표까지 유도한다.
 // 주파수는 이 화면에서 만질 수 없다. 요원을 목표 좌표로 보내는 것까지가 P1의 일이다.
@@ -23,6 +24,23 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
 
     [Header("파형")]
     // 왼쪽부터 순서대로 배치된 세로 바들이다. 각 바의 높이로 파형을 표현한다.
+    [Header("현지화 문구")]
+    [SerializeField] private LocalizedString _noSignal;
+    [SerializeField] private LocalizedString _checkEquipment;
+    [SerializeField] private LocalizedString _synced;
+    [SerializeField] private LocalizedString _linkEstablished;
+    [SerializeField] private LocalizedString _signalDetected;
+    [SerializeField] private LocalizedString _moveCloser;
+    [SerializeField] private LocalizedString _rotateAntenna;
+    [SerializeField] private LocalizedString _connected;
+    [SerializeField] private LocalizedString _noAntenna;
+
+    [Tooltip("{0} 남은 좌표 수")]
+    [SerializeField] private LocalizedString _zonesLeft;
+
+    [Tooltip("{0} 목표 주파수")]
+    [SerializeField] private LocalizedString _target;
+
     [SerializeField] private RectTransform[] _waveBars;
 
     [Header("동기화 상태")]
@@ -241,8 +259,8 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
 
         if (_syncState == null)
         {
-            _syncStateText.text = "신호 없음";
-            _syncHintText.text = "장비를 확인하세요";
+            _syncStateText.text = _noSignal.GetLocalizedString();
+            _syncHintText.text = _checkEquipment.GetLocalizedString();
             return;
         }
 
@@ -250,31 +268,31 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         if (_clearedNotice != null && !_syncState.IsCompleted)
         {
             _syncStateText.text = _clearedNotice;
-            _syncHintText.text = $"남은 좌표 {_syncState.ZoneCount - _syncState.CompletedZoneCount}개";
+            _syncHintText.text = _zonesLeft.GetLocalizedString(_syncState.ZoneCount - _syncState.CompletedZoneCount);
             return;
         }
 
         if (_syncState.IsCompleted)
         {
-            _syncStateText.text = "동기화 완료";
-            _syncHintText.text = "통신이 연결되었습니다";
+            _syncStateText.text = _synced.GetLocalizedString();
+            _syncHintText.text = _linkEstablished.GetLocalizedString();
         }
         else if (placed)
         {
             // 안테나 설치 여부는 레이더 쪽에 이미 나오므로 여기서는 반복하지 않는다.
             // 목표 주파수는 이 화면만 볼 수 있다. 현장은 현재 값만 보이므로, 여기서 방향을 읽어 전달해야 맞출 수 있다.
-            _syncStateText.text = $"목표 {_syncState.TargetFrequency:0.00} MHz";
+            _syncStateText.text = _target.GetLocalizedString(_syncState.TargetFrequency.ToString("0.00"));
             _syncHintText.text = BuildTuneGuidanceLabel();
         }
         else if (signal > 0f)
         {
-            _syncStateText.text = "신호 감지";
-            _syncHintText.text = "목표 좌표로 더 가까이";
+            _syncStateText.text = _signalDetected.GetLocalizedString();
+            _syncHintText.text = _moveCloser.GetLocalizedString();
         }
         else
         {
-            _syncStateText.text = "신호 없음";
-            _syncHintText.text = "안테나 방향을 돌려 신호를 찾으세요";
+            _syncStateText.text = _noSignal.GetLocalizedString();
+            _syncHintText.text = _rotateAntenna.GetLocalizedString();
         }
     }
 
@@ -390,12 +408,14 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         ApplyProgressText();
         if (_syncState != null && _syncState.IsCompleted)
         {
-            _distanceText.text = _progressText != null ? "연결 완료" : BuildProgressLabel("연결 완료");
+            _distanceText.text = _progressText != null
+                ? _connected.GetLocalizedString()
+                : BuildProgressLabel(_connected.GetLocalizedString());
         }
         else if (_syncState == null)
         {
             // 아직 공유 상태를 못 찾은 것이라 소지 여부를 알 수 없다. 미소지로 단정하지 않는다.
-            _distanceText.text = "신호 없음";
+            _distanceText.text = _noSignal.GetLocalizedString();
         }
         else if (_syncState.AntennaPlaced)
         {
@@ -408,7 +428,7 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
         }
         else if (!hasHolder)
         {
-            _distanceText.text = "안테나 미소지";
+            _distanceText.text = _noAntenna.GetLocalizedString();
         }
         else
         {
@@ -423,7 +443,7 @@ public sealed class FrequencyWaveformUI : MonoBehaviour
     {
         if (_progressText != null && _syncState != null)
         {
-            _progressText.text = BuildProgressLabel(_syncState.IsCompleted ? "연결 완료" : null);
+            _progressText.text = BuildProgressLabel(_syncState.IsCompleted ? _connected.GetLocalizedString() : null);
         }
     }
 
