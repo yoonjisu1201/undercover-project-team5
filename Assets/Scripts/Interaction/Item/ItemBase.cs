@@ -13,6 +13,9 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
              "바닥에 놓인 이 아이템을 줍는 시간과는 별개다 (그건 InteractHoldThreshold, 코드에서만 오버라이드).")]
     [SerializeField, Min(0f)] private float _itemHoldThreshold;
 
+    // 손에 들고 있을 때 원래 크기의 몇 배로 보일지.
+    [SerializeField, Range(0.1f, 1f)] private float _handScale = 0.6f;
+
     // 프리팹 하나를 여러 ItemData가 공유하는 경우(예: Clue)가 있어서, 런타임에 주입된 종류를
     // 모든 클라이언트가 알 수 있도록 별도로 동기화한다.
     // 인벤토리 안에 들어가 있는 동안 true. 월드에 놓여 있으면 false.
@@ -28,6 +31,11 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
 
     // 프리팹에 저장해 둔 자세(예: 눕혀 놓은 건전지). 드롭할 때 이 자세를 살려 놓기 위해 기억한다.
     private Quaternion _initialRotation = Quaternion.identity;
+    private Vector3 _initialScale = Vector3.one;
+
+    // 손에 들려 있는 동안의 앵커. null이면 손에 없는 상태.
+    private Transform _handAnchor;
+    private bool _isHandVisible = true;
 
     public ItemData ItemData => _itemData;
     public Quaternion InitialRotation => _initialRotation;
@@ -43,6 +51,7 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
 
         // 아직 플레이어 밑으로 들어가거나 바닥에 안착하며 회전이 바뀌기 전이라, 지금 값이 프리팹에 저장된 자세다.
         _initialRotation = transform.localRotation;
+        _initialScale = transform.localScale;
 
         _renderers = GetComponentsInChildren<Renderer>(true);
         _itemColliders = GetComponentsInChildren<Collider>(true);
@@ -115,7 +124,41 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
     public override void OnNetworkDespawn()
     {
         _isStored.OnValueChanged -= HandleStoredChanged;
+        _handAnchor = null;
         base.OnNetworkDespawn();
+    }
+
+    private void LateUpdate()
+    {
+        if (_handAnchor == null)
+        {
+            return;
+        }
+
+        // 손 소켓(NetworkObject 아님)엔 파렌팅할 수 없어서, 매 프레임 위치·회전을 복사한다 (Flashlight와 동일한 이유).
+        transform.SetPositionAndRotation(_handAnchor.position, _handAnchor.rotation * _initialRotation);
+    }
+
+    // PlayerItemIK가 이 아이템을 손에 들리거나(handAnchor != null) 내려놓을 때(null) 호출한다.
+    public void SetEquipped(Transform handAnchor)
+    {
+        _handAnchor = handAnchor;
+        transform.localScale = handAnchor != null ? _initialScale * _handScale : _initialScale;
+
+        // 들고 있는 동안은 서버 권한 NetworkTransform이 위치를 되돌리지 않도록 끈다.
+        if (_networkTransform != null)
+        {
+            _networkTransform.enabled = handAnchor == null;
+        }
+
+        ApplyStoredPresentation(_isStored.Value);
+    }
+
+    // 카트를 끌거나 총을 조준하는 등 손이 다른 데 쓰일 때 시각적으로만 숨긴다.
+    public void SetHandVisible(bool isVisible)
+    {
+        _isHandVisible = isVisible;
+        ApplyStoredPresentation(_isStored.Value);
     }
 
     private void HandleStoredChanged(bool previousValue, bool currentValue)
@@ -147,11 +190,14 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
     // GameObject 자체를 SetActive로 끄지 않는다.
     private void ApplyStoredPresentation(bool isStored)
     {
+        // 인벤토리에 있어도 손에 들린 동안엔 렌더러만 다시 켠다 (콜라이더는 계속 꺼진 채로 둬서 못 줍게 한다).
+        bool showInHand = isStored && _handAnchor != null && _isHandVisible;
+
         foreach (Renderer itemRenderer in _renderers)
         {
             if (itemRenderer != null)
             {
-                itemRenderer.enabled = !isStored;
+                itemRenderer.enabled = !isStored || showInHand;
             }
         }
 
@@ -209,6 +255,8 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
         // 부모에서 떨어지며 로컬→월드 좌표로 전환되는 순간 발생하는 이동을 순간이동으로 처리해
         // 클라이언트 화면에서 스르륵 미끄러지는 것처럼 보이지 않게 한다.
         if (_networkTransform != null) {
+            // 손에 들려있던 동안 꺼놨을 수 있으니, 다시 서버가 위치를 동기화하도록 켠다.
+            _networkTransform.enabled = true;
             _networkTransform.Teleport(position, rotation, transform.localScale);
         }
         _isStored.Value = false;

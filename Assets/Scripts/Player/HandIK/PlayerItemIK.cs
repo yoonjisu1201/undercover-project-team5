@@ -26,7 +26,8 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 
 	private Animator _animator;
 	private CustomInputActions _actions;
-	private GameObject _itemOnRightHand;
+	private PlayerInventory _inventory;
+	private ItemBase _itemOnRightHand;
 	private Flashlight _flashlight;
 
 	public bool IsActive => true;
@@ -34,6 +35,7 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	private void Awake() {
 		_animator = GetComponent<Animator>();
 		_playerCameraController ??= GetComponent<PlayerCameraController>();
+		_inventory = GetComponent<PlayerInventory>();
 	}
 
 	private void OnEnable() {
@@ -47,9 +49,11 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 
 	public override void OnNetworkSpawn() {
 		_leftHandItemRef.OnValueChanged += HandleLeftHandItemChanged;
+		_inventory.OnInventoryChanged += RefreshRightHandItem;
 
 		// 스폰 시점에 이미 값이 채워져 있는 경우(뒤늦게 관전하는 클라이언트 등)를 대비해 한 번 직접 반영한다.
 		ResolveLeftHand(_leftHandItemRef.Value);
+		RefreshRightHandItem();
 
 		// 왼손에는 항상 플래시라이트 있어야 함. 서버만 스폰한다.
 		if (IsServer) {
@@ -59,6 +63,7 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 
 	public override void OnNetworkDespawn() {
 		_leftHandItemRef.OnValueChanged -= HandleLeftHandItemChanged;
+		_inventory.OnInventoryChanged -= RefreshRightHandItem;
 
 		if (IsServer && _leftHandItemRef.Value.TryGet(out NetworkObject networkObject)) {
 			networkObject.Despawn(true);
@@ -104,16 +109,30 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 		}
 	}
 
+	// 인벤토리 선택이 바뀔 때마다(전 클라이언트) 호출된다. 오른손에 들린 아이템을 현재 선택된 슬롯의
+	// 아이템으로 맞춘다 - 새로 스폰하지 않고, 이미 존재하는 같은 인스턴스를 손으로 옮기기만 한다.
+	private void RefreshRightHandItem() {
+		_inventory.TryGetSelectedItemBase(out ItemBase item);
+
+		if (item == _itemOnRightHand) {
+			return;
+		}
+
+		_itemOnRightHand?.SetEquipped(null);
+		_itemOnRightHand = item;
+		_itemOnRightHand?.SetEquipped(_rightHandParent);
+	}
+
 	// 다른 걸 잡을 때(카트 잡을 때 등)에는 손에 있는 오브젝트 비활성화한다.
 	public void DisableItems() {
 		_flashlight?.SetVisible(false);
-		_itemOnRightHand?.SetActive(false);
+		_itemOnRightHand?.SetHandVisible(false);
 	}
 
 	public void ApplyIK(int layerIndex) {
 		// 잡을 때 손에 있는 오브젝트 활성화
 		_flashlight?.SetVisible(true);
-		_itemOnRightHand?.SetActive(true);
+		_itemOnRightHand?.SetHandVisible(true);
 
 		// 왼손에 아이템 있으면, 왼손 위치 옮기기
 		if (_leftHandItemRef.Value.TryGet(out NetworkObject _)) {
