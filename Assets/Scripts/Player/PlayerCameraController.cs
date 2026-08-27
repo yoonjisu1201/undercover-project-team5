@@ -36,10 +36,15 @@ public class PlayerCameraController : NetworkBehaviour
     private readonly float _armFollowMinPitch = -40f;
     private readonly float _armFollowMaxPitch = 20f;
 
+    [Header("로컬 카메라 연출")]
+    [Tooltip("호흡 오프셋은 여기서 계산하고, 실제 카메라 반영은 이 컨트롤러가 담당한다.")]
+    [SerializeField] private ExhaustedBreathCameraEffect _exhaustedBreathEffect;
+
     private CustomInputActions _actions;
     private PlayerRenderer _playerRenderer;
     private float _yaw;
     private float _pitch;
+    private Vector3 _cameraBaseLocalPosition;
     private Quaternion _headBoneBaseRotation;
     private Vector3 _cameraTransitionStartPosition;
     private Quaternion _cameraTransitionStartRotation;
@@ -63,6 +68,7 @@ public class PlayerCameraController : NetworkBehaviour
         _rotateSpeed = ToRotateSpeed(PlayerPrefs.GetFloat(MouseSensitivityKey, DefaultSensitivity));
         _actions = new CustomInputActions();
         _actions.Enable();
+        _exhaustedBreathEffect ??= GetComponent<ExhaustedBreathCameraEffect>();
         _playerRenderer = GetComponentInParent<PlayerRenderer>();
 
         if (_headBone != null)
@@ -80,6 +86,7 @@ public class PlayerCameraController : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _camera ??= GetComponentInChildren<Camera>(true);
+        _cameraBaseLocalPosition = _camera.transform.localPosition;
 
         if (!IsOwner)
         {
@@ -95,6 +102,7 @@ public class PlayerCameraController : NetworkBehaviour
     {
         if (IsOwner)
         {
+            ResetExhaustedBreath();
             LocalCameraProvider.Unregister(_camera);
         }
         base.OnNetworkDespawn();
@@ -121,10 +129,18 @@ public class PlayerCameraController : NetworkBehaviour
 
     private void Update()
     {
-        if (!IsOwner ||
-            GameplayUiMode.IsActive ||
-            _useDownedCameraView ||
-            _isCameraTransitioning)
+        if (!IsOwner)
+        {
+            return;
+        }
+
+        if (GameplayUiMode.IsActive)
+        {
+            ResetExhaustedBreath();
+            return;
+        }
+
+        if (_useDownedCameraView || _isCameraTransitioning)
         {
             return;
         }
@@ -136,7 +152,18 @@ public class PlayerCameraController : NetworkBehaviour
         _pitch = Mathf.Clamp(_pitch, _minPitch, _maxPitch);
 
         transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
-        _headPivot.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+
+        // 호흡 컴포넌트는 계산만 담당한다. 최종 Transform 적용을 이곳에 모아
+        // 마우스 시점 회전 및 다른 카메라 전환과 값이 서로 덮어쓰이지 않게 한다.
+        float breathBob = 0f;
+        float breathPitch = 0f;
+        _exhaustedBreathEffect?.Evaluate(Time.deltaTime, out breathBob, out breathPitch);
+
+        _headPivot.transform.localRotation = Quaternion.Euler(_pitch + breathPitch, 0f, 0f);
+        _camera.transform.localPosition = _cameraBaseLocalPosition + Vector3.up * breathBob;
+
+        // 흔들림은 각자 화면의 연출이라 pitch 동기화 값에는 섞지 않는다.
+        // 섞으면 남의 캐릭터 머리가 같이 떨린다.
         _networkPitch.Value = _pitch;
     }
 
@@ -176,6 +203,23 @@ public class PlayerCameraController : NetworkBehaviour
         }
     }
 
+    private void ResetExhaustedBreath()
+    {
+        _exhaustedBreathEffect?.ResetEffect();
+
+        // 내부 계산값만 지우면 마지막 프레임의 Transform 오프셋은 그대로 남는다.
+        // 컨트롤러가 보관한 기준값으로 함께 복구해야 다음 카메라 상태가 어긋나지 않는다.
+        if (_camera != null)
+        {
+            _camera.transform.localPosition = _cameraBaseLocalPosition;
+        }
+
+        if (_headPivot != null)
+        {
+            _headPivot.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+        }
+    }
+
     public void SetMouseSensitivity(float sensitivity)
     {
         _rotateSpeed = ToRotateSpeed(sensitivity);
@@ -188,6 +232,7 @@ public class PlayerCameraController : NetworkBehaviour
 
     public void TransitionToDownedView()
     {
+        ResetExhaustedBreath();
         _useDownedCameraView = true;
         Layers.ShowLayerToCamera(_camera, Layers.LocalPlayerHead);
         // 머리가 다시 보이므로 전용 그림자 캐스터는 꺼서 그림자가 겹치지 않게 한다
