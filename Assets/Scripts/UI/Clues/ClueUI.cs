@@ -67,15 +67,15 @@ public class ClueUI : MonoBehaviour, IClosableUi
     private void OnEnable()
     {
         EnsureInitialized();    // 씬 커서 설정 초기화
-        // 단서 창은 허브의 단서 버튼으로만 열린다. 버튼 클릭음이 나므로 열림음은 생략한다.
-        GameplayUiMode.Instance?.RegisterUi(this, playOpenSound: false);
+        // ESC 닫기 스택에는 등록하지 않는다. 단서 창은 허브의 단서 버튼으로만 열리고 허브가
+        // 닫힐 때 같이 닫힌다(InfoHubController.Close). 스택에 올리면 ESC 가 이 창만 닫고
+        // 허브는 남아서, Tab 으로 닫을 때와 결과가 달라진다.
         _closeButton.onClick.AddListener(Close);
         GameplayUiMode.Instance?.ActivateCursor();
     }
 
     private void OnDisable()
     {
-        GameplayUiMode.Instance?.UnregisterUi(this);
         _closeButton.onClick.RemoveListener(Close);
         GameplayUiMode.Instance?.DeactivateCursor();
         _scaleTween?.Kill();
