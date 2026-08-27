@@ -36,6 +36,8 @@ public class PlayerCameraController : NetworkBehaviour
     private readonly float _armFollowMinPitch = -40f;
     private readonly float _armFollowMaxPitch = 20f;
 
+    [Header("로컬 카메라 연출")]
+    [Tooltip("호흡 오프셋은 여기서 계산하고, 실제 카메라 반영은 이 컨트롤러가 담당한다.")]
     [SerializeField] private ExhaustedBreathCameraEffect _exhaustedBreathEffect;
 
     private CustomInputActions _actions;
@@ -149,6 +151,8 @@ public class PlayerCameraController : NetworkBehaviour
 
         transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
 
+        // 호흡 컴포넌트는 계산만 담당한다. 최종 Transform 적용을 이곳에 모아
+        // 마우스 시점 회전 및 다른 카메라 전환과 값이 서로 덮어쓰이지 않게 한다.
         float breathBob = 0f;
         float breathPitch = 0f;
         _exhaustedBreathEffect?.Evaluate(Time.deltaTime, out breathBob, out breathPitch);
@@ -201,6 +205,8 @@ public class PlayerCameraController : NetworkBehaviour
     {
         _exhaustedBreathEffect?.ResetEffect();
 
+        // 내부 계산값만 지우면 마지막 프레임의 Transform 오프셋은 그대로 남는다.
+        // 컨트롤러가 보관한 기준값으로 함께 복구해야 다음 카메라 상태가 어긋나지 않는다.
         if (_camera != null)
         {
             _camera.transform.localPosition = _cameraBaseLocalPosition;
@@ -232,7 +238,6 @@ public class PlayerCameraController : NetworkBehaviour
 
     public void TransitionToFirstPersonView()
     {
-        ResetExhaustedBreath();
         _useDownedCameraView = false;
         BeginCameraTransition();
     }

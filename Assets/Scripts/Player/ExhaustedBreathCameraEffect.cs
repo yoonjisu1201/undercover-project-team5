@@ -21,12 +21,15 @@ public class ExhaustedBreathCameraEffect : MonoBehaviour
     [SerializeField, Min(0.01f)] private float _fadeOut = 1.2f;
 
     [Tooltip("스태미나가 부족한 단계의 세기.")]
-    [SerializeField, Range(0f, 1f)] private float _tiredScale = 0.5f;
+    [SerializeField, Range(0f, 1f)] private float _tiredScale = 0.3f;
 
     [Tooltip("스태미나가 거의 소진된 단계의 세기.")]
-    [SerializeField, Range(0f, 1f)] private float _exhaustedScale = 0.7f;
+    [SerializeField, Range(0f, 1f)] private float _exhaustedScale = 0.5f;
 
     private PlayerHeartbeat _heartbeat;
+
+    // phase는 0~1 범위에서 반복해 장시간 실행해도 부동소수점 정밀도가 떨어지지 않게 한다.
+    // weight는 심장 박동 단계가 바뀔 때 화면이 순간적으로 튀지 않도록 현재 세기를 보간한다.
     private float _phase;
     private float _weight;
 
@@ -35,6 +38,8 @@ public class ExhaustedBreathCameraEffect : MonoBehaviour
         _heartbeat = GetComponent<PlayerHeartbeat>();
     }
 
+    // 이 컴포넌트는 카메라 Transform을 직접 변경하지 않고 한 프레임의 오프셋만 반환한다.
+    // 실제 적용 주체를 PlayerCameraController 하나로 유지해 시점 전환과 서로 덮어쓰는 것을 막는다.
     public void Evaluate(float deltaTime, out float bobOffset, out float pitchOffset)
     {
         float target = ResolveTargetWeight();
@@ -49,18 +54,24 @@ public class ExhaustedBreathCameraEffect : MonoBehaviour
         }
 
         _phase = Mathf.Repeat(_phase + deltaTime * _breathsPerSecond, 1f);
+
+        // 위치와 각도가 같은 파형을 사용해야 고개가 위아래로 움직이는 호흡처럼 보인다.
+        // 서로 다른 위상을 사용하면 카메라가 원을 그리는 듯한 움직임이 생길 수 있다.
         float wave = Mathf.Sin(_phase * Mathf.PI * 2f);
 
         bobOffset = wave * _bobDistance * _weight;
         pitchOffset = wave * _pitchDegrees * _weight;
     }
 
+    // UI 진입이나 쓰러짐 시 마지막 호흡 위치에 카메라가 남지 않도록 내부 상태를 초기화한다.
+    // Transform의 원위치 복구는 기준 위치를 알고 있는 PlayerCameraController가 처리한다.
     public void ResetEffect()
     {
         _phase = 0f;
         _weight = 0f;
     }
 
+    // 보스 추격 박동은 긴장 연출이므로 제외하고, 스태미나에서 발생한 두 단계만 호흡에 사용한다.
     private float ResolveTargetWeight()
     {
         if (_heartbeat == null)
