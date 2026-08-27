@@ -86,5 +86,10 @@ public class GameLoadingOverlayUI : MonoBehaviour
 
 		RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
 		Hide();
+
+		// 로딩 화면이 걷히는 이 순간이 플레이 씬에 실제로 들어선 시점이다. 씬 로드가 끝나는
+		// 시점에 내면 아직 검은 화면인 동안 소리만 나서 들어왔다는 느낌이 나지 않는다.
+		// 대기실과 같은 소리를 써서 "방에 들어왔다"는 신호를 통일한다.
+		SoundManager.Instance?.Play(SoundKey.Room_In);
 	}
 }

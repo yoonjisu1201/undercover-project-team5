@@ -154,7 +154,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		ApplyAnimatorBool(IsRunningHash, value);
 	}
 
-	private void HandleJumpingChanged(bool _, bool value)
+	private void HandleJumpingChanged(bool previous, bool value)
 	{
 		_isJumping = value;
 		ApplyAnimatorBool(IsJumpingHash, value);
@@ -162,7 +162,20 @@ public class PlayerMoveSample : NetworkBehaviour
 		if (value)
 		{
 			SoundManager.Instance?.PlayAt(SoundKey.Player_Jump, transform.position);
+			return;
 		}
+
+		// 떠 있다가 내려온 순간에만 착지 소리를 낸다.
+		//
+		// 스폰 직후 초기 상태를 적용하는 호출은 previous 가 false 라 여기 들어오지 않는다.
+		// 쓰러질 때도 점프 상태를 내리는데(HandleDownedChanged), 그때는 쓰러지는 소리가 따로 나므로
+		// 공중에서 당했다고 착지 소리까지 겹쳐 낼 이유가 없다.
+		if (!previous || (_playerHealth != null && _playerHealth.IsDowned))
+		{
+			return;
+		}
+
+		SoundManager.Instance?.PlayAt(SoundKey.Player_Land, transform.position);
 	}
 
 	// #392: PlayerHealth.DownedStateChanged -> Animator IsDowned -> Downed/Getting Up 전이 흐름의 연결 지점이다.

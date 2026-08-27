@@ -122,6 +122,10 @@ public class ArrestResultUI : MonoBehaviour, IClosableUi
     {
         _isHandcuffEffectPlaying = true;
 
+        // 체포하는 순간의 소리. 검거자는 여기까지 로컬로, 나머지는 RPC로 같은 지점을 지나므로
+        // 모두가 한 번씩 듣는다. 판정 결과음(Arrest_Success/Wrong)은 이 연출이 끝난 뒤에 난다.
+        SoundManager.Instance?.Play(SoundKey.Arrest);
+
         if (_handcuffArrestEffect == null)
         {
             Debug.LogError("[ArrestResultUI] 수갑 체결 연출 참조가 없습니다.", this);
