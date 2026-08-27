@@ -139,6 +139,7 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
             return;
         }
 
+        PlayHitSoundRpc();
         PlayHitEffectRpc(sourcePosition);
     }
 
@@ -147,6 +148,14 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     public void TakeAlienAttackDamage(Vector3 sourcePosition)
     {
         TakeDamage(_alienAttackDamage, sourcePosition);
+    }
+
+    // 맞는 소리는 화면 연출과 달리 본인만의 것이 아니다. 옆에 있던 팀원도 누가 맞았는지 들어야 한다.
+    // 위치는 각 클라이언트가 자기 쪽 트랜스폼에서 읽는다. 이미 동기화돼 있어 인자로 넘길 필요가 없다.
+    [Rpc(SendTo.Everyone)]
+    private void PlayHitSoundRpc()
+    {
+        SoundManager.Instance?.PlayAt(SoundKey.Player_Hit, transform.position);
     }
 
     // #469: 피격 화면 연출은 맞은 본인 화면에만 필요하므로 오너에게만 보낸다.

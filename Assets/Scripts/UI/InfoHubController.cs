@@ -128,8 +128,8 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
         {
             if (_isOpen)
             {
-                // ESC는 GameplayUiMode.CloseTopUi가 닫힘음을 낸다. Tab은 그 경로를 안 타므로 여기서 낸다.
-                SoundManager.Instance?.Play(SoundKey.Ui_PopupClose);
+                // ESC는 GameplayUiMode.CloseTopUi가 팝업 공통 닫힘음을 낸다. Tab은 그 경로를 안 타므로 여기서 낸다.
+                SoundManager.Instance?.Play(SoundKey.Tab_Close);
                 Close();
             }
             else
@@ -181,7 +181,11 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 		_buttonTextSwitch?.Kill();
 		SetButtonTextStates(true);
 
-        GameplayUiMode.Instance?.RegisterUi(this);
+        // 허브는 팝업 공통음 대신 자기 소리를 낸다. RegisterUi 에 맡기면 Ui_PopupOpen 이 나므로
+        // 열림음을 끄고 여기서 직접 낸다.
+        GameplayUiMode.Instance?.RegisterUi(this, playOpenSound: false);
+        SoundManager.Instance?.Play(SoundKey.Tab_Open);
+
         GameplayUiMode.Instance?.ActivateCursor();
 
         _fade?.Kill();
@@ -202,6 +206,9 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
 		_autoExpand?.Kill();
 		_autoExpand = DOVirtual.DelayedCall(_slideDuration * _autoExpandStartRatio, ExpandHubPanels);
     }
+
+    // ESC 로 닫아도 Tab 으로 닫은 것과 같은 소리가 나야 한다. (IClosableUi)
+    public SoundKey CloseSound => SoundKey.Tab_Close;
 
     // ESC(스택)와 Tab 모두 이 경로로 닫는다.
     public void Close()

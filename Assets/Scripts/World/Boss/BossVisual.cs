@@ -124,6 +124,16 @@ public class BossVisual : NetworkBehaviour
         }
     }
 
+    // 순간이동으로 잠깐 사라져 있는 동안 쓴다. 오브젝트를 통째로 끄면 Animator 상태와
+    // 애니메이션 이벤트가 끊기므로, 보이는 것만 끄고 나머지는 그대로 돌아가게 둔다.
+    public void SetVisible(bool visible)
+    {
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
+        {
+            renderer.enabled = visible;
+        }
+    }
+
     // 기본 모델을 쓸 때 걷기/달리기가 들어가는 곳은 보스 루트의 Animator다.
     // 모델 자식에도 Animator가 있지만 그건 다른 컨트롤러(Character_0N_Controller)라 쓰지 않는다.
     private Animator ResolveDefaultAnimator() => GetComponent<Animator>();

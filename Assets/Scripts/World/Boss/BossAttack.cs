@@ -129,6 +129,10 @@ public class BossAttack : NetworkBehaviour
     [Rpc(SendTo.Everyone)]
     private void PlayAttackAnimationRpc()
     {
+        // 소리는 모션보다 먼저 낸다. 외형이 아직 안 붙어 Animator 를 못 찾는 클라이언트에서도
+        // 공격이 일어났다는 것은 들려야 한다.
+        SoundManager.Instance?.PlayAt(SoundKey.Boss_Attack, transform.position);
+
         Animator animator = _visual != null ? _visual.ActiveAnimator : null;
         if (animator == null)
         {

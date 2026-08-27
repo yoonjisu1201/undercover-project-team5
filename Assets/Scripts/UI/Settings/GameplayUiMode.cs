@@ -39,7 +39,7 @@ public class GameplayUiMode : MonoBehaviour
             if (ui != null)
             {
                 // 버튼으로 닫을 땐 클릭음이 대신 나므로, 클릭음이 없는 ESC 경로에서만 닫힘음을 낸다.
-                SoundManager.Instance?.Play(SoundKey.Ui_PopupClose);
+                SoundManager.Instance?.Play(ui.CloseSound);
                 ui.Close();
                 return true;
             }

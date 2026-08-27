@@ -37,9 +37,10 @@ public class PlayerHeartbeat : NetworkBehaviour
     [SerializeField, Range(0f, 1f)] private float _silencedRatio = 0.65f;
 
     [Header("발각 이후 유지 시간(초)")]
-    [Tooltip("발각이 풀린 뒤에도 이만큼은 180 을 유지한다. 스태미나를 다 써서 더 못 달리는 "
-        + "동안에도 아직 쫓기고 있다는 느낌이 남아야 한다.")]
-    [SerializeField, Min(0f)] private float _spottedHold = 5f;
+    [Tooltip("화면에서 보스가 사라진 뒤에도 이만큼은 180 을 유지한다. 도망치려면 등을 돌려야 하므로 "
+        + "0 으로 두면 도망치는 순간 소리가 내려간다. 반대로 길게 두면 보지도 않은 채 180 이 이어져서 "
+        + "'안 보이는데 왜 뛰지'가 된다. 등을 돌리고 달아나는 동안만 덮을 값으로 둔다.")]
+    [SerializeField, Min(0f)] private float _spottedHold = 3f;
 
     [Tooltip("그 뒤 이만큼은 120 을 유지하고 나서 스태미나 판정으로 돌아간다. "
         + "180 에서 곧바로 조용해지면 위험이 끝났다는 신호가 너무 이르게 온다.")]

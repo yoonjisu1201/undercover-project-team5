@@ -108,7 +108,6 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 		StopNotification();
 		_slide?.Kill();
 		_compactSlide?.Kill();
-		GameplayUiMode.Instance?.UnregisterUi(this);    // 펼친 채로 비활성화될 때 스택 정리
 	}
 
 	private void Start()
@@ -151,14 +150,12 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 
 		PlayExpandSlide(willExpand);
 
-		// 펼쳐졌을 때만 ESC 닫기 스택에 등록한다. (접힌 HUD 상태는 ESC 대상이 아님)
-		if (willExpand)
+		// ESC 닫기 스택에는 등록하지 않는다. 이 패널은 정보 허브 안에서만 열리고, 허브가 닫힐 때
+		// 같이 닫힌다(InfoHubController.Close). 스택에 올리면 허브 위에 얹혀서 ESC 가 이 패널만
+		// 접고 허브는 그대로 남는다 — Tab 으로 닫을 때와 결과가 달라진다.
+		if (willExpand && playOpenSound)
 		{
-			GameplayUiMode.Instance?.RegisterUi(this, playOpenSound);
-		}
-		else
-		{
-			GameplayUiMode.Instance?.UnregisterUi(this);
+			SoundManager.Instance?.Play(SoundKey.Ui_PopupOpen);
 		}
 
 		_isMontageRenewed = false;
@@ -329,6 +326,8 @@ public class MontageShareUI : MonoBehaviour, IClosableUi
 			RefreshCompactState();
 			return;
 		}
+
+		SoundManager.Instance?.Play(SoundKey.Ui_MontageShared);
 
 		_isNotificationPlaying = true;
 		SetCompactCardsActive(true, false);

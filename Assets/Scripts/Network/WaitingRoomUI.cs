@@ -73,6 +73,13 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
     private void Start()
 	{
+        // 대기실 입장 소리. 이 UI 는 대기실 씬에만 있으므로, 여기에 들어왔다는 것 자체가 입장이다.
+        // 방에 처음 들어올 때와 게임이 끝나고 돌아올 때 모두 여기를 지난다.
+        //
+        // 위치 없이 낸다. 들어온 본인에게 들려주는 소리라, 스폰 지점에서 3D 로 내면 스폰 위치와
+        // 카메라 위치 차이만큼 방향감이 생겨서 오히려 어색하다.
+        SoundManager.Instance?.Play(SoundKey.Room_In);
+
         // LocalizeStringEvent가 붙어있지 않으면 이후 갱신 시 NRE가 나므로,
         // 캐싱 시점에 미리 확인해 원인을 바로 알 수 있게 경고를 남긴다.
         _startGameButtonInfoLocalize = GetRequiredLocalizeStringEvent(_startGameButtonInfoText);
@@ -408,6 +415,9 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
     private void HandleReadyButtonClicked()
     {
+        // 준비와 준비 해제는 같은 소리다. 상태는 버튼 색으로 보이므로 소리까지 나눌 필요가 없다.
+        SoundManager.Instance?.Play(SoundKey.Button_Ready);
+
         _isReady = !_isReady;
         _readyManager.SetReadyServerRpc(_isReady);
         UpdateReadyButtonColor();
@@ -461,6 +471,8 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 
     private void HandleStartGameButtonClicked()
 	{
+        SoundManager.Instance?.Play(SoundKey.Button_Start);
+
         GameSessionManager.Instance.StartGame();
     }
 }
