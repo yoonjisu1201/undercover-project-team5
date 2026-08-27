@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Behavior;
 using Unity.Netcode;
@@ -76,6 +77,10 @@ public class BossController : NetworkBehaviour
 
     // 이 거리 안에서만 움직였으면 제자리로 본다.
     private const float StuckMoveThreshold = 0.3f;
+
+    // 발소리를 낸 지점과 그 소리의 키. 소리가 사람에게 닿았는지는 듣는 쪽이 판단한다.
+    // 보스는 라운드마다 새로 스폰돼 미리 참조를 잡아둘 수 없으므로 정적 이벤트로 알린다.
+    public static event Action<Vector3, SoundKey> FootstepPlayed;
 
     private void Awake()
     {
@@ -234,7 +239,9 @@ public class BossController : NetworkBehaviour
 
         if (_footsteps.Tick(running, _footstepWalkInterval, _footstepRunInterval))
         {
-            _footsteps.Play(transform.position, running);
+            Vector3 position = transform.position;
+            _footsteps.Play(position, running);
+            FootstepPlayed?.Invoke(position, _footsteps.KeyFor(running));
         }
     }
 

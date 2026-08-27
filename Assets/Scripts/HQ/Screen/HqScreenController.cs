@@ -38,9 +38,14 @@ public class HqScreenController : MonoBehaviour, IClosableUi
 			screen.gameObject.SetActive(false);
 			_screens.Add(screen);
 		}
+
+		// CCTV 화면의 닫기 버튼은 콘솔을 끄는 게 아니라 지도로 돌아가는 요청이다.
+		if (_cctvScreen is CCTVScreenController cctvController) {
+			cctvController.OnCloseRequested += HandleCctvCloseRequested;
+		}
 		
-		// 처음 시작 시에 CCTV 스크린으로 시작.
-		_currentScreen = _cctvScreen;
+		// 처음 시작 시에 지도 스크린으로 시작. CCTV는 미니맵 마커 클릭으로만 진입한다.
+		_currentScreen = _mapScreen;
 		
 		// 모든 화면 비활성화
 		gameObject.SetActive(false);
@@ -59,7 +64,7 @@ public class HqScreenController : MonoBehaviour, IClosableUi
 		
 		// Initialize()보다 먼저 켜지는 경우가 있어 기본 화면으로 받아둔다.
 		if (_currentScreen == null) {
-			_currentScreen = _cctvScreen;
+			_currentScreen = _mapScreen;
 		}
 		
 		_currentScreen.ActivateScreen();
@@ -82,6 +87,24 @@ public class HqScreenController : MonoBehaviour, IClosableUi
 	public void Close()
 	{
 		OnCloseButtonClicked();
+	}
+
+	// 미니맵 CCTV 마커 클릭처럼 외부에서 CCTV 화면을 바로 열 때 쓴다.
+	public void OpenCctvScreen()
+	{
+		OnCctvButtonClicked();
+	}
+
+	// CCTV 화면의 닫기 버튼처럼 외부에서 지도 화면으로 돌아갈 때 쓴다.
+	public void OpenMapScreen()
+	{
+		OnMapButtonClicked();
+	}
+
+	// Initialize 때 CCTV 스크린의 닫기 요청을 구독해 지도로 되돌린다.
+	private void HandleCctvCloseRequested()
+	{
+		OpenMapScreen();
 	}
 
 	private void OnCctvButtonClicked()

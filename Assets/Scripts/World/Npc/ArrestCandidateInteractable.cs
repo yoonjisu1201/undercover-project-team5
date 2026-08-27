@@ -35,6 +35,12 @@ public class ArrestCandidateInteractable : InteractableBase
     [SerializeField, Min(1f)] private float _aimRadiusMultiplier = 3f;
     public override float AimRadiusMultiplier => _aimRadiusMultiplier;
 
+    // NPC는 검거 홀드(1.2초) 중에도 계속 걸어가므로 상호작용 반경(2.5m)을 금방 벗어난다.
+    // 서버 재검증 한계(반경 + _rangeTolerance = 4.5m)를 넘으면 판정 요청이 조용히 거부되므로
+    // 그보다 여유를 두고 잡는다.
+    [SerializeField, Min(0f)] private float _extendedInteractionRange = 4f;
+    public override float ExtendedInteractionRange => _extendedInteractionRange;
+
     // 서버 재검사 시 네트워크 지연으로 인한 위치 오차를 흡수하기 위한 여유 거리.
     // NPC는 RPC 왕복 시간(상호작용 → 서버 처리) 동안에도 계속 이동하므로,
     // 그 사이 이동 가능한 거리를 여유 있게 흡수할 수 있는 값으로 잡는다.

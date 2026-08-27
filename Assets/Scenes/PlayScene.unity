@@ -214464,17 +214464,17 @@ MonoBehaviour:
   - Duration: 900
     ClearWaitDuration: 5
     MontageShareCooldown: 20
-    NpcSpawnCount: 20
+    NpcSpawnCount: 50
     ClearReward: 1000
   - Duration: 750
     ClearWaitDuration: 5
     MontageShareCooldown: 20
-    NpcSpawnCount: 30
+    NpcSpawnCount: 100
     ClearReward: 1500
   - Duration: 600
     ClearWaitDuration: 5
     MontageShareCooldown: 20
-    NpcSpawnCount: 40
+    NpcSpawnCount: 150
     ClearReward: 2000
   _waitingRoomSceneName: WaitingRoom
   _timeWarningSeconds: 60
@@ -216645,7 +216645,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ClueModulePreview
   _syncManager: {fileID: 0}
-  _clueCount: 8
+  _clueCount: 10
   _magnifiedImageLabel:
     m_TableReference:
       m_TableCollectionName: GUID:b4adb9a06522cf14a884424803a753e1
@@ -234956,6 +234956,10 @@ PrefabInstance:
       propertyPath: _targetPoint
       value: 
       objectReference: {fileID: 2551367815252677870}
+    - target: {fileID: 76557237119124644, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
+      propertyPath: m_text
+      value: " \uB77C\uC6B4\uB4DC"
+      objectReference: {fileID: 0}
     - target: {fileID: 90661367188485941, guid: a11b097bfe4e2154fa269a7e53f86e1f, type: 3}
       propertyPath: m_Enabled
       value: 0
@@ -272608,7 +272612,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArrestChaseManager
   ShowTopMostFoldoutHeaderGroup: 1
   _captureRadius: 7
-  _gaugeFillDuration: 5
+  _gaugeFillDuration: 3
   _gaugeDecayDuration: 5
 --- !u!114 &1577096358
 MonoBehaviour:
@@ -354828,7 +354832,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ClueSpawner
   _clueData: {fileID: 11400000, guid: d4c04607b5b327143b49925c8c0b3b6c, type: 2}
   _spawnCluesAtRoundStart: 1
-  _totalClueCount: 8
+  _totalClueCount: 10
   _missionRewardClueCount: 0
   _spawnCoordinator: {fileID: 361850274}
   _basementRegionController: {fileID: 760304395}

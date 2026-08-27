@@ -238,6 +238,13 @@ public class SoundManager : MonoBehaviour
         return _soundByKey.TryGetValue(key, out SoundData sound) && sound.IsLoop;
     }
 
+    // 이 소리가 닿는 최대 거리. 소리를 내지 않고 "그 자리에서 들렸을지"만 따질 때 쓴다.
+    // 3D가 아닌 소리는 거리와 무관하게 나므로 0을 돌려준다.
+    public float GetMaxDistance(SoundKey key)
+    {
+        return _soundByKey.TryGetValue(key, out SoundData sound) && sound.Is3D ? sound.MaxDistance : 0f;
+    }
+
     // 지금 이 이어지는 소리가 실제로 내고 있는 볼륨. 페이드 진행도가 여기 그대로 보인다.
     public float GetLoopVolume(SoundKey key)
     {
