@@ -20,6 +20,9 @@ public class FootstepLoop
         _runKey = runKey;
     }
 
+    // 이번 걸음이 어떤 소리로 나는지. 발소리를 들은 쪽에서 그 소리의 도달 거리를 찾을 때 쓴다.
+    public SoundKey KeyFor(bool running) => running ? _runKey : _walkKey;
+
     // 이번 프레임이 한 걸음을 낼 차례인지. true 를 돌려준 뒤에는 호출부가 Play() 를 부르거나,
     // 그냥 넘겨도 된다(공중에 떠 있는 걸음처럼). 타이머는 어느 쪽이든 이미 갱신됐다.
     public bool Tick(bool running, float walkInterval, float runInterval)

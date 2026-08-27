@@ -29,6 +29,22 @@ public class MinimapMarkerController : MonoBehaviour {
 	[Header("=== 플레이어(사람) 마커 등록 ===")]
 	[SerializeField] private GameObject _playerMarkerPrefab;
 
+	[Header("=== 외계인 마커 ===")]
+	[Tooltip("점 모양 스프라이트. 플레이어 마커와 같은 원형 프레임을 쓴다.")]
+	[SerializeField] private Sprite _alienMarkerSprite;
+
+	[Tooltip("발소리가 사람에게 닿았을 때 지도에 찍히는 점의 색.")]
+	[SerializeField] private Color _alienMarkerColor = Color.red;
+
+	[Tooltip("점의 크기(px). 다른 마커와 같은 규칙으로 지도 배율에 맞춰 조정된다.")]
+	[SerializeField, Min(1f)] private float _alienMarkerSize = 20f;
+
+	[Tooltip("발소리가 끊긴 뒤 점을 남겨두는 시간(초). 걸음 간격(0.45~0.7초)보다 길어야 점이 깜빡이지 않는다.")]
+	[SerializeField, Min(0f)] private float _alienMarkerLingerSeconds = 2f;
+
+	[Tooltip("한 발소리 지점에서 다음 지점까지 미끄러지는 데 걸리는 대략의 시간(초). 짧을수록 튀고, 길수록 늦게 따라온다.")]
+	[SerializeField, Min(0f)] private float _alienMarkerSmoothSeconds = 0.35f;
+
 	[Header("=== 마커 크기 ===")]
 	[Tooltip("마커 하나가 덮을 월드 크기(유닛). 지도 배율에 맞춰 마커도 같이 커지고 작아진다.")]
 	[SerializeField, Min(0.1f)] private float _markerWorldSize = 8f;
@@ -44,6 +60,12 @@ public class MinimapMarkerController : MonoBehaviour {
 	private readonly Dictionary<Player, PlayerMarker> _playerMarkers = new Dictionary<Player, PlayerMarker>();
 	private readonly List<Player> _stalePlayers = new List<Player>();
 	private RectTransform _startPointMarkerRect;
+
+	private RectTransform _alienMarkerRect;
+	private Vector3 _alienHeardPosition;
+	private Vector3 _alienMarkerPosition;
+	private Vector3 _alienMarkerVelocity;
+	private float _alienMarkerRemainingSeconds;
 
 	// 플레이어 마커는 접속·퇴장에 따라 수가 바뀌므로 Player별로 들고 다닌다.
 	private class PlayerMarker {
@@ -70,11 +92,22 @@ public class MinimapMarkerController : MonoBehaviour {
 
 		GameObject startPointMarkerObject = Instantiate(_startPointMarkerPrefab, _markerParent);
 		_startPointMarkerRect = startPointMarkerObject.GetComponent<RectTransform>();
+
+		_alienMarkerRect = CreateAlienMarker();
+		BossController.FootstepPlayed += HandleAlienFootstep;
 	}
 
 	private void OnDisable() {
 		_cctvHub.OnCctvPointsActivated -= RebuildCctvMarkers;
 		ClearCctvMarkers();
+
+		BossController.FootstepPlayed -= HandleAlienFootstep;
+
+		if (_alienMarkerRect != null) {
+			Destroy(_alienMarkerRect.gameObject);
+			_alienMarkerRect = null;
+		}
+		_alienMarkerRemainingSeconds = 0f;
 
 		if (_startPointMarkerRect != null) {
 			Destroy(_startPointMarkerRect.gameObject);
@@ -149,6 +182,82 @@ public class MinimapMarkerController : MonoBehaviour {
 		}
 
 		UpdatePlayerMarkers();
+		UpdateAlienMarker();
+	}
+
+	// 발소리는 낸 쪽이 알려주고, 그 소리가 사람에게 닿았는지는 여기서 판단한다.
+	// 외계인 위치도 사람 위치도 이미 동기화돼 있어 통신 없이 각자 계산할 수 있다.
+	private void HandleAlienFootstep(Vector3 position, SoundKey key) {
+		SoundManager soundManager = SoundManager.Instance;
+		if (soundManager == null) {
+			return;
+		}
+
+		float audibleRange = soundManager.GetMaxDistance(key);
+		if (audibleRange <= 0f) {
+			return;
+		}
+
+		float sqrRange = audibleRange * audibleRange;
+		foreach (Player player in Player.ActiveInstances) {
+			if (player == null ||
+				(player.transform.position - position).sqrMagnitude > sqrRange) {
+				continue;
+			}
+
+			// 꺼져 있던 점이 다시 켜질 때는 지도를 가로질러 미끄러져 오면 안 된다. 그때는 바로 그 자리에 찍는다.
+			if (_alienMarkerRemainingSeconds <= 0f) {
+				_alienMarkerPosition = position;
+				_alienMarkerVelocity = Vector3.zero;
+			}
+
+			// 점이 짚는 것은 외계인이 아니라 방금 들린 발소리 지점이다.
+			_alienHeardPosition = position;
+			_alienMarkerRemainingSeconds = _alienMarkerLingerSeconds;
+			return;
+		}
+	}
+
+	// 마지막으로 들린 발소리 자리로 점을 옮긴다. 걸음마다 순간이동하면 눈에 띄게 튀므로
+	// 지점 사이를 미끄러지게 한다. 보여주는 자리는 여전히 들린 지점뿐이고, 한 걸음만큼 늦게 따라온다.
+	// 걸음과 걸음 사이에 점이 깜빡이지 않도록 소리가 끊긴 뒤에도 잠깐 유지한다.
+	private void UpdateAlienMarker() {
+		if (_alienMarkerRect == null) {
+			return;
+		}
+
+		if (_alienMarkerRemainingSeconds <= 0f) {
+			_alienMarkerRect.gameObject.SetActive(false);
+			return;
+		}
+
+		_alienMarkerRemainingSeconds -= Time.deltaTime;
+		_alienMarkerPosition = Vector3.SmoothDamp(
+			_alienMarkerPosition,
+			_alienHeardPosition,
+			ref _alienMarkerVelocity,
+			_alienMarkerSmoothSeconds);
+		PlaceMarker(_alienMarkerRect, _alienMarkerPosition);
+	}
+
+	// 점 하나가 전부라 프리팹을 따로 두지 않고 여기서 만든다.
+	// 앵커·피벗은 다른 마커 프리팹과 같은 중앙 기준이어야 TryProjectToMap의 좌표가 맞는다.
+	private RectTransform CreateAlienMarker() {
+		GameObject markerObject = new GameObject("AlienMarker", typeof(RectTransform), typeof(Image));
+		RectTransform markerRect = (RectTransform)markerObject.transform;
+		markerRect.SetParent(_markerParent, false);
+		markerRect.anchorMin = new Vector2(0.5f, 0.5f);
+		markerRect.anchorMax = new Vector2(0.5f, 0.5f);
+		markerRect.pivot = new Vector2(0.5f, 0.5f);
+		markerRect.sizeDelta = new Vector2(_alienMarkerSize, _alienMarkerSize);
+
+		Image icon = markerObject.GetComponent<Image>();
+		icon.sprite = _alienMarkerSprite;
+		icon.color = _alienMarkerColor;
+		icon.raycastTarget = false;
+
+		markerObject.SetActive(false);
+		return markerRect;
 	}
 
 	// 접속 중인 플레이어 수만큼 마커를 맞춰두고 위치·색·이름·바라보는 방향을 갱신한다.
