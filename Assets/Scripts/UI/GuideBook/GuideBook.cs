@@ -25,6 +25,11 @@ public class GuideBook : MonoBehaviour, IClosableUi
     [SerializeField] private Button _topPrevious;   // 위 버튼 = 이전
     [SerializeField] private Button _bottomNext;    // 아래 버튼 = 다음
 
+    [Header("목차 탭")]
+    [SerializeField] private RectTransform _navigationTabContainer;
+    [SerializeField] private GuideBookNavigationTab _navigationTabPrefab;
+    [SerializeField] private List<string> _navigationTitles = new List<string>();
+
     [Header("장식")]
     [SerializeField] private GameObject _pageUpIndicator; // 첫 페이지가 아닐 때만 보이는 넘긴 종이 표시
     [SerializeField, Range(0f, 1f)] private float _pageUpRevealFrac = 0.6f; // 페이지가 이 비율만큼 젖혀져 위로 올라오면 Page_Up 표시
@@ -39,12 +44,14 @@ public class GuideBook : MonoBehaviour, IClosableUi
     private Tween _flip;
     private CustomInputActions _actions;
     private bool _initialized;
+    private readonly List<GuideBookNavigationTab> _navigationTabs = new List<GuideBookNavigationTab>();
     
     public event Action OnClose;
 
     private void Awake()
     {
         InitializePages();
+        InitializeNavigationTabs();
         UpdateButtons();
     }
 
@@ -68,6 +75,21 @@ public class GuideBook : MonoBehaviour, IClosableUi
         }
 
         if (_pageUpIndicator != null) _pageUpIndicator.SetActive(_index > 0);
+    }
+
+    private void InitializeNavigationTabs()
+    {
+        if (_navigationTabContainer == null || _navigationTabPrefab == null) return;
+
+        for (int i = 0; i < _pages.Count; i++)
+        {
+            GuideBookNavigationTab tab = Instantiate(_navigationTabPrefab, _navigationTabContainer);
+            string title = i < _navigationTitles.Count ? _navigationTitles[i] : string.Empty;
+            tab.Initialize(i, title, GoToPage);
+            _navigationTabs.Add(tab);
+        }
+
+        UpdateNavigationTabs();
     }
 
     // 버튼 onClick은 인스펙터에서 위=GoPrevious / 아래=GoNext로 연결한다.
@@ -120,38 +142,44 @@ public class GuideBook : MonoBehaviour, IClosableUi
     // 다음 페이지: 현재 페이지(맨 앞)가 위로 접혀 올라가며 뒤의 다음 페이지를 드러낸다.
     public void GoNext()
     {
-        if (IsFlipping() || _index >= _pages.Count - 1) return;
-
-        RectTransform current = _pages[_index].RectTransform;
-        RectTransform incoming = _pages[_index + 1].RectTransform;
-        _index++;
-
-        // 다음 페이지를 뒤에 평평하게 깔아둔다.
-        incoming.gameObject.SetActive(true);
-        incoming.localRotation = Quaternion.identity;
-
-        _flip = current.DOLocalRotate(new Vector3(-_flipAngle, 0f, 0f), _flipDuration)
-            .SetEase(_liftEase)
-            .OnUpdate(() => RevealPageUpDuringLift(current))
-            .OnComplete(() =>
-            {
-                current.gameObject.SetActive(false);
-                current.localRotation = Quaternion.identity; // 되돌아올 때를 위해 복구
-                _flip = null;
-                UpdateButtons();
-            });
-
-        UpdateButtons();
+        GoToPage(_index + 1);
     }
 
     // 이전 페이지: 이전 페이지(맨 앞)가 접힌 상태에서 아래로 펴지며 현재 페이지를 덮는다.
     public void GoPrevious()
     {
-        if (IsFlipping() || _index <= 0) return;
+        GoToPage(_index - 1);
+    }
+
+    public void GoToPage(int targetIndex)
+    {
+        if (IsFlipping() || targetIndex < 0 || targetIndex >= _pages.Count || targetIndex == _index) return;
 
         RectTransform current = _pages[_index].RectTransform;
-        RectTransform incoming = _pages[_index - 1].RectTransform;
-        _index--;
+        RectTransform incoming = _pages[targetIndex].RectTransform;
+        bool movingForward = targetIndex > _index;
+        _index = targetIndex;
+
+        if (movingForward)
+        {
+            incoming.gameObject.SetActive(true);
+            incoming.localRotation = Quaternion.identity;
+
+            _flip = current.DOLocalRotate(new Vector3(-_flipAngle, 0f, 0f), _flipDuration)
+                .SetEase(_liftEase)
+                .OnUpdate(() => RevealPageUpDuringLift(current))
+                .OnComplete(() =>
+                {
+                    current.gameObject.SetActive(false);
+                    current.localRotation = Quaternion.identity;
+                    _flip = null;
+                    UpdateButtons();
+                });
+
+            UpdateNavigationTabs();
+            UpdateButtons();
+            return;
+        }
 
         incoming.gameObject.SetActive(true);
         incoming.localRotation = Quaternion.Euler(-_flipAngle, 0f, 0f); // 접힌 상태에서 시작
@@ -166,6 +194,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
                 UpdateButtons();
             });
 
+        UpdateNavigationTabs();
         UpdateButtons();
     }
 
@@ -177,6 +206,14 @@ public class GuideBook : MonoBehaviour, IClosableUi
         bool busy = IsFlipping();
         if (_topPrevious != null) _topPrevious.interactable = !busy && _index > 0;                 // 위=이전
         if (_bottomNext != null) _bottomNext.interactable = !busy && _index < _pages.Count - 1;    // 아래=다음
+    }
+
+    private void UpdateNavigationTabs()
+    {
+        for (int i = 0; i < _navigationTabs.Count; i++)
+        {
+            _navigationTabs[i].SetSelected(i == _index);
+        }
     }
 
     // 다음으로 넘길 때: 현재 페이지가 위로 충분히 젖혀져(TopPrevious 위치까지 올라와) 있으면 Page_Up을 켠다.
