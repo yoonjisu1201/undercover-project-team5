@@ -16,10 +16,10 @@ public class BossThreatReporter : MonoBehaviour
     [Tooltip("이 거리 안에서 보스를 눈으로 보면 '발각'과 같게 다룬다. 보스가 나를 못 봤어도 "
         + "내가 본 순간부터 도망이 시작되기 때문이다. 멀리 스쳐 보이는 것까지 세면 마주친 적도 "
         + "없이 180 이 나므로 넉넉하게 잡지 않는다.")]
-    [SerializeField, Min(0f)] private float _playerSightRange = 12f;
+    [SerializeField, Min(0f)] private float _playerSightRange = 8f;
 
-    [Tooltip("플레이어 시야각 전체(도). 화면 구석에 걸친 것은 알아본 것으로 보기 어려워서 "
-        + "화면 폭보다 좁게 둔다.")]
+    [Tooltip("화면 중앙을 기준으로 한 시야각 전체(도). 좌우·위아래를 함께 본다. "
+        + "화면 구석에 걸친 것은 알아본 것으로 보기 어려워서 실제 화면 화각보다 좁게 둔다.")]
     [SerializeField, Range(1f, 360f)] private float _playerSightAngle = 60f;
 
     [Tooltip("시야를 막는 레이어. 보스의 Sight Blockers 와 같은 값을 넣는다.")]
@@ -122,7 +122,7 @@ public class BossThreatReporter : MonoBehaviour
         // 심장 소리는 내가 느끼는 것이라, 내가 모르는 사실에 반응하면 안 된다. 등 뒤에서
         // 보스가 나를 봤다는 걸 소리로 알려주면, 소리가 내 감각이 아니라 정보 누출이 된다.
         // 보스가 나를 봤으면 기억이 생기므로 아래 수색 판정에서 120 으로 잡힌다.
-        if (PlayerSeesBoss(player.transform)) return BossThreat.Spotted;
+        if (PlayerSeesBoss(player)) return BossThreat.Spotted;
 
         // 여기부터는 보스가 누군가를 찾고 있는 중일 때만 소리가 난다.
         if (!searching) return BossThreat.None;
@@ -134,14 +134,14 @@ public class BossThreatReporter : MonoBehaviour
             : BossThreat.None;
     }
 
-    // 이 플레이어가 지금 보스를 눈으로 보고 있는지.
+    // 이 플레이어가 지금 보스를 화면으로 보고 있는지.
     //
-    // 위아래 각은 보지 않고 좌우만 본다. 보스는 바닥을 걸어다니고 플레이어도 그렇기 때문에
-    // 수평 판정만으로 거의 같은 결과가 나온다. 위아래를 넣으려면 네트워크로 오는 시선 각의
-    // 부호 규칙까지 맞춰야 하는데, 그 대가로 얻는 정확도가 크지 않다.
-    private bool PlayerSeesBoss(Transform player)
+    // 몸통 yaw 만 보면 바닥이나 천장을 보고 있어도 "봤다"가 된다. 화면에 없는 것 때문에 180 이
+    // 나므로, 카메라가 실제로 향한 방향으로 판정한다. 좌우·위아래를 한 번에 보는 원뿔이다.
+    private bool PlayerSeesBoss(GameObject player)
     {
-        Vector3 eye = player.position + Vector3.up * PlayerEyeHeight;
+        Transform body = player.transform;
+        Vector3 eye = body.position + Vector3.up * PlayerEyeHeight;
         Vector3 target = transform.position + Vector3.up * BossChestHeight;
         Vector3 delta = target - eye;
         float distance = delta.magnitude;
@@ -154,26 +154,31 @@ public class BossThreatReporter : MonoBehaviour
 
         if (distance <= 0.01f) return true;
 
-        // 몸통이 마우스를 따라 돌아가므로(PlayerCameraController) forward 가 곧 보는 방향이다.
-        Vector3 flat = delta;
-        flat.y = 0f;
-        float angle = Vector3.Angle(player.forward, flat);
+        // yaw 는 몸통이 마우스를 따라 돌아가므로 트랜스폼에 그대로 들어 있고(PlayerCameraController),
+        // pitch 는 오너가 NetworkVariable 로 올려주는 값이라 서버에서도 읽을 수 있다.
+        float yaw = body.eulerAngles.y;
+        float pitch = player.TryGetComponent(out PlayerCameraController camera) ? camera.ViewPitch : 0f;
+        Vector3 look = Quaternion.Euler(pitch, yaw, 0f) * Vector3.forward;
+
+        float angle = Vector3.Angle(look, delta);
+        string facing = $"yaw {yaw:0}° pitch {pitch:0}°";
 
         if (angle > _playerSightAngle * 0.5f)
         {
-            _diagnosis.Append($"{distance:0.0}m, 각도 {angle:0}° > {_playerSightAngle * 0.5f:0}° 시야 밖");
+            _diagnosis.Append(
+                $"{distance:0.0}m, 각도 {angle:0}° > {_playerSightAngle * 0.5f:0}° 화면 밖 ({facing})");
             return false;
         }
 
-        Collider blocker = FindBlocker(eye, delta / distance, distance, player);
+        Collider blocker = FindBlocker(eye, delta / distance, distance, body);
 
         if (blocker != null)
         {
-            _diagnosis.Append($"{distance:0.0}m / {angle:0}° 가림: {blocker.gameObject.name}");
+            _diagnosis.Append($"{distance:0.0}m / {angle:0}° 가림: {blocker.gameObject.name} ({facing})");
             return false;
         }
 
-        _diagnosis.Append($"{distance:0.0}m / {angle:0}° 보임");
+        _diagnosis.Append($"{distance:0.0}m / {angle:0}° 보임 ({facing})");
         return true;
     }
 
