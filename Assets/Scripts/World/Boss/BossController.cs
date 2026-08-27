@@ -36,6 +36,10 @@ public class BossController : NetworkBehaviour
     [Tooltip("이 거리 안에 사람이 있는 모듈로는 옮기지 않는다. 눈앞에 나타나면 대응할 여지가 없다.")]
     [SerializeField, Min(0f)] private float _teleportMinPlayerDistance = 25f;
 
+    [Tooltip("사라진 뒤 다시 나타나기까지의 시간(초). 사라지는 소리(Teleport 3_1) 길이에 맞춰 둔 값이다. "
+        + "이 시간 동안 보스는 보이지도 않고 쫓지도 않으므로, 소리보다 짧게 잡아도 된다.")]
+    [SerializeField, Min(0f)] private float _teleportHiddenSeconds = 3f;
+
     [Header("애니메이션")]
     [SerializeField] private string _walkParameter = "IsWalking";
     [SerializeField] private string _runParameter = "IsRunning";
@@ -77,6 +81,10 @@ public class BossController : NetworkBehaviour
 
     // 이 거리 안에서만 움직였으면 제자리로 본다.
     private const float StuckMoveThreshold = 0.3f;
+
+    // 순간이동으로 모습을 감추고 있는 중인지와, 다시 나타나기까지 남은 시간.
+    private bool _isHidden;
+    private float _hiddenRemainingSeconds;
 
     // 발소리를 낸 지점과 그 소리의 키. 소리가 사람에게 닿았는지는 듣는 쪽이 판단한다.
     // 보스는 라운드마다 새로 스폰돼 미리 참조를 잡아둘 수 없으므로 정적 이벤트로 알린다.
@@ -145,6 +153,9 @@ public class BossController : NetworkBehaviour
         // 애니메이션은 각 클라이언트가 자기 화면의 Animator에 직접 넣는다.
         UpdateAnimatorState();
 
+        // 사라져 있는 시간은 각 클라이언트가 따로 센다. 위치가 이미 동기화돼 있어 통신이 필요 없다.
+        UpdateTeleportHide();
+
         if (!IsServer)
         {
             return;
@@ -155,6 +166,12 @@ public class BossController : NetworkBehaviour
             _restartGraphPending = false;
             _brain.Restart();
             _stuckSeconds = 0f;
+            return;
+        }
+
+        // 사라져 있는 동안 제자리에 서 있는 것은 굳은 것이 아니라 의도된 상황이다.
+        if (_isHidden)
+        {
             return;
         }
 
@@ -231,7 +248,9 @@ public class BossController : NetworkBehaviour
     // 발소리도 각 클라이언트가 자기 화면에서 낸다. 위치가 이미 동기화돼 있어 통신이 필요 없다.
     private void UpdateFootstep(bool walking, bool running)
     {
-        if (!walking)
+        // 사라져 있는 동안 발소리가 나면 옮겨간 자리가 그대로 드러난다. Warp 직후에는 위치가 크게
+        // 튀어서 클라이언트 쪽 속도 계산이 달리는 것으로 잡기도 하는데, 그 한 걸음까지 여기서 막힌다.
+        if (!walking || _isHidden)
         {
             _footsteps.Stop();
             return;
@@ -299,19 +318,21 @@ public class BossController : NetworkBehaviour
         Vector3 departurePosition = transform.position;
 
         // Warp 는 경로를 버리고 위치만 옮긴다. 이동 중이던 경로가 남으면 새 자리에서 되돌아가려 한다.
+        //
+        // 소리가 끝나기를 기다렸다 옮기지 않는다. 그러면 사라져 있는 동안 보스가 보이지 않는 채로
+        // 떠난 자리에 서 있게 되어, 옆에 있던 사람이 보이지 않는 것에게 맞는다.
         _agent.Warp(bestPosition);
 
         if (_agent.isOnNavMesh)
         {
             _agent.ResetPath();
+            _agent.isStopped = true;
         }
 
-        // 이동 노드는 "표적 위치가 바뀔 때만" 목적지를 다시 잡는다. Warp 로 경로가 사라져도
-        // 표적은 그대로이므로 목적지를 다시 잡지 않고, 결과적으로 새 자리에서 멈춰 선다.
-        // 그래프를 다시 시작해서 이동 노드가 목적지를 새로 계산하게 만든다.
-        _restartGraphPending = true;
+        // 사라져 있는 동안은 판단도 멈춘다. 보이지 않는 채로 돌아다니면 도착한 자리가 드러난다.
+        _brain.enabled = false;
 
-        PlayTeleportCueRpc(departurePosition);
+        StartTeleportHideRpc(departurePosition);
         return true;
     }
 
@@ -339,14 +360,64 @@ public class BossController : NetworkBehaviour
         return nearest;
     }
 
-    // 보스가 떠난 자리에서 낸다. 근처에 있던 사람은 "옆에 있던 것이 사라졌다"를 알아채고,
-    // 멀리 있던 사람에게는 들리지 않는다. 어디로 갔는지는 여전히 아무도 모른다.
+    // 떠난 자리에서 사라지는 소리를 내고 모습을 감춘다. 근처에 있던 사람은 "옆에 있던 것이
+    // 사라졌다"를 알아채고, 멀리 있던 사람에게는 들리지 않는다.
     //
     // 위치는 인자로 받는다. 이 시점이면 NetworkTransform 이 이미 새 위치를 퍼뜨렸을 수 있어서
     // 클라이언트에서 transform.position 을 읽으면 도착 지점이 나온다.
     [Rpc(SendTo.Everyone)]
-    private void PlayTeleportCueRpc(Vector3 departurePosition)
-        => SoundManager.Instance?.PlayAt(SoundKey.Boss_TeleportCue, departurePosition);
+    private void StartTeleportHideRpc(Vector3 departurePosition)
+    {
+        SoundManager.Instance?.PlayAt(SoundKey.Boss_Disappear, departurePosition);
+        _footsteps.Stop();
+        _visual.SetVisible(false);
+
+        _isHidden = true;
+        _hiddenRemainingSeconds = _teleportHiddenSeconds;
+    }
+
+    // 사라지는 소리가 끝나면 도착한 자리에서 나타나는 소리와 함께 다시 모습을 드러낸다.
+    private void UpdateTeleportHide()
+    {
+        if (!_isHidden)
+        {
+            return;
+        }
+
+        _hiddenRemainingSeconds -= Time.deltaTime;
+        if (_hiddenRemainingSeconds > 0f)
+        {
+            return;
+        }
+
+        _isHidden = false;
+        _visual.SetVisible(true);
+        SoundManager.Instance?.PlayAt(SoundKey.Boss_Appear, transform.position);
+
+        if (IsServer)
+        {
+            ResumeAfterTeleport();
+        }
+    }
+
+    private void ResumeAfterTeleport()
+    {
+        _brain.enabled = true;
+
+        if (_agent.isOnNavMesh)
+        {
+            _agent.isStopped = false;
+        }
+
+        // 이동 노드는 "표적 위치가 바뀔 때만" 목적지를 다시 잡는다. Warp 로 경로가 사라져도
+        // 표적은 그대로이므로 목적지를 다시 잡지 않고, 결과적으로 새 자리에서 멈춰 선다.
+        // 그래프를 다시 시작해서 이동 노드가 목적지를 새로 계산하게 만든다.
+        _restartGraphPending = true;
+
+        // 사라져 있던 시간은 굳은 것이 아니다. 감시 타이머를 새 자리 기준으로 되돌린다.
+        _stuckAnchor = transform.position;
+        _stuckSeconds = 0f;
+    }
 
     #endregion
 
