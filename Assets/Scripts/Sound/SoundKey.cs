@@ -37,6 +37,10 @@ public enum SoundKey
 
     // 상호작용
     Item_Pickup = 10,
+
+    // 내려놓는 순간과, 그 아이템이 바닥에 닿는 순간. 주울 때와 달리 월드에서 나는 소리라 위치를 갖는다.
+    Item_Drop = 60,
+    Item_Droped = 61,
     Inventory_SlotSelect = 11,
     Interact_Fail = 12,
     // 본부·지하 출입문. 들어갈 때와 나올 때 소리가 달라야 해서 나눠 둔다.
