@@ -37,6 +37,12 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
     private Transform _handAnchor;
     private bool _isHandVisible = true;
 
+    // 드롭된 뒤 바닥에 처음 닿기를 기다리는 중인지. 물리는 서버만 돌리므로 서버에서만 의미가 있다.
+    private bool _awaitingDropLanding;
+
+    // 버리는 소리를 낸 소스. 바닥에 먼저 닿으면 여기서 끊는다. 클라이언트마다 자기 것을 들고 있다.
+    private AudioSource _dropSource;
+
     public ItemData ItemData => _itemData;
     public Quaternion InitialRotation => _initialRotation;
     public ItemType ItemId => _itemData != null ? _itemData.ItemId : ItemType.None;
@@ -247,6 +253,7 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
 
         _rigidBodySetter?.Freeze();
         _isStored.Value = true;
+        _awaitingDropLanding = false;
     }
     // 서버 전용: 인벤토리에서 꺼내 월드에 다시 놓는다.
     [Rpc(SendTo.Server)]
@@ -272,6 +279,76 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
 
         _rigidBodySetter?.Rearm(position, rotation, initialVelocity);
         BlockInteraction(blockDuration);
+
+        // 손을 떠나는 순간과 바닥에 닿는 순간은 서로 다른 소리다.
+        PlayDropSoundRpc(position);
+        _awaitingDropLanding = true;
+    }
+
+    // 떨어진 아이템이 바닥에 처음 닿는 순간에 소리를 낸다. 던지는 순간에 내면 손을 떠나기도 전에
+    // 울리고, 실제로 떨어진 자리와 다른 곳에서 난다.
+    //
+    // 물리는 서버만 돌린다(ItemRigidbodySetter). 클라이언트는 Kinematic 이라 충돌이 오지 않으므로
+    // 판정도 서버가 하고 결과만 퍼뜨린다.
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (!_awaitingDropLanding || !IsServer)
+        {
+            return;
+        }
+
+        foreach (ContactPoint contact in collision.contacts)
+        {
+            // 위를 향하는 면에 닿았을 때만 바닥으로 본다. 벽에 스치는 것까지 세면
+            // 던지자마자 옆 벽에서 소리가 난다.
+            if (contact.normal.y <= 0.5f)
+            {
+                continue;
+            }
+
+            _awaitingDropLanding = false;
+            PlayLandingSoundRpc(contact.point);
+            return;
+        }
+    }
+
+    // 소리는 각자 자기 화면에서 나야 해서 따로 보낸다. 두 소리 모두 주울 때(Item_Pickup)와 달리
+    // 월드에서 나는 소리라, 그 자리에서 내고 근처 사람도 듣는다.
+    //
+    // 버리는 순간, 플레이어 앞에서 난다.
+    [Rpc(SendTo.Everyone)]
+    private void PlayDropSoundRpc(Vector3 position)
+    {
+        _dropSource = SoundManager.Instance?.PlayAt(SoundKey.Item_Drop, position);
+    }
+
+    // 바닥에 닿는 순간, 실제로 떨어진 자리에서 난다.
+    [Rpc(SendTo.Everyone)]
+    private void PlayLandingSoundRpc(Vector3 position)
+    {
+        // 발밑에 떨어뜨리면 버리는 소리가 끝나기도 전에 바닥에 닿는다. 그때는 앞 소리를 끊고
+        // 닿는 소리만 남긴다. 둘이 겹쳐 나면 무슨 소리를 들은 건지 흐려진다.
+        StopDropSound();
+
+        SoundManager.Instance?.PlayAt(SoundKey.Item_Droped, position);
+    }
+
+    // 소스는 SoundManager 가 돌려쓰는 풀에서 온 것이라, 그 사이 다른 소리가 차지했을 수 있다.
+    // 내가 튼 클립이 아직 재생 중일 때만 끊는다. (FootstepLoop 이 같은 이유로 같은 확인을 한다)
+    private void StopDropSound()
+    {
+        if (_dropSource == null)
+        {
+            return;
+        }
+
+        SoundManager manager = SoundManager.Instance;
+        if (_dropSource.isPlaying && manager != null && manager.Owns(SoundKey.Item_Drop, _dropSource.clip))
+        {
+            _dropSource.Stop();
+        }
+
+        _dropSource = null;
     }
 
     // 서버 전용: 소비/소모되어 완전히 사라지는 경우.
