@@ -15,12 +15,20 @@ public class ArrestCandidatePortrait : MonoBehaviour
     private int _portraitOnlyLayer;
     private Transform[] _overriddenParts;
     private int _originalLayer; // 모든 하위 파츠가 같은 레이어를 쓰므로 하나만 기억해도 충분하다
+    private GameObject _portraitBackdrop;
 
     private void Awake()
     {
         if (_portraitCamera != null)
         {
             _portraitCamera.enabled = false; // Render()로 필요할 때만 수동 캡처한다
+        }
+
+        Transform backdropTransform = transform.Find("Quad");
+        if (backdropTransform != null)
+        {
+            _portraitBackdrop = backdropTransform.gameObject;
+            _portraitBackdrop.SetActive(false);
         }
 
         _portraitOnlyLayer = LayerMask.NameToLayer(_portraitOnlyLayerName);
@@ -50,10 +58,18 @@ public class ArrestCandidatePortrait : MonoBehaviour
         alienReveal?.BeginHumanFormCapture();
 
         OverrideLayer(candidateTransform); // 되살린 시민 파츠까지 포함해야 하므로 순서가 중요하다
-        _portraitCamera.Render(); // 후보만 보이는 레이어로 바꾼 상태에서 한 프레임만 캡처
-        RestoreLayer();
+        _portraitBackdrop?.SetActive(true);
 
-        alienReveal?.EndHumanFormCapture();
+        try
+        {
+            _portraitCamera.Render(); // 후보만 보이는 레이어로 바꾼 상태에서 한 프레임만 캡처
+        }
+        finally
+        {
+            _portraitBackdrop?.SetActive(false);
+            RestoreLayer();
+            alienReveal?.EndHumanFormCapture();
+        }
     }
 
     // 후보 NPC의 활성화된 파츠 전체를 전용 레이어로 바꿔서, 캡처 순간 다른 NPC가 같이 찍히지 않게 한다.
