@@ -88,6 +88,14 @@ public sealed class HqItemSpawner : MonoBehaviour
 
             pickupItem.Configure(_item);
             networkObject.Spawn(destroyWithScene: true);
+
+            // 본부 선반에 최초 배치되는 제압기는 물리 충돌로 튀지 않도록 고정한다.
+            // 플레이어가 주웠다가 버릴 때는 기존 Rearm()에서 물리가 다시 활성화된다.
+            if (_item.ItemId == ItemType.AlienCaptureGun &&
+                toolObject.TryGetComponent(out ItemRigidbodySetter rigidbodySetter))
+            {
+                rigidbodySetter.Freeze();
+            }
         }
     }
 
