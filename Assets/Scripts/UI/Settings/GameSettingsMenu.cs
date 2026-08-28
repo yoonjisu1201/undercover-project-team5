@@ -351,15 +351,15 @@ public sealed class GameSettingsMenu : MonoBehaviour
     //--- OnClick 이벤트 핸들러 ---//
     private void OnEscape(InputAction.CallbackContext context)
     {
-        if (_settingsPanel.activeSelf)
+        // 설정창 위에 단서·가이드북 등이 떠 있으면 가장 위 UI부터 닫는다.
+        if (GameplayUiMode.Instance != null && GameplayUiMode.Instance.CloseTopUi())
         {
-            ReturnToGame();
             return;
         }
 
-        // 떠 있는 UI(단서·가이드 북 등)가 있으면 맨 위 것부터 닫고, 다 닫혔을 때만 설정창을 연다.
-        if (GameplayUiMode.Instance != null && GameplayUiMode.Instance.CloseTopUi())
+        if (_settingsPanel.activeSelf)
         {
+            ReturnToGame();
             return;
         }
 
