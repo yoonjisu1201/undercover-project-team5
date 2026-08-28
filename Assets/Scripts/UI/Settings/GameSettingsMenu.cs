@@ -20,6 +20,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private const string ResolutionIndexKey = "ResolutionIndex";
     private const string FullScreenKey = "FullScreen";
     private const string MouseSensitivityKey = "MouseSensitivity";
+    private const string UiJumpShakeKey = "UiJumpShake";
 
     // 지원되는 해상도 목록 (가로 x 세로)
     private static readonly Vector2Int[] SupportedResolutions =
@@ -61,6 +62,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [Header("Graphics Settings")]
     [SerializeField] private TMP_Text _resolutionText;
     [SerializeField] private Toggle _fullScreenToggle;
+    [SerializeField] private Toggle _uiJumpShakeToggle;
 
     [Header("Gameplay Settings")]
     [SerializeField] private Slider _sensitivitySlider;
@@ -81,6 +83,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
         InitailizeVolumeSliders();
         InitializeGraphicsSettings();
+        InitializeUiJumpShake();
         InitializeSensitivity();
         SelectTab(0);
     }
@@ -99,6 +102,23 @@ public sealed class GameSettingsMenu : MonoBehaviour
         bool isFullScreen = PlayerPrefs.GetInt(FullScreenKey, Screen.fullScreen ? 1 : 0) == 1;
         _fullScreenToggle.SetIsOnWithoutNotify(isFullScreen);
         ApplyResolution(isFullScreen);
+    }
+
+    // 해상도 참조가 비어 있으면 InitializeGraphicsSettings 가 통째로 빠져나가므로 따로 둔다.
+    // 이 설정은 해상도와 아무 관계가 없다.
+    private void InitializeUiJumpShake()
+    {
+        bool isEnabled = PlayerPrefs.GetInt(UiJumpShakeKey, 1) == 1;
+
+        _uiJumpShakeToggle?.SetIsOnWithoutNotify(isEnabled);
+        UiJumpShake.IsEnabled = isEnabled;
+    }
+
+    // 토글에 연결한다. 점프·착지할 때 UI 가 흔들리는 연출을 끈다.
+    public void SetUiJumpShake(bool isEnabled)
+    {
+        PlayerPrefs.SetInt(UiJumpShakeKey, isEnabled ? 1 : 0);
+        UiJumpShake.IsEnabled = isEnabled;
     }
 
     private void InitializeSensitivity()
