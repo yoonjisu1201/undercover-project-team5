@@ -15,7 +15,7 @@ public class GuideBookHud : MonoBehaviour
     {
         _actions = new CustomInputActions();
         _guideBook.gameObject.SetActive(false);
-        _dimmer.gameObject.SetActive(false);
+        if (_dimmer != null) _dimmer.gameObject.SetActive(false);
     }
 
     private void OnEnable()
@@ -31,7 +31,7 @@ public class GuideBookHud : MonoBehaviour
     private void Update()
     {
         bool guideOpen = _guideBook.gameObject.activeSelf;
-        if (_icon.activeSelf == guideOpen)
+        if (_icon != null && _icon.activeSelf == guideOpen)
         {
             _icon.SetActive(!guideOpen);
         }
@@ -45,13 +45,13 @@ public class GuideBookHud : MonoBehaviour
     // 가이드북 열릴 때 필요한 동작 수행할 HandleGuideBookClosed함수 추가
     private void OpenGuideBook() {
         _guideBook.Show();
-        _dimmer.gameObject.SetActive(true);
+        if (_dimmer != null) _dimmer.gameObject.SetActive(true);
         _guideBook.OnClose += HandleGuideBookClosed;
     }
-    
+
     // Dimmer도 같이 비활성화한다. 그리고 이벤트에서도 제외함
     private void HandleGuideBookClosed() {
-        _dimmer.gameObject.SetActive(false);
+        if (_dimmer != null) _dimmer.gameObject.SetActive(false);
         _guideBook.OnClose -= HandleGuideBookClosed;
     }
 }
