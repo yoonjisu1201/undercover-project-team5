@@ -14,11 +14,7 @@ public class PlayerMoveSample : NetworkBehaviour
 {
 	private const int NoSeat = -1;
 	private const string IdleStateName = "Base Layer.Idle";
-	private const string StandToSitStateName = "Base Layer.Stand To Sit";
 	private const string SittingIdleStateName = "Base Layer.Sitting Idle";
-	private const string SitToStandStateName = "Base Layer.Sit To Stand";
-	private const float SeatStandForwardOffset = 0.245f;
-	private const float SeatTransitionHeightOffset = 0.28f;
 
 	private enum SeatState : byte
 	{
@@ -129,9 +125,6 @@ public class PlayerMoveSample : NetworkBehaviour
 	private bool _isGettingUp;
 	private bool _isSeatMovementBlocked;
 	private bool _seatTransitionCompletionRequested;
-	private Vector3 _seatPosition;
-	private Quaternion _seatRotation;
-	private Vector3 _seatStandPosition;
 
 	public bool CanSit =>
 		_seatState.Value == SeatState.Standing
@@ -152,7 +145,6 @@ public class PlayerMoveSample : NetworkBehaviour
 		_actions.Enable();
 
 		_animator = GetComponent<Animator>();
-		_animator.applyRootMotion = true;
 		_playerHealth = GetComponent<PlayerHealth>();
 		_playerStamina = GetComponent<PlayerStamina>();
 		_playerInteraction = GetComponent<PlayerInteraction>();
@@ -477,54 +469,6 @@ public class PlayerMoveSample : NetworkBehaviour
 		ApplyAirGravity();
 	}
 
-	private void OnAnimatorMove()
-	{
-		SeatState seatState = _seatState.Value;
-		if (!IsOwner || seatState != SeatState.SittingDown && seatState != SeatState.StandingUp)
-		{
-			return;
-		}
-
-		bool isSittingDown = seatState == SeatState.SittingDown;
-		string transitionStateName = isSittingDown ? StandToSitStateName : SitToStandStateName;
-		string completedStateName = isSittingDown ? SittingIdleStateName : IdleStateName;
-		float progress = GetSeatTransitionProgress(transitionStateName, completedStateName);
-
-		Vector3 position = _rigidbody.position + _animator.deltaPosition;
-		float heightOffset = Mathf.Sin(progress * Mathf.PI) * SeatTransitionHeightOffset;
-		position.y = Mathf.Lerp(
-			isSittingDown ? _seatStandPosition.y : _seatPosition.y,
-			isSittingDown ? _seatPosition.y : _seatStandPosition.y,
-			progress)
-			+ (isSittingDown ? -heightOffset : heightOffset);
-		_rigidbody.MovePosition(position);
-	}
-
-	private float GetSeatTransitionProgress(string transitionStateName, string completedStateName)
-	{
-		AnimatorStateInfo state = _animator.GetCurrentAnimatorStateInfo(0);
-		if (state.IsName(completedStateName))
-		{
-			return 1f;
-		}
-
-		if (state.IsName(transitionStateName))
-		{
-			return Mathf.Clamp01(state.normalizedTime);
-		}
-
-		if (_animator.IsInTransition(0))
-		{
-			AnimatorStateInfo nextState = _animator.GetNextAnimatorStateInfo(0);
-			if (nextState.IsName(transitionStateName))
-			{
-				return Mathf.Clamp01(nextState.normalizedTime);
-			}
-		}
-
-		return 0f;
-	}
-
 	// 입력 방향(바라보는 방향 기준)으로 Rigidbody를 물리적으로 이동시킨다
 	private void HandleMovement()
 	{
@@ -741,14 +685,9 @@ public class PlayerMoveSample : NetworkBehaviour
 	[Rpc(SendTo.Owner)]
 	private void ApplySeatPoseRpc(Vector3 position, Quaternion rotation)
 	{
-		_seatPosition = position;
-		_seatRotation = rotation;
-		_seatStandPosition = position + rotation * (Vector3.forward * SeatStandForwardOffset);
-		_seatStandPosition.y = transform.position.y;
-
 		SetSeatMovementBlocked(true);
-		ApplyTeleport(_seatStandPosition, rotation);
-		_networkTransform.Teleport(_seatStandPosition, rotation, transform.localScale);
+		ApplyTeleport(position, rotation);
+		_networkTransform.Teleport(position, rotation, transform.localScale);
 		_playerCameraController.EnterSeatedView(rotation.eulerAngles.y);
 	}
 
@@ -780,12 +719,6 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 
 		_seatTransitionCompletionRequested = true;
-		Vector3 position = currentState == SeatState.SittingDown
-			? _seatPosition
-			: _seatStandPosition;
-		_rigidbody.position = position;
-		_rigidbody.rotation = _seatRotation;
-		_networkTransform.Teleport(position, _seatRotation, transform.localScale);
 		CompleteSeatTransitionRpc(currentState);
 	}
 
