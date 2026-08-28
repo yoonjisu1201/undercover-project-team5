@@ -195,14 +195,23 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
 
         _hasSpawned = true;
 
+        float spawnStart = Time.realtimeSinceStartup;
+        Debug.Log($"[ClueSpawner] 스폰 시작(동기): target={FieldClueCount}, t={spawnStart:F2}s");
+
         for (int i = 0; i < FieldClueCount; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            float poseStart = Time.realtimeSinceStartup;
             if (!TryGetClueSpawnPose(coordinator, regionController, out Vector3 spawnPosition, out Quaternion spawnRotation))
             {
-                Debug.LogWarning("[ClueSpawner] 단서의 스폰 위치를 찾지 못했습니다.", this);
+                Debug.LogWarning($"[ClueSpawner] 단서의 스폰 위치를 찾지 못했습니다. (t={Time.realtimeSinceStartup:F2}s, 이 자리 탐색에 {Time.realtimeSinceStartup - poseStart:F2}s 소요)", this);
                 continue;
+            }
+            float poseElapsed = Time.realtimeSinceStartup - poseStart;
+            if (poseElapsed > 0.1f)
+            {
+                Debug.Log($"[ClueSpawner] {i + 1}번째 자리 탐색에 {poseElapsed:F2}s 소요 (t={Time.realtimeSinceStartup:F2}s)");
             }
 
             if (!TryClaimRandomClueNumber(out int clueNumber))
@@ -230,6 +239,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
             _spawnedClues.Add(networkObject);
         }
 
+        Debug.Log($"[ClueSpawner] 스폰 완료: t={Time.realtimeSinceStartup:F2}s (총 소요 {Time.realtimeSinceStartup - spawnStart:F2}s)");
         return UniTask.CompletedTask;
     }
 
@@ -263,7 +273,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
             }
 
             rule.MinimumDistance = rule.MinimumDistance < 1f ? 0f : rule.MinimumDistance * 0.5f;
-            Debug.LogWarning($"[ClueSpawner] 스폰 자리를 찾지 못해 최소 거리를 {rule.MinimumDistance}로 줄여 다시 시도합니다.", this);
+            Debug.LogWarning($"[ClueSpawner] {SpawnRetryPasses}회 시도 실패, 최소 거리를 {rule.MinimumDistance}로 줄여 다시 시도합니다. (t={Time.realtimeSinceStartup:F2}s)", this);
         }
     }
 

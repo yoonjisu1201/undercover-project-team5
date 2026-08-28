@@ -81,11 +81,14 @@ public sealed class NpcSpawner : MonoBehaviour, IRoundSpawner
             return;
         }
 
+        float spawnStart = Time.realtimeSinceStartup;
+        Debug.Log($"[NPC] 스폰 시작: target={SpawnCount}, t={spawnStart:F2}s");
+
         for (int index = 0; index < SpawnCount; index++)
         {
             if (!coordinator.TryGetSpawnPose(_regionController, Rule, this, out MapRegion spawnRegion, out Vector3 spawnPosition, out Quaternion spawnRotation))
             {
-                Debug.LogWarning($"[NPC] {index + 1}번째 NPC의 스폰 위치를 찾지 못했습니다.", this);
+                Debug.LogWarning($"[NPC] {index + 1}번째 NPC의 스폰 위치를 찾지 못했습니다. (t={Time.realtimeSinceStartup:F2}s)", this);
                 continue;
             }
 
@@ -109,9 +112,12 @@ public sealed class NpcSpawner : MonoBehaviour, IRoundSpawner
             // 배치 단위로 한 프레임 양보해서, 로딩 패널이 화면에 그려질 틈을 준다.
             if ((index + 1) % _spawnBatchSize == 0)
             {
+                Debug.Log($"[NPC] {index + 1}/{SpawnCount} 스폰됨, t={Time.realtimeSinceStartup:F2}s (누적 {Time.realtimeSinceStartup - spawnStart:F2}s)");
                 await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
             }
         }
+
+        Debug.Log($"[NPC] 스폰 완료: t={Time.realtimeSinceStartup:F2}s (총 소요 {Time.realtimeSinceStartup - spawnStart:F2}s)");
     }
 
     // 기존 NPC를 제거한 뒤 현재 해방된 지역을 기준으로 다음 라운드 NPC를 다시 생성합니다.

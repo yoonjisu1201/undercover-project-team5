@@ -193,6 +193,8 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
     // 이 유도 규칙을 각자 똑같이 따르므로 재동기화 없이도 항상 같은 맵으로 수렴한다.
     public void Generate(int seed)
     {
+        float generateStart = Time.realtimeSinceStartup;
+
         for (int attempt = 0; attempt < MaxGenerationAttempts; attempt++)
         {
             Clear();
@@ -206,8 +208,11 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
 
             seed = NextSeed(seed);
         }
+        Debug.Log($"[UndergroundRandomMapGenerator] 모듈 배치 완료: t={Time.realtimeSinceStartup:F2}s (소요 {Time.realtimeSinceStartup - generateStart:F2}s)");
 
+        float navMeshStart = Time.realtimeSinceStartup;
         _navMeshSurface.BuildNavMesh(); // 생성된 지오메트리 기준으로 NavMesh를 다시 굽는다. 런타임에도 동작한다.
+        Debug.Log($"[UndergroundRandomMapGenerator] NavMesh 빌드 완료: t={Time.realtimeSinceStartup:F2}s (소요 {Time.realtimeSinceStartup - navMeshStart:F2}s)");
 
         // 문은 전부 닫힌 채로 시작한다. 서버만 NetworkList를 채울 수 있고, 클라이언트는 이 값을
         // OnListChanged(또는 늦게 들어왔다면 OnNetworkSpawn의 캐치업 루프)로 받아 반영한다.

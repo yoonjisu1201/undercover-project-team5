@@ -32,9 +32,14 @@ public partial class RoundManager
     // 스폰 완료 확인 응답을 보낸 클라이언트 목록 (서버만 사용, 네트워크 동기화 불필요)
     private readonly HashSet<ulong> _spawnReadyConfirmedClients = new();
 
+    // 디버그: 스폰 준비 흐름의 각 단계가 몇 초 걸리는지 확인하기 위한 스톱워치.
+    private readonly System.Diagnostics.Stopwatch _spawnReadyStopwatch = new();
+
     // 각자 로컬 확인을 시작하고, 서버는 추가로 제한 시간 감시와 이탈 감시를 건다.
     private void BeginSpawnReadyFlow()
     {
+        _spawnReadyStopwatch.Restart();
+        Debug.Log($"[RoundManager] 스폰 준비 흐름 시작: t={Time.realtimeSinceStartup:F2}s");
         WaitForLocalSpawnReadyAsync(this.GetCancellationTokenOnDestroy()).Forget();
 
         if (IsServer)
@@ -77,6 +82,7 @@ public partial class RoundManager
                     && FindObjectsByType<NpcStateMachine>(FindObjectsSortMode.None).Length >= _npcSpawner.SpawnCount
                     && FindObjectsByType<ItemBase>(FindObjectsSortMode.None).Length >= _clueSpawner.SpawnCount,
                 cancellationToken: timeoutCts.Token);
+            Debug.Log($"[RoundManager] (1/4) NPC/단서 스폰 확인 완료: {_spawnReadyStopwatch.Elapsed.TotalSeconds:F2}s (t={Time.realtimeSinceStartup:F2}s)");
 
             // 나를 적절한 위치로 스폰시킨다
             _playerSpawner.SpawnPlayer(NetworkManager.Singleton.LocalClient.PlayerObject);
@@ -84,8 +90,11 @@ public partial class RoundManager
             // 몽타주 옷 데이터를 미리 로딩하고, 지금까지 조합된 몽타주를 내 화면에도 조립해둔다.
             // 이 셋은 취소 토큰을 받지 않아, 대기만 중단하도록 외부에서 취소를 붙인다.
             await ClothCatalog.LoadAllAsync().AttachExternalCancellation(timeoutCts.Token);
+            Debug.Log($"[RoundManager] (2/4) ClothCatalog 로딩 완료: {_spawnReadyStopwatch.Elapsed.TotalSeconds:F2}s");
             await _syncManager.InitializeAsync().AttachExternalCancellation(timeoutCts.Token);
+            Debug.Log($"[RoundManager] (3/4) MontageSyncManager 초기화 완료: {_spawnReadyStopwatch.Elapsed.TotalSeconds:F2}s");
             await _shareManager.InitializeAsync().AttachExternalCancellation(timeoutCts.Token);
+            Debug.Log($"[RoundManager] (4/4) MontageShareManager 초기화 완료: {_spawnReadyStopwatch.Elapsed.TotalSeconds:F2}s");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -93,7 +102,8 @@ public partial class RoundManager
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
-            Debug.LogWarning("[RoundManager] 로컬 스폰 준비가 제한 시간을 초과했습니다.", this);
+            Debug.LogWarning($"[RoundManager] 로컬 스폰 준비가 제한 시간을 초과했습니다. " +
+                              $"({_spawnReadyStopwatch.Elapsed.TotalSeconds:F2}s 경과)", this);
 
             // 호스트가 나가면 방이 사라지므로, 호스트는 서버 감시 타이머가 전원을 정리하도록 넘긴다.
             if (IsServer) return;
@@ -113,6 +123,7 @@ public partial class RoundManager
             return;
         }
 
+        Debug.Log($"[RoundManager] 로컬 스폰 준비 전체 완료, 서버에 보고: {_spawnReadyStopwatch.Elapsed.TotalSeconds:F2}s");
         ReportSpawnReadyServerRpc();
 
         // 보고를 마치면 위 타임아웃이 해제된다. 서버가 라운드를 시작해 줄 때까지 남는 구간에
@@ -143,7 +154,8 @@ public partial class RoundManager
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
-            Debug.LogWarning("[RoundManager] 준비 보고 후 라운드 시작 신호를 받지 못했습니다.", this);
+            Debug.LogWarning($"[RoundManager] 준비 보고 후 라운드 시작 신호를 받지 못했습니다. " +
+                              $"({_spawnReadyStopwatch.Elapsed.TotalSeconds:F2}s 경과)", this);
             GameSessionManager.Instance.LeaveSessionWithReason(SpawnReadyTimeoutKey);
         }
     }
@@ -153,6 +165,9 @@ public partial class RoundManager
     private void ReportSpawnReadyServerRpc(RpcParams rpcParams = default)
     {
         _spawnReadyConfirmedClients.Add(rpcParams.Receive.SenderClientId);
+        Debug.Log($"[RoundManager][Server] 클라이언트 {rpcParams.Receive.SenderClientId} 준비 보고 수신 " +
+                  $"({_spawnReadyConfirmedClients.Count}/{CountClientsExpectedToReport()}): " +
+                  $"{_spawnReadyStopwatch.Elapsed.TotalSeconds:F2}s");
         TryStartWhenEveryoneReady();
     }
 
@@ -164,6 +179,7 @@ public partial class RoundManager
 
         if (_spawnReadyConfirmedClients.Count >= CountClientsExpectedToReport())
         {
+            Debug.Log($"[RoundManager][Server] 전원 준비 완료, 게임 시작: {_spawnReadyStopwatch.Elapsed.TotalSeconds:F2}s");
             StartGame();
         }
     }
