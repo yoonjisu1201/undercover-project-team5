@@ -703,13 +703,16 @@ public class GameSessionManager : MonoBehaviour
 	}
 
 	// 플레이어 오브젝트는 대기방(WaitingRoom)에서 스폰된 채로 게임씬(PlayScene) 전환에도 파괴되지 않고 그대로 유지된다.
-	// 따라서 InteractionPromptUI/InventoryUI를 찾지 못하게 되는데, UI가 존재하는 게임 씬 로드가 끝난 시점에
-	// PlayerInteraction.InitializeOnGameScene()/PlayerInventory.InitializeOnGameScene()를 호출해 UI를 바인딩하게 한다.
+	// 따라서 InteractionPromptUI를 찾지 못하게 되는데, UI가 존재하는 게임 씬 로드가 끝난 시점에
+	// PlayerInteraction.InitializeOnGameScene()를 호출해 UI를 바인딩하게 한다.
+	//
+	// 인벤토리 UI는 여기서 붙이지 않는다. 이 콜백을 놓치는 클라이언트(씬 이벤트 타임아웃 등)가 있으면
+	// 그 라운드 내내 인벤토리 표시가 죽었다. InventoryUI가 직접 로컬 인벤토리를 찾아 붙는다.
 	private void HandleGameSceneLoaded(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
 	{
 		if (sceneName != _gameSceneName) return;
 
-		// 플레이어 각자가 자기 자신의 InteractionPromptUI/InventoryUI 초기화 및 바인딩
+		// 플레이어 각자가 자기 자신의 InteractionPromptUI 초기화 및 바인딩
 		var localPlayerObject = NetworkManager.Singleton.LocalClient?.PlayerObject;
 		if (localPlayerObject == null)
 		{
@@ -720,11 +723,6 @@ public class GameSessionManager : MonoBehaviour
 		if (localPlayerObject.TryGetComponent(out PlayerInteraction localPlayerInteraction))
 		{
 			localPlayerInteraction.InitializeOnGameScene();
-		}
-
-		if (localPlayerObject.TryGetComponent(out PlayerInventory localPlayerInventory))
-		{
-			localPlayerInventory.InitializeOnGameScene();
 		}
 	}
 

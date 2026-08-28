@@ -47,7 +47,6 @@ public class PlayerInventory : NetworkBehaviour
     private Collider _selfCollider;
     private PlayerHealth _health;
     private PlayerInteraction _interaction;
-    private InventoryUI _inventoryUI;
 
     private void Awake()
     {
@@ -146,14 +145,6 @@ public class PlayerInventory : NetworkBehaviour
     private void HandleSelectedIndexChanged(int previousValue, int newValue)
     {
         NotifyInventoryChanged();
-    }
-    
-    // 이 인벤토리를 조작하는 클라이언트에서만 씬의 인벤토리 UI를 나 자신에게 연결한다.
-    public void InitializeOnGameScene() {
-        if (!IsOwner) return;
-
-        _inventoryUI = FindFirstObjectByType<InventoryUI>(FindObjectsInactive.Include);
-        _inventoryUI?.Refresh(this);
     }
 
     // CartBase가 카트를 잡거나 놓을 때 호출한다. 카트 사용 중엔 선택을 -1로 잠그고, 놓으면 이전 선택으로 복원한다.
@@ -353,10 +344,11 @@ public class PlayerInventory : NetworkBehaviour
         NotifySelectedItem();
     }
 
+    // 화면 갱신은 알리기만 한다. UI 참조를 여기서 들고 있으면, 씬과 함께 새로 만들어지는 UI 를
+    // 다시 붙이는 시점을 놓치는 순간 그 뒤의 모든 갱신이 조용히 사라진다. UI 가 스스로 찾아 붙는다.
     private void NotifyInventoryChanged()
     {
         OnInventoryChanged?.Invoke();
-        _inventoryUI?.Refresh(this);
     }
 
     public bool TryGetSelectedItemId(out ItemType itemId)
