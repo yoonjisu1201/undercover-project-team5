@@ -73,7 +73,7 @@ public sealed class InteractionTargeting : MonoBehaviour
                 continue;
             }
 
-            if (!TryGetAimDistance(target, screenCenter, out float distanceSqr))
+            if (!TryGetAimDistances(target, screenCenter, out float boundsDistanceSqr, out float centerDistanceSqr))
             {
                 continue; // 카메라 뒤에 있는 경우 무시
             }
@@ -81,14 +81,14 @@ public sealed class InteractionTargeting : MonoBehaviour
             // 대상별 배율(AimRadiusMultiplier)을 반영해 판정 반경을 계산한다 (예: 계속 움직이는 NPC는 더 넓게).
             float radiusPixels = Screen.height * _screenCenterRadius * target.AimRadiusMultiplier;
 
-            if (distanceSqr > radiusPixels * radiusPixels)
+            if (boundsDistanceSqr > radiusPixels * radiusPixels)
             {
                 continue; // 조준 가능한 영역 밖
             }
 
             // 1등이 될 수 없는 후보는 레이캐스트도 하지 않는다. 매 프레임 도는 판정이라
             // 가려짐 검사는 실제로 선택될 수 있는 후보에만 쓴다.
-            if (distanceSqr >= closestDistanceSqr)
+            if (centerDistanceSqr >= closestDistanceSqr)
             {
                 continue;
             }
@@ -98,50 +98,58 @@ public sealed class InteractionTargeting : MonoBehaviour
                 continue; // 벽·바닥에 가려진 대상은 조준되지 않는다
             }
 
-            closestDistanceSqr = distanceSqr;
+            closestDistanceSqr = centerDistanceSqr;
             closestTarget = target;
         }
 
         SetCurrentTarget(closestTarget);
     }
 
-    // 조준선이 대상에서 얼마나 벗어났는지(제곱 픽셀). 0 이면 대상 위를 정확히 겨누고 있다.
+    // 조준선이 대상에서 얼마나 벗어났는지(제곱 픽셀)를 두 가지로 잰다. 하나로 합치지 않는 이유는
+    // "겨눌 수 있는가"와 "여럿 중 어느 쪽인가"가 서로 다른 값을 요구하기 때문이다.
     //
-    // 조준점 한 점과의 거리로만 재면 문처럼 큰 대상에서 어긋난다. 조준점은 콜라이더 바운드의
-    // 중심이라, 눈에 보이는 문짝 아무 곳을 겨눠도 그 중심이 화면 중앙에서 멀면 판정이 안 된다.
-    // 그래서 대상 바운드를 화면에 투영한 사각형까지의 거리를 쓴다 — 범위 안이면 0 이다.
+    // boundsDistanceSqr — 대상 바운드를 화면에 투영한 사각형까지의 거리. 판정 반경 안인지만 본다.
+    // 조준점 한 점으로 반경을 재면 문처럼 큰 대상에서 어긋난다. 조준점은 콜라이더 바운드의 중심이라,
+    // 눈에 보이는 문짝 아무 곳을 겨눠도 그 중심이 화면 중앙에서 멀면 반경 밖으로 밀려난다.
     //
-    // 조준점을 재정의한 대상(쓰러진 플레이어 등)은 바운드와 조준점이 어긋날 수 있으므로
-    // 둘 중 가까운 쪽을 쓴다. 어느 방식으로도 나빠지지 않는다.
-    private bool TryGetAimDistance(InteractableBase target, Vector2 screenCenter, out float distanceSqr)
+    // centerDistanceSqr — 조준점까지의 거리. 후보끼리의 순위는 이 값으로 매긴다.
+    // 사각형 거리로 순위까지 매기면 큰 대상이 가까이서 화면을 덮어 어디를 겨눠도 0 이 되고,
+    // 그 안이나 앞에 놓인 작은 대상을 전부 삼킨다 (브레이커 패널이 그 위의 레버를 가져가는 식).
+    //
+    // 조준점이 카메라 뒤라 투영이 안 되면 사각형 거리로 순위를 대신한다. 그런 대상은 눈앞에 걸쳐 있다.
+    private bool TryGetAimDistances(InteractableBase target, Vector2 screenCenter,
+        out float boundsDistanceSqr, out float centerDistanceSqr)
     {
-        distanceSqr = float.MaxValue;
-        bool found = false;
+        boundsDistanceSqr = float.MaxValue;
+        centerDistanceSqr = float.MaxValue;
 
         Vector3 pointScreen = _playerCamera.WorldToScreenPoint(target.InteractionPosition);
+        bool hasCenter = pointScreen.z >= 0f;
 
-        if (pointScreen.z >= 0f)
+        if (hasCenter)
         {
-            distanceSqr = ((Vector2)pointScreen - screenCenter).sqrMagnitude;
-            found = true;
+            centerDistanceSqr = ((Vector2)pointScreen - screenCenter).sqrMagnitude;
+            boundsDistanceSqr = centerDistanceSqr;
         }
 
-        if (TryGetScreenRect(target, out Rect rect))
+        if (!TryGetScreenRect(target, out Rect rect))
         {
-            // Rect 밖이면 각 축으로 벗어난 만큼, 안이면 0.
-            float dx = Mathf.Max(rect.xMin - screenCenter.x, 0f, screenCenter.x - rect.xMax);
-            float dy = Mathf.Max(rect.yMin - screenCenter.y, 0f, screenCenter.y - rect.yMax);
-            float rectDistanceSqr = dx * dx + dy * dy;
-
-            if (!found || rectDistanceSqr < distanceSqr)
-            {
-                distanceSqr = rectDistanceSqr;
-            }
-
-            found = true;
+            return hasCenter;
         }
 
-        return found;
+        // Rect 밖이면 각 축으로 벗어난 만큼, 안이면 0.
+        float dx = Mathf.Max(rect.xMin - screenCenter.x, 0f, screenCenter.x - rect.xMax);
+        float dy = Mathf.Max(rect.yMin - screenCenter.y, 0f, screenCenter.y - rect.yMax);
+        float rectDistanceSqr = dx * dx + dy * dy;
+
+        boundsDistanceSqr = Mathf.Min(boundsDistanceSqr, rectDistanceSqr);
+
+        if (!hasCenter)
+        {
+            centerDistanceSqr = rectDistanceSqr;
+        }
+
+        return true;
     }
 
     // 대상 바운드 여덟 꼭짓점을 화면에 투영해 감싸는 사각형. 하나라도 카메라 뒤면 포기한다 —
@@ -325,7 +333,8 @@ public sealed class InteractionTargeting : MonoBehaviour
     private bool IsOccluded(InteractableBase target)
     {
         Vector3 eye = _playerCamera.transform.position;
-        Vector3 direction = target.InteractionPosition - eye;
+        Vector3 aimPoint = target.InteractionPosition;
+        Vector3 direction = aimPoint - eye;
         float distance = direction.magnitude;
         float rayLength = distance - _occlusionTolerance;
 
@@ -363,10 +372,32 @@ public sealed class InteractionTargeting : MonoBehaviour
                 continue;
             }
 
+            // 표적을 품고 있는 콜라이더도 막은 것이 아니다. 선반·캐비닛처럼 속이 빈 프롭에
+            // 박스 콜라이더 하나만 씌워 두면, 그 안에 놓인 아이템은 눈에 다 보이는데도
+            // 프롭 앞면에 막혀 영원히 잡히지 않는다 (본부 선반의 제압기가 그랬다).
+            if (ContainsPoint(hit, aimPoint))
+            {
+                continue;
+            }
+
             return true;
         }
 
         return false;
+    }
+
+    // point 가 콜라이더 내부인지. ClosestPoint 는 내부의 점을 그대로 돌려준다.
+    //
+    // 오목 MeshCollider 는 안팎을 구분하지 못해 밖의 점도 그대로 돌려주므로 이 판정에 쓸 수 없다.
+    // 건물·지형이 그런 경우라, 판정할 수 없으면 계속 가리는 것으로 두는 편이 안전하다.
+    private static bool ContainsPoint(Collider collider, Vector3 point)
+    {
+        if (collider is MeshCollider mesh && !mesh.convex)
+        {
+            return false;
+        }
+
+        return (collider.ClosestPoint(point) - point).sqrMagnitude < 0.0001f;
     }
 
     private void SetCurrentTarget(InteractableBase nextTarget)
