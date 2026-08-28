@@ -71,10 +71,27 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private bool _isJumping;
 
+	// 착지 판정 시점의 낙하 속도(m/s, 양수). 오너에서만 채워진다.
+	private float _landingImpactSpeed;
+
 	// 보스 감지가 착지 소리를 내야 해서 점프 여부를 알아야 한다.
 	// _networkIsJumping이 오너가 쓰고 모두가 읽는 값이고, HandleJumpingChanged가 각 피어의
 	// _isJumping을 따라 갱신하므로 서버에서도 이 값이 맞다.
 	public bool IsJumping => _isJumping;
+
+	// 오너가 착지한 순간. 인자는 내려온 속도(m/s, 양수)다. 연출 세기를 이 값으로 조절해야
+	// 제자리 점프와 높은 곳에서의 낙하가 같은 무게로 보이지 않는다.
+	//
+	// UI 흔들림처럼 화면 쪽 연출만 구독한다. 로컬 연출이고 구독자가 씬 곳곳에 흩어져 있어서
+	// static 으로 둔다. 구독자는 OnEnable/OnDisable 짝으로 붙였다 떼야 한다.
+	public static event Action<float> OwnerLanded;
+
+	// 오너가 공중에 떠 있는지 바뀐 순간. UI 가 뜬 동안 들려 있다가 내려오는 데 쓴다.
+	//
+	// 착지 이벤트와 따로 두는 이유: 공중에서 쓰러지면 착지 이벤트는 나지 않는데(넘어지는 연출이
+	// 따로 있어서 막아둔다), 그때도 들려 있던 UI 는 제자리로 내려와야 한다.
+	public static event Action<bool> OwnerAirborneChanged;
+
 	private bool _isStaminaExhausted;
 	// #392: 실제 소생 후 Getting Up에서 Idle로 돌아갈 때까지 이동을 차단한다.
 	private bool _isGettingUp;
@@ -159,6 +176,11 @@ public class PlayerMoveSample : NetworkBehaviour
 		_isJumping = value;
 		ApplyAnimatorBool(IsJumpingHash, value);
 
+		if (IsOwner)
+		{
+			OwnerAirborneChanged?.Invoke(value);
+		}
+
 		if (value)
 		{
 			SoundManager.Instance?.PlayAt(SoundKey.Player_Jump, transform.position);
@@ -176,6 +198,12 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 
 		SoundManager.Instance?.PlayAt(SoundKey.Player_Land, transform.position);
+
+		// 착지 충격은 내 화면에만 전해진다. 남이 뛰어내렸다고 내 UI 가 흔들릴 이유는 없다.
+		if (IsOwner)
+		{
+			OwnerLanded?.Invoke(_landingImpactSpeed);
+		}
 	}
 
 	// #392: PlayerHealth.DownedStateChanged -> Animator IsDowned -> Downed/Getting Up 전이 흐름의 연결 지점이다.
@@ -242,6 +270,10 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		if (_isJumping && _rigidbody.linearVelocity.y <= 0f && IsGrounded())
 		{
+			// 낙하 속도는 여기서 잡아둔다. 접지하면 곧바로 0 이 되므로, 착지 이벤트를 낼 때
+			// 다시 읽으면 세기를 구할 수 없다.
+			_landingImpactSpeed = -_rigidbody.linearVelocity.y;
+
 			SetJumpingState(false);
 		}
 	}
@@ -271,6 +303,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		_networkIsJumping.OnValueChanged -= HandleJumpingChanged;
 		// #392: OnNetworkSpawn에서 등록한 다운 상태 구독을 네트워크 수명 종료 시 해제한다.
 		_playerHealth.DownedStateChanged -= HandleDownedStateChanged;
+
 		base.OnNetworkDespawn();
 	}
 
@@ -360,6 +393,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			&& _actions.Player.Shift.IsPressed()
 			&& _playerInteraction.CarryingCart == null // 카트 끄는 중에는 달릴 수 없다.
 			&& !_isStaminaExhausted
+			&& !_playerStamina.IsRedZonePenalized // 빨간 구간 패널티 중에는 회복도 사용도 막힌다.
 			&& _playerStamina.CurrentStamina > _minimumRunStamina; // 스태미나가 없으면 달릴 수 없다.
 
 		SetMovingState(isMoving);

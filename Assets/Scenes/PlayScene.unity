@@ -25603,6 +25603,7 @@ GameObject:
   - component: {fileID: 153007647}
   - component: {fileID: 153007650}
   - component: {fileID: 153007649}
+  - component: {fileID: 153007651}
   m_Layer: 5
   m_Name: roundTimer
   m_TagString: Untagged
@@ -25729,6 +25730,27 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 153007646}
   m_CullTransparentMesh: 1
+--- !u!114 &153007651
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 153007646}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0.35
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
 --- !u!1 &153824213
 GameObject:
   m_ObjectHideFlags: 0
@@ -226926,8 +226948,8 @@ MonoBehaviour:
   _arcMaxAlpha: 0.85
   _bloodOverlay: {fileID: 1729591795}
   _bloodColor: {r: 0.5, g: 0.02, b: 0.02, a: 1}
-  _lowHealthThreshold: 0.3
-  _lowHealthMinAlpha: 0
+  _lowHealthThreshold: 0.5
+  _lowHealthMinAlpha: 0.08
   _lowHealthMaxAlpha: 0.9
   _pulseSeconds: 2.3
 --- !u!1001 &1289013128
@@ -304397,6 +304419,7 @@ GameObject:
   - component: {fileID: 1782817571}
   - component: {fileID: 1782817570}
   - component: {fileID: 1782817568}
+  - component: {fileID: 1782817572}
   m_Layer: 5
   m_Name: roundNum
   m_TagString: Untagged
@@ -304523,6 +304546,27 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 414.845, y: 103.711}
   m_Pivot: {x: 0.5, y: 1}
+--- !u!114 &1782817572
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1782817567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0.35
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
 --- !u!1 &1782963755
 GameObject:
   m_ObjectHideFlags: 0
@@ -328502,6 +328546,7 @@ GameObject:
   - component: {fileID: 1905316763}
   - component: {fileID: 1905316762}
   - component: {fileID: 1905316766}
+  - component: {fileID: 1905316767}
   m_Layer: 5
   m_Name: HpPanel
   m_TagString: Untagged
@@ -328628,6 +328673,27 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &1905316767
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1905316760}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0.35
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
 --- !u!1001 &1906793751
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -348808,8 +348874,74 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4094947401375812100, guid: 43cebf9fb0e3cbe4ca21cf7a7e3db85d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7753112992820481849}
+    - targetCorrespondingSourceObject: {fileID: 6977708744691883783, guid: 43cebf9fb0e3cbe4ca21cf7a7e3db85d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2008239904}
+    - targetCorrespondingSourceObject: {fileID: 1295345542145817188, guid: 43cebf9fb0e3cbe4ca21cf7a7e3db85d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2008239905}
   m_SourcePrefab: {fileID: 100100000, guid: 43cebf9fb0e3cbe4ca21cf7a7e3db85d, type: 3}
+--- !u!1 &2008239901 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4094947401375812100, guid: 43cebf9fb0e3cbe4ca21cf7a7e3db85d, type: 3}
+  m_PrefabInstance: {fileID: 2008239900}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2008239902 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6977708744691883783, guid: 43cebf9fb0e3cbe4ca21cf7a7e3db85d, type: 3}
+  m_PrefabInstance: {fileID: 2008239900}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2008239903 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1295345542145817188, guid: 43cebf9fb0e3cbe4ca21cf7a7e3db85d, type: 3}
+  m_PrefabInstance: {fileID: 2008239900}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2008239904
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2008239902}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
+--- !u!114 &2008239905
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2008239903}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
 --- !u!1001 &2009092058
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -372507,7 +372639,13 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7514348910333129600, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
       insertIndex: -1
       addedObject: {fileID: 179831442}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4116093105206914288, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1748716109536420701}
+    - targetCorrespondingSourceObject: {fileID: 1325299166863258736, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1748716109536420700}
   m_SourcePrefab: {fileID: 100100000, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
 --- !u!1 &1748716109536420696 stripped
 GameObject:
@@ -372525,6 +372663,58 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12c8f2714799ab342972c5dcb2d0c63f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InventoryUI
+--- !u!1 &1748716109536420698 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1325299166863258736, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+  m_PrefabInstance: {fileID: 1748716109536420695}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1748716109536420699 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4116093105206914288, guid: ffc2841ba747feb4b85f6895ccdbec6c, type: 3}
+  m_PrefabInstance: {fileID: 1748716109536420695}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1748716109536420700
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1748716109536420698}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0.35
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
+--- !u!114 &1748716109536420701
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1748716109536420699}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0.35
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
 --- !u!114 &1797539548508009725
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -380054,12 +380244,33 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 1938546747206712538, guid: 43cebf9fb0e3cbe4ca21cf7a7e3db85d, type: 3}
   m_PrefabInstance: {fileID: 2008239900}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 2008239901}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6970db91db618d44c8e42506908e6bbe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+--- !u!114 &7753112992820481849
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2008239901}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
 --- !u!4 &7763685302480763574
 Transform:
   m_ObjectHideFlags: 0
