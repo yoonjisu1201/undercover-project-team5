@@ -11,12 +11,28 @@ public class PlayerInteraction : NetworkBehaviour
     private readonly HashSet<InteractableBase> _nearbyInteractables = new();
     private readonly Dictionary<InteractableBase, int> _overlapCounts = new();
 
+    // 순회 중에 제거할 수 없어서 한 번 담아두고 지운다.
+    private readonly List<InteractableBase> _pruneBuffer = new();
+
     // 인스펙터에서 연결하는 참조와 상호작용 범위를 조절하는 값.
     [Header("상호작용 설정")]
     [SerializeField] private Camera _playerCamera;
     [Range(0.01f, 0.5f)]
     [SerializeField] private float _screenCenterRadius = 0.2f; // 화면 중심에서 상호작용 가능한 영역의 반지름
     [SerializeField] private InteractionPromptUI _promptUI;
+
+    // 트리거 구체는 "얼마나 가까운가", 화면 중심 반경은 "어디를 보고 있나"만 판정한다.
+    // 시야가 실제로 통하는지는 아무도 보지 않아서, 바닥 아래나 벽 뒤의 대상도 잡혔다.
+    [Header("가려짐 판정")]
+    [Tooltip("시야를 막는 것으로 볼 레이어. 좁히면 그 레이어는 대상을 가리지 않는다.")]
+    [SerializeField] private LayerMask _occlusionBlockers = ~0;
+
+    [Tooltip("조준점 앞 이 거리까지만 막힘을 본다. 조준점이 지오메트리 안쪽에 살짝 박혀 있는 "
+        + "대상(벽 매립 패널 등)이 자기 벽에 막혀 못 잡히는 것을 피하기 위한 여유다.")]
+    [SerializeField, Min(0f)] private float _occlusionTolerance = 0.25f;
+
+    // 매 프레임 도는 판정이라 할당을 남기지 않는다.
+    private readonly RaycastHit[] _occlusionHits = new RaycastHit[16];
 
     private InteractableBase _currentTarget;  // 현재 상호작용 가능한 대상
 
@@ -543,8 +559,7 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
-        // 파괴된 대상과, 트리거를 벗어난 뒤 확장 거리까지 벗어난 대상을 정리한 뒤 가장 가까운 후보를 찾는다.
-        _nearbyInteractables.RemoveWhere(target => target == null || IsBeyondExtendedRange(target));
+        PruneNearbyInteractables();
 
         InteractableBase closestTarget = null;
         float closestDistanceSqr = float.MaxValue;
@@ -586,13 +601,104 @@ public class PlayerInteraction : NetworkBehaviour
                 continue; // 아이템이 상호작용 가능한 영역 밖에 있는 경우 무시
             }
 
-            if (distanceSqr < closestDistanceSqr)
+            // 1등이 될 수 없는 후보는 레이캐스트도 하지 않는다. 매 프레임 도는 판정이라
+            // 가려짐 검사는 실제로 선택될 수 있는 후보에만 쓴다.
+            if (distanceSqr >= closestDistanceSqr)
             {
-                closestDistanceSqr = distanceSqr;
-                closestTarget = target;
+                continue;
             }
+
+            if (IsOccluded(target))
+            {
+                continue; // 벽·바닥에 가려진 대상은 조준되지 않는다
+            }
+
+            closestDistanceSqr = distanceSqr;
+            closestTarget = target;
         }
         SetCurrentTarget(closestTarget);
+    }
+
+    // 후보 목록에서 더 볼 필요가 없는 대상을 걷어낸다.
+    //
+    // 비활성화까지 보는 이유: Unity 는 콜라이더가 비활성화될 때 OnTriggerExit 를 보내지 않는다.
+    // UndergroundDoor 처럼 열린 뒤 SetActive(false) 하는 대상은 그대로 후보에 남는다.
+    // target == null 은 파괴된 것만 걸러낸다.
+    private void PruneNearbyInteractables()
+    {
+        _pruneBuffer.Clear();
+
+        foreach (InteractableBase target in _nearbyInteractables)
+        {
+            if (target == null || !target.gameObject.activeInHierarchy || IsBeyondExtendedRange(target))
+            {
+                _pruneBuffer.Add(target);
+            }
+        }
+
+        foreach (InteractableBase target in _pruneBuffer)
+        {
+            _nearbyInteractables.Remove(target);
+
+            // 겹침 카운트도 같이 지운다. 남겨두면 트리거 안에서 다시 켜질 때 OnTriggerEnter 가
+            // 또 와서 카운트가 실제 겹침보다 커지고, 그러면 트리거를 나가도 목록에서 빠지지 않는다.
+            if (target != null)
+            {
+                _overlapCounts.Remove(target);
+            }
+        }
+    }
+
+    // 카메라에서 조준점까지 시야가 막혀 있는지.
+    //
+    // BossPerception.HasLineOfSight 처럼 "가장 가까운 히트가 표적인가"를 따지지 않아도 된다.
+    // 레이를 조준점 앞까지만 쏘고 자기 몸과 표적 자신의 콜라이더만 걸러내면, 남은 히트는
+    // 전부 표적을 가리는 것이다.
+    private bool IsOccluded(InteractableBase target)
+    {
+        Vector3 eye = _playerCamera.transform.position;
+        Vector3 direction = target.InteractionPosition - eye;
+        float distance = direction.magnitude;
+        float rayLength = distance - _occlusionTolerance;
+
+        if (rayLength <= 0.01f)
+        {
+            return false; // 조준점이 눈앞이면 막힐 구간이 없다
+        }
+
+        int count = Physics.RaycastNonAlloc(
+            eye,
+            direction / distance,
+            _occlusionHits,
+            rayLength,
+            _occlusionBlockers,
+            QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < count; i++)
+        {
+            Collider hit = _occlusionHits[i].collider;
+
+            if (hit == null)
+            {
+                continue;
+            }
+
+            // 카메라가 내 몸 안에 있어서 내 콜라이더가 잡힌다.
+            if (hit.transform.IsChildOf(transform))
+            {
+                continue;
+            }
+
+            // 표적 자신의 콜라이더는 도착한 것이지 막은 것이 아니다.
+            if (hit.GetComponentInParent<InteractableBase>() == target)
+            {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     // 트리거를 벗어난 뒤에도 남겨둔 대상이 확장 거리까지 벗어났는지.
