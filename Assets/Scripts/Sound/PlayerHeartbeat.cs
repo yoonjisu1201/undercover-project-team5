@@ -79,6 +79,23 @@ public class PlayerHeartbeat : NetworkBehaviour
     // 아직 한 번도 발각되지 않았음을 뜻하는 값으로 시작한다.
     private float _lastSpottedTime = float.NegativeInfinity;
 
+    // 지금 들리는 박동의 BPM. 소리가 안 나면 0 이다. 개인 HUD 의 심박 그래프가 귀에 들리는
+    // 박자와 같은 속도로 뛰도록 이 값을 읽어간다. 단계별 BPM 은 SoundKey 주석과 같다.
+    public float CurrentBpm
+    {
+        get
+        {
+            switch (_current)
+            {
+                case SoundKey.Player_HeartBeat_Tired: return 70f;
+                case SoundKey.Player_HeartBeat_Exhausted: return 90f;
+                case SoundKey.Player_HeartBeat_Hiding: return 120f;
+                case SoundKey.Player_HeartBeat_Spotted: return 180f;
+                default: return 0f;
+            }
+        }
+    }
+
     // === 개발용 표시가 읽는 값들 ===
     public SoundKey CurrentKey => _current;
     public bool StaminaLatched => _staminaLatched;
