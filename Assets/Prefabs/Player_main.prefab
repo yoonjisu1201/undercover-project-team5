@@ -1356,6 +1356,7 @@ GameObject:
   - component: {fileID: 7226893051603640153}
   - component: {fileID: 8655539199631215491}
   - component: {fileID: 7528092050112652864}
+  - component: {fileID: 5549688087001939096}
   m_Layer: 0
   m_Name: Player_main
   m_TagString: Untagged
@@ -1646,12 +1647,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerInteraction
   ShowTopMostFoldoutHeaderGroup: 1
-  _playerCamera: {fileID: 6481610273975784339}
-  _screenCenterRadius: 0.403
-  _occlusionBlockers:
-    serializedVersion: 2
-    m_Bits: 4294955099
-  _occlusionTolerance: 0.25
 --- !u!114 &8122667368698811361
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2274,6 +2269,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c049ff2f8c42386408cd12bb8ae1eb82, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptPresenter
+--- !u!114 &5549688087001939096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2530359100604845935}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3836e71d600335d4f838fcb4384534ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractionTargeting
+  _playerCamera: {fileID: 6481610273975784339}
+  _screenCenterRadius: 0.403
+  _occlusionBlockers:
+    serializedVersion: 2
+    m_Bits: 4294955099
+  _occlusionTolerance: 0.25
 --- !u!1 &2732188082477116487
 GameObject:
   m_ObjectHideFlags: 0
