@@ -47,6 +47,8 @@ public class PlayerInventory : NetworkBehaviour
     private Collider _selfCollider;
     private PlayerHealth _health;
     private PlayerInteraction _interaction;
+    private InteractionTargeting _targeting;
+    private InventoryUI _inventoryUI;
 
     private void Awake()
     {
@@ -54,6 +56,7 @@ public class PlayerInventory : NetworkBehaviour
         _selfCollider = GetComponent<Collider>();
         _health = GetComponent<PlayerHealth>();
         _interaction = GetComponent<PlayerInteraction>();
+        _targeting = GetComponent<InteractionTargeting>();
     }
     private void OnEnable()
     {
@@ -170,7 +173,7 @@ public class PlayerInventory : NetworkBehaviour
         _slots.OnListChanged -= HandleSlotsChanged;
         _selectedIndex.OnValueChanged -= HandleSelectedIndexChanged;
     }
-    
+
     // 슬롯 변경을 감지하고 필요한 이벤트를 호출한다.
     // "방금 주웠다" 반응(단서/가이드북 UI 열기 등)은 ItemBase.OnAdded가 아이템 자신의 상태
     // 변화(IsStored)로 직접 감지하므로 여기서는 신경 쓰지 않는다.
@@ -185,7 +188,7 @@ public class PlayerInventory : NetworkBehaviour
 
         if (_slots[changeEvent.Index].TryGetItem(out ItemBase item))
         {
-            _interaction?.RemoveNearbyInteractable(item);
+            _targeting?.RemoveNearbyInteractable(item);
             item.NotifyAddedToLocalInventory();
         }
     }
@@ -194,14 +197,16 @@ public class PlayerInventory : NetworkBehaviour
     [Rpc(SendTo.Server)]
     public void PickUpItemRpc(NetworkBehaviourReference itemRef)
     {
-        if (!itemRef.TryGet(out ItemBase item) || item == null) {
+        if (!itemRef.TryGet(out ItemBase item) || item == null)
+        {
             Debug.LogError($"[PlayerInventory] 존재하지 않는 아이템을 주우려 했습니다.");
             return;
         }
 
         int emptySlotIndex = FindEmptySlot();
 
-        if (emptySlotIndex < 0) {
+        if (emptySlotIndex < 0)
+        {
             Debug.LogWarning("[PlayerInventory] 인벤토리가 가득 찼습니다.");
 
             // 자리가 없는 건 서버만 알 수 있으니, 주우려 한 본인 화면에 이유를 알려준다.
@@ -262,7 +267,8 @@ public class PlayerInventory : NetworkBehaviour
         }
 
         // 실제로 그 슬롯에 그 종류가 있었는지는 TryTakeSelectedItemOnServer 내부에서 재검증한다.
-        if (!TryTakeSelectedItemOnServer(itemId, selectedIndex, out ItemBase item)) {
+        if (!TryTakeSelectedItemOnServer(itemId, selectedIndex, out ItemBase item))
+        {
             Debug.LogError($"[PlayerInventory] 선택한 슬롯의 아이템을 드롭하지 못했습니다.");
             return;
         }
@@ -355,7 +361,8 @@ public class PlayerInventory : NetworkBehaviour
     {
         itemId = ItemType.None;
 
-        if (!TryGetSelectedItemBase(out ItemBase item)) {
+        if (!TryGetSelectedItemBase(out ItemBase item))
+        {
             return false;
         }
 
@@ -369,7 +376,8 @@ public class PlayerInventory : NetworkBehaviour
 
         // _selectedIndex는 항상 0~InventorySize-1 범위지만, 방어적으로 범위를 다시 확인한다.
         // 선택된 슬롯이 비어있는 것도 정상 상태라 에러가 아니다 - 아래 TryGetItem이 false를 돌려줄 뿐이다.
-        if (_selectedIndex.Value < 0 || _selectedIndex.Value >= _slots.Count) {
+        if (_selectedIndex.Value < 0 || _selectedIndex.Value >= _slots.Count)
+        {
             return false;
         }
 
@@ -379,7 +387,8 @@ public class PlayerInventory : NetworkBehaviour
     // 소비/소모되어 완전히 사라지는 경우 (에너지바 사용, 추적기 부착, 안테나 설치 등).
     public bool TryRemoveSelectedItemOnServer(ItemType expectedItemId, int selectedIndex)
     {
-        if (!IsServer || !TryGetItemAt(selectedIndex, expectedItemId, out ItemBase item)) {
+        if (!IsServer || !TryGetItemAt(selectedIndex, expectedItemId, out ItemBase item))
+        {
             return false;
         }
 
@@ -564,7 +573,8 @@ public class PlayerInventory : NetworkBehaviour
 
     public void ClearAllItemsOnServer()
     {
-        if (!IsServer) {
+        if (!IsServer)
+        {
             return;
         }
 

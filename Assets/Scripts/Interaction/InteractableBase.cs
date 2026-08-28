@@ -57,38 +57,39 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
     [SerializeField] private Collider[] _aimIgnoredColliders;
 
     // 콜라이더가 실제 외형과 어긋나는 대상(쓰러진 플레이어 등)은 이 값을 재정의해 조준점을 옮긴다.
-    public virtual Vector3 InteractionPosition
+    public virtual Vector3 InteractionPosition =>
+        TryGetInteractionBounds(out Bounds bounds) ? bounds.center : transform.position;
+
+    // 조준 판정에 쓰는 월드 바운드. 조준점 한 점만으로는 문처럼 큰 대상의 실제 범위를 알 수 없어서,
+    // 겨누는 판정이 "바운드 중심이 화면 중앙에 얼마나 가까운가"로 좁아진다. 범위 자체를 내준다.
+    public bool TryGetInteractionBounds(out Bounds bounds)
     {
-        get
+        bool hasBounds = false;
+        bounds = default;
+
+        foreach (Collider interactionCollider in _interactionColliders)
         {
-            bool hasBounds = false;
-            Bounds combinedBounds = default;
-
-            foreach (Collider interactionCollider in _interactionColliders)
+            if (interactionCollider == null ||
+                !interactionCollider.enabled ||
+                !interactionCollider.gameObject.activeInHierarchy ||
+                !interactionCollider.transform.IsChildOf(transform) ||
+                interactionCollider.isTrigger ||
+                IsAimIgnored(interactionCollider))
             {
-                if (interactionCollider == null ||
-                    !interactionCollider.enabled ||
-                    !interactionCollider.gameObject.activeInHierarchy ||
-                    !interactionCollider.transform.IsChildOf(transform) ||
-                    interactionCollider.isTrigger ||
-                    IsAimIgnored(interactionCollider))
-                {
-                    continue;
-                }
-
-                if (!hasBounds)
-                {
-                    combinedBounds = interactionCollider.bounds;
-                    hasBounds = true;
-                    continue;
-                }
-
-
-                combinedBounds.Encapsulate(interactionCollider.bounds);
+                continue;
             }
 
-            return hasBounds ? combinedBounds.center : transform.position;
+            if (!hasBounds)
+            {
+                bounds = interactionCollider.bounds;
+                hasBounds = true;
+                continue;
+            }
+
+            bounds.Encapsulate(interactionCollider.bounds);
         }
+
+        return hasBounds;
     }
 
     private bool IsAimIgnored(Collider target)
