@@ -3621,6 +3621,53 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 034bc47afcbf5e141a58d5c20b7808e4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: EPO::EPOOutline.TargetStateListener
+--- !u!1 &469306164
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 469306165}
+  - component: {fileID: 469306166}
+  m_Layer: 0
+  m_Name: GuideBookHudOpener
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &469306165
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 469306164}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -960, y: -540, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1915017737}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &469306166
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 469306164}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 640744ee468c79640b063a5b5fc337a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuideBookHud
+  _icon: {fileID: 0}
+  _guideBook: {fileID: 2129556781}
+  _dimmer: {fileID: 0}
 --- !u!224 &472544992 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 2182693666567314654, guid: d896f4c4b217624458792f51f8575b6e, type: 3}
@@ -13316,6 +13363,7 @@ RectTransform:
   - {fileID: 1038002474}
   - {fileID: 1363483677}
   - {fileID: 2129556779}
+  - {fileID: 469306165}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -15570,6 +15618,17 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 789959419450123628, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
   m_PrefabInstance: {fileID: 2129556778}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &2129556781 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1742774679663387247, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
+  m_PrefabInstance: {fileID: 2129556778}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2129556780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ea2e84be3af7104d8f242fb6ce5ca12, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuideBook
 --- !u!114 &2140292760
 MonoBehaviour:
   m_ObjectHideFlags: 0
