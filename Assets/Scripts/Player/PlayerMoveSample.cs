@@ -126,13 +126,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	private bool _isSeatMovementBlocked;
 	private bool _seatTransitionCompletionRequested;
 
-	public bool CanSit =>
-		_seatState.Value == SeatState.Standing
-		&& !_playerHealth.IsDowned
-		&& !_isGettingUp
-		&& !_isJumping
-		&& _playerInteraction.CarryingCart == null
-		&& !_playerCameraController.IsCameraTransitioning;
+	public bool CanSit => _seatState.Value == SeatState.Standing && !_isJumping;
 	public bool IsSitting => _seatState.Value != SeatState.Standing;
 	public bool CanStand => _seatState.Value == SeatState.Seated;
 
@@ -282,11 +276,6 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		if (value)
 		{
-			if (IsServer)
-			{
-				ReleaseSeatOnServer();
-			}
-
 			SoundManager.Instance?.PlayAt(SoundKey.Player_Downed, transform.position);
 
 			_jumpRequested = false;

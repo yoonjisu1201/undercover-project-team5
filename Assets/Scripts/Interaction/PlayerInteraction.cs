@@ -163,7 +163,7 @@ public class PlayerInteraction : NetworkBehaviour
             _targeting.ClearTarget();
             _prompt.Refresh();
 
-            if (CanStand && _actions.Player.Interact.WasPressedThisFrame())
+            if (_actions.Player.Interact.WasPressedThisFrame())
             {
                 _playerMove.RequestStand();
             }

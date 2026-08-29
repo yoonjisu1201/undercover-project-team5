@@ -114,10 +114,11 @@ public sealed class InteractionPromptPresenter : MonoBehaviour
     {
         if (_interaction.IsSitting)
         {
-            string standText = _interaction.CanStand
+            bool canStand = _interaction.CanStand;
+            string standText = canStand
                 ? StandFromBenchText.GetLocalizedString()
                 : null;
-            SetStandingText(standText, _interaction.CanStand);
+            SetStandingText(standText, canStand);
             return;
         }
 

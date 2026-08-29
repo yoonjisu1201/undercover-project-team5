@@ -299,8 +299,7 @@ public class PlayerCameraController : NetworkBehaviour
 
     private void ApplyHeadPivotRotation()
     {
-        _headPivot.transform.localRotation =
-            Quaternion.Euler(0f, _seatedYaw, 0f) * Quaternion.Euler(_pitch, 0f, 0f);
+        _headPivot.transform.localRotation = Quaternion.Euler(0f, _seatedYaw, 0f) * Quaternion.Euler(_pitch, 0f, 0f);
     }
 
     public void TransitionToDownedView()

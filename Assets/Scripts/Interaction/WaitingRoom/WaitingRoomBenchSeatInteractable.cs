@@ -26,7 +26,7 @@ public sealed class WaitingRoomBenchSeatInteractable : InteractableBase
 
     public override void Interact(GameObject interactor)
     {
-        if (CanInteract(interactor) && interactor.TryGetComponent(out PlayerMoveSample playerMove))
+        if (interactor.TryGetComponent(out PlayerMoveSample playerMove))
         {
             playerMove.RequestSit(_seatId);
         }
