@@ -30,6 +30,9 @@ public class PlayerCameraController : NetworkBehaviour
     [SerializeField] private float _minPitch = -50f; // 위쪽으로 볼 수 있는 한계
     [SerializeField] private float _maxPitch = 50f;  // 아래쪽으로 볼 수 있는 한계
 
+    [Header("앉은 상태 카메라")]
+    [SerializeField, Range(0f, 180f)] private float _seatedYawLimit = 70f;
+
     // 손전등 등 손 IK가 따라가는 각도. 헤드 피벗(카메라)보다 좁게 잡아서 팔이 가동 범위를 넘어 꺾이지 않게 한다.
     [Header("팔 IK 따라가기 (헤드 피벗과 별도로 클램프)")]
     [SerializeField] private Transform _armFollowPivot;
@@ -43,6 +46,7 @@ public class PlayerCameraController : NetworkBehaviour
     private CustomInputActions _actions;
     private PlayerRenderer _playerRenderer;
     private float _yaw;
+    private float _seatedYaw;
     private float _pitch;
     private Vector3 _cameraBaseLocalPosition;
     private Quaternion _headBoneBaseRotation;
@@ -50,6 +54,7 @@ public class PlayerCameraController : NetworkBehaviour
     private Quaternion _cameraTransitionStartRotation;
     private float _cameraTransitionElapsedTime;
     private bool _useDownedCameraView;
+    private bool _useSeatedCameraView;
     private bool _isCameraTransitioning;
 
     // 오너가 갱신하는 pitch 값. 다른 클라이언트는 이 값을 읽어 헤드 본을 회전시킨다.
@@ -145,6 +150,12 @@ public class PlayerCameraController : NetworkBehaviour
             return;
         }
 
+        if (_useSeatedCameraView)
+        {
+            UpdateSeatedView();
+            return;
+        }
+
         Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
 
         _yaw += mouseDelta.x * _rotateSpeed;
@@ -164,6 +175,29 @@ public class PlayerCameraController : NetworkBehaviour
 
         // 흔들림은 각자 화면의 연출이라 pitch 동기화 값에는 섞지 않는다.
         // 섞으면 남의 캐릭터 머리가 같이 떨린다.
+        _networkPitch.Value = _pitch;
+    }
+
+    private void UpdateSeatedView()
+    {
+        Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
+
+        _seatedYaw = Mathf.Clamp(
+            _seatedYaw + mouseDelta.x * _rotateSpeed,
+            -_seatedYawLimit,
+            _seatedYawLimit);
+
+        _pitch -= mouseDelta.y * _rotateSpeed;
+        _pitch = Mathf.Clamp(_pitch, _minPitch, _maxPitch);
+
+        float breathBob = 0f;
+        float breathPitch = 0f;
+        _exhaustedBreathEffect?.Evaluate(Time.deltaTime, out breathBob, out breathPitch);
+
+        _headPivot.transform.localRotation =
+            Quaternion.Euler(0f, _seatedYaw, 0f) * Quaternion.Euler(_pitch + breathPitch, 0f, 0f);
+        _camera.transform.localPosition = _cameraBaseLocalPosition + Vector3.up * breathBob;
+
         _networkPitch.Value = _pitch;
     }
 
@@ -228,6 +262,45 @@ public class PlayerCameraController : NetworkBehaviour
     public void SetYaw(float yaw)
     {
         _yaw = yaw;
+
+        if (_useSeatedCameraView)
+        {
+            _seatedYaw = 0f;
+            ApplyHeadPivotRotation();
+        }
+    }
+
+    public void EnterSeatedView(float bodyYaw)
+    {
+        if (_useSeatedCameraView)
+        {
+            return;
+        }
+
+        _yaw = bodyYaw;
+        _seatedYaw = 0f;
+        _useSeatedCameraView = true;
+        ApplyHeadPivotRotation();
+    }
+
+    public void ExitSeatedView()
+    {
+        if (!_useSeatedCameraView)
+        {
+            return;
+        }
+
+        _yaw = transform.eulerAngles.y + _seatedYaw;
+        _seatedYaw = 0f;
+        _useSeatedCameraView = false;
+        transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
+        ApplyHeadPivotRotation();
+    }
+
+    private void ApplyHeadPivotRotation()
+    {
+        _headPivot.transform.localRotation =
+            Quaternion.Euler(0f, _seatedYaw, 0f) * Quaternion.Euler(_pitch, 0f, 0f);
     }
 
     public void TransitionToDownedView()

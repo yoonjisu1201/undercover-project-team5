@@ -19,6 +19,7 @@ public class PlayerInteraction : NetworkBehaviour
     private PlayerInventory _inventory;
     private PlayerHealth _health;
     private PlayerItemUse _itemUse;
+    private PlayerMoveSample _playerMove;
     private CustomInputActions _actions;
 
     // 대상 감지·조준과 안내 문구는 각각 전담 컴포넌트가 맡는다.
@@ -36,8 +37,15 @@ public class PlayerInteraction : NetworkBehaviour
     // 지금 조준 중인 대상. 안내 문구가 이 값으로 무엇을 띄울지 정한다.
     public InteractableBase CurrentTarget => _targeting.CurrentTarget;
 
+    public bool IsSitting => _playerMove.IsSitting;
+    public bool CanStand => _playerMove.CanStand;
+
     // 쓰러졌거나 카트를 끌거나 UI 를 보는 중에는 조준·안내를 모두 접는다. 여러 곳에서 같은 조건을 물어본다.
-    public bool IsInteractionBlocked => _health.IsDowned || CarryingCart != null || GameplayUiMode.IsActive;
+    public bool IsInteractionBlocked =>
+        _health.IsDowned ||
+        CarryingCart != null ||
+        GameplayUiMode.IsActive ||
+        IsSitting;
 
     private void Awake()
     {
@@ -45,6 +53,7 @@ public class PlayerInteraction : NetworkBehaviour
         _inventory = GetComponent<PlayerInventory>();
         _health = GetComponent<PlayerHealth>();
         _itemUse = GetComponent<PlayerItemUse>();
+        _playerMove = GetComponent<PlayerMoveSample>();
 
         _targeting = GetComponent<InteractionTargeting>();
 
@@ -145,6 +154,20 @@ public class PlayerInteraction : NetworkBehaviour
         {
             CancelHoldAction();
             _targeting.ClearTarget();
+            return;
+        }
+
+        if (IsSitting)
+        {
+            CancelHoldAction();
+            _targeting.ClearTarget();
+            _prompt.Refresh();
+
+            if (CanStand && _actions.Player.Interact.WasPressedThisFrame())
+            {
+                _playerMove.RequestStand();
+            }
+
             return;
         }
 

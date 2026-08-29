@@ -13,6 +13,8 @@ using UnityEngine.Localization;
 public sealed class InteractionPromptPresenter : MonoBehaviour
 {
     private const string LocalizationTable = "Language Table";
+    private static readonly LocalizedString StandFromBenchText =
+        new LocalizedString(LocalizationTable, "interact_stand_from_bench");
 
     // 서버 상호작용 결과가 늦게 도착해도 안내 문구가 바로 바뀌도록 잠깐만 재확인하는 구간의 길이.
     private const float RefreshWindow = 0.75f;
@@ -110,6 +112,15 @@ public sealed class InteractionPromptPresenter : MonoBehaviour
     // 현재 조준 대상과 들고 있는 아이템 기준으로 안내 문구를 다시 정한다.
     public void Refresh()
     {
+        if (_interaction.IsSitting)
+        {
+            string standText = _interaction.CanStand
+                ? StandFromBenchText.GetLocalizedString()
+                : null;
+            SetStandingText(standText, _interaction.CanStand);
+            return;
+        }
+
         if (_interaction.IsInteractionBlocked)
         {
             Clear();

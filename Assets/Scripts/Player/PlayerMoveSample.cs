@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -10,6 +11,20 @@ using UnityEngine;
 
 public class PlayerMoveSample : NetworkBehaviour
 {
+	private const int NoSeat = -1;
+	private const string IdleStateName = "Base Layer.Idle";
+	private const string SittingIdleStateName = "Base Layer.Sitting Idle";
+
+	private enum SeatState : byte
+	{
+		Standing,
+		SittingDown,
+		Seated,
+		StandingUp
+	}
+
+	private static readonly List<PlayerMoveSample> SpawnedPlayers = new();
+
 	[Header("이동 관련")]
 	[SerializeField] private float _moveSpeedWithCart = 3f;
 	[SerializeField] private float _moveSpeed = 5f;
@@ -58,6 +73,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
 	// #392: PlayerHealth의 동기화된 다운 상태를 Animator의 Downed/Getting Up 전이에 연결한다.
 	private static readonly int IsDownedHash = Animator.StringToHash("IsDowned");
+	private static readonly int IsSittingHash = Animator.StringToHash("IsSitting");
 	private readonly NetworkVariable<bool> _networkIsMoving = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 	private readonly NetworkVariable<bool> _networkIsRunning = new NetworkVariable<bool>(
 			false,
@@ -68,6 +84,16 @@ public class PlayerMoveSample : NetworkBehaviour
 			false,
 			NetworkVariableReadPermission.Everyone,
 			NetworkVariableWritePermission.Owner);
+	private readonly NetworkVariable<SeatState> _seatState =
+		new NetworkVariable<SeatState>(
+			SeatState.Standing,
+			NetworkVariableReadPermission.Everyone,
+			NetworkVariableWritePermission.Server);
+	private readonly NetworkVariable<int> _currentSeatId =
+		new NetworkVariable<int>(
+			NoSeat,
+			NetworkVariableReadPermission.Everyone,
+			NetworkVariableWritePermission.Server);
 
 	private bool _isJumping;
 
@@ -95,6 +121,18 @@ public class PlayerMoveSample : NetworkBehaviour
 	private bool _isStaminaExhausted;
 	// #392: 실제 소생 후 Getting Up에서 Idle로 돌아갈 때까지 이동을 차단한다.
 	private bool _isGettingUp;
+	private bool _isSeatMovementBlocked;
+	private bool _seatTransitionCompletionRequested;
+
+	public bool CanSit =>
+		_seatState.Value == SeatState.Standing
+		&& !_playerHealth.IsDowned
+		&& !_isGettingUp
+		&& !_isJumping
+		&& _playerInteraction.CarryingCart == null
+		&& !_playerCameraController.IsCameraTransitioning;
+	public bool IsSitting => _seatState.Value != SeatState.Standing;
+	public bool CanStand => _seatState.Value == SeatState.Seated;
 
 	// Getting Up 애니메이션 + 블렌딩이 완전히 끝나는 시점(FixedUpdate에서 감지)에 발동한다.
 	public event Action GettingUpFinished;
@@ -206,6 +244,32 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 	}
 
+	private void HandleSeatStateChanged(SeatState previousValue, SeatState value)
+	{
+		bool isAnimatorSitting = value == SeatState.SittingDown || value == SeatState.Seated;
+		ApplyAnimatorBool(IsSittingHash, isAnimatorSitting);
+		_seatTransitionCompletionRequested = false;
+
+		if (!IsOwner)
+		{
+			return;
+		}
+
+		if (value == SeatState.Standing)
+		{
+			_playerCameraController.ExitSeatedView();
+			SetSeatMovementBlocked(false);
+			return;
+		}
+
+		SetSeatMovementBlocked(true);
+
+		if (previousValue == SeatState.Standing)
+		{
+			_playerCameraController.EnterSeatedView(transform.eulerAngles.y);
+		}
+	}
+
 	// #392: PlayerHealth.DownedStateChanged -> Animator IsDowned -> Downed/Getting Up 전이 흐름의 연결 지점이다.
 	private void HandleDownedStateChanged(bool previousValue, bool value)
 	{
@@ -215,6 +279,11 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		if (value)
 		{
+			if (IsServer)
+			{
+				ReleaseSeatOnServer();
+			}
+
 			SoundManager.Instance?.PlayAt(SoundKey.Player_Downed, transform.position);
 
 			_jumpRequested = false;
@@ -282,25 +351,30 @@ public class PlayerMoveSample : NetworkBehaviour
 	public override void OnNetworkSpawn()
 	{
 		Debug.Log($"[PlayerMoveNetworkTest] OwnerClientId = {OwnerClientId}, IsOwner = {IsOwner}");
+		SpawnedPlayers.Add(this);
 
 		_networkIsMoving.OnValueChanged += HandleMovingChanged;
 		_networkIsRunning.OnValueChanged += HandleRunningChanged;
 		_networkIsJumping.OnValueChanged += HandleJumpingChanged;
+		_seatState.OnValueChanged += HandleSeatStateChanged;
 		// #392: PlayerHealth의 NetworkVariable 변경 알림을 모든 클라이언트의 Animator에 반영한다.
 		_playerHealth.DownedStateChanged += HandleDownedStateChanged;
 
 		HandleMovingChanged(false, _networkIsMoving.Value);
 		HandleRunningChanged(false, _networkIsRunning.Value);
 		HandleJumpingChanged(false, _networkIsJumping.Value);
+		HandleSeatStateChanged(SeatState.Standing, _seatState.Value);
 		// #392: 기존 상태 초기화와 형식을 맞추되, false를 이전 값으로 넘겨 최초 스폰을 소생으로 판정하지 않는다.
 		HandleDownedStateChanged(false, _playerHealth.IsDowned);
 	}
 
 	public override void OnNetworkDespawn()
 	{
+		SpawnedPlayers.Remove(this);
 		_networkIsMoving.OnValueChanged -= HandleMovingChanged;
 		_networkIsRunning.OnValueChanged -= HandleRunningChanged;
 		_networkIsJumping.OnValueChanged -= HandleJumpingChanged;
+		_seatState.OnValueChanged -= HandleSeatStateChanged;
 		// #392: OnNetworkSpawn에서 등록한 다운 상태 구독을 네트워크 수명 종료 시 해제한다.
 		_playerHealth.DownedStateChanged -= HandleDownedStateChanged;
 
@@ -313,6 +387,11 @@ public class PlayerMoveSample : NetworkBehaviour
 		UpdateFootstep();
 
 		if (!IsOwner)
+		{
+			return;
+		}
+
+		if (_isSeatMovementBlocked)
 		{
 			return;
 		}
@@ -349,12 +428,19 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
+		UpdateSeatAnimationState();
+
+		if (_isSeatMovementBlocked)
+		{
+			return;
+		}
+
 		UpdateJumpAnimation();
 
 		// #392: Getting Up -> Idle 전환과 블렌딩이 모두 끝난 뒤에만 이동 잠금을 해제한다.
 		if (_isGettingUp &&
 			!_animator.IsInTransition(0) &&
-			_animator.GetCurrentAnimatorStateInfo(0).IsName("Base Layer.Idle"))
+			_animator.GetCurrentAnimatorStateInfo(0).IsName(IdleStateName))
 		{
 			_isGettingUp = false;
 			GettingUpFinished?.Invoke();
@@ -522,6 +608,171 @@ public class PlayerMoveSample : NetworkBehaviour
 			QueryTriggerInteraction.Ignore);
 	}
 
+	public void RequestSit(int seatId)
+	{
+		if (IsOwner && CanSit)
+		{
+			RequestSitRpc(seatId);
+		}
+	}
+
+	public void RequestStand()
+	{
+		if (IsOwner && CanStand)
+		{
+			RequestStandRpc();
+		}
+	}
+
+	public static bool IsSeatOccupied(int seatId)
+	{
+		if (seatId == NoSeat)
+		{
+			return false;
+		}
+
+		foreach (PlayerMoveSample player in SpawnedPlayers)
+		{
+			if (player._currentSeatId.Value == seatId)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public static void ForceReleaseSeatOnServer(int seatId)
+	{
+		if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+		{
+			return;
+		}
+
+		foreach (PlayerMoveSample player in SpawnedPlayers)
+		{
+			if (player._currentSeatId.Value == seatId)
+			{
+				player.ReleaseSeatOnServer();
+			}
+		}
+	}
+
+	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+	private void RequestSitRpc(int seatId, RpcParams rpcParams = default)
+	{
+		if (!CanSit
+			|| IsSeatOccupied(seatId)
+			|| !WaitingRoomBenchSeatInteractable.TryGetSeat(seatId, out WaitingRoomBenchSeatInteractable seat)
+			|| !NpcInteractionValidation.TryGetInteractionCollider(
+				NetworkManager,
+				rpcParams.Receive.SenderClientId,
+				out SphereCollider interactionCollider)
+			|| !seat.IsWithinInteractionRange(interactionCollider))
+		{
+			return;
+		}
+
+		seat.GetSeatPose(out Vector3 position, out Quaternion rotation);
+		_currentSeatId.Value = seatId;
+		_seatState.Value = SeatState.SittingDown;
+		ApplySeatPoseRpc(position, rotation);
+	}
+
+	[Rpc(SendTo.Owner)]
+	private void ApplySeatPoseRpc(Vector3 position, Quaternion rotation)
+	{
+		ApplyTeleport(position, rotation);
+		SetSeatMovementBlocked(true);
+		_playerCameraController.EnterSeatedView(rotation.eulerAngles.y);
+	}
+
+	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+	private void RequestStandRpc()
+	{
+		if (_seatState.Value == SeatState.Seated)
+		{
+			_seatState.Value = SeatState.StandingUp;
+		}
+	}
+
+	private void UpdateSeatAnimationState()
+	{
+		if (_seatTransitionCompletionRequested || _animator.IsInTransition(0))
+		{
+			return;
+		}
+
+		AnimatorStateInfo animatorState = _animator.GetCurrentAnimatorStateInfo(0);
+		SeatState currentState = _seatState.Value;
+		bool completed =
+			currentState == SeatState.SittingDown && animatorState.IsName(SittingIdleStateName)
+			|| currentState == SeatState.StandingUp && animatorState.IsName(IdleStateName);
+
+		if (!completed)
+		{
+			return;
+		}
+
+		_seatTransitionCompletionRequested = true;
+		CompleteSeatTransitionRpc(currentState);
+	}
+
+	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+	private void CompleteSeatTransitionRpc(SeatState completedState)
+	{
+		if (_seatState.Value != completedState)
+		{
+			return;
+		}
+
+		if (completedState == SeatState.SittingDown)
+		{
+			_seatState.Value = SeatState.Seated;
+			return;
+		}
+
+		if (completedState == SeatState.StandingUp)
+		{
+			ReleaseSeatOnServer();
+		}
+	}
+
+	private void ReleaseSeatOnServer()
+	{
+		if (!IsServer || _seatState.Value == SeatState.Standing)
+		{
+			return;
+		}
+
+		_currentSeatId.Value = NoSeat;
+		_seatState.Value = SeatState.Standing;
+	}
+
+	private void SetSeatMovementBlocked(bool blocked)
+	{
+		if (_isSeatMovementBlocked == blocked)
+		{
+			return;
+		}
+
+		_isSeatMovementBlocked = blocked;
+
+		if (!blocked)
+		{
+			_rigidbody.isKinematic = false;
+			return;
+		}
+
+		_jumpRequested = false;
+		SetMovingState(false);
+		SetRunningState(false);
+		SetJumpingState(false);
+		_rigidbody.linearVelocity = Vector3.zero;
+		_rigidbody.angularVelocity = Vector3.zero;
+		_rigidbody.isKinematic = true;
+	}
+
 	// 서버에서 지정한 스폰 위치로 이동한다.
 	public void TeleportToPosition(Vector3 position, Quaternion rotation)
 	{
@@ -545,8 +796,11 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		_playerCameraController.SetYaw(rotation.eulerAngles.y);
 
-		_rigidbody.linearVelocity = Vector3.zero;
-		_rigidbody.angularVelocity = Vector3.zero;
+		if (!_rigidbody.isKinematic)
+		{
+			_rigidbody.linearVelocity = Vector3.zero;
+			_rigidbody.angularVelocity = Vector3.zero;
+		}
 		_rigidbody.position = position;
 		_rigidbody.rotation = rotation;
 	}
