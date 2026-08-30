@@ -12,11 +12,16 @@ using UnityEngine;
 
 public class PlayerMoveSample : NetworkBehaviour
 {
+	// #803: 좌석을 점유하지 않은 상태와 실제 좌석 ID를 충돌 없이 구분하기 위한 예약값이다.
 	private const int NoSeat = -1;
+	// #803: 앉기·기상 애니메이션이 안정 상태에 도착했는지 확인한 뒤 서버 단계를 완료하기 위해 사용한다.
 	private const string IdleStateName = "Base Layer.Idle";
 	private const string SittingIdleStateName = "Base Layer.Sitting Idle";
 
-	private enum SeatState : byte
+	// #803: 착석 전환은 이동 잠금과 Animator 완료 판정을 함께 제어하므로
+	// #803: 서기, 앉는 중, 착석 완료, 일어나는 중의 4단계로 관리한다.
+	// #803: 앉기 완료 전 기상을 막고, 기상 완료 전 이동·좌석 점유가 해제되지 않도록 단계를 구분한다.
+	private enum SeatingPhase : byte
 	{
 		Standing,
 		SittingDown,
@@ -24,7 +29,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		StandingUp
 	}
 
-	private static readonly List<PlayerMoveSample> SpawnedPlayers = new();
+	// #803: 각 플레이어의 동기화된 좌석 ID를 모아 서버와 클라이언트가 동일한 점유 여부를 계산한다.
+	private static readonly List<PlayerMoveSample> _spawnedPlayers = new();
 
 	[Header("이동 관련")]
 	[SerializeField] private float _moveSpeedWithCart = 3f;
@@ -38,6 +44,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private float _gravityValue = 2.5f;   // 떨어질 때 중력 배수
 	[SerializeField] private float _riseMultiplier = 2f;   // 올라갈 때 중력 배수 (클수록 정점에 빨리 도달 = 상승이 빨라짐)
 	[SerializeField] private Rigidbody _rigidbody;
+	// #803: 좌석 포즈로 이동한 오너의 위치와 회전을 다른 피어에 즉시 전달한다.
 	private NetworkTransform _networkTransform;
 
 	[Header("경사 미끄러짐 방지")]
@@ -75,6 +82,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
 	// #392: PlayerHealth의 동기화된 다운 상태를 Animator의 Downed/Getting Up 전이에 연결한다.
 	private static readonly int IsDownedHash = Animator.StringToHash("IsDowned");
+	// #803: 4단계 SeatingPhase를 Animator가 사용하는 이진 착석 값으로 변환해 적용한다.
 	private static readonly int IsSittingHash = Animator.StringToHash("IsSitting");
 	private readonly NetworkVariable<bool> _networkIsMoving = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 	private readonly NetworkVariable<bool> _networkIsRunning = new NetworkVariable<bool>(
@@ -86,12 +94,14 @@ public class PlayerMoveSample : NetworkBehaviour
 			false,
 			NetworkVariableReadPermission.Everyone,
 			NetworkVariableWritePermission.Owner);
-	private readonly NetworkVariable<SeatState> _seatState =
-		new NetworkVariable<SeatState>(
-			SeatState.Standing,
+	// #803: 서버가 착석·기상의 4단계 진행 상태를 관리하고 모든 피어가 이를 공유한다.
+	private readonly NetworkVariable<SeatingPhase> _networkSeatingPhase =
+		new NetworkVariable<SeatingPhase>(
+			SeatingPhase.Standing,
 			NetworkVariableReadPermission.Everyone,
 			NetworkVariableWritePermission.Server);
-	private readonly NetworkVariable<int> _currentSeatId =
+	// #803: 좌석별 점유 판정을 위해 현재 플레이어가 사용하는 좌석 ID를 동기화한다.
+	private readonly NetworkVariable<int> _networkCurrentSeatId =
 		new NetworkVariable<int>(
 			NoSeat,
 			NetworkVariableReadPermission.Everyone,
@@ -123,12 +133,17 @@ public class PlayerMoveSample : NetworkBehaviour
 	private bool _isStaminaExhausted;
 	// #392: 실제 소생 후 Getting Up에서 Idle로 돌아갈 때까지 이동을 차단한다.
 	private bool _isGettingUp;
+	// #803: 앉기 시작부터 기상 완료까지 입력과 Rigidbody 이동을 차단하는 오너 로컬 상태다.
 	private bool _isSeatMovementBlocked;
+	// #803: 같은 애니메이션 완료를 FixedUpdate마다 서버에 반복 보고하지 않도록 현재 단계의 요청 여부를 기록한다.
 	private bool _seatTransitionCompletionRequested;
 
-	public bool CanSit => _seatState.Value == SeatState.Standing && !_isJumping;
-	public bool IsSitting => _seatState.Value != SeatState.Standing;
-	public bool CanStand => _seatState.Value == SeatState.Seated;
+	// #803: 완전히 서 있고 점프 중이 아닐 때만 착석을 허용해 전환 중 중복 요청과 점프 도중 좌석 이동을 막는다.
+	public bool CanSit => _networkSeatingPhase.Value == SeatingPhase.Standing && !_isJumping;
+	// #803: 앉는 중과 일어나는 중에도 일반 상호작용·이동 차단이 유지되도록 Standing만 false로 본다.
+	public bool IsSitting => _networkSeatingPhase.Value != SeatingPhase.Standing;
+	// #803: 앉기 애니메이션이 끝난 안정 단계에서만 기상 입력을 허용한다.
+	public bool CanStand => _networkSeatingPhase.Value == SeatingPhase.Seated;
 
 	// Getting Up 애니메이션 + 블렌딩이 완전히 끝나는 시점(FixedUpdate에서 감지)에 발동한다.
 	public event Action GettingUpFinished;
@@ -196,6 +211,13 @@ public class PlayerMoveSample : NetworkBehaviour
 		SyncAnimatorBool(IsJumpingHash, _networkIsJumping, value);
 	}
 
+	// #803: 다른 Set*State 메서드와 호출 형식을 맞춰 Animator의 착석 여부를 적용한다.
+	// #803: 착석은 서버 권한의 4단계 SeatingPhase로 동기화하므로 이 메서드는 NetworkVariable을 변경하지 않는다.
+	private void SetSeatState(bool value)
+	{
+		ApplyAnimatorBool(IsSittingHash, value);
+	}
+
 	private void HandleMovingChanged(bool _, bool value)
 	{
 		ApplyAnimatorBool(IsMovingHash, value);
@@ -241,27 +263,34 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 	}
 
-	private void HandleSeatStateChanged(SeatState previousValue, SeatState value)
+	// #803: 동기화된 단계로 모든 피어의 Animator를 맞추고, 오너의 카메라·이동 잠금 수명 주기를 함께 제어한다.
+	private void HandleSeatingPhaseChanged(SeatingPhase previousPhase, SeatingPhase currentPhase)
 	{
-		bool isAnimatorSitting = value == SeatState.SittingDown || value == SeatState.Seated;
-		ApplyAnimatorBool(IsSittingHash, isAnimatorSitting);
+		// #803: StandingUp 진입 시 착석 bool을 내려 기상 애니메이션을 시작하고, 그 전까지는 착석 자세를 유지한다.
+		bool isSitting = currentPhase == SeatingPhase.SittingDown || currentPhase == SeatingPhase.Seated;
+		SetSeatState(isSitting);
+		// #803: 새 단계로 바뀌면 해당 단계의 애니메이션 완료를 한 번 다시 보고할 수 있어야 한다.
 		_seatTransitionCompletionRequested = false;
 
+		// #803: 원격 플레이어는 Animator만 반영하고 입력·카메라·Rigidbody는 실제 오너만 제어한다.
 		if (!IsOwner)
 		{
 			return;
 		}
 
-		if (value == SeatState.Standing)
+		// #803: 기상 애니메이션 완료가 서버에서 Standing으로 확정된 뒤에만 카메라와 이동을 복구한다.
+		if (currentPhase == SeatingPhase.Standing)
 		{
 			_playerCameraController.ExitSeatedView();
 			SetSeatMovementBlocked(false);
 			return;
 		}
 
+		// #803: SittingDown·Seated·StandingUp 전체에서 이동 잠금과 좌석 위치를 유지한다.
 		SetSeatMovementBlocked(true);
 
-		if (previousValue == SeatState.Standing)
+		// #803: SittingDown에서 Seated로 바뀔 때 카메라 기준이 다시 초기화되지 않도록 최초 진입만 처리한다.
+		if (previousPhase == SeatingPhase.Standing)
 		{
 			_playerCameraController.EnterSeatedView(transform.eulerAngles.y);
 		}
@@ -283,6 +312,8 @@ public class PlayerMoveSample : NetworkBehaviour
 			SetMovingState(false);
 			SetRunningState(false);
 			SetJumpingState(false);
+			// #803: 다운과 착석 Animator bool이 동시에 켜지지 않도록 착석 표현만 내리고 서버 단계·점유는 유지한다.
+			SetSeatState(false);
 
 			if (IsOwner)
 			{
@@ -343,30 +374,35 @@ public class PlayerMoveSample : NetworkBehaviour
 	public override void OnNetworkSpawn()
 	{
 		Debug.Log($"[PlayerMoveNetworkTest] OwnerClientId = {OwnerClientId}, IsOwner = {IsOwner}");
-		SpawnedPlayers.Add(this);
+		// #803: 각 플레이어의 서버 관리·동기화된 좌석 ID로 점유 여부를 확인하기 위해
+		// #803: 현재 네트워크에 스폰된 플레이어를 점유 검사 목록에 등록한다.
+		_spawnedPlayers.Add(this);
 
 		_networkIsMoving.OnValueChanged += HandleMovingChanged;
 		_networkIsRunning.OnValueChanged += HandleRunningChanged;
 		_networkIsJumping.OnValueChanged += HandleJumpingChanged;
-		_seatState.OnValueChanged += HandleSeatStateChanged;
+		_networkSeatingPhase.OnValueChanged += HandleSeatingPhaseChanged;
 		// #392: PlayerHealth의 NetworkVariable 변경 알림을 모든 클라이언트의 Animator에 반영한다.
 		_playerHealth.DownedStateChanged += HandleDownedStateChanged;
 
 		HandleMovingChanged(false, _networkIsMoving.Value);
 		HandleRunningChanged(false, _networkIsRunning.Value);
 		HandleJumpingChanged(false, _networkIsJumping.Value);
-		HandleSeatStateChanged(SeatState.Standing, _seatState.Value);
+		// #803: OnValueChanged는 현재 값을 재생하지 않으므로 늦게 스폰된 피어에도 현재 착석 단계를 즉시 적용한다.
+		HandleSeatingPhaseChanged(SeatingPhase.Standing, _networkSeatingPhase.Value);
 		// #392: 기존 상태 초기화와 형식을 맞추되, false를 이전 값으로 넘겨 최초 스폰을 소생으로 판정하지 않는다.
 		HandleDownedStateChanged(false, _playerHealth.IsDowned);
 	}
 
 	public override void OnNetworkDespawn()
 	{
-		SpawnedPlayers.Remove(this);
+		// #803: 정상 퇴장, 연결 끊김 또는 강제 종료로 Despawn된 플레이어의
+		// #803: 마지막 좌석 ID가 점유 검사에 남지 않도록 목록에서 제거한다.
+		_spawnedPlayers.Remove(this);
 		_networkIsMoving.OnValueChanged -= HandleMovingChanged;
 		_networkIsRunning.OnValueChanged -= HandleRunningChanged;
 		_networkIsJumping.OnValueChanged -= HandleJumpingChanged;
-		_seatState.OnValueChanged -= HandleSeatStateChanged;
+		_networkSeatingPhase.OnValueChanged -= HandleSeatingPhaseChanged;
 		// #392: OnNetworkSpawn에서 등록한 다운 상태 구독을 네트워크 수명 종료 시 해제한다.
 		_playerHealth.DownedStateChanged -= HandleDownedStateChanged;
 
@@ -383,6 +419,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
+		// #803: 착석 흐름 중에는 점프 입력을 새로 예약하지 않아 기상 직후 점프가 실행되지 않게 한다.
 		if (_isSeatMovementBlocked)
 		{
 			return;
@@ -420,8 +457,10 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
+		// #803: 이동은 잠겨 있어도 앉기·기상 애니메이션 완료는 계속 감지해야 다음 단계로 진행할 수 있다.
 		UpdateSeatAnimationState();
 
+		// #803: 애니메이션 완료 확인 이후 실제 물리 이동과 점프 계산만 중단한다.
 		if (_isSeatMovementBlocked)
 		{
 			return;
@@ -600,6 +639,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			QueryTriggerInteraction.Ignore);
 	}
 
+	// #803: 로컬 오너가 완전히 서 있는 경우에만 서버에 해당 좌석의 착석 검증을 요청한다.
 	public void RequestSit(int seatId)
 	{
 		if (IsOwner && CanSit)
@@ -608,6 +648,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 	}
 
+	// #803: 앉기 애니메이션이 완료된 오너만 서버에 기상 단계 전환을 요청한다.
 	public void RequestStand()
 	{
 		if (IsOwner && CanStand)
@@ -616,6 +657,29 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 	}
 
+	// #803: 좌석이 자신의 현재 이용자인지 판단해 점유 검사와 별도로 기상 상호작용을 허용한다.
+	public bool IsCurrentSeat(int seatId)
+	{
+		return IsSitting && _networkCurrentSeatId.Value == seatId;
+	}
+
+	// #803: 착석 중 입력도 일반 Interactable 경로로 처리할 수 있도록 현재 좌석을 반환한다.
+	public bool TryGetCurrentSeatInteractable(out InteractableBase currentSeat)
+	{
+		if (!IsSitting ||
+			!WaitingRoomBenchSeatInteractable.TryGetSeat(
+				_networkCurrentSeatId.Value,
+				out WaitingRoomBenchSeatInteractable seat))
+		{
+			currentSeat = null;
+			return false;
+		}
+
+		currentSeat = seat;
+		return true;
+	}
+
+	// #803: 스폰된 플레이어들의 동기화된 좌석 ID를 비교해 같은 좌석의 중복 착석을 막는다.
 	public static bool IsSeatOccupied(int seatId)
 	{
 		if (seatId == NoSeat)
@@ -623,9 +687,9 @@ public class PlayerMoveSample : NetworkBehaviour
 			return false;
 		}
 
-		foreach (PlayerMoveSample player in SpawnedPlayers)
+		foreach (PlayerMoveSample player in _spawnedPlayers)
 		{
-			if (player._currentSeatId.Value == seatId)
+			if (player._networkCurrentSeatId.Value == seatId)
 			{
 				return true;
 			}
@@ -634,6 +698,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		return false;
 	}
 
+	// #803: 좌석 오브젝트가 비활성화될 때 서버에 남은 점유 ID를 해제해 다시 사용할 수 없는 좌석을 참조하지 않게 한다.
 	public static void ForceReleaseSeatOnServer(int seatId)
 	{
 		if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
@@ -641,15 +706,16 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		foreach (PlayerMoveSample player in SpawnedPlayers)
+		foreach (PlayerMoveSample player in _spawnedPlayers)
 		{
-			if (player._currentSeatId.Value == seatId)
+			if (player._networkCurrentSeatId.Value == seatId)
 			{
 				player.ReleaseSeatOnServer();
 			}
 		}
 	}
 
+	// #803: 오너 요청을 신뢰하지 않고 서버에서 단계·점유·좌석 존재·플레이어 위치를 모두 다시 검증한다.
 	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
 	private void RequestSitRpc(int seatId, RpcParams rpcParams = default)
 	{
@@ -666,11 +732,13 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 
 		seat.GetSeatPose(out Vector3 position, out Quaternion rotation);
-		_currentSeatId.Value = seatId;
-		_seatState.Value = SeatState.SittingDown;
+		// #803: 같은 프레임의 다른 요청도 점유를 확인할 수 있도록 좌석 ID를 먼저 예약한 뒤 착석 단계를 시작한다.
+		_networkCurrentSeatId.Value = seatId;
+		_networkSeatingPhase.Value = SeatingPhase.SittingDown;
 		ApplySeatPoseRpc(position, rotation);
 	}
 
+	// #803: 기존 물리가 좌석 포즈를 밀지 않도록 먼저 이동을 잠그고, Rigidbody와 NetworkTransform을 같은 포즈로 옮겨 즉시 동기화한다.
 	[Rpc(SendTo.Owner)]
 	private void ApplySeatPoseRpc(Vector3 position, Quaternion rotation)
 	{
@@ -680,27 +748,31 @@ public class PlayerMoveSample : NetworkBehaviour
 		_playerCameraController.EnterSeatedView(rotation.eulerAngles.y);
 	}
 
+	// #803: SittingDown이나 StandingUp 중복 입력을 막기 위해 완전히 착석한 단계에서만 기상을 시작한다.
 	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
 	private void RequestStandRpc()
 	{
-		if (_seatState.Value == SeatState.Seated)
+		if (_networkSeatingPhase.Value == SeatingPhase.Seated)
 		{
-			_seatState.Value = SeatState.StandingUp;
+			_networkSeatingPhase.Value = SeatingPhase.StandingUp;
 		}
 	}
 
+	// #803: 오너 Animator가 목표 안정 상태에 도착했을 때만 서버에 현재 전환 완료를 보고한다.
 	private void UpdateSeatAnimationState()
 	{
+		// #803: 블렌딩 중이거나 이미 보고한 단계는 완료로 판정하지 않아 중복·조기 RPC를 막는다.
 		if (_seatTransitionCompletionRequested || _animator.IsInTransition(0))
 		{
 			return;
 		}
 
 		AnimatorStateInfo animatorState = _animator.GetCurrentAnimatorStateInfo(0);
-		SeatState currentState = _seatState.Value;
+		SeatingPhase currentPhase = _networkSeatingPhase.Value;
+		// #803: 앉기는 Sitting Idle, 기상은 Idle 도착을 각각 완료 기준으로 사용한다.
 		bool completed =
-			currentState == SeatState.SittingDown && animatorState.IsName(SittingIdleStateName)
-			|| currentState == SeatState.StandingUp && animatorState.IsName(IdleStateName);
+			currentPhase == SeatingPhase.SittingDown && animatorState.IsName(SittingIdleStateName) || 
+			currentPhase == SeatingPhase.StandingUp && animatorState.IsName(IdleStateName);
 
 		if (!completed)
 		{
@@ -708,42 +780,48 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 
 		_seatTransitionCompletionRequested = true;
-		CompleteSeatTransitionRpc(currentState);
+		CompleteSeatTransitionRpc(currentPhase);
 	}
 
+	// #803: 늦게 도착한 이전 단계 완료 보고를 거부하고 서버가 현재 단계의 다음 상태만 확정한다.
 	[Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-	private void CompleteSeatTransitionRpc(SeatState completedState)
+	private void CompleteSeatTransitionRpc(SeatingPhase completedPhase)
 	{
-		if (_seatState.Value != completedState)
+		if (_networkSeatingPhase.Value != completedPhase)
 		{
 			return;
 		}
 
-		if (completedState == SeatState.SittingDown)
+		// #803: 앉기 완료 뒤에만 기상 입력을 받을 수 있는 Seated 안정 단계로 전환한다.
+		if (completedPhase == SeatingPhase.SittingDown)
 		{
-			_seatState.Value = SeatState.Seated;
+			_networkSeatingPhase.Value = SeatingPhase.Seated;
 			return;
 		}
 
-		if (completedState == SeatState.StandingUp)
+		// #803: 기상 애니메이션이 끝난 뒤에만 점유를 해제하고 이동을 복구할 수 있도록 한다.
+		if (completedPhase == SeatingPhase.StandingUp)
 		{
 			ReleaseSeatOnServer();
 		}
 	}
 
+	// #803: 서버에서 좌석 ID를 비운 뒤 Standing을 전파해 점유 해제와 오너 이동 복구를 완료한다.
 	private void ReleaseSeatOnServer()
 	{
-		if (!IsServer || _seatState.Value == SeatState.Standing)
+		if (!IsServer || _networkSeatingPhase.Value == SeatingPhase.Standing)
 		{
 			return;
 		}
 
-		_currentSeatId.Value = NoSeat;
-		_seatState.Value = SeatState.Standing;
+		_networkCurrentSeatId.Value = NoSeat;
+		_networkSeatingPhase.Value = SeatingPhase.Standing;
 	}
 
+	// #803: 착석 전환 중 위치가 밀리거나 입력이 누적되지 않도록 이동 상태와 Rigidbody를 함께 고정한다.
 	private void SetSeatMovementBlocked(bool blocked)
 	{
+		// #803: 좌석 포즈 RPC와 단계 콜백이 같은 잠금을 요청하므로 중복 호출에서는 kinematic Rigidbody를 다시 초기화하지 않는다.
 		if (_isSeatMovementBlocked == blocked)
 		{
 			return;
@@ -751,12 +829,14 @@ public class PlayerMoveSample : NetworkBehaviour
 
 		_isSeatMovementBlocked = blocked;
 
+		// #803: 기상 완료 뒤 물리 이동을 다시 사용할 수 있도록 kinematic만 해제한다.
 		if (!blocked)
 		{
 			_rigidbody.isKinematic = false;
 			return;
 		}
 
+		// #803: 착석 직전의 입력·속도를 모두 지운 뒤 kinematic으로 바꿔 좌석 포즈를 유지한다.
 		_jumpRequested = false;
 		SetMovingState(false);
 		SetRunningState(false);
@@ -789,6 +869,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		_playerCameraController.SetYaw(rotation.eulerAngles.y);
 
+		// #803: 착석 잠금으로 이미 kinematic인 Rigidbody에는 속도를 쓰지 않고 좌석 포즈만 적용한다.
 		if (!_rigidbody.isKinematic)
 		{
 			_rigidbody.linearVelocity = Vector3.zero;

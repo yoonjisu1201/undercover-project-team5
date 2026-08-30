@@ -30,6 +30,7 @@ public class PlayerCameraController : NetworkBehaviour
     [SerializeField] private float _minPitch = -50f; // 위쪽으로 볼 수 있는 한계
     [SerializeField] private float _maxPitch = 50f;  // 아래쪽으로 볼 수 있는 한계
 
+    // #803: 착석 중에는 몸을 돌리지 않고 고개만 좌우로 돌리므로 좌석 정면 기준 시야 범위를 제한한다.
     [Header("앉은 상태 카메라")]
     [SerializeField, Range(0f, 180f)] private float _seatedYawLimit = 70f;
 
@@ -46,6 +47,7 @@ public class PlayerCameraController : NetworkBehaviour
     private CustomInputActions _actions;
     private PlayerRenderer _playerRenderer;
     private float _yaw;
+    // #803: 좌석 정면을 기준으로 누적한 머리의 좌우 회전값이며 플레이어 몸 회전에는 적용하지 않는다.
     private float _seatedYaw;
     private float _pitch;
     private Vector3 _cameraBaseLocalPosition;
@@ -54,6 +56,7 @@ public class PlayerCameraController : NetworkBehaviour
     private Quaternion _cameraTransitionStartRotation;
     private float _cameraTransitionElapsedTime;
     private bool _useDownedCameraView;
+    // #803: 착석 중 일반 시점 회전 대신 좌석 전용 제한 회전을 사용하기 위한 로컬 카메라 상태다.
     private bool _useSeatedCameraView;
     private bool _isCameraTransitioning;
 
@@ -150,6 +153,7 @@ public class PlayerCameraController : NetworkBehaviour
             return;
         }
 
+        // #803: UI·다운·카메라 전환을 먼저 처리한 뒤, 착석 중에는 몸 방향을 고정하고 머리 시점만 갱신한다.
         if (_useSeatedCameraView)
         {
             UpdateSeatedView();
@@ -178,6 +182,7 @@ public class PlayerCameraController : NetworkBehaviour
         _networkPitch.Value = _pitch;
     }
 
+    // #803: 좌석 정면 기준 yaw만 제한하고 기존 pitch·호흡·원격 머리 pitch 동기화는 그대로 유지한다.
     private void UpdateSeatedView()
     {
         Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
@@ -194,8 +199,8 @@ public class PlayerCameraController : NetworkBehaviour
         float breathPitch = 0f;
         _exhaustedBreathEffect?.Evaluate(Time.deltaTime, out breathBob, out breathPitch);
 
-        _headPivot.transform.localRotation =
-            Quaternion.Euler(0f, _seatedYaw, 0f) * Quaternion.Euler(_pitch + breathPitch, 0f, 0f);
+        // #803: 좌우 회전을 몸 Transform이 아닌 헤드 피벗에 적용해 착석 위치와 몸 방향이 변하지 않게 한다.
+        _headPivot.transform.localRotation = Quaternion.Euler(0f, _seatedYaw, 0f) * Quaternion.Euler(_pitch + breathPitch, 0f, 0f);
         _camera.transform.localPosition = _cameraBaseLocalPosition + Vector3.up * breathBob;
 
         _networkPitch.Value = _pitch;
@@ -263,6 +268,7 @@ public class PlayerCameraController : NetworkBehaviour
     {
         _yaw = yaw;
 
+        // #803: 착석 중 외부 위치 보정이 몸 방향을 바꾸면 이전 좌석 기준 yaw가 남지 않도록 초기화한다.
         if (_useSeatedCameraView)
         {
             _seatedYaw = 0f;
@@ -270,8 +276,10 @@ public class PlayerCameraController : NetworkBehaviour
         }
     }
 
+    // #803: 좌석 회전을 새로운 시점 기준으로 사용하고, 이후 좌우 입력은 몸이 아닌 _seatedYaw에 누적한다.
     public void EnterSeatedView(float bodyYaw)
     {
+        // #803: 좌석 포즈 RPC와 SeatingPhase 콜백이 모두 진입을 요청할 수 있어 중복 초기화를 막는다.
         if (_useSeatedCameraView)
         {
             return;
@@ -283,8 +291,10 @@ public class PlayerCameraController : NetworkBehaviour
         ApplyHeadPivotRotation();
     }
 
+    // #803: 기상 후 착석 중 바라보던 방향을 일반 몸 회전에 합쳐 시점이 좌석 정면으로 튀지 않게 한다.
     public void ExitSeatedView()
     {
+        // #803: 스폰 시 Standing 초기 상태 적용에서도 호출되므로 실제 착석 중일 때만 시점을 복원한다.
         if (!_useSeatedCameraView)
         {
             return;
@@ -297,6 +307,7 @@ public class PlayerCameraController : NetworkBehaviour
         ApplyHeadPivotRotation();
     }
 
+    // #803: 착석 진입·기상·외부 yaw 보정이 동일한 좌우·상하 회전 조합을 사용하도록 한 곳에서 적용한다.
     private void ApplyHeadPivotRotation()
     {
         _headPivot.transform.localRotation = Quaternion.Euler(0f, _seatedYaw, 0f) * Quaternion.Euler(_pitch, 0f, 0f);

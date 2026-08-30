@@ -15,10 +15,11 @@ public class PlayerInteraction : NetworkBehaviour
         ApplyItem
     }
 
-    // RequireComponent 가 보장하므로 null 검사를 하지 않는다. _itemUse 만 없을 수 있다.
+    // PlayerInventory와 PlayerHealth는 RequireComponent가 보장한다. PlayerItemUse는 선택 구성이라 null-safe로 사용한다.
     private PlayerInventory _inventory;
     private PlayerHealth _health;
     private PlayerItemUse _itemUse;
+    // #803: 동기화된 착석 단계와 현재 좌석을 조회해 착석 중 입력을 해당 좌석 상호작용으로 전달한다.
     private PlayerMoveSample _playerMove;
     private CustomInputActions _actions;
 
@@ -37,15 +38,13 @@ public class PlayerInteraction : NetworkBehaviour
     // 지금 조준 중인 대상. 안내 문구가 이 값으로 무엇을 띄울지 정한다.
     public InteractableBase CurrentTarget => _targeting.CurrentTarget;
 
-    public bool IsSitting => _playerMove.IsSitting;
-    public bool CanStand => _playerMove.CanStand;
-
     // 쓰러졌거나 카트를 끌거나 UI 를 보는 중에는 조준·안내를 모두 접는다. 여러 곳에서 같은 조건을 물어본다.
+    // #803: 착석 흐름 중에는 일반 조준을 막고 현재 좌석 안내와 입력만 별도 경로에서 처리한다.
     public bool IsInteractionBlocked =>
         _health.IsDowned ||
         CarryingCart != null ||
         GameplayUiMode.IsActive ||
-        IsSitting;
+        _playerMove.IsSitting;
 
     private void Awake()
     {
@@ -157,17 +156,9 @@ public class PlayerInteraction : NetworkBehaviour
             return;
         }
 
-        if (IsSitting)
+        // #803: 착석 처리를 일반 조준·홀드 갱신보다 먼저 끝내 좌석 외 상호작용이 함께 실행되지 않게 한다.
+        if (TryHandleSittingInteraction())
         {
-            CancelHoldAction();
-            _targeting.ClearTarget();
-            _prompt.Refresh();
-
-            if (_actions.Player.Interact.WasPressedThisFrame())
-            {
-                _playerMove.RequestStand();
-            }
-
             return;
         }
 
@@ -181,6 +172,36 @@ public class PlayerInteraction : NetworkBehaviour
             HandleInteractInput();
         }
 
+    }
+
+    private bool TryHandleSittingInteraction()
+    {
+        if (!_playerMove.IsSitting)
+        {
+            return false;
+        }
+
+        // #803: 착석 중에는 조준 중이던 대상과 홀드 입력을 유지하지 않고 동기화된 현재 좌석만 사용한다.
+        CancelHoldAction();
+        _targeting.ClearTarget();
+
+        // #803: 좌석이 비활성화되거나 아직 등록되지 않았어도 일반 상호작용으로 입력이 새지 않도록 소비한다.
+        if (!_playerMove.TryGetCurrentSeatInteractable(out InteractableBase currentSeat))
+        {
+            _prompt.Clear();
+            return true;
+        }
+
+        // #803: 좌석이 결정한 문구와 키 힌트를 기존 Presenter 표시 메서드에 전달한다.
+        _prompt.SetStandingText(currentSeat.GetInteractionText(gameObject), currentSeat.ShowInteractionKeyHint(gameObject));
+
+        // #803: 전환 중에는 좌석 CanInteract가 false이므로 완전히 착석한 경우에만 같은 Interact 경로로 기상한다.
+        if (_actions.Player.Interact.WasPressedThisFrame() && currentSeat.CanInteract(gameObject))
+        {
+            currentSeat.Interact(gameObject);
+        }
+
+        return true;
     }
 
     private void HandleInteractInput()
