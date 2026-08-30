@@ -3,10 +3,12 @@ using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Localization;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
-// 라운드 결과(라운드 클리어/성공/실패)를 표시하고, 확인 버튼을 누르면 대기방으로 돌아가도록 서버에 알린다.
-public class RoundResultPanelUI : MonoBehaviour, IClosableUi
+// 라운드 결과(라운드 클리어/성공/실패)를 표시하고, 방장이 확인 버튼을 누르면 대기방으로 돌아가도록 서버에 알린다.
+// 방장이 아닌 인원에게는 버튼 대신 안내 문구를 띄우고, 아무도 누르지 않아도 카운트다운이 끝나면 서버가 자동으로 되돌린다.
+public class RoundResultPanelUI : MonoBehaviour
 {
     [SerializeField] private GameObject _panel;
     [Header("현지화 문구")]
@@ -21,7 +23,11 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
     [SerializeField] private GameObject _inventoryCanvas;
     [SerializeField] private TMP_Text _countdownText;
     [SerializeField] private GameObject _nextRoundText;
-    [SerializeField] private TMP_Text _confirmedCountText; // "확인한 인원/총 인원" 표시용
+    [SerializeField] private GameObject _returnNoticeText; // 방장이 아닌 인원에게 보여줄 "잠시 후 대기방으로 이동합니다" 문구
+
+    // 전원 확인 방식이던 시절의 "확인한 인원/총 인원" 자리를 대기방 복귀 카운트다운 표시로 그대로 재사용한다.
+    [FormerlySerializedAs("_confirmedCountText")]
+    [SerializeField] private TMP_Text _returnCountdownText;
     [SerializeField] private TMP_Text _remainingTimeText; // 라운드 종료 시점 남은 시간 표시용
     [SerializeField] private TMP_Text _wrongArrestCountText; // 해당 라운드의 오검거 횟수 표시용
     [SerializeField] private TMP_Text _clearRewardText; // 이번 라운드 획득 보상 표시용
@@ -37,12 +43,14 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
 
     private float _roundRemainingTimeAtClearLocal;
     private float _roundClearCountdownEndTimeLocal;
+    private float _resultReturnCountdownEndTimeLocal;
 
     private void Start()
     {
         _confirmButton.onClick.AddListener(HandleConfirmButtonClicked);
         RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
         RoundManager.Instance.OnRoundClearAnnounced += HandleRoundClearAnnounced;
+        RoundManager.Instance.OnResultReturnCountdownAnnounced += HandleResultReturnCountdownAnnounced;
 
         HandleRoundStateChanged(RoundManager.Instance.CurrentState);
     }
@@ -55,6 +63,7 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
         {
             RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
             RoundManager.Instance.OnRoundClearAnnounced -= HandleRoundClearAnnounced;
+            RoundManager.Instance.OnResultReturnCountdownAnnounced -= HandleResultReturnCountdownAnnounced;
         }
     }
 
@@ -66,6 +75,12 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
         _roundClearCountdownEndTimeLocal = Time.time + countdownDuration;
         _clearRewardText.text = $"+ {clearReward:N0}";
         _totalCreditsText.text = totalCredits.ToString("N0");
+    }
+
+    // 성공/실패 결과창의 대기방 자동 복귀 카운트다운도 라운드 클리어와 같은 방식으로 로컬에 저장한다.
+    private void HandleResultReturnCountdownAnnounced(float countdownDuration)
+    {
+        _resultReturnCountdownEndTimeLocal = Time.time + countdownDuration;
     }
 
     private void Update()
@@ -84,8 +99,9 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
         }
         else if (state == RoundState.Fail || state == RoundState.Success)
         {
-            // 성공/실패: 확인 버튼을 누른 인원 현황 표시
-            _confirmedCountText.text = $"{RoundManager.Instance.ConfirmedCount}/{RoundManager.Instance.TotalPlayerCount}";
+            // 성공/실패: 대기방 자동 복귀까지 남은 시간 표시 (방장/비방장 모두 같은 숫자를 본다)
+            int returnRemaining = Mathf.CeilToInt(Mathf.Max(0f, _resultReturnCountdownEndTimeLocal - Time.time));
+            _returnCountdownText.text = returnRemaining.ToString();
             // 남은 시간 RPC가 상태 변경보다 늦게 도착할 수 있어, RoundClear와 같이 매 프레임 자체 교정한다.
             ShowRoundResultStats(state);
         }
@@ -98,13 +114,14 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
             case RoundState.RoundClear:
                 _resultText.text = _roundClearedFormat.GetLocalizedString(RoundManager.Instance.CurrentRoundIndex + 1);
                 _confirmButton.gameObject.SetActive(false); // 자동으로 다음 라운드 전환
+                _returnNoticeText.SetActive(false);
                 _nextRoundText.SetActive(true);
                 _creditSection.SetActive(_showCreditSection);
                 ShowPanel();
                 break;
             case RoundState.Success:
                 _resultText.text = _arrestSuccess.GetLocalizedString();
-                _confirmButton.gameObject.SetActive(true);
+                ApplyResultReturnControls();
                 _nextRoundText.SetActive(false);
                 _creditSection.SetActive(false);
                 ShowRoundResultStats(state);
@@ -112,7 +129,7 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
                 break;
             case RoundState.Fail:
                 _resultText.text = _arrestFailed.GetLocalizedString();
-                _confirmButton.gameObject.SetActive(true);
+                ApplyResultReturnControls();
                 _nextRoundText.SetActive(false);
                 _creditSection.SetActive(false);
                 ShowRoundResultStats(state);
@@ -125,10 +142,18 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
                     _inventoryCanvas.SetActive(true);
                 }
                 _nextRoundText.SetActive(false);
-                GameplayUiMode.Instance?.UnregisterUi(this);
                 GameplayUiMode.Instance?.DeactivateCursor();
                 break;
         }
+    }
+
+    // 대기방 복귀는 방장만 트리거할 수 있어, 방장에게는 확인 버튼을, 나머지에게는 안내 문구를 보여준다.
+    private void ApplyResultReturnControls()
+    {
+        bool isHost = NetworkManager.Singleton != null && NetworkManager.Singleton.IsHost;
+
+        _confirmButton.gameObject.SetActive(isHost);
+        _returnNoticeText.SetActive(!isHost);
     }
 
     // 라운드 종료 시점 남은 시간과 해당 라운드의 오검거 횟수를 표시한다.
@@ -155,26 +180,10 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
     {
         _panel.SetActive(true);
         _inventoryCanvas.SetActive(false);
-        // 라운드 결과음(Round_Clear / Game_Success / Game_Fail)과 겹치지 않게 팝업 열림음은 내지 않는다.
-        GameplayUiMode.Instance?.RegisterUi(this, playOpenSound: false);
+        // ESC로 내려가면 안 되는 창이라 IClosableUi로 등록하지 않고 커서만 직접 켠다.
         GameplayUiMode.Instance?.ActivateCursor();
         CaptureCriminalPortrait();
         ShowRandomClueImages();
-    }
-
-    // ESC: 서버 상태(라운드 진행)는 그대로 두고 로컬에서 결과 UI만 감춘다.
-    public void Close()
-    {
-        if (!_panel.activeSelf)
-        {
-            return;
-        }
-
-        _panel.SetActive(false);
-        _inventoryCanvas.SetActive(true);
-        _nextRoundText.SetActive(false);
-        GameplayUiMode.Instance?.UnregisterUi(this);
-        GameplayUiMode.Instance?.DeactivateCursor();
     }
 
     // 촬영된 단서 이미지 중 서로 다른 것을 무작위로 골라 슬롯 수만큼 표시한다. 패널이 뜰 때마다 다시 뽑는다.
@@ -225,6 +234,10 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
 
     private void HandleConfirmButtonClicked()
     {
+        // 타임아웃으로 이미 대기방 전환이 시작되면 RoundManager가 디스폰되어 RPC를 보낼 수 없다.
+        // 씬 전환이 끝나기 전 몇 프레임 동안 버튼이 계속 눌리므로 여기서 막는다.
+        if (RoundManager.Instance == null || !RoundManager.Instance.IsSpawned) return;
+
         RoundManager.Instance.ConfirmResultServerRpc();
     }
 }
