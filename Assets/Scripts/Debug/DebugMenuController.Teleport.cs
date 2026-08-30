@@ -38,6 +38,25 @@ public sealed partial class DebugMenuController
         ShowStatus("범인 위치로 이동했습니다.");
     }
 
+    // 현재 라운드의 외계인(지하 보스) 뒤쪽으로 이동합니다.
+    //
+    // 보스는 지하 모듈 안에만 있어서, 지상에서 곧장 넘어가면 지하 문을 지나지 않아 안개가 지상 값으로 남는다.
+    // 지하 문이 하는 일과 같은 처리를 여기서 해 준다.
+    public void OnTeleportBossClick()
+    {
+        BossController boss = FindFirstObjectByType<BossController>();
+        if (boss == null)
+        {
+            ShowStatus("외계인을 찾지 못했습니다. 지하 맵이 생성된 뒤에 사용하세요.");
+            return;
+        }
+
+        Transform target = boss.transform;
+        TeleportLocalPlayer(target.position - target.forward * 2f, target.rotation);
+        UndergroundFog.ApplyUnderground();
+        ShowStatus("외계인 위치로 이동했습니다.");
+    }
+
     // CCTV 수리 기계는 지역 CCTV 수만큼 깔리므로, 누를 때마다 1번부터 차례로 돌아간다.
     private int _cctvMissionCursor;
 
