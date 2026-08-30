@@ -43,6 +43,9 @@ public partial class RoundManager : NetworkBehaviour
     [Header("남은 시간 경고음이 울릴 시점 (초)")]
     [SerializeField] private float _timeWarningSeconds = 60f;
 
+    [Header("게임 결과(성공/실패) 화면에서 대기방으로 자동 복귀하기까지의 시간 (초)")]
+    [SerializeField] private float _resultReturnTimeout = 30f;
+
     [Header("스폰 완료 확인 (로딩 화면과 라운드 시작 시점을 맞추기 위함)")]
     [SerializeField] private NpcSpawner _npcSpawner;
     [SerializeField] private ClueSpawner _clueSpawner;
@@ -82,12 +85,12 @@ public partial class RoundManager : NetworkBehaviour
     private readonly NetworkVariable<float> _debugStoppedRemainingTime =
         new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    // 결과 확인 버튼을 누른 클라이언트 목록. 접속 중인 전원이 모이면 웨이팅룸으로 전환한다.
-    private readonly NetworkList<ulong> _confirmedClients = new();
+    // 결과 화면에서 방장이 확인을 누르지 않아도 대기방으로 넘어가는 서버 시간(자동 복귀 만료 시각).
+    // 클라이언트는 RPC로 받은 카운트다운 시간으로 각자 표시하므로 동기화할 필요가 없다.
+    private double _resultReturnDeadline;
 
-    // 게임 시작 시점 인원 수 스냅샷. 클라이언트는 전체 접속자 수를 알 수 없어 서버가 동기화해준다.
-    private readonly NetworkVariable<int> _totalPlayerCount =
-        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // 방장 확인과 자동 복귀 타임아웃이 겹쳐 씬 전환이 두 번 일어나지 않도록 막는다.
+    private bool _isReturningToWaitingRoom;
 
     // Fail/Success 전환 직전에 서버가 RPC로 알려준 남은 시간. 상태가 바뀐 뒤에는 이 값을 그대로 쓴다.
     // 클라이언트가 각자 계산한 값을 얼려두면 상태 변경을 받는 프레임에 따라 사람마다 다른 시간이 표시된다.
@@ -131,10 +134,6 @@ public partial class RoundManager : NetworkBehaviour
     // 검거 입력을 라운드 진행 중에만 허용하기 위해 노출
     public bool CanArrest => _currentState.Value == RoundState.InRound;
 
-    // 결과 패널에 "확인한 인원/총 인원"을 표시하기 위한 값
-    public int ConfirmedCount => _confirmedClients.Count;
-    public int TotalPlayerCount => _totalPlayerCount.Value;
-
     public bool IsDebugTimeStopped => _debugTimeStopped.Value;
 
     public event Action<RoundState> OnRoundStateChanged; // 라운드 상태가 바뀔 때마다 전달 (늦참 클라이언트는 스폰 시 현재 상태로 1회 발동)
@@ -145,6 +144,10 @@ public partial class RoundManager : NetworkBehaviour
     // (NetworkVariable 여러 개를 같은 틱에 동시 갱신하면 클라이언트의 변경 알림 발동 순서 문제로
     //  아직 갱신 전 값을 읽는 문제가 있어, 대신 RPC로 직접 넘긴다)
     public event Action<float, float, int, int> OnRoundClearAnnounced;
+
+    // 성공/실패 결과창이 뜰 때, 대기방 자동 복귀까지 남은 카운트다운 시간을 RPC로 전달한다.
+    // (OnRoundClearAnnounced와 같은 이유로 NetworkVariable 대신 RPC 파라미터를 쓴다)
+    public event Action<float> OnResultReturnCountdownAnnounced;
 
     // 라운드가 시작될 때(InRound 진입) 라운드 인덱스를 RPC로 원자적으로 전달한다.
     // (CurrentRoundIndex를 OnRoundStateChanged 콜백 안에서 직접 읽으면, 클라이언트에서
@@ -218,6 +221,10 @@ public partial class RoundManager : NetworkBehaviour
         UpdateTimeWarning();
 
         if (!IsServer) return;
+
+        // 결과창 자동 복귀는 라운드 제한시간과 무관하므로, 디버그 시간 정지에 걸리지 않도록 먼저 확인한다.
+        UpdateResultReturnTimeout();
+
         if (_debugTimeStopped.Value) return;
         if (NetworkManager.ServerTime.Time < _roundEndTime.Value) return;
 
@@ -233,6 +240,17 @@ public partial class RoundManager : NetworkBehaviour
                 }
                 break;
         }
+    }
+
+    // 결과창에서 방장이 확인을 누르지 않아도 일정 시간이 지나면 서버가 전원을 대기방으로 되돌린다.
+    // 잠수 등으로 방장 입력이 없을 때 아무도 대기방으로 돌아가지 못하는 상황을 막는다.
+    private void UpdateResultReturnTimeout()
+    {
+        if (_isReturningToWaitingRoom) return;
+        if (_currentState.Value != RoundState.Fail && _currentState.Value != RoundState.Success) return;
+        if (NetworkManager.ServerTime.Time < _resultReturnDeadline) return;
+
+        ReturnToWaitingRoom();
     }
 
     // 남은 시간이 기준 아래로 내려가면 경고음을 낸다. 각 클라이언트가 _roundEndTime과 서버 시간으로
@@ -301,7 +319,6 @@ public partial class RoundManager : NetworkBehaviour
         if (!IsServer) return;
         if (_currentState.Value != RoundState.Waiting) return;
 
-        _totalPlayerCount.Value = NetworkManager.ConnectedClientsIds.Count; // 게임 시작 시점 인원 수를 스냅샷으로 저장
         _currentRoundIndex.Value = 0;
         // _clothPoolSessionSeed는 OnNetworkSpawn에서 이미 NPC 스폰보다 먼저 확정해뒀다.
         _debugTimeStopped.Value = false;
@@ -389,7 +406,7 @@ public partial class RoundManager : NetworkBehaviour
         bool isLastRound = _currentRoundIndex.Value >= _rounds.Length - 1;
         if (isLastRound)
         {
-            AnnounceRoundResultTimeRpc(CalculateRemainingTimeOnServer());
+            BeginResultReturn();
             _currentState.Value = RoundState.Success;
             return;
         }
@@ -434,9 +451,17 @@ public partial class RoundManager : NetworkBehaviour
 
     private void SetFail()
     {
-        // 상태를 바꾸기 전에 서버 기준 남은 시간을 전원에게 알린다. (OnRoundClearAnnounced와 같은 이유)
-        AnnounceRoundResultTimeRpc(CalculateRemainingTimeOnServer());
+        BeginResultReturn();
         _currentState.Value = RoundState.Fail;
+    }
+
+    // 결과창(Success/Fail)으로 넘어가기 직전에 서버가 호출한다.
+    // 상태를 바꾸기 전에 서버 기준 남은 시간을 전원에게 알린다. (OnRoundClearAnnounced와 같은 이유)
+    // 서버 쪽 자동 복귀 만료 시각과 클라이언트 카운트다운이 어긋나지 않도록 한 번에 처리한다.
+    private void BeginResultReturn()
+    {
+        _resultReturnDeadline = NetworkManager.ServerTime.Time + _resultReturnTimeout;
+        AnnounceRoundResultTimeRpc(CalculateRemainingTimeOnServer(), _resultReturnTimeout);
     }
 
     // 서버 기준 현재 라운드의 남은 시간. 디버그로 시간을 멈춘 상태면 멈춰둔 값을 그대로 쓴다.
@@ -447,12 +472,13 @@ public partial class RoundManager : NetworkBehaviour
             : Mathf.Max(0f, (float)(_roundEndTime.Value - NetworkManager.ServerTime.Time));
     }
 
-    // 성공/실패 시점의 남은 시간을 원자적으로 전달한다. 결과창뿐 아니라 본부 타이머·미션 UI도
-    // GetRemainingTime()으로 이 값을 읽으므로 전원이 같은 시간을 본다.
+    // 성공/실패 시점의 남은 시간과 대기방 자동 복귀 카운트다운 시간을 원자적으로 전달한다.
+    // 남은 시간은 결과창뿐 아니라 본부 타이머·미션 UI도 GetRemainingTime()으로 읽으므로 전원이 같은 시간을 본다.
     [Rpc(SendTo.ClientsAndHost)]
-    private void AnnounceRoundResultTimeRpc(float remainingTime)
+    private void AnnounceRoundResultTimeRpc(float remainingTime, float returnCountdownDuration)
     {
         _remainingTimeAtResult = remainingTime;
+        OnResultReturnCountdownAnnounced?.Invoke(returnCountdownDuration);
     }
 
     // 살아있는 플레이어가 한 명도 없으면(전원 다운) 게임을 실패 처리한다.
@@ -494,25 +520,25 @@ public partial class RoundManager : NetworkBehaviour
         }
     }
 
-    // 결과 패널의 "확인" 버튼을 누르면 클라이언트가 호출한다. 접속 중인 전원이 확인하면 서버가 대기방 씬으로 전환한다.
+    // 결과 패널의 "확인" 버튼을 누르면 방장이 호출한다. 방장이 누르는 즉시 서버가 대기방 씬으로 전환한다.
     [Rpc(SendTo.Server)]
     public void ConfirmResultServerRpc(RpcParams rpcParams = default)
     {
         if (_currentState.Value != RoundState.Fail && _currentState.Value != RoundState.Success) return;
 
-        var clientId = rpcParams.Receive.SenderClientId;
-        if (_confirmedClients.Contains(clientId)) return;
+        // 버튼 자체를 방장에게만 노출하지만, 다른 클라이언트가 직접 호출해도 넘어가지 않도록 서버에서 한 번 더 막는다.
+        if (rpcParams.Receive.SenderClientId != NetworkManager.ServerClientId) return;
 
-        _confirmedClients.Add(clientId);
-        if (_confirmedClients.Count < NetworkManager.ConnectedClientsIds.Count) return;
-
-        _confirmedClients.Clear();
         ReturnToWaitingRoom();
     }
 
     // 게임 종료(성공/실패) 시 서버가 대기방 씬으로 전환한다.
+    // 방장 확인과 자동 복귀 타임아웃이 같은 프레임에 겹칠 수 있어 한 번만 실행되도록 막는다.
     private void ReturnToWaitingRoom()
     {
+        if (_isReturningToWaitingRoom) return;
+
+        _isReturningToWaitingRoom = true;
         NetworkManager.SceneManager.LoadScene(_waitingRoomSceneName, LoadSceneMode.Single);
     }
 
