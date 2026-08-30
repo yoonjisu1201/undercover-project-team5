@@ -111,7 +111,8 @@ public sealed class MissionSpawner : MonoBehaviour
             }
         }
 
-        SpawnContaminatedSample();
+        // 오염 샘플 분석 미션 비활성화 (#842). 현장 채집 장소는 스폰하지 않는다.
+        // SpawnContaminatedSample();
 
         // CCTV 미션은 CCTV 수만큼 여러 대가 깔리므로, 스폰 수가 미션 종류 수와 같지 않다.
         Debug.Log($"[MissionSpawner] 미션 머신 {_spawnedMachines.Count}개 스폰 완료. (미션 종류 {RequiredMissionMachineCount}개)", this);
