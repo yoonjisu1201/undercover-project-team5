@@ -8,7 +8,7 @@ using UnityEngine.UI;
 
 // 라운드 결과(라운드 클리어/성공/실패)를 표시하고, 방장이 확인 버튼을 누르면 대기방으로 돌아가도록 서버에 알린다.
 // 방장이 아닌 인원에게는 버튼 대신 안내 문구를 띄우고, 아무도 누르지 않아도 카운트다운이 끝나면 서버가 자동으로 되돌린다.
-public class RoundResultPanelUI : MonoBehaviour, IClosableUi
+public class RoundResultPanelUI : MonoBehaviour
 {
     [SerializeField] private GameObject _panel;
     [Header("현지화 문구")]
@@ -142,7 +142,6 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
                     _inventoryCanvas.SetActive(true);
                 }
                 _nextRoundText.SetActive(false);
-                GameplayUiMode.Instance?.UnregisterUi(this);
                 GameplayUiMode.Instance?.DeactivateCursor();
                 break;
         }
@@ -181,26 +180,10 @@ public class RoundResultPanelUI : MonoBehaviour, IClosableUi
     {
         _panel.SetActive(true);
         _inventoryCanvas.SetActive(false);
-        // 라운드 결과음(Round_Clear / Game_Success / Game_Fail)과 겹치지 않게 팝업 열림음은 내지 않는다.
-        GameplayUiMode.Instance?.RegisterUi(this, playOpenSound: false);
+        // ESC로 내려가면 안 되는 창이라 IClosableUi로 등록하지 않고 커서만 직접 켠다.
         GameplayUiMode.Instance?.ActivateCursor();
         CaptureCriminalPortrait();
         ShowRandomClueImages();
-    }
-
-    // ESC: 서버 상태(라운드 진행)는 그대로 두고 로컬에서 결과 UI만 감춘다.
-    public void Close()
-    {
-        if (!_panel.activeSelf)
-        {
-            return;
-        }
-
-        _panel.SetActive(false);
-        _inventoryCanvas.SetActive(true);
-        _nextRoundText.SetActive(false);
-        GameplayUiMode.Instance?.UnregisterUi(this);
-        GameplayUiMode.Instance?.DeactivateCursor();
     }
 
     // 촬영된 단서 이미지 중 서로 다른 것을 무작위로 골라 슬롯 수만큼 표시한다. 패널이 뜰 때마다 다시 뽑는다.
