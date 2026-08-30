@@ -1,23 +1,21 @@
 using Unity.Netcode;
 using UnityEngine;
 
-// 손전등 오브젝트에 부착. 소유자/논오너 구분 없이 각자 자기 카메라의 시선 방향으로
-// Raycast해서 처음 닿는 지점을 바라본다. 방향은 카메라 트랜스폼을 직접 읽지 않고
-// PlayerCameraController.ViewPitch(오너/논오너 모두 동기화됨)로 다시 계산한다.
-// 맞는 표면이 바뀌면 목표 지점이 순간적으로 튈 수 있어서, 회전은 Slerp로 따라가게 해 흔들림을 완화한다.
-// 손 소켓(NetworkObject 아님)엔 파렌팅할 수 없어서, 위치는 매 프레임 handAnchor를 따라간다.
-// handAnchor는 손 뼈(Hand.L) 자체라 손에 자연스럽게 들리도록 로컬 오프셋을 따로 둔다.
+// 손전등 오브젝트에 부착. 몸통(메쉬)은 ItemBase와 동일하게 손 회전을 따라가되, 소켓 자체의 고정
+// 어긋남은 _holdRotationOffset으로 보정한다. 실제 빛(Light)은 PlayerCameraController.LightFollowPivot
+// (카메라 시야각을 오너/논오너 모두 그대로 따라가는 피벗)에 파렌팅해 raycast 없이도 시선 방향을 공유한다.
+// 손 소켓(NetworkObject 아님)엔 파렌팅할 수 없어서, 몸통 위치는 매 프레임 handAnchor를 따라간다.
+// Light는 NetworkObject가 아니라 실제 Transform.SetParent로 그 피벗 밑에 붙일 수 있다.
 public class Flashlight : NetworkBehaviour
 {
-    [SerializeField, Min(0f)] private float _maxDistance = 30f;
-    [SerializeField, Min(0f)] private float _rotationLerpSpeed = 15f;
     [SerializeField] private Vector3 _holdOffset;
+    [SerializeField] private Vector3 _holdRotationOffset;
+    [SerializeField] private Vector3 _headLightLocalOffset;
 
     // On/Off 상태는 오너가 직접 토글하는 값이라 Owner 권한으로 쓴다.
     private readonly NetworkVariable<bool> _isOn =
         new(true, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
-    private PlayerCameraController _playerCameraController;
     private Transform _handAnchor;
     private Renderer[] _renderers;
     // 프리팹 안에 Spot Light, Point Light 두 개가 있어서 배열로 한꺼번에 켜고 끈다.
@@ -26,8 +24,14 @@ public class Flashlight : NetworkBehaviour
 
     public void Initialize(PlayerCameraController playerCameraController, Transform handAnchor)
     {
-        _playerCameraController = playerCameraController;
         _handAnchor = handAnchor;
+
+        Transform lightAnchor = playerCameraController.LightFollowPivot;
+        foreach (Light light in _lights)
+        {
+            light.transform.SetParent(lightAnchor, worldPositionStays: false);
+            light.transform.SetLocalPositionAndRotation(_headLightLocalOffset, Quaternion.identity);
+        }
     }
 
     private void Awake()
@@ -87,24 +91,9 @@ public class Flashlight : NetworkBehaviour
     {
         if (_handAnchor != null)
         {
-            transform.position = _handAnchor.TransformPoint(_holdOffset);
+            transform.SetPositionAndRotation(
+                _handAnchor.TransformPoint(_holdOffset),
+                _handAnchor.rotation * Quaternion.Euler(_holdRotationOffset));
         }
-
-        if (_playerCameraController == null)
-        {
-            return;
-        }
-
-        Transform root = _playerCameraController.transform;
-        Vector3 origin = _playerCameraController.HeadPivot.transform.position;
-        Vector3 direction = Quaternion.AngleAxis(_playerCameraController.ViewPitch, root.right) * root.forward;
-
-        Vector3 targetPoint = Physics.Raycast(origin, direction, out RaycastHit hit, _maxDistance)
-            ? hit.point
-            : origin + direction * _maxDistance;
-
-        Quaternion targetRotation = Quaternion.LookRotation(targetPoint - transform.position);
-        float t = 1f - Mathf.Exp(-_rotationLerpSpeed * Time.deltaTime);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, t);
     }
 }

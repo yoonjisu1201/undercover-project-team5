@@ -36,6 +36,11 @@ public class PlayerCameraController : NetworkBehaviour
     private readonly float _armFollowMinPitch = -40f;
     private readonly float _armFollowMaxPitch = 20f;
 
+    // 헤드램프(Flashlight) 등 카메라와 동일한 시야각을 그대로 따라가야 하는 오브젝트가 붙는 피벗.
+    // 헤드 피벗과 달리 오너/논오너 모두 이 시점에 갱신되므로, raycast 없이 파렌팅만으로 시선을 따라간다.
+    [Header("카메라 시야각 그대로 따라가기 (오너/논오너 공통)")]
+    [SerializeField] private Transform _lightFollowPivot;
+
     [Header("로컬 카메라 연출")]
     [Tooltip("호흡 오프셋은 여기서 계산하고, 실제 카메라 반영은 이 컨트롤러가 담당한다.")]
     [SerializeField] private ExhaustedBreathCameraEffect _exhaustedBreathEffect;
@@ -57,6 +62,7 @@ public class PlayerCameraController : NetworkBehaviour
         new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     public GameObject HeadPivot => _headPivot;
+    public Transform LightFollowPivot => _lightFollowPivot;
 
     // 팔 IK와 레이저가 카메라 상하 조준을 따라가도록 소유자는 로컬 값, 다른 클라이언트는 동기화 값을 제공한다.
     public float ViewPitch => IsOwner ? _pitch : _networkPitch.Value;
@@ -200,6 +206,12 @@ public class PlayerCameraController : NetworkBehaviour
         {
             float armPitch = Mathf.Clamp(pitch, _armFollowMinPitch, _armFollowMaxPitch);
             _armFollowPivot.localRotation = Quaternion.Euler(armPitch, 0f, 0f);
+        }
+
+        // 카메라와 동일한 시야각을 그대로 따라가야 하는 피벗(헤드램프 등). 클램프 없이 pitch 전체를 적용한다.
+        if (_lightFollowPivot != null)
+        {
+            _lightFollowPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
     }
 
