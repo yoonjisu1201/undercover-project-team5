@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.Localization;
 using UnityEngine.UI;
 
 // 작전 가이드(클립보드)의 페이지를 실제 종이를 넘기듯 상단 집게 기준으로 넘긴다.
@@ -12,8 +13,9 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class GuideBook : MonoBehaviour, IClosableUi
 {
-    private readonly string _headerText = "요원 가이드북";
-    private readonly string _subtitleText = "요원들의 활동을 지원하기 위해 제공된 문서";
+    [Header("=== 모든 페이지 공통 문구 ===")]
+    [SerializeField] private LocalizedString _headerText;
+    [SerializeField] private LocalizedString _subtitleText;
 
     [Header("=== 가이드북 열리면 사라져야 할 UI들 ===")]
     [SerializeField] private List<GameObject> _uisToHide;
@@ -28,7 +30,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
     [Header("목차 탭")]
     [SerializeField] private RectTransform _navigationTabContainer;
     [SerializeField] private GuideBookNavigationTab _navigationTabPrefab;
-    [SerializeField] private List<string> _navigationTitles = new List<string>();
+    [SerializeField] private List<LocalizedString> _navigationTitles = new List<LocalizedString>();
 
     [Header("장식")]
     [SerializeField] private GameObject _pageUpIndicator; // 첫 페이지가 아닐 때만 보이는 넘긴 종이 표시
@@ -66,12 +68,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
         {
             if (_pages[i] == null) continue;
             _pages[i].gameObject.SetActive(i == _index);
-            _pages[i].Initialize(
-                _headerText,
-                _subtitleText,
-                (uint)i + 1,
-                (uint)_pages.Count
-            );
+            _pages[i].Initialize((uint)i + 1, (uint)_pages.Count);
         }
 
         if (_pageUpIndicator != null) _pageUpIndicator.SetActive(_index > 0);
@@ -84,12 +81,31 @@ public class GuideBook : MonoBehaviour, IClosableUi
         for (int i = 0; i < _pages.Count; i++)
         {
             GuideBookNavigationTab tab = Instantiate(_navigationTabPrefab, _navigationTabContainer);
-            string title = i < _navigationTitles.Count ? _navigationTitles[i] : string.Empty;
-            tab.Initialize(i, title, GoToPage);
+            tab.Initialize(i, GoToPage);
             _navigationTabs.Add(tab);
         }
 
         UpdateNavigationTabs();
+    }
+
+    // 헤더·부제·목차 탭 제목은 코드가 채우므로, LocalizeStringEvent를 붙인 페이지 본문과 달리
+    // 언어가 바뀌어도 저절로 갱신되지 않는다. 여기서 직접 다시 밀어넣는다.
+    private void ApplyLocalizedTexts()
+    {
+        string header = _headerText.GetLocalizedString();
+        string subtitle = _subtitleText.GetLocalizedString();
+
+        foreach (GuideBookPage page in _pages)
+        {
+            if (page == null) continue;
+            page.ApplyTexts(header, subtitle);
+        }
+
+        for (int i = 0; i < _navigationTabs.Count; i++)
+        {
+            _navigationTabs[i].SetTitle(
+                i < _navigationTitles.Count ? _navigationTitles[i].GetLocalizedString() : string.Empty);
+        }
     }
 
     // 버튼 onClick은 인스펙터에서 위=GoPrevious / 아래=GoNext로 연결한다.
@@ -97,6 +113,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
     private void OnEnable()
     {
         InitializePages();
+        ApplyLocalizedTexts();
 
         GameplayUiMode.Instance?.RegisterUi(this);
         GameplayUiMode.Instance?.ActivateCursor();
