@@ -10,6 +10,8 @@ using UnityEngine.UI;
 // 프리팹에 제작된 UI 셀을 데이터에 맞게 채우고 드래그 위치를 갱신한다.
 public sealed partial class BreakerBatteryMission
 {
+    private const string LocalizationTable = "Language Table";
+
     [Header("현지화 문구")]
     [SerializeField] private LocalizedString _statusWaitCircuit;
     [SerializeField] private LocalizedString _statusPowerDone;
@@ -237,7 +239,15 @@ public sealed partial class BreakerBatteryMission
     // 여기서 패널을 닫으면 UI가 파괴돼 배치가 사라지므로, 닫기는 '뒤로' 버튼에만 맡긴다.
     public void OnConfirmButtonClick()
     {
-        _circuitState?.RequestMeasurement();
+        // 버튼 이벤트가 외부에서 직접 호출되더라도 빈 슬롯이나 차단 상태에서는 측정을 시작하지 않는다.
+        if (_circuitState == null || !_circuitState.PowerOn ||
+            _circuitState.GetArrangedWatt() <= 0 || _isMeasuring)
+        {
+            UpdateStatusText();
+            return;
+        }
+
+        _circuitState.RequestMeasurement();
         UpdateStatusText();
     }
 
@@ -267,8 +277,10 @@ public sealed partial class BreakerBatteryMission
 
         if (!_circuitState.PowerOn)
         {
-            // 레버가 내려가 있으면 전류가 흐르지 않아 측정 자체를 할 수 없다.
-            _statusText.text = _statusCannotMeasure.GetLocalizedString();
+            // 전원을 차단한 뒤에는 배치 여부에 따라 다음 행동을 구분해 알려준다.
+            _statusText.text = _circuitState.GetArrangedWatt() == 0
+                ? Localize("mission_breaker_place_batteries")
+                : _statusCannotMeasure.GetLocalizedString();
             return;
         }
 
@@ -279,18 +291,30 @@ public sealed partial class BreakerBatteryMission
             return;
         }
 
+        // 레버가 올라가 있지만 슬롯이 비어 있으면 측정할 수 없으므로 먼저 전원을 차단하도록 안내한다.
+        if (_circuitState.GetArrangedWatt() <= 0)
+        {
+            _statusText.text = Localize("mission_breaker_lower_lever_to_place");
+            return;
+        }
+
         // 바늘이 다 움직인 뒤에야 결과를 알려준다.
         // 모자란지 넘쳤는지는 밝히지 않는다. 그 방향은 C(계기판)만 알 수 있어야 한다.
         if (_hasMeasurementResult)
         {
+            // 실패한 경우 정답 방향은 현장 화면에서 밝히지 않고, 본부 계기판을 확인하도록 유도한다.
             _statusText.text = _measuredWatt == _circuitState.TargetWatt
-                ? "측정 완료 — 목표 전력에 도달했습니다"
-                : "측정 완료 — 목표 전력과 맞지 않습니다";
+                ? _statusPowerDone.GetLocalizedString()
+                : Localize("mission_breaker_measurement_mismatch");
             return;
         }
 
         _statusText.text = _statusCanMeasure.GetLocalizedString();
     }
+
+    // 새 상태 문구처럼 프리팹 필드가 없는 키를 현재 언어의 문자열로 변환한다.
+    private static string Localize(string key)
+        => new LocalizedString(LocalizationTable, key).GetLocalizedString();
 
     private void UpdateProgressText(bool completed)
     {

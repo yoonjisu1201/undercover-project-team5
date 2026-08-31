@@ -70,6 +70,10 @@ public sealed class BreakerCircuitState : NetworkBehaviour
     // A가 확인을 눌러 측정을 요청했을 때 알린다. C(계기판)들이 같은 시점에 같은 연출을 재생하기 위한 신호다.
     public event Action OnMeasurementRequested;
 
+    // 완료 상태는 이미 NetworkVariable로 전원에게 복제된다. 각 클라이언트의 로컬 가이드가
+    // 별도 RPC 없이 자기 화면에 완료 안내를 띄울 수 있도록 변화만 전달한다.
+    public static event Action<bool> CompletionChangedLocally;
+
     private void Awake()
     {
         _interactable = GetComponent<MissionInteractable>();
@@ -346,10 +350,16 @@ public sealed class BreakerCircuitState : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestMeasurementRpc()
     {
+        // 슬롯이 비었거나 전원이 차단된 상태에서는 측정 연출 자체를 시작하지 않는다.
+        if (!_powerOn.Value || _currentWatt.Value <= 0)
+        {
+            return;
+        }
+
         NotifyMeasurementRpc();
 
         // 측정은 확인을 눌렀을 때만 한다. 전원이 들어와 있어야 전류가 흐르므로 그때만 판정한다.
-        if (!_powerOn.Value || _targetWatt.Value == 0 || _currentWatt.Value != _targetWatt.Value)
+        if (_targetWatt.Value == 0 || _currentWatt.Value != _targetWatt.Value)
         {
             return;
         }
@@ -379,11 +389,12 @@ public sealed class BreakerCircuitState : NetworkBehaviour
     private void HandleValueChanged(int previousValue, int currentValue) => OnCircuitChanged?.Invoke();
 
 
-    // A가 배터리를 다 쓴 뒤 완료 여부를 반영해야 하는 쪽(예: BreakerBatteryMission)에 알린다.
+    // 복제된 완료 상태를 받아 가로등을 갱신하고, 각 클라이언트의 UI와 로컬 가이드에 알린다.
     private void HandleCompletionChanged(bool completed)
     {
         ApplyFieldLamps(completed, withFade: true);
 
+        CompletionChangedLocally?.Invoke(completed);
         OnCircuitChanged?.Invoke();
     }
 
