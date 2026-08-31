@@ -33,6 +33,8 @@ public struct BreakerBatteryEntry : INetworkSerializeByMemcpy, IEquatable<Breake
 public sealed class BreakerCircuitState : NetworkBehaviour
 {
     public const int SlotCount = 4;
+    private const int MinimumTargetWatt = 100;
+    private const int MaximumTargetWatt = 200;
 
     private readonly NetworkList<BreakerBatteryEntry> _batteries = new();
     private readonly List<BreakerBatteryEntry> _batteryCache = new();
@@ -83,6 +85,7 @@ public sealed class BreakerCircuitState : NetworkBehaviour
         if (_interactable != null)
         {
             _interactable.IsCompletedChanged += HandleCompletionChanged;
+            _interactable.ServerRoundReset += HandleRoundReset;
 
             // 늦게 접속한 클라이언트는 이미 동기화된 초기값에 대한 변경 콜백을 받지 못하므로, 완료된 상태면 연출 없이 바로 켠다.
             if (_interactable.IsCompleted)
@@ -102,6 +105,7 @@ public sealed class BreakerCircuitState : NetworkBehaviour
         if (_interactable != null)
         {
             _interactable.IsCompletedChanged -= HandleCompletionChanged;
+            _interactable.ServerRoundReset -= HandleRoundReset;
         }
     }
 
@@ -111,15 +115,6 @@ public sealed class BreakerCircuitState : NetworkBehaviour
         if (IsSpawned)
         {
             SetPowerRpc(powerOn);
-        }
-    }
-
-    // A가 처음 배터리를 배치할 때 자신의 인벤토리 조합으로 계산한 목표 전력을 한 번만 등록한다.
-    public void SubmitTargetWatt(int watt)
-    {
-        if (IsSpawned)
-        {
-            SetTargetWattRpc(watt);
         }
     }
 
@@ -162,12 +157,13 @@ public sealed class BreakerCircuitState : NetworkBehaviour
         return sum;
     }
 
-    // 인벤토리에서 실제로 꺼내진 배터리만 등록한다. 한 개당 정확히 한 번 호출해야 한다.
-    public void ContributeBattery(int watt)
+    public void RequestTransferInventoryBatteries(PlayerInventory inventory)
     {
-        if (IsSpawned)
+        if (IsSpawned && inventory != null)
         {
-            ContributeBatteryRpc(watt, NetworkManager.Singleton.LocalClientId);
+            TransferInventoryBatteriesRpc(
+                new NetworkBehaviourReference(inventory),
+                NetworkManager.Singleton.LocalClientId);
         }
     }
 
@@ -175,7 +171,7 @@ public sealed class BreakerCircuitState : NetworkBehaviour
     {
         if (IsSpawned)
         {
-            PlaceBatteryRpc(batteryId, slotIndex, NetworkManager.Singleton.LocalClientId);
+            PlaceBatteryRpc(batteryId, slotIndex);
         }
     }
 
@@ -183,29 +179,112 @@ public sealed class BreakerCircuitState : NetworkBehaviour
     {
         if (IsSpawned)
         {
-            PlaceBatteryRpc(batteryId, -1, NetworkManager.Singleton.LocalClientId);
+            PlaceBatteryRpc(batteryId, -1);
         }
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void ContributeBatteryRpc(int watt, ulong requesterId)
+    private void TransferInventoryBatteriesRpc(NetworkBehaviourReference inventoryRef, ulong requesterId)
     {
-        if (watt <= 0)
+        if (!inventoryRef.TryGet(out PlayerInventory inventory) || inventory.OwnerClientId != requesterId)
         {
             return;
         }
 
-        _batteries.Add(new BreakerBatteryEntry
+        bool transferredAny = false;
+        for (int index = 0; index < inventory.Slots.Count; index++)
         {
-            Id = _nextBatteryId++,
-            Watt = watt,
-            Owner = requesterId,
-            SlotIndex = -1
-        });
+            if (!inventory.Slots[index].TryGetItem(out ItemBase item)
+                || !BreakerBatteryTypes.TryGetWatt(item.ItemId, out int watt))
+            {
+                continue;
+            }
+
+            if (!inventory.TryStoreMissionItemOnServer(item))
+            {
+                continue;
+            }
+
+            _batteries.Add(new BreakerBatteryEntry
+            {
+                Id = _nextBatteryId++,
+                Watt = watt,
+                Owner = requesterId,
+                SlotIndex = -1
+            });
+            transferredAny = true;
+        }
+
+        if (transferredAny)
+        {
+            SelectTargetWattIfNeeded();
+        }
+    }
+
+    private void HandleRoundReset()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        _batteries.Clear();
+        _batteryCache.Clear();
+        _nextBatteryId = 1;
+        _arrangedWatt = 0;
+        _currentWatt.Value = 0;
+        _targetWatt.Value = 0;
+        _powerOn.Value = true;
+    }
+
+    private void SelectTargetWattIfNeeded()
+    {
+        if (_targetWatt.Value != 0)
+        {
+            return;
+        }
+
+        List<int>[] sumsByCount = new List<int>[SlotCount + 1];
+        for (int index = 0; index < sumsByCount.Length; index++)
+        {
+            sumsByCount[index] = new List<int>();
+        }
+
+        sumsByCount[0].Add(0);
+        foreach (BreakerBatteryEntry battery in _batteries)
+        {
+            for (int count = SlotCount; count >= 1; count--)
+            {
+                foreach (int sum in sumsByCount[count - 1])
+                {
+                    int candidate = sum + battery.Watt;
+                    if (candidate <= MaximumTargetWatt && !sumsByCount[count].Contains(candidate))
+                    {
+                        sumsByCount[count].Add(candidate);
+                    }
+                }
+            }
+        }
+
+        List<int> targets = new();
+        for (int count = 1; count < sumsByCount.Length; count++)
+        {
+            foreach (int sum in sumsByCount[count])
+            {
+                if (sum >= MinimumTargetWatt && !targets.Contains(sum))
+                {
+                    targets.Add(sum);
+                }
+            }
+        }
+
+        _targetWatt.Value = targets.Count > 0
+            ? targets[UnityEngine.Random.Range(0, targets.Count)]
+            : MinimumTargetWatt;
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void PlaceBatteryRpc(int batteryId, int slotIndex, ulong requesterId)
+    private void PlaceBatteryRpc(int batteryId, int slotIndex)
     {
         if (_powerOn.Value || slotIndex >= SlotCount)
         {
@@ -261,17 +340,6 @@ public sealed class BreakerCircuitState : NetworkBehaviour
     private void SetPowerRpc(bool powerOn)
     {
         _powerOn.Value = powerOn;
-    }
-
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void SetTargetWattRpc(int watt)
-    {
-        if (_targetWatt.Value != 0)
-        {
-            return;
-        }
-
-        _targetWatt.Value = watt;
     }
 
     // 클라이언트가 직접 다른 클라이언트로 보낼 수 없으므로, 서버를 거쳐 모든 계기판에 다시 뿌린다.
