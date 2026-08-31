@@ -21,7 +21,7 @@ public sealed class GuideBookNavigationTab : MonoBehaviour
     private int _pageIndex;
     private int _selectedSortingOrder;
 
-    public void Initialize(int pageIndex, string title, Action<int> onClick)
+    public void Initialize(int pageIndex, Action<int> onClick)
     {
         _pageIndex = pageIndex;
         _onClick = onClick;
@@ -33,6 +33,11 @@ public sealed class GuideBookNavigationTab : MonoBehaviour
         }
 
         if (_numberText != null) _numberText.text = (pageIndex + 1).ToString("D2");
+    }
+
+    // 가이드북을 열 때와 언어가 바뀔 때마다 다시 호출된다.
+    public void SetTitle(string title)
+    {
         if (_titleText != null) _titleText.text = title;
     }
 
