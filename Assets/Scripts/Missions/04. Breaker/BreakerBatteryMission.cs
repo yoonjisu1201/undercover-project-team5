@@ -18,9 +18,7 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
 
     private readonly UIDropSlot[] _dropSlots = new UIDropSlot[4];       // 인벤토리를 다시 그릴 때 제거할 UI 셀 목록이다.
 
-    private readonly List<RectTransform> _inventoryCells = new();    // 미션 진입 시 실제 인벤토리에서 꺼내 미션이 임시로 보관하는 건전지 ID들이다.
-
-    private readonly List<ItemType> _stagedBatteryItemIds = new();
+    private readonly List<RectTransform> _inventoryCells = new();
 
     // 서버에 보낸 뒤 아직 복제가 돌아오지 않은 이동. 배터리 번호 → 목표 칸(-1이면 보관함).
     // 이게 없으면 왕복 시간 동안 화면이 옛 상태로 한 번 그려져 원래 자리로 튕겼다 돌아온다.
@@ -45,8 +43,6 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
     [SerializeField] private Button _confirmButton;
     // 전원·측정·완료 상태를 글로 보여준다. 목표 전력 수치는 C(계기판) 역할의 정보라 여기서는 드러내지 않는다.
     [SerializeField] private TMP_Text _statusText;
-    // 현재 보유한 건전지로 만들 수 있는 조합 중 무작위로 선택한 목표 전력이다. A에게는 수치로 보여주지 않는다.
-    private int _targetWatt;
     // 레버·게이지 등 다른 역할과 공유하는 전원/전력 상태다. B가 레버를 올려두는 동안(On)에는 배치를 바꿀 수 없다.
     private BreakerCircuitState _circuitState;
     // C 화면의 바늘 연출이 끝나는 시점에 맞춰 이 화면의 결과 창을 띄우기 위한 대기 트윈이다.
@@ -69,10 +65,9 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
     }
 
     // 닫혀 있는 동안 새로 주운 건전지를 다시 열 때 보관함에 반영한다.
-    // Awake에서 이미 들고 있던 건전지를 모두 옮겼으므로 첫 활성화에서는 아무 일도 하지 않는다.
     private void OnEnable()
     {
-        StageNewBatteries();
+        RequestCarriedBatteryTransfer();
 
         // 상태·진행도 문구는 코드가 계산해 넣는 값이라 LocalizeStringEvent 의 자동 갱신을 받지 못한다.
         // 패널을 연 채로 언어를 바꾸면 이미 찍힌 문구가 그대로 남으므로 여기서 다시 그린다.
@@ -109,11 +104,10 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
         _circuitState.OnCircuitChanged += HandleCircuitChanged;
         _circuitState.OnMeasurementRequested += ScheduleResultOverlay;
 
-        // 공유 상태가 붙은 지금에서야 내 배터리를 기계 보관함에 올릴 수 있다.
-        StageInventoryBatteries();
+        // 공유 상태가 붙은 뒤 내 배터리를 서버의 패널 보관함으로 옮긴다.
+        RequestCarriedBatteryTransfer();
         RebuildInventoryGrid();
 
-        SelectRandomTargetWatt();
         HandleCircuitChanged();
     }
 

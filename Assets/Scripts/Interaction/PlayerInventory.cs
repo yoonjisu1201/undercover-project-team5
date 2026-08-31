@@ -411,35 +411,23 @@ public class PlayerInventory : NetworkBehaviour
         return true;
     }
 
-    // 미션에 아이템 한 개를 넘기고 일반 인벤토리 슬롯에서는 제거한다. 오브젝트는 파괴하지 않는다.
-    public bool MoveItemToMission(ItemType itemId)
+    // 실제 아이템 인스턴스를 인벤토리 슬롯에서 미션 보관함으로 옮긴다.
+    public bool TryStoreMissionItemOnServer(ItemBase item)
     {
-        if (itemId == ItemType.None || !TryFindItemByType(itemId, out ItemBase item))
+        if (!IsServer || item == null)
         {
             return false;
         }
 
-        if (IsServer)
-        {
-            return MoveItemToMissionLocally(item);
-        }
-
-        if (!IsOwner || !MoveItemToMissionLocally(item))
+        int itemIndex = FindItemSlotByReference(item);
+        if (itemIndex < 0)
         {
             return false;
         }
 
-        RemoveMissionItemServerRpc(new NetworkBehaviourReference(item));
+        RemoveItemAt(itemIndex);
+        _missionItems.Add(item);
         return true;
-    }
-
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-    private void RemoveMissionItemServerRpc(NetworkBehaviourReference itemRef)
-    {
-        if (itemRef.TryGet(out ItemBase item))
-        {
-            MoveItemToMissionLocally(item);
-        }
     }
 
     // 미션 종료 시 보관함의 모든 아이템을 인벤토리로 반환하지 않고 폐기(파괴)한다.
@@ -475,35 +463,6 @@ public class PlayerInventory : NetworkBehaviour
         }
 
         _missionItems.Clear();
-    }
-
-    private bool MoveItemToMissionLocally(ItemBase item)
-    {
-        if (!RemoveItemByReferenceLocally(item))
-        {
-            return false;
-        }
-
-        _missionItems.Add(item);
-        return true;
-    }
-
-    private bool RemoveItemByReferenceLocally(ItemBase item)
-    {
-        int itemIndex = FindItemSlotByReference(item);
-        if (itemIndex < 0)
-        {
-            return false;
-        }
-
-        // 슬롯(NetworkList)은 서버 권한이라 서버에서만 실제로 지운다. 오너 쪽에서 이 메서드가
-        // 먼저 로컬로 불려도, 슬롯이 비는 건 서버가 처리한 뒤 NetworkList 동기화로 반영된다.
-        if (IsServer)
-        {
-            RemoveItemAt(itemIndex);
-        }
-
-        return true;
     }
 
     private bool TryGetItemAt(int index, ItemType expectedItemId, out ItemBase item)

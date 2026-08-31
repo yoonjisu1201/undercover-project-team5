@@ -124,7 +124,7 @@ public sealed partial class BreakerBatteryMission
             return;
         }
 
-        ItemType itemId = GetBatteryItemId(entry.Watt);
+        ItemType itemId = BreakerBatteryTypes.GetItemType(entry.Watt);
         if (itemId == ItemType.None)
         {
             return;
@@ -182,7 +182,7 @@ public sealed partial class BreakerBatteryMission
             return itemData.Icon;
         }
 
-        return TryGetBatteryWatt(itemId, out int watt)
+        return BreakerBatteryTypes.TryGetWatt(itemId, out int watt)
             ? Resources.Load<Sprite>($"Missions/Battery/Battery{watt}W")
             : null;
     }
@@ -309,12 +309,13 @@ public sealed partial class BreakerBatteryMission
         }
 
         // 목표를 초과해도 게이지 길이는 100%에서 멈추고 색상만 빨간색으로 바뀐다.
-        float ratio = _targetWatt > 0 ? Mathf.Clamp01((float)currentWatt / _targetWatt) : 0f;
+        int targetWatt = _circuitState != null ? _circuitState.TargetWatt : 0;
+        float ratio = targetWatt > 0 ? Mathf.Clamp01((float)currentWatt / targetWatt) : 0f;
         Vector2 anchorMax = _wattFillRect.anchorMax;
         anchorMax.x = Mathf.Lerp(_wattFillMinAnchorX, _wattFillMaxAnchorX, ratio);
         _wattFillRect.anchorMax = anchorMax;
 
-        _wattFill.color = currentWatt > _targetWatt ? OverTargetColor : currentWatt == _targetWatt ? TargetMatchedColor : UnderTargetColor;
+        _wattFill.color = currentWatt > targetWatt ? OverTargetColor : currentWatt == targetWatt ? TargetMatchedColor : UnderTargetColor;
     }
 
     // 슬롯에서 드래그가 취소되거나 슬롯에 배치할 수 없는 경우, 아이템을 원래 인벤토리 셀로 되돌린다.
