@@ -135,6 +135,25 @@ public sealed class NpcStateMachine : MonoBehaviour
         StartRun(false, default);
     }
 
+    // 정체가 드러난 범인처럼 "지금 당장 달려야 한다"가 확실한 전환에 쓴다.
+    // 일반 ChangeToRun은 휴대폰 수납 애니메이션이 끝날 때까지 Run을 미루는데,
+    // 그 사이 NavMeshAgent는 Idle이 경로를 지운 채로 멈춰 있어 제자리 달리기가 된다.
+    // Idle/Walk의 Exit()가 휴대폰 소품과 남은 End Trigger를 정리하므로 바로 나가도 상태가 남지 않는다.
+    public void ChangeToRunImmediate()
+    {
+        if (CurrentState == _runState)
+        {
+            return;
+        }
+
+        // 이전에 밀어둔 Run 요청이 남아 있으면 Phone End 이벤트가 뒤늦게 상태를 덮어쓴다.
+        _isRunPendingAfterPhone = false;
+        _pendingRunHasDestination = false;
+        _pendingRunDestination = default;
+
+        StartRun(false, default);
+    }
+
     public void ChangeToRun(Vector3 destination)
     {
         // 이미 Run 중이면 재진입하지 않고 새 목적지만 적용합니다.

@@ -149,7 +149,9 @@ public class ArrestChaseManager : NetworkBehaviour
 
         if (candidate.TryGetComponent(out NpcStateMachine stateMachine))
         {
-            stateMachine.ChangeToRun();
+            // 붙잡기만 풀면 끝이 아니다. 휴대폰 행동 중이던 NPC는 일반 ChangeToRun에서
+            // 수납 애니메이션이 끝날 때까지 Run이 미뤄져, 정체가 드러난 뒤에도 한동안 멈춰 있는다.
+            stateMachine.ChangeToRunImmediate();
         }
     }
 
