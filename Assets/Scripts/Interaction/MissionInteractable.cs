@@ -190,6 +190,15 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
         {
             _uiInstance.SetActive(true);
             GameplayUiMode.Instance?.ActivateCursor();
+            // 재사용한 UI도 최초 진입 안내 대상이다. 실제 중복 노출 여부는 플레이어별 가이드가 판단한다.
+            if (_uiInstance.TryGetComponent(out BreakerBatteryMission _))
+            {
+                interactor.GetComponentInParent<BreakerMissionGuideController>()?.NotifyFieldBreakerOpened();
+            }
+            else if (_uiInstance.TryGetComponent(out BreakerGaugeMonitorUI _))
+            {
+                interactor.GetComponentInParent<BreakerMissionGuideController>()?.NotifyHqMonitorOpened();
+            }
             return;
         }
 
@@ -225,6 +234,16 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
         if (_uiInstance.TryGetComponent(out BreakerBatteryMission breakerGame))
         {
             breakerGame.Initialize(GetComponent<BreakerCircuitState>());
+        }
+
+        // 현장 배전반과 본부 전력 감시 화면 중 하나를 처음 연 로컬 플레이어에게 진행 순서를 안내한다.
+        if (_uiInstance.TryGetComponent(out BreakerBatteryMission _))
+        {
+            interactor.GetComponentInParent<BreakerMissionGuideController>()?.NotifyFieldBreakerOpened();
+        }
+        else if (_uiInstance.TryGetComponent(out BreakerGaugeMonitorUI _))
+        {
+            interactor.GetComponentInParent<BreakerMissionGuideController>()?.NotifyHqMonitorOpened();
         }
 
         // CCTV 수리는 기계마다 담당 CCTV가 달라, 어느 CCTV를 고치는 화면인지 알려 줘야 한다.

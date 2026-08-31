@@ -41,6 +41,9 @@ public class PlayerInventory : NetworkBehaviour
 
     public event Action OnInventoryChanged;
     public event Action<int> OnSlotSelected;
+    // 실제로 새 아이템이 슬롯에 들어온 소유자에게만 알린다. 획득 직후 안내처럼
+    // 선택 변경과 구분해야 하는 로컬 반응에서 사용한다.
+    public event Action<ItemBase> OnItemAdded;
 
     private CustomInputActions _actions;
     private Camera _playerCamera;
@@ -190,6 +193,7 @@ public class PlayerInventory : NetworkBehaviour
         {
             _targeting?.RemoveNearbyInteractable(item);
             item.NotifyAddedToLocalInventory();
+            OnItemAdded?.Invoke(item);
         }
     }
 

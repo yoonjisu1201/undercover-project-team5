@@ -117,6 +117,7 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
         // 확인을 누른 시점부터 계기판 바늘이 다 올라갈 때까지는 측정 중으로 표시한다.
         _hasMeasurementResult = false;
         _isMeasuring = true;
+        RefreshButtonStates();
         UpdateStatusText();
 
         _resultTween?.Kill();
@@ -133,6 +134,7 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
 
                 _measuredWatt = _circuitState.CurrentWatt;
                 _hasMeasurementResult = true;
+                RefreshButtonStates();
                 UpdateStatusText();
 
                 if (_circuitState.IsCompleted)
@@ -158,9 +160,7 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
             _dimmer.SetActive(powerOn);
         }
 
-        // 배치를 바꿀 수 있을 때만 '다시 하기', 전원이 들어와 측정된 뒤에만 '확인'을 쓸 수 있다.
-        SetButtonUsable(_retryButton, !powerOn);
-        SetButtonUsable(_confirmButton, powerOn);
+        RefreshButtonStates();
 
         UpdateStatusText();
         RebuildInventoryGridIfChanged();
@@ -174,6 +174,22 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
         {
             button.interactable = usable;
         }
+    }
+
+    // 전원·배터리·측정 상태를 함께 확인해 두 버튼의 활성 상태를 일관되게 갱신한다.
+    private void RefreshButtonStates()
+    {
+        if (_circuitState == null)
+        {
+            SetButtonUsable(_retryButton, false);
+            SetButtonUsable(_confirmButton, false);
+            return;
+        }
+
+        bool powerOn = _circuitState.PowerOn;
+        bool hasArrangedBattery = _circuitState.GetArrangedWatt() > 0;
+        SetButtonUsable(_retryButton, !powerOn && !_isMeasuring);
+        SetButtonUsable(_confirmButton, powerOn && hasArrangedBattery && !_isMeasuring);
     }
 
     // 모든 슬롯을 비우고 배터리들을 각각의 원래 인벤토리 셀로 되돌린다.

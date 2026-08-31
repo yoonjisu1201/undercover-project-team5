@@ -1316,10 +1316,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 3786463074549403638}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.38, y: 0.06}
-  m_AnchorMax: {x: 0.68, y: 0.14}
-  m_AnchoredPosition: {x: 0, y: 0.5}
-  m_SizeDelta: {x: 0, y: -1}
+  m_AnchorMin: {x: 0.35300002, y: 0.06}
+  m_AnchorMax: {x: 0.68, y: 0.13562675}
+  m_AnchoredPosition: {x: -1.2138062, y: 2}
+  m_SizeDelta: {x: 2.4276009, y: 2}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6846595945734819368
 CanvasRenderer:
@@ -2963,8 +2963,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2283c266ce94b7945a1297e7db05717d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MissionUIController
-  _resultTitle: 
-  _resultMessage: 
+  _resultTitle:
+    m_TableReference:
+      m_TableCollectionName:
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key:
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
+  _resultMessage:
+    m_TableReference:
+      m_TableCollectionName:
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key:
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
   _timeLeftFormat:
     m_TableReference:
       m_TableCollectionName: GUID:b4adb9a06522cf14a884424803a753e1
@@ -10584,18 +10600,42 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1ea2e84be3af7104d8f242fb6ce5ca12, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuideBook
+  _headerText:
+    m_TableReference:
+      m_TableCollectionName:
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key:
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
+  _subtitleText:
+    m_TableReference:
+      m_TableCollectionName:
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key:
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
   _uisToHide: []
   _pages:
   - {fileID: 3753420947027878636}
   - {fileID: 1327573315824122990}
   _topPrevious: {fileID: 7174975133689207930}
   _bottomNext: {fileID: 1548839574816340961}
+  _navigationTabContainer: {fileID: 0}
+  _navigationTabPrefab: {fileID: 0}
+  _navigationTitles: []
   _pageUpIndicator: {fileID: 1060731773862028720}
   _pageUpRevealFrac: 0.6
   _flipDuration: 0.45
   _flipAngle: 110
   _liftEase: 5
   _dropEase: 6
+  references:
+    version: 2
+    RefIds: []
 --- !u!1 &8533543116486577898
 GameObject:
   m_ObjectHideFlags: 0
