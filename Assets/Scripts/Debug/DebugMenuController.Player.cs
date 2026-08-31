@@ -48,7 +48,8 @@ public sealed partial class DebugMenuController
     }
 
     // 변경한 모든 이동속도를 저장된 원래 값으로 복구합니다.
-    private void RestoreWalkSpeed()
+    // 오브젝트 파괴/씬 언로드 중에는 GameObject.Find가 안전하지 않으므로 라벨 갱신을 건너뜁니다.
+    private void RestoreWalkSpeed(bool refreshLabels = true)
     {
         foreach (KeyValuePair<PlayerMoveSample, float> entry in _originalMoveSpeeds)
         {
@@ -57,7 +58,7 @@ public sealed partial class DebugMenuController
 
         _originalMoveSpeeds.Clear();
         _fastWalkEnabled = false;
-        RefreshButtonLabels();
+        if (refreshLabels) RefreshButtonLabels();
     }
 
     // 현재 디버그 상태에 맞춰 동적 버튼 문구를 갱신합니다.
