@@ -117,6 +117,7 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
         // 확인을 누른 시점부터 계기판 바늘이 다 올라갈 때까지는 측정 중으로 표시한다.
         _hasMeasurementResult = false;
         _isMeasuring = true;
+        // 측정이 끝나기 전에는 배치 변경('다시 하기')과 재측정('확인')을 모두 막는다.
         RefreshButtonStates();
         UpdateStatusText();
 
@@ -134,6 +135,7 @@ public sealed partial class BreakerBatteryMission : MonoBehaviour, IUIDragDropCo
 
                 _measuredWatt = _circuitState.CurrentWatt;
                 _hasMeasurementResult = true;
+                // 측정이 끝났으니 현재 전원·배치 상태에 맞는 버튼 조합으로 되돌린다.
                 RefreshButtonStates();
                 UpdateStatusText();
 

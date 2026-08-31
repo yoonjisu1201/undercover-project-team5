@@ -247,7 +247,7 @@ public sealed partial class BreakerBatteryMission
             return;
         }
 
-        _circuitState?.RequestMeasurement();
+        _circuitState.RequestMeasurement();
         UpdateStatusText();
     }
 

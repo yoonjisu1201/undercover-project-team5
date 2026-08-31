@@ -180,6 +180,8 @@ public class PlayerInventory : NetworkBehaviour
     // 슬롯 변경을 감지하고 필요한 이벤트를 호출한다.
     // "방금 주웠다" 반응(단서/가이드북 UI 열기 등)은 ItemBase.OnAdded가 아이템 자신의 상태
     // 변화(IsStored)로 직접 감지하므로 여기서는 신경 쓰지 않는다.
+    // 반면 아이템 종류를 가리지 않고 반응해야 하는 쪽(진행 가이드 등)은 아이템이 알 수 없는
+    // 상대이므로, 슬롯에 새로 들어온 사실만 OnItemAdded로 알린다.
     private void HandleSlotsChanged(NetworkListEvent<InventorySlot> changeEvent)
     {
         NotifyInventoryChanged();

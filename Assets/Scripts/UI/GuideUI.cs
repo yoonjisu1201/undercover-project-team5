@@ -3,11 +3,10 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Localization;
 
-// 배전반 진행 가이드를 우측 하단 전용 카드에 표시한다.
-// 짧은 시스템 알림용 NoticeUI와 분리해 두 문구가 서로 덮어쓰지 않게 한다.
-public sealed class BreakerGuideUI : MonoBehaviour
+// 라운드 목표와 진행 방향을 우측 하단 공용 가이드 카드에 표시한다.
+public sealed class GuideUI : MonoBehaviour
 {
-    public static BreakerGuideUI Instance { get; private set; }
+    public static GuideUI Instance { get; private set; }
 
     [SerializeField] private CanvasGroup _canvasGroup;
     [SerializeField] private TMP_Text _titleLabel;
@@ -17,7 +16,7 @@ public sealed class BreakerGuideUI : MonoBehaviour
 
     private Sequence _sequence;
 
-    // 씬의 전용 UI 인스턴스를 등록하고 최초에는 보이지 않게 초기화한다.
+    // 씬의 공용 가이드 UI 인스턴스를 등록하고 최초에는 보이지 않게 초기화한다.
     private void Awake()
     {
         Instance = this;
@@ -36,7 +35,7 @@ public sealed class BreakerGuideUI : MonoBehaviour
         }
     }
 
-    // 현재 언어의 제목과 본문을 읽어 전용 카드에 일정 시간 표시한다.
+    // 현재 언어의 제목과 본문을 읽어 공용 카드에 일정 시간 표시한다.
     public void ShowGuide(LocalizedString localizedTitle, LocalizedString localizedBody)
     {
         if (localizedTitle == null || localizedBody == null)
@@ -44,12 +43,9 @@ public sealed class BreakerGuideUI : MonoBehaviour
             return;
         }
 
-        ShowGuide(localizedTitle.GetLocalizedString(), localizedBody.GetLocalizedString());
-    }
+        string title = localizedTitle.GetLocalizedString();
+        string body = localizedBody.GetLocalizedString();
 
-    // 진행 중인 배전반 가이드만 교체하고 NoticeUI의 시스템 알림에는 영향을 주지 않는다.
-    private void ShowGuide(string title, string body)
-    {
         if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(body))
         {
             return;
