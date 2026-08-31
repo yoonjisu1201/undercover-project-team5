@@ -20,7 +20,7 @@ public class GuideBookPage : MonoBehaviour {
 		if (_sectionNumber != null) _sectionNumber.text = $"{pageNum:D2}";
 	}
 
-	// 언어가 바뀔 때마다 다시 호출된다.
+	// 가이드북을 열 때와 언어가 바뀔 때마다 다시 호출된다.
 	public void ApplyTexts(string headerText, string subtitleText)
 	{
 		if (_headerText != null) _headerText.text = headerText;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.UI;
 
 // 작전 가이드(클립보드)의 페이지를 실제 종이를 넘기듯 상단 집게 기준으로 넘긴다.
@@ -90,6 +91,8 @@ public class GuideBook : MonoBehaviour, IClosableUi
 
     // 헤더·부제·목차 탭 제목은 코드가 채우므로, LocalizeStringEvent를 붙인 페이지 본문과 달리
     // 언어가 바뀌어도 저절로 갱신되지 않는다. 여기서 직접 다시 밀어넣는다.
+    private void HandleLocaleChanged(Locale locale) => ApplyLocalizedTexts();
+
     private void ApplyLocalizedTexts()
     {
         string header = _headerText.GetLocalizedString();
@@ -114,6 +117,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
     {
         InitializePages();
         ApplyLocalizedTexts();
+        LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
 
         GameplayUiMode.Instance?.RegisterUi(this);
         GameplayUiMode.Instance?.ActivateCursor();
@@ -131,6 +135,7 @@ public class GuideBook : MonoBehaviour, IClosableUi
     private void OnDisable()
     {
         _flip?.Kill();  // 페이지 넘기는 중에 꺼지면 Tween이 남아있어도 화면에 표시되지 않으므로 강제 종료
+        LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
         GameplayUiMode.Instance?.UnregisterUi(this);
         GameplayUiMode.Instance?.DeactivateCursor();
         _actions?.Disable();

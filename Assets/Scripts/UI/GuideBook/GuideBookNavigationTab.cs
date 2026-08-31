@@ -35,7 +35,7 @@ public sealed class GuideBookNavigationTab : MonoBehaviour
         if (_numberText != null) _numberText.text = (pageIndex + 1).ToString("D2");
     }
 
-    // 언어가 바뀔 때마다 다시 호출된다.
+    // 가이드북을 열 때와 언어가 바뀔 때마다 다시 호출된다.
     public void SetTitle(string title)
     {
         if (_titleText != null) _titleText.text = title;
