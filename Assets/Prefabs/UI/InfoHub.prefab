@@ -626,6 +626,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7084096028258667788}
+  - component: {fileID: 2008171062946295349}
   m_Layer: 0
   m_Name: GuideBook
   m_TagString: Untagged
@@ -652,9 +653,30 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 764.96, y: -491.49838}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 270.08, y: 203.283}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &2008171062946295349
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295345542145817188}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
 --- !u!1 &1748866677726492305
 GameObject:
   m_ObjectHideFlags: 0
@@ -1555,7 +1577,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0.02999878, y: 23.2354}
+  m_AnchoredPosition: {x: 802, y: -484}
   m_SizeDelta: {x: 270.05, y: 29.581902}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2267564952303722918
@@ -2141,7 +2163,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: -0.000061035156, y: -93}
+  m_AnchoredPosition: {x: 801.9699, y: -600.23535}
   m_SizeDelta: {x: 240, y: 265}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!222 &3940781033577452915
@@ -2847,6 +2869,53 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &4125257487130919944
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2297996804976544356}
+  - component: {fileID: 8122996225884824028}
+  m_Layer: 0
+  m_Name: GuideBookHudOpener
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2297996804976544356
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4125257487130919944}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -960, y: -540, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3053252405838349204}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8122996225884824028
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4125257487130919944}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 640744ee468c79640b063a5b5fc337a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuideBookHud
+  _icon: {fileID: 0}
+  _guideBook: {fileID: 834085809928180735}
+  _dimmer: {fileID: 0}
 --- !u!1 &4137142322486739091
 GameObject:
   m_ObjectHideFlags: 0
@@ -3148,13 +3217,14 @@ RectTransform:
   m_GameObject: {fileID: 4272389782209730926}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4947064077821725457}
   - {fileID: 8941846651477473419}
   - {fileID: 7866525100444530999}
   - {fileID: 7084096028258667788}
+  - {fileID: 2297996804976544356}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -4589,6 +4659,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7866525100444530999}
   - component: {fileID: 852761418875019461}
+  - component: {fileID: 6001514018721094688}
   m_Layer: 0
   m_Name: ClueShareUI
   m_TagString: Untagged
@@ -4667,6 +4738,27 @@ MonoBehaviour:
   references:
     version: 2
     RefIds: []
+--- !u!114 &6001514018721094688
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6977708744691883783}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
 --- !u!1 &6992220139349787164
 GameObject:
   m_ObjectHideFlags: 0
@@ -7099,19 +7191,19 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_Pivot.x
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_Pivot.y
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_AnchorMin.x
@@ -7123,11 +7215,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: -270
       objectReference: {fileID: 0}
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: -204
       objectReference: {fileID: 0}
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_LocalScale.x
@@ -7171,11 +7263,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 135.04
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 101.6415
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -7202,6 +7294,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
+--- !u!114 &834085809928180735 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1742774679663387247, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
+  m_PrefabInstance: {fileID: 1422241146533786000}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1822461557697369340}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ea2e84be3af7104d8f242fb6ce5ca12, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuideBook
 --- !u!224 &1503776180602706157 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 532177584852806013, guid: 6056005feab56a14f95171eeb1e6d1b8, type: 3}
@@ -7222,7 +7325,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 157406031165458589, guid: 3fbd5b7587fe9cc49b462dda29f9e180, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 4130149078
+      value: 1191666415
       objectReference: {fileID: 0}
     - target: {fileID: 170392954629642879, guid: 3fbd5b7587fe9cc49b462dda29f9e180, type: 3}
       propertyPath: m_Pivot.x
@@ -7461,19 +7564,48 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3422727299764446072, guid: 3fbd5b7587fe9cc49b462dda29f9e180, type: 3}
       insertIndex: 3
       addedObject: {fileID: 1918074269305741155}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5088686792183605488, guid: 3fbd5b7587fe9cc49b462dda29f9e180, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8548320454678704869}
   m_SourcePrefab: {fileID: 100100000, guid: 3fbd5b7587fe9cc49b462dda29f9e180, type: 3}
 --- !u!114 &1938546747206712538 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7254613613007593006, guid: 3fbd5b7587fe9cc49b462dda29f9e180, type: 3}
   m_PrefabInstance: {fileID: 9100237017194259188}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 4094947401375812100}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6970db91db618d44c8e42506908e6bbe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+--- !u!1 &4094947401375812100 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5088686792183605488, guid: 3fbd5b7587fe9cc49b462dda29f9e180, type: 3}
+  m_PrefabInstance: {fileID: 9100237017194259188}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8548320454678704869
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4094947401375812100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbbcbbd04177b784496cb94cf39032b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiJumpShake
+  _liftStrength: 3
+  _liftFollowSpeed: 16
+  _duration: 0.26
+  _strength: 4
+  _horizontalRatio: 0.45
+  _frequency: 26
+  _rotationStrength: 0
+  _minImpactSpeed: 0
+  _maxImpactSpeed: 1
 --- !u!224 &5851707545798082956 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3422727299764446072, guid: 3fbd5b7587fe9cc49b462dda29f9e180, type: 3}
