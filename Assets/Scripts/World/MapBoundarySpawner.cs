@@ -13,6 +13,10 @@ public sealed class MapBoundarySpawner : MonoBehaviour
 
     // 바리게이트 하나의 폭보다 좁게 붙으면 서로 겹친다. 자동 생성분은 이 거리 안에 있으면 건너뛴다.
     private const float MinBarrierSpacing = 1.5f;
+    private const float MaxFogSegmentLength = 30f;
+    private const float FogPlacementUnitLength = 10f;
+    private const float GroundRayHeight = 30f;
+    private const float GroundRayDistance = 60f;
 
     [SerializeField] private MapRegionController _regionController;
     [SerializeField] private MapBoundaryLayout[] _layouts;
@@ -111,7 +115,7 @@ public sealed class MapBoundarySpawner : MonoBehaviour
         ClearSpawnedObjects();
         _activeRegion = region;
         SpawnBarrierPlacements(layout.Barriers, _barrierPrefab, $"BoundaryBarriers_{region.RegionId}");
-        SpawnPlacements(layout.Fogs, _fogPrefab, $"BoundaryFogs_{region.RegionId}", scaleParticleShapeOnly: true);
+        SpawnFogPlacements(layout.Fogs, _fogPrefab, $"BoundaryFogs_{region.RegionId}");
     }
 
     private void SpawnBarrierPlacements(
@@ -136,11 +140,10 @@ public sealed class MapBoundarySpawner : MonoBehaviour
         }
     }
 
-    private void SpawnPlacements(
+    private void SpawnFogPlacements(
         MapBoundaryLayout.Placement[] placements,
         GameObject prefab,
-        string rootName,
-        bool scaleParticleShapeOnly)
+        string rootName)
     {
         if (prefab == null || placements == null || placements.Length == 0)
         {
@@ -153,11 +156,38 @@ public sealed class MapBoundarySpawner : MonoBehaviour
 
         foreach (MapBoundaryLayout.Placement placement in placements)
         {
-            SpawnPlacement(prefab, placement, root.transform, scaleParticleShapeOnly);
+            float totalLength = placement.Scale.x * FogPlacementUnitLength;
+            int segmentCount = Mathf.Max(1, Mathf.CeilToInt(totalLength / MaxFogSegmentLength));
+            float segmentLength = totalLength / segmentCount;
+            float emissionMultiplier = 1f / segmentCount;
+            Vector3 right = placement.Rotation * Vector3.right;
+
+            for (int index = 0; index < segmentCount; index++)
+            {
+                float offset = -totalLength * 0.5f + segmentLength * (index + 0.5f);
+                Vector3 position = placement.Position + right * offset;
+                Quaternion rotation = placement.Rotation;
+
+                if (TryGetGroundPose(position, placement.Position.y, out Vector3 groundPosition, out Quaternion groundRotation))
+                {
+                    position = groundPosition;
+                    rotation = groundRotation * placement.Rotation;
+                }
+
+                MapBoundaryLayout.Placement segment = new()
+                {
+                    Position = position,
+                    Rotation = rotation,
+                    Scale = new Vector3(segmentLength / FogPlacementUnitLength, placement.Scale.y, placement.Scale.z)
+                };
+
+                GameObject instance = SpawnPlacement(prefab, segment, root.transform, scaleParticleShapeOnly: true);
+                ScaleParticleEmission(instance, emissionMultiplier);
+            }
         }
     }
 
-    private static void SpawnPlacement(
+    private static GameObject SpawnPlacement(
         GameObject prefab,
         MapBoundaryLayout.Placement placement,
         Transform parent,
@@ -171,6 +201,58 @@ public sealed class MapBoundarySpawner : MonoBehaviour
         else
         {
             instance.transform.localScale = placement.Scale;
+        }
+
+        return instance;
+    }
+
+    private static bool TryGetGroundPose(
+        Vector3 position,
+        float referenceHeight,
+        out Vector3 groundPosition,
+        out Quaternion groundRotation)
+    {
+        int groundMask = LayerMask.GetMask("Ground");
+        RaycastHit[] hits = Physics.RaycastAll(
+            position + Vector3.up * GroundRayHeight,
+            Vector3.down,
+            GroundRayDistance,
+            groundMask,
+            QueryTriggerInteraction.Ignore);
+
+        if (hits.Length == 0)
+        {
+            groundPosition = default;
+            groundRotation = Quaternion.identity;
+            return false;
+        }
+
+        RaycastHit closestHit = hits[0];
+        float closestHeightDifference = Mathf.Abs(closestHit.point.y - referenceHeight);
+        for (int i = 1; i < hits.Length; i++)
+        {
+            float heightDifference = Mathf.Abs(hits[i].point.y - referenceHeight);
+            if (heightDifference < closestHeightDifference)
+            {
+                closestHit = hits[i];
+                closestHeightDifference = heightDifference;
+            }
+        }
+
+        groundPosition = closestHit.point;
+        groundRotation = Quaternion.FromToRotation(Vector3.up, closestHit.normal);
+        return true;
+    }
+
+    private static void ScaleParticleEmission(GameObject instance, float multiplier)
+    {
+        foreach (ParticleSystem particleSystem in instance.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            ParticleSystem.EmissionModule emission = particleSystem.emission;
+            emission.rateOverTimeMultiplier *= multiplier;
+
+            ParticleSystem.MainModule main = particleSystem.main;
+            main.maxParticles = Mathf.Max(1, Mathf.CeilToInt(main.maxParticles * multiplier));
         }
     }
 
