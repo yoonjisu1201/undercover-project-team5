@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.InputSystem;
 using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.UI;
 
 public sealed class GameSettingsMenu : MonoBehaviour
@@ -21,6 +22,9 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private const string FullScreenKey = "FullScreen";
     private const string MouseSensitivityKey = "MouseSensitivity";
     private const string UiJumpShakeKey = "UiJumpShake";
+    // Unity Localization 패키지의 PlayerPrefLocaleSelector 가 시작할 때 읽는 PlayerPrefs 키.
+    // 이름이 다르면 저장은 되어도 다음 실행에서 복원되지 않는다.
+    private const string LocaleKey = "selected-locale";
 
     // 지원되는 해상도 목록 (가로 x 세로)
     private static readonly Vector2Int[] SupportedResolutions =
@@ -68,6 +72,8 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [SerializeField] private Slider _sensitivitySlider;
     // 슬라이더로는 미세 조절이 어려우므로 숫자를 직접 입력할 수도 있게 한다.
     [SerializeField] private TMP_InputField _sensitivityInput;
+    // ◀ ▶ 사이에 현재 언어 이름을 보여주는 텍스트.
+    [SerializeField] private TMP_Text _languageText;
 
     private CustomInputActions _actions;
     private bool _vivoxEventsSubscribed;
@@ -85,6 +91,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
         InitializeGraphicsSettings();
         InitializeUiJumpShake();
         InitializeSensitivity();
+        RefreshLanguageText();
         SelectTab(0);
     }
 
@@ -240,6 +247,46 @@ public sealed class GameSettingsMenu : MonoBehaviour
         }
     }
 
+    //--- 언어 설정 메서드 ---//
+    public void SelectPreviousLanguage()
+    {
+        ShiftLanguage(-1);
+    }
+
+    public void SelectNextLanguage()
+    {
+        ShiftLanguage(1);
+    }
+
+    // 사용 가능한 언어 목록에서 offset 만큼 이동한다. 목록 끝에서는 반대쪽 끝으로 돌아간다.
+    private void ShiftLanguage(int offset)
+    {
+        var locales = LocalizationSettings.AvailableLocales.Locales;
+
+        // locales.Count 를 더해 두면 offset 이 -1 일 때도 음수 인덱스가 나오지 않는다.
+        int index = locales.IndexOf(LocalizationSettings.SelectedLocale);
+        Locale locale = locales[(index + offset + locales.Count) % locales.Count];
+
+        // 이 한 줄로 LocalizeStringEvent 와 SelectedLocaleChanged 구독자들이 전부 갱신된다.
+        LocalizationSettings.SelectedLocale = locale;
+
+        // PlayerPrefLocaleSelector 는 시작 시점에 한 번만 저장하고 언어 변경 시에는 저장하지 않는다.
+        // 다음 실행 때 복원되려면 여기서 직접 기록해야 한다.
+        PlayerPrefs.SetString(LocaleKey, locale.Identifier.Code);
+        RefreshLanguageText();
+    }
+
+    // 어떤 언어로 보고 있든 읽을 수 있도록 각 언어의 자기 이름(한국어 / English)으로 표시한다.
+    private void RefreshLanguageText()
+    {
+        if (_languageText == null)
+        {
+            return;
+        }
+
+        _languageText.text = LocalizationSettings.SelectedLocale.Identifier.CultureInfo.NativeName;
+    }
+
     private void InitailizeVolumeSliders()
     {
         // PlayerPrefs에서 저장된 볼륨 값을 가져와서 슬라이더에 적용
@@ -317,6 +364,8 @@ public sealed class GameSettingsMenu : MonoBehaviour
             _sensitivityInput.onEndEdit.AddListener(HandleSensitivityInput);
         }
 
+        LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
+
         InitializeVivoxSettingsAsync().Forget();
     }
 
@@ -324,6 +373,8 @@ public sealed class GameSettingsMenu : MonoBehaviour
     {
         _actions.System.Escape.performed -= OnEscape;
         _actions.Disable();
+
+        LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
 
         if (_sensitivityInput != null)
         {
@@ -447,6 +498,20 @@ public sealed class GameSettingsMenu : MonoBehaviour
     {
         RefreshMicTestButtonText(!VivoxManager.Instance.IsMicTesting);
         VivoxManager.Instance.ToggleMicTest();
+    }
+
+    // 마이크 테스트 버튼과 장치 이름은 상태에 따라 문구가 바뀌어 LocalizeStringEvent 로 처리할 수 없고,
+    // 코드가 한 번 채워 넣은 뒤로는 스스로 갱신되지 않는다. 언어가 바뀌면 여기서 다시 채운다.
+    private void HandleLocaleChanged(Locale locale)
+    {
+        // Vivox 로그인 전에는 표시할 장치 정보 자체가 없다.
+        if (!_vivoxEventsSubscribed)
+        {
+            return;
+        }
+
+        RefreshMicTestButtonText(VivoxManager.Instance.IsMicTesting);
+        RefreshDeviceNames();
     }
 
     private void RefreshMicTestButtonText(bool isTesting)
