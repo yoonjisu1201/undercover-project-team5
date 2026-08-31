@@ -37,7 +37,7 @@ public sealed partial class DebugMenuController : NetworkBehaviour
     private void OnDisable()
     {
         SceneManager.activeSceneChanged -= HandleActiveSceneChanged;
-        RestoreWalkSpeed();
+        RestoreWalkSpeed(refreshLabels: false);
     }
 
     // 네트워크 스폰 후 라운드 시작 이벤트를 구독해 라운드별 디버그 상태를 초기화합니다.
