@@ -17,6 +17,10 @@ public class BossTargetMemory : MonoBehaviour
         + "2.5초 아래로 내리면 흔적까지 닿기 전에 잊어버려서, 흔적 주변 수색이 아예 일어나지 않는다.")]
     [SerializeField, Min(0f)] private float _memoryDuration = 4f;
 
+    [Tooltip("흔적에 도착한 뒤 주변을 뒤지는 시간(초). 쫓아온 시간과 별개로 새로 주어진다. "
+        + "같은 타이머를 쓰면 멀리서 놓쳤을 때 걸어오는 데 시간을 다 써서 수색을 못 한다.")]
+    [SerializeField, Min(0f)] private float _searchDuration = 14f;
+
     [Tooltip("소리로 생긴 흔적의 수명(초). 소리 난 곳까지 걸어갈 시간은 줘야 한다. "
         + "눈으로 본 흔적과 따로 두는 이유는, 소리는 사람을 직접 본 것이 아니라 확신이 약하기 때문이다.")]
     [SerializeField, Min(0f)] private float _noiseMemoryDuration = 6f;
@@ -36,8 +40,9 @@ public class BossTargetMemory : MonoBehaviour
         + "되어서, 숨어 있는 사람 위로 우연히 걸어가는 일이 잦아진다.")]
     [SerializeField, Min(1f)] private float _searchRadius = 5f;
 
-    [Tooltip("주변을 몇 군데나 뒤져보고 포기할지.")]
-    [SerializeField, Min(1)] private int _searchPointCount = 4;
+    [Tooltip("주변을 몇 군데나 뒤져보고 포기할지. 한 지점당 이동 + 정지에 1~2초쯤 걸리므로, "
+        + "위의 수색 시간을 이 값으로 나눈 만큼이 지점당 여유가 된다.")]
+    [SerializeField, Min(1)] private int _searchPointCount = 6;
 
     [Header("포기 / 기본 수색")]
     [Tooltip("포기하고 제자리에 서 있는 시간(초). 길면 굳은 것처럼 보이니 한 박자만 준다.")]
@@ -98,7 +103,8 @@ public class BossTargetMemory : MonoBehaviour
     {
         // 눈으로 본 직후 0.5초는 소리가 흔적을 덮지 않는다. 소음은 몇 초 전 자리라,
         // 보이는 동안 끼어들면 흔적이 뒤로 끌려간다.
-        _lifetime = new TraceLifetime(_memoryDuration, _noiseMemoryDuration, _noiseTraceInterval, 0.5f);
+        _lifetime = new TraceLifetime(
+            _memoryDuration, _noiseMemoryDuration, _searchDuration, _noiseTraceInterval, 0.5f);
     }
 
     // 흔적이 살아 있는지. 그래프의 추격 가지가 이 값으로 묶여 있다.
@@ -208,8 +214,10 @@ public class BossTargetMemory : MonoBehaviour
                 return _trace;
             }
 
+            // 흔적에 닿았다. 여기서부터가 수색이므로 뒤질 시간을 새로 받는다.
             _reachedTrace = true;
             _hasSearchPoint = false;
+            _lifetime.BeginSearch(Time.time);
         }
 
         // 2단계. 가는 중이면 목표를 바꾸지 않는다. 매번 바꾸면 방향이 흔들려 제자리를 맴돈다.

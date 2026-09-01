@@ -9,6 +9,7 @@ public sealed class TraceLifetime
 {
     private readonly float _sightSeconds;
     private readonly float _noiseSeconds;
+    private readonly float _searchSeconds;
     private readonly float _noiseInterval;
     private readonly float _sightHoldSeconds;
 
@@ -20,12 +21,16 @@ public sealed class TraceLifetime
 
     /// <param name="sightSeconds">눈으로 본 흔적의 수명.</param>
     /// <param name="noiseSeconds">소리로 생긴 흔적의 수명. 소리 난 곳까지 걸어갈 시간은 줘야 한다.</param>
+    /// <param name="searchSeconds">흔적에 도착한 뒤 주변을 뒤지는 데 주는 시간.</param>
     /// <param name="noiseInterval">소리로 흔적을 옮기는 최소 간격. 이게 실시간 추적을 막는다.</param>
     /// <param name="sightHoldSeconds">눈으로 본 직후 이 시간 동안은 소리가 흔적을 덮지 않는다.</param>
-    public TraceLifetime(float sightSeconds, float noiseSeconds, float noiseInterval, float sightHoldSeconds)
+    public TraceLifetime(
+        float sightSeconds, float noiseSeconds, float searchSeconds,
+        float noiseInterval, float sightHoldSeconds)
     {
         _sightSeconds = sightSeconds;
         _noiseSeconds = noiseSeconds;
+        _searchSeconds = searchSeconds;
         _noiseInterval = noiseInterval;
         _sightHoldSeconds = sightHoldSeconds;
     }
@@ -69,6 +74,22 @@ public sealed class TraceLifetime
         _forgetTime = now + _noiseSeconds;
         _nextNoiseTime = now + _noiseInterval;
         return true;
+    }
+
+    // 흔적에 도착했다. 뒤질 시간을 새로 준다.
+    //
+    // 쫓아가는 시간과 뒤지는 시간이 같은 타이머를 쓰면, 걸어가는 데 쓴 만큼 수색할 시간이
+    // 그대로 깎인다. 멀리서 놓칠수록 수색을 못 하게 되는데, 정작 그때 더 뒤져야 한다.
+    //
+    // 남은 수명이 이미 더 길면 줄이지 않는다.
+    public void BeginSearch(float now)
+    {
+        if (!_hasTrace)
+        {
+            return;
+        }
+
+        _forgetTime = Mathf.Max(_forgetTime, now + _searchSeconds);
     }
 
     // 흔적을 버린다. 다음 소리는 곧바로 받을 수 있어야 하므로 간격 제한도 함께 푼다.

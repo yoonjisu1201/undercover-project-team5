@@ -44,6 +44,10 @@ public class BossDebugView : MonoBehaviour
     private bool _hasMarkerDestination;
     private GUIStyle _markerStyle;
 
+    // 이름표를 바닥 방향으로 밀어내는 거리. 위에서 내려다볼 때 글자가 겹치지 않게 한다.
+    private static readonly Vector3 LabelSideDestination = new Vector3(2.5f, 0f, 0f);
+    private static readonly Vector3 LabelSideTrace = new Vector3(-2.5f, 0f, 2.5f);
+
     // 표시 내용을 다시 만드는 간격(초). 매 프레임 만들면 디버그 표시가 오히려 부하가 된다.
     private const float TextRefreshInterval = 0.2f;
 
@@ -269,12 +273,16 @@ public class BossDebugView : MonoBehaviour
     }
 
     // 지점 위로 기둥을 세우고 이름을 붙인다. 위에서 내려다보는 뷰에서 지점을 찾기 위한 것이다.
-    private static void DrawPost(Vector3 position, float height, string label)
+    // 지점 위로 기둥을 세우고 이름을 붙인다.
+    //
+    // 이름표를 바닥과 나란한 방향으로도 밀어낸다. 높이만 다르게 두면 위에서 똑바로
+    // 내려다볼 때 전부 한 점으로 뭉쳐서 글자가 겹쳐 읽을 수 없다.
+    private static void DrawPost(Vector3 position, float height, Vector3 labelSide, string label)
     {
         Gizmos.DrawLine(position, position + Vector3.up * height);
 #if UNITY_EDITOR
         UnityEditor.Handles.color = Gizmos.color;
-        UnityEditor.Handles.Label(position + Vector3.up * (height + 0.4f), label);
+        UnityEditor.Handles.Label(position + Vector3.up * (height + 0.4f) + labelSide, label);
 #endif
     }
 
@@ -674,14 +682,14 @@ public class BossDebugView : MonoBehaviour
         {
             Gizmos.color = Color.yellow;
             DrawGroundMarker(_memory.Trace, 1.2f);
-            DrawPost(_memory.Trace, 3f, $"흔적 ({_memory.SearchProgress})");
+            DrawPost(_memory.Trace, 3f, LabelSideTrace, $"흔적 ({_memory.SearchProgress})");
         }
 
         // 목적지. 가장 굵게 그린다.
         Vector3 destination = _agent.destination;
         Gizmos.color = Color.red;
         DrawGroundMarker(destination, 2f);
-        DrawPost(destination, 5f, DescribeDestination(destination));
+        DrawPost(destination, 5f, LabelSideDestination, DescribeDestination(destination));
 
         // 보스 자신. 위에서 내려다볼 때 경로의 어느 쪽 끝이 보스인지 알아야 한다.
         Gizmos.color = Color.magenta;
