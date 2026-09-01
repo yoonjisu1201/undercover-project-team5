@@ -1,6 +1,7 @@
 using System;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.AI;
 
 
 /* InputActions를 활용하여 Input을 처리하는 방법 샘플입니다.
@@ -22,6 +23,43 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private float _gravityValue = 2.5f;   // 떨어질 때 중력 배수
 	[SerializeField] private float _riseMultiplier = 2f;   // 올라갈 때 중력 배수 (클수록 정점에 빨리 도달 = 상승이 빨라짐)
 	[SerializeField] private Rigidbody _rigidbody;
+
+	// 넉백이 끝나는 시각과 지금 남아 있는 밀림 속도.
+	private float _knockbackUntil;
+	private Vector3 _knockbackVelocity;
+
+	// 마지막으로 멀쩡히 서 있던 자리. 맵 밖으로 떨어졌을 때 여기로 되돌린다.
+	private Vector3 _lastSafePosition;
+	private bool _hasSafePosition;
+	private float _nextFallCheckTime;
+	private float _fallingSeconds;
+
+	// 겹침 해소로 밀려나는 속도의 상한(m/s). 기본값 10 은 벽을 넘길 만큼 세다.
+	private const float MaxDepenetrationVelocity = 1f;
+
+	[Header("피격 넉백")]
+	[Tooltip("맞은 순간의 속도(m/s). 곧바로 줄어들기 시작하므로 실제로 밀리는 거리는 이보다 짧다.")]
+	[SerializeField, Min(0f)] private float _knockbackSpeed = 8f;
+
+	[Tooltip("밀리는 동안 조작이 속도를 덮지 않는 시간(초). 길면 조작을 뺏긴 느낌이 난다.")]
+	[SerializeField, Min(0f)] private float _knockbackSeconds = 0.25f;
+
+	[Tooltip("초당 감쇠율. 클수록 처음만 세게 밀리고 금방 멎는다. "
+		+ "0이면 감쇠 없이 등속으로 미끄러져서 맞았다기보다 밀려나는 것처럼 보인다.")]
+	[SerializeField, Min(0f)] private float _knockbackDamping = 12f;
+
+	// 밀리는 길을 확인할 때 한 스텝 거리에 더해 두는 여유(m). 벽에 닿기 직전에 멎게 한다.
+	private const float KnockbackSkin = 0.05f;
+
+	// 맵 밖으로 떨어졌는지 확인하는 간격(초)과, 마지막 안전 지점보다 이만큼 아래면 떨어진 것으로 본다.
+	private const float FallCheckInterval = 0.5f;
+	private const float FallRecoverDepth = 5f;
+
+	// 이 시간 동안 계속 떨어지고 있어야 되돌린다. 엘리베이터나 계단 낙차와 구분하기 위한 것이다.
+	private const float FallRecoverSeconds = 1.5f;
+
+	// 안전 지점을 찾을 때 NavMesh 위로 끌어당기는 거리(m).
+	private const float SafeSampleRadius = 1.5f;
 
 	[Header("경사 미끄러짐 방지")]
 	[SerializeField] private PhysicsMaterial _gripMaterial; // 멈춰 있을 때 경사에 고정 (높은 마찰)
@@ -114,6 +152,13 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_slideMaterial = _bodyCollider.sharedMaterial; // 인스펙터에 붙어 있는 마찰0 머티리얼
 		}
+
+		// 콜라이더가 겹쳤을 때 밀어내는 속도의 상한. 기본값 10m/s 는 한 스텝에 20cm 를 민다.
+		//
+		// 보스는 Rigidbody 없이 콜라이더만 들고 transform 으로 움직인다. 물리 엔진은 그것을
+		// 정적 지형으로 보기 때문에 접촉으로 풀지 못하고 겹침 해소로 밀어내는데, 그 세기가
+		// 그대로 나오면 플레이어가 벽 너머로 튕겨 나간다. 인스펙터에 없는 값이라 여기서 준다.
+		_rigidbody.maxDepenetrationVelocity = MaxDepenetrationVelocity;
 	}
 
 	public override void OnDestroy()
@@ -317,6 +362,9 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
+		// 조작이 막혀 있어도 떨어지는 것은 막아야 하므로 UI 가드보다 앞에 둔다.
+		UpdateFallRecovery();
+
 		if (GameplayUiMode.IsActive)
 		{
 			_jumpRequested = false;
@@ -375,9 +423,74 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
+		// 넉백 중에는 입력이 속도를 덮지 않는다. 덮으면 밀린 속도가 다음 물리 스텝에
+		// 그대로 지워져서, 맞아도 제자리에 서 있는 것처럼 보인다.
+		//
+		// 마찰은 미끄러지는 쪽으로 둔다. 서 있을 때 쓰는 접지 머티리얼은 마찰이 높아서,
+		// 밀어 준 속도를 바닥이 한두 프레임 만에 잡아먹는다.
+		if (Time.time < _knockbackUntil)
+		{
+			SetMovingState(false);
+			SetRunningState(false);
+			UpdateFrictionMaterial(true);
+			ApplyKnockbackVelocity();
+			ApplyAirGravity();
+			return;
+		}
+
 		HandleMovement();
 		HandleJump();
 		ApplyAirGravity();
+	}
+
+	// 맞은 자리의 반대쪽으로 민다. 오너에서만 부른다.
+	//
+	// 예전에는 보스 콜라이더와 겹치면서 물리가 밀어내는 것이 넉백처럼 보였다. 그건 이동이
+	// 아니라 위치를 직접 보정하는 것이라 벽을 그대로 통과했다. 속도로 밀면 이동 경로 검사를
+	// 타므로 벽에서 멈춘다.
+	public void ApplyKnockback(Vector3 sourcePosition)
+	{
+		if (!IsOwner || _knockbackSpeed <= 0f)
+		{
+			return;
+		}
+
+		Vector3 away = transform.position - sourcePosition;
+		away.y = 0f;
+
+		if (away.sqrMagnitude <= 0.0001f)
+		{
+			return;
+		}
+
+		_knockbackVelocity = away.normalized * _knockbackSpeed;
+		_knockbackUntil = Time.time + _knockbackSeconds;
+	}
+
+	// 밀림을 물리 스텝마다 줄여가며 넣는다.
+	//
+	// 속도를 한 번 주고 놔두면 마찰이 0이라 끝까지 같은 빠르기로 미끄러진다. 맞아서 튕긴
+	// 것이 아니라 밀려나는 것처럼 보인다. 처음이 가장 세고 빠르게 죽어야 타격으로 읽힌다.
+	private void ApplyKnockbackVelocity()
+	{
+		_knockbackVelocity *= Mathf.Exp(-_knockbackDamping * Time.fixedDeltaTime);
+
+		// 이번 스텝에 나아갈 만큼 미리 쓸어 보고, 막혀 있으면 그 자리에서 멎는다.
+		//
+		// 겹침 해소 세기를 낮춰 뒀기 때문에 물리에 맡길 수 없다. 얇은 문이나 벽에 세게
+		// 밀어붙이면, 솔버가 밀어내기 전에 몸의 중심이 반대편으로 넘어가 버린다. 그다음에는
+		// 넘어간 쪽으로 밀어내는 것이 가까우니 그대로 통과한다.
+		float step = _knockbackVelocity.magnitude * Time.fixedDeltaTime;
+
+		if (step > 0f && _rigidbody.SweepTest(
+			_knockbackVelocity.normalized, out _, step + KnockbackSkin, QueryTriggerInteraction.Ignore))
+		{
+			_knockbackVelocity = Vector3.zero;
+		}
+
+		// 세로 속도는 건드리지 않는다. 여기서 덮으면 공중에서 맞았을 때 낙하가 끊긴다.
+		_rigidbody.linearVelocity = new Vector3(
+			_knockbackVelocity.x, _rigidbody.linearVelocity.y, _knockbackVelocity.z);
 	}
 
 	// 입력 방향(바라보는 방향 기준)으로 Rigidbody를 물리적으로 이동시킨다
@@ -513,6 +626,54 @@ public class PlayerMoveSample : NetworkBehaviour
 	}
 
 	// 긴급 탈출 컴포넌트도 이동 코드와 같은 지면 판정을 재사용한다.
+	// 맵 밖으로 떨어졌으면 마지막으로 멀쩡히 서 있던 자리로 되돌린다.
+	//
+	// 밀려나서 벽을 통과하면 스스로 돌아올 방법이 없다. 조작으로 올라올 수 없고,
+	// NetworkTransform 이 소유자 권한이라 서버가 교정해 주지도 않는다. 낙사하거나
+	// 라운드가 끝날 때까지 갇힌다.
+	//
+	// 통과 자체를 막는 것은 물리 쪽에서 하고, 여기는 그래도 뚫렸을 때의 안전망이다.
+	// 안전망이 정상 이동을 되돌리는 일이 있어서는 안 되므로, 조건은 셋을 모두 만족할 때만이다.
+	// 공중에 떠 있고, 계속 아래로 떨어지는 중이고, 기억해 둔 자리보다 한참 아래여야 한다.
+	private void UpdateFallRecovery()
+	{
+		if (Time.time < _nextFallCheckTime)
+		{
+			return;
+		}
+
+		float elapsed = Time.time - _nextFallCheckTime + FallCheckInterval;
+		_nextFallCheckTime = Time.time + FallCheckInterval;
+
+		Vector3 position = transform.position;
+
+		// 바닥을 딛고 NavMesh 위에 있으면 그 자리를 기억해 둔다.
+		if (IsGrounded() &&
+			NavMesh.SamplePosition(position, out NavMeshHit hit, SafeSampleRadius, NavMesh.AllAreas))
+		{
+			_lastSafePosition = hit.position;
+			_hasSafePosition = true;
+			_fallingSeconds = 0f;
+			return;
+		}
+
+		// 아래로 떨어지는 중일 때만 센다. 점프해서 올라가는 중이거나 떠 있기만 하면 아니다.
+		if (_rigidbody.linearVelocity.y >= 0f)
+		{
+			_fallingSeconds = 0f;
+			return;
+		}
+
+		_fallingSeconds += elapsed;
+
+		if (_hasSafePosition &&
+			_fallingSeconds >= FallRecoverSeconds &&
+			position.y < _lastSafePosition.y - FallRecoverDepth)
+		{
+			ApplyTeleport(_lastSafePosition, transform.rotation);
+		}
+	}
+
 	public bool IsGrounded()
 	{
 		return _groundCheck != null && Physics.CheckSphere(
@@ -543,6 +704,11 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void ApplyTeleport(Vector3 position, Quaternion rotation)
 	{
+		// 옮겨간 곳은 다른 구역이라 이전 안전 지점이 의미가 없다. 그대로 두면 지하에서
+		// 기억한 자리가 지상까지 따라와서, 정상적으로 나간 사람을 도로 지하로 끌어내린다.
+		_hasSafePosition = false;
+		_fallingSeconds = 0f;
+
 		_playerCameraController.SetYaw(rotation.eulerAngles.y);
 
 		_rigidbody.linearVelocity = Vector3.zero;
