@@ -65,9 +65,9 @@ public static class BossPrefabBuilder
     {
         NavMeshAgent agent = Require<NavMeshAgent>(root);
 
-        // 그래프의 이동 노드가 상황별 속도(수색 2.2 / 수색 2.8 / 기척 3.2 / 추격 4.2)를
-        // 직접 넣으므로 여기 speed 는 상한 역할만 한다.
-        agent.speed = 4.2f;
+        // 그래프의 이동 노드가 상황별 속도(수색 3.0 / 기척 3.5 / 추격 4.6)를 직접 넣으므로
+        // 여기 speed 는 상한 역할만 한다.
+        agent.speed = 4.6f;
 
         // 큰 덩치가 갖는 관성. 이 두 값이 곧 "무겁게 움직인다"의 전부다.
         //
@@ -78,7 +78,7 @@ public static class BossPrefabBuilder
         // 가속(m/s^2): 멈추고 다시 붙는 데 걸리는 시간이자 미끄러지는 거리다. 추격 속도 4.2 기준
         // 10 이면 0.4초에 멈춰서 브레이크가 없는 것과 같고, 4 면 약 1초에 걸쳐 2.2m 를 미끄러진다.
         // 방향을 바꿀 때도 같은 만큼 굼떠지므로 급회전이 저절로 무거워진다.
-        agent.angularSpeed = 120f;
+        agent.angularSpeed = 320f;
         agent.acceleration = 4f;
 
         // 문틀을 지나야 하므로 반경을 넉넉히 잡으면 경로가 끊긴다.
