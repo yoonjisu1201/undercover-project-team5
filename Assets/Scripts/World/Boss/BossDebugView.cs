@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using Unity.Behavior;
 using Unity.Netcode;
@@ -416,9 +417,12 @@ public class BossDebugView : MonoBehaviour
         if (_memory != null)
         {
             _text.AppendLine(_memory.HasMemory
-                ? $"흔적 수명: {_memory.TraceRemaining:0.0}초 ({_memory.TraceSource})   "
+                ? $"흔적 출처: {_memory.TraceSource}   "
                     + $"소리 갱신까지: {_memory.NoiseGateRemaining:0.0}초"
                 : $"흔적 없음   휴식 남음: {_memory.RestRemaining:0.0}초");
+
+            _text.AppendLine($"서 있는 공간: {_memory.RoomDescription}");
+            _text.AppendLine($"마지막 포기 사유: {_memory.LastGiveUpReason} ({_memory.GiveUpAge:0.0}초 전)");
         }
 
         if (_perception != null)
@@ -683,6 +687,18 @@ public class BossDebugView : MonoBehaviour
             Gizmos.color = Color.yellow;
             DrawGroundMarker(_memory.Trace, 1.2f);
             DrawPost(_memory.Trace, 3f, LabelSideTrace, $"흔적 ({_memory.SearchProgress})");
+        }
+
+        // 수색을 끝낸 자리. 이 안쪽 방은 훑고 다닐 때 목적지가 되지 않는다.
+        if (_memory != null)
+        {
+            Gizmos.color = new Color(0.3f, 0.7f, 1f, 0.7f);
+
+            foreach (Vector3 swept in _memory.SweptPositions)
+            {
+                DrawFlatCircle(swept + Vector3.up * 0.1f, _memory.SweptRadius);
+                DrawGroundMarker(swept, 1.5f);
+            }
         }
 
         // 목적지. 가장 굵게 그린다.

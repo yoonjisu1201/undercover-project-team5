@@ -56,16 +56,16 @@ public static class BossBehaviorGraphBuilder
     // BossController 의 달리기 판정(3.7)이 이 값들 사이를 가른다. 추격(4.2)만 달리고 나머지는
     // 걷는다. 여기를 고치면 그쪽도 같이 봐야
     // 추격 중에 걷기 모션만 나오거나 수색 중에 달리기 모션이 나오는 일이 없다.
-    private const float ChaseSpeed = 4.2f;
+    private const float ChaseSpeed = 4.6f;
 
     // 눈으로 본 게 아니라 기척으로 알아챈 경우. 봤을 때보다 느려서 도망칠 틈이 있다.
-    private const float NearChaseSpeed = 3.2f;
+    private const float NearChaseSpeed = 3.5f;
 
     // 흔적 주변을 뒤질 때. 가장 느려야 "찾고 있다"로 보인다.
-    private const float SearchSpeed = 2.8f;
+    private const float SearchSpeed = 3f;
 
     // 단서 없이 훑고 다니는 기본 수색 속도. 예전 순찰 속도를 그대로 쓴다.
-    private const float WanderSpeed = 2.2f;
+    private const float WanderSpeed = 3f;
 
     // 수색 지점마다 멈춰 서는 시간(초). 여기서 시야가 한 번 정착해야 "확인했다"가 된다.
     // 추격 중 멈춤과 달리 이건 보여야 하는 동작이라 조금 길게 둔다.
