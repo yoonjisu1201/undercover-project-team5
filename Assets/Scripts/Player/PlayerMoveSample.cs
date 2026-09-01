@@ -24,42 +24,46 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private float _riseMultiplier = 2f;   // 올라갈 때 중력 배수 (클수록 정점에 빨리 도달 = 상승이 빨라짐)
 	[SerializeField] private Rigidbody _rigidbody;
 
-	// 넉백이 끝나는 시각과 지금 남아 있는 밀림 속도.
+	[Header("피격 넉백")]
+	[Tooltip("맞은 순간의 속도(m/s). 곧바로 줄어들므로 실제로 밀리는 거리는 이보다 짧다.")]
+	[SerializeField, Min(0f)] private float _knockbackSpeed = 8f;
+
+	[Tooltip("밀리는 동안 조작이 속도를 덮지 않는 시간(초). 길면 조작을 뺏긴 느낌이 난다.")]
+	[SerializeField, Min(0f)] private float _knockbackSeconds = 0.25f;
+
+	[Tooltip("초당 감쇠율. 클수록 처음만 세게 밀리고 금방 멎는다. 0이면 등속으로 미끄러진다.")]
+	[SerializeField, Min(0f)] private float _knockbackDamping = 12f;
+
+	// 밀려갈 자리를 볼 때 한 스텝 거리에 더하는 여유(m).
+	private const float KnockbackSkin = 0.05f;
+
+	// 그 자리에 몸을 놓아 볼 때 반경을 줄이는 비율. 스치는 접촉까지 막힘으로 치지 않는다.
+	private const float BlockCheckShrink = 0.9f;
+
+	// 밀려갈 자리 아래로 바닥을 찾아보는 거리(m). 계단·비탈은 넘어가고 낭떠러지만 걸러낸다.
+	private const float GroundProbeDistance = 1.5f;
+
+	// 맵 밖으로 떨어졌는지 확인하는 간격(초).
+	private const float FallCheckInterval = 0.5f;
+
+	// 되돌리는 조건. 이 시간 동안 계속 떨어지고, 안전 지점보다 이만큼 아래여야 한다.
+	private const float FallRecoverSeconds = 1.5f;
+	private const float FallRecoverDepth = 5f;
+
+	// 안전 지점을 찾을 때 NavMesh 위로 끌어당기는 거리(m).
+	private const float SafeSampleRadius = 1.5f;
+
 	private float _knockbackUntil;
 	private Vector3 _knockbackVelocity;
 
 	// 마지막으로 멀쩡히 서 있던 자리. 맵 밖으로 떨어졌을 때 여기로 되돌린다.
 	private Vector3 _lastSafePosition;
 	private bool _hasSafePosition;
-	private float _nextFallCheckTime;
+	private float _lastFallCheckTime;
 	private float _fallingSeconds;
 
-	// 겹침 해소로 밀려나는 속도의 상한(m/s). 기본값 10 은 벽을 넘길 만큼 세다.
-	private const float MaxDepenetrationVelocity = 1f;
-
-	[Header("피격 넉백")]
-	[Tooltip("맞은 순간의 속도(m/s). 곧바로 줄어들기 시작하므로 실제로 밀리는 거리는 이보다 짧다.")]
-	[SerializeField, Min(0f)] private float _knockbackSpeed = 8f;
-
-	[Tooltip("밀리는 동안 조작이 속도를 덮지 않는 시간(초). 길면 조작을 뺏긴 느낌이 난다.")]
-	[SerializeField, Min(0f)] private float _knockbackSeconds = 0.25f;
-
-	[Tooltip("초당 감쇠율. 클수록 처음만 세게 밀리고 금방 멎는다. "
-		+ "0이면 감쇠 없이 등속으로 미끄러져서 맞았다기보다 밀려나는 것처럼 보인다.")]
-	[SerializeField, Min(0f)] private float _knockbackDamping = 12f;
-
-	// 밀리는 길을 확인할 때 한 스텝 거리에 더해 두는 여유(m). 벽에 닿기 직전에 멎게 한다.
-	private const float KnockbackSkin = 0.05f;
-
-	// 맵 밖으로 떨어졌는지 확인하는 간격(초)과, 마지막 안전 지점보다 이만큼 아래면 떨어진 것으로 본다.
-	private const float FallCheckInterval = 0.5f;
-	private const float FallRecoverDepth = 5f;
-
-	// 이 시간 동안 계속 떨어지고 있어야 되돌린다. 엘리베이터나 계단 낙차와 구분하기 위한 것이다.
-	private const float FallRecoverSeconds = 1.5f;
-
-	// 안전 지점을 찾을 때 NavMesh 위로 끌어당기는 거리(m).
-	private const float SafeSampleRadius = 1.5f;
+	// 밀려갈 자리를 확인할 때 쓰는 버퍼. 인스턴스마다 따로 들고 있어야 서로 덮어쓰지 않는다.
+	private readonly Collider[] _blockBuffer = new Collider[8];
 
 	[Header("경사 미끄러짐 방지")]
 	[SerializeField] private PhysicsMaterial _gripMaterial; // 멈춰 있을 때 경사에 고정 (높은 마찰)
@@ -153,12 +157,6 @@ public class PlayerMoveSample : NetworkBehaviour
 			_slideMaterial = _bodyCollider.sharedMaterial; // 인스펙터에 붙어 있는 마찰0 머티리얼
 		}
 
-		// 콜라이더가 겹쳤을 때 밀어내는 속도의 상한. 기본값 10m/s 는 한 스텝에 20cm 를 민다.
-		//
-		// 보스는 Rigidbody 없이 콜라이더만 들고 transform 으로 움직인다. 물리 엔진은 그것을
-		// 정적 지형으로 보기 때문에 접촉으로 풀지 못하고 겹침 해소로 밀어내는데, 그 세기가
-		// 그대로 나오면 플레이어가 벽 너머로 튕겨 나간다. 인스펙터에 없는 값이라 여기서 준다.
-		_rigidbody.maxDepenetrationVelocity = MaxDepenetrationVelocity;
 	}
 
 	public override void OnDestroy()
@@ -256,8 +254,6 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		ApplyAnimatorBool(IsDownedHash, value);
 
-		SetBossCollisionIgnored(value);
-
 		if (value)
 		{
 			SoundManager.Instance?.PlayAt(SoundKey.Player_Downed, transform.position);
@@ -282,20 +278,18 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 	}
 
-	// 쓰러진 동안에는 보스가 몸을 통과하게 한다.
+	// 보스와는 물리로 부딪히지 않는다. 밀리는 것은 공격이 넉백으로 직접 준다.
 	//
-	// 보스는 Rigidbody 없이 콜라이더만 들고 transform 으로 움직인다. 그러면 겹침이 질량 없이
-	// 밀어내기로만 해소돼서, 지나갈 때마다 쓰러진 몸이 떠밀린다. 다운 중에는 입력이 막혀
-	// 스스로 되돌아올 수도 없고, NetworkTransform 이 소유자 권한이라 밀려난 위치를 본인이
-	// 그대로 확정해 전원에게 퍼뜨린다. 서버가 교정해 주지 않으므로 접촉 자체를 없앤다.
+	// 물리에 맡기면 어떻게 해도 벽을 뚫는다. 벽과 보스 사이에 끼면 솔버는 둘 중 하나를
+	// 포기해야 하는데, 벽을 포기하는 쪽이 싸서 사람이 벽 밖으로 나간다. 겹치는 문제는
+	// BossController 가 물러나는 것으로 푼다.
 	//
-	// 몸을 고정하는 방법도 있지만 그러면 보스가 시신에 막히거나 타고 올라간다.
-	// 레이어로 가르는 것도 안 된다. 보스와 플레이어가 같은 Default 레이어라, 그 조합을 끄면
-	// 시신이 벽과 바닥까지 통과한다.
+	// 레이어로 가를 수는 없다. 보스와 사람이 같은 Default 레이어라, 그 조합을 끄면
+	// 사람이 벽과 바닥까지 통과한다.
 	//
-	// 이 호출은 각 피어에서 자기 물리 씬에만 적용되므로 모든 클라이언트가 각자 호출해야 한다.
-	// 다운 상태는 NetworkVariable 이라 이 콜백이 전원에게서 돌아간다.
-	private void SetBossCollisionIgnored(bool ignored)
+	// 물리 설정은 피어마다 따로라 모든 클라이언트가 각자 불러야 한다. 보스가 나중에
+	// 등장하면 보스 쪽에서 같은 짝을 맺는다.
+	public void IgnoreBossCollision()
 	{
 		if (_bodyCollider == null)
 		{
@@ -308,7 +302,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		Physics.IgnoreCollision(bossCollider, _bodyCollider, ignored);
+		Physics.IgnoreCollision(bossCollider, _bodyCollider, true);
 	}
 
 	private void UpdateJumpAnimation()
@@ -339,6 +333,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		HandleJumpingChanged(false, _networkIsJumping.Value);
 		// #392: 기존 상태 초기화와 형식을 맞추되, false를 이전 값으로 넘겨 최초 스폰을 소생으로 판정하지 않는다.
 		HandleDownedStateChanged(false, _playerHealth.IsDowned);
+
+		IgnoreBossCollision();
 	}
 
 	public override void OnNetworkDespawn()
@@ -445,9 +441,8 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	// 맞은 자리의 반대쪽으로 민다. 오너에서만 부른다.
 	//
-	// 예전에는 보스 콜라이더와 겹치면서 물리가 밀어내는 것이 넉백처럼 보였다. 그건 이동이
-	// 아니라 위치를 직접 보정하는 것이라 벽을 그대로 통과했다. 속도로 밀면 이동 경로 검사를
-	// 타므로 벽에서 멈춘다.
+	// 물리에 맡기지 않는다. 겹침 해소는 이동이 아니라 위치를 직접 보정하는 것이라
+	// 연속 충돌 판정을 켜 두어도 벽을 그대로 지나간다.
 	public void ApplyKnockback(Vector3 sourcePosition)
 	{
 		if (!IsOwner || _knockbackSpeed <= 0f)
@@ -469,21 +464,15 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	// 밀림을 물리 스텝마다 줄여가며 넣는다.
 	//
-	// 속도를 한 번 주고 놔두면 마찰이 0이라 끝까지 같은 빠르기로 미끄러진다. 맞아서 튕긴
-	// 것이 아니라 밀려나는 것처럼 보인다. 처음이 가장 세고 빠르게 죽어야 타격으로 읽힌다.
+	// 속도를 한 번 주고 놔두면 넉백 중에는 마찰이 0이라 끝까지 같은 빠르기로 미끄러진다.
+	// 맞아서 튕긴 것이 아니라 밀려나는 것으로 보인다. 처음이 세고 빨리 죽어야 타격으로 읽힌다.
 	private void ApplyKnockbackVelocity()
 	{
 		_knockbackVelocity *= Mathf.Exp(-_knockbackDamping * Time.fixedDeltaTime);
 
-		// 이번 스텝에 나아갈 만큼 미리 쓸어 보고, 막혀 있으면 그 자리에서 멎는다.
-		//
-		// 겹침 해소 세기를 낮춰 뒀기 때문에 물리에 맡길 수 없다. 얇은 문이나 벽에 세게
-		// 밀어붙이면, 솔버가 밀어내기 전에 몸의 중심이 반대편으로 넘어가 버린다. 그다음에는
-		// 넘어간 쪽으로 밀어내는 것이 가까우니 그대로 통과한다.
 		float step = _knockbackVelocity.magnitude * Time.fixedDeltaTime;
 
-		if (step > 0f && _rigidbody.SweepTest(
-			_knockbackVelocity.normalized, out _, step + KnockbackSkin, QueryTriggerInteraction.Ignore))
+		if (step > 0f && !CanPushTo(_knockbackVelocity.normalized, step + KnockbackSkin))
 		{
 			_knockbackVelocity = Vector3.zero;
 		}
@@ -637,13 +626,13 @@ public class PlayerMoveSample : NetworkBehaviour
 	// 공중에 떠 있고, 계속 아래로 떨어지는 중이고, 기억해 둔 자리보다 한참 아래여야 한다.
 	private void UpdateFallRecovery()
 	{
-		if (Time.time < _nextFallCheckTime)
+		float elapsed = Time.time - _lastFallCheckTime;
+		if (elapsed < FallCheckInterval)
 		{
 			return;
 		}
 
-		float elapsed = Time.time - _nextFallCheckTime + FallCheckInterval;
-		_nextFallCheckTime = Time.time + FallCheckInterval;
+		_lastFallCheckTime = Time.time;
 
 		Vector3 position = transform.position;
 
@@ -672,6 +661,73 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			ApplyTeleport(_lastSafePosition, transform.rotation);
 		}
+	}
+
+	// 그 방향으로 그만큼 밀어도 되는 자리인지. 벽이 없고 발 디딜 곳이 있어야 한다.
+	private bool CanPushTo(Vector3 direction, float distance)
+	{
+		if (_bodyCollider == null)
+		{
+			return true;
+		}
+
+		GetBodyCapsule(direction * distance, out Vector3 bottom, out Vector3 top, out float radius);
+
+		return HasGroundUnder(bottom, radius) && !HasWallAt(bottom, top, radius);
+	}
+
+	// 몸을 offset 만큼 옮겼을 때 캡슐이 놓일 자리. 캡슐 축은 y 로 서 있다고 본다.
+	private void GetBodyCapsule(Vector3 offset, out Vector3 bottom, out Vector3 top, out float radius)
+	{
+		float sideScale = Mathf.Max(transform.lossyScale.x, transform.lossyScale.z);
+		radius = _bodyCollider.radius * sideScale * BlockCheckShrink;
+
+		float half = Mathf.Max(0f, _bodyCollider.height * 0.5f * transform.lossyScale.y - radius);
+
+		Vector3 center = transform.TransformPoint(_bodyCollider.center) + offset;
+		bottom = center - Vector3.up * half;
+		top = center + Vector3.up * half;
+	}
+
+	// 벽을 뚫는 것만 막아서는 소용이 없다. 난간이나 통로 끝에서 맞으면 앞이 비어 있어서
+	// 검사를 그냥 통과하고, 그대로 밀려 떨어진다. 그쪽이 벽을 뚫는 것보다 자주 죽는다.
+	private static bool HasGroundUnder(Vector3 bottom, float radius)
+	{
+		return Physics.Raycast(
+			bottom + Vector3.up * radius, Vector3.down,
+			radius + GroundProbeDistance, ~0, QueryTriggerInteraction.Ignore);
+	}
+
+	// 도착할 자리에 몸을 놓아 보고 겹치는지 센다.
+	//
+	// 쓸기 검사(SweepTest, CapsuleCast)로는 안 된다. 물리 엔진의 쓸기는 출발 시점에 이미
+	// 겹쳐 있는 것을 무시한다. 벽에 등을 붙이고 맞는 상황이 정확히 그 경우라, 바로 앞의
+	// 벽을 못 보고 통과했다.
+	private bool HasWallAt(Vector3 bottom, Vector3 top, float radius)
+	{
+		int count = Physics.OverlapCapsuleNonAlloc(
+			bottom, top, radius, _blockBuffer, ~0, QueryTriggerInteraction.Ignore);
+
+		for (int i = 0; i < count; i++)
+		{
+			Collider other = _blockBuffer[i];
+
+			if (other == null || other.transform.IsChildOf(transform))
+			{
+				continue;
+			}
+
+			// 밀리는 물체는 막힘이 아니다. 벽·문처럼 꿈쩍 않는 것만 센다.
+			Rigidbody body = other.attachedRigidbody;
+			if (body != null && !body.isKinematic)
+			{
+				continue;
+			}
+
+			return true;
+		}
+
+		return false;
 	}
 
 	public bool IsGrounded()
