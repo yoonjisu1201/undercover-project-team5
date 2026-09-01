@@ -1,5 +1,8 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 
 // 커서 표시와 플레이어 이동 제한을 관리하는 클래스
@@ -9,6 +12,29 @@ public class GameplayUiMode : MonoBehaviour
     public static GameplayUiMode Instance { get; private set; }
     public static bool IsActive { get; private set; }
     public static bool IsMovementBlocked { get; private set; } // 플레이어 이동을 제한하는 상태
+
+    // 글자 입력 중인지. 단축키를 읽는 쪽에서 먼저 확인한다. isFocused 까지 봐야
+    // 포커스가 빠진 뒤에도 단축키가 막히지 않는다.
+    public static bool IsTypingText
+    {
+        get
+        {
+            EventSystem events = EventSystem.current;
+            GameObject selected = events != null ? events.currentSelectedGameObject : null;
+            if (selected == null)
+            {
+                return false;
+            }
+
+            if (selected.TryGetComponent(out TMP_InputField tmp))
+            {
+                return tmp.isFocused;
+            }
+
+            return selected.TryGetComponent(out InputField legacy) && legacy.isFocused;
+        }
+    }
+
     private SceneCursorSettings _sceneCursorSettings;
     private int _cursorActivationCount;
 

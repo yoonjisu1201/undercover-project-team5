@@ -36,7 +36,8 @@ public class GuideBookHud : MonoBehaviour
             _icon.SetActive(!guideOpen);
         }
 
-        if (!guideOpen && _actions.UI.OpenGuideBook.WasPressedThisFrame())
+        // 글자를 치는 중이면 H 는 입력창으로 가야 한다. 닉네임에 h 를 넣을 때 가이드북이 열렸다.
+        if (!guideOpen && !GameplayUiMode.IsTypingText && _actions.UI.OpenGuideBook.WasPressedThisFrame())
         {
             OpenGuideBook();
         }
