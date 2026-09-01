@@ -49,6 +49,9 @@ public class VivoxManager : MonoBehaviour
 	public event Action AudioDevicesChanged;
 	public event Action<bool> MicTestStateChanged;
 
+	// 마이크·스피커 뮤트가 바뀐 뒤에 발생한다. 버튼을 누른 화면이 어디든 설정창 문구가 따라오게 한다.
+	public event Action MuteStateChanged;
+
 	public string CurrentInputDeviceName => VivoxService.Instance?.ActiveInputDevice?.DeviceName ?? "입력 장치 없음";
 	public string CurrentOutputDeviceName => VivoxService.Instance?.ActiveOutputDevice?.DeviceName ?? "출력 장치 없음";
 
@@ -247,6 +250,8 @@ public class VivoxManager : MonoBehaviour
 		{
 			VivoxService.Instance.MuteInputDevice();
 		}
+
+		MuteStateChanged?.Invoke();
 	}
 
 	// 내 스피커(다른 사람 목소리 듣기)를 토글한다. 로그인 전이면 아무 동작도 하지 않는다.
@@ -266,6 +271,8 @@ public class VivoxManager : MonoBehaviour
 		{
 			VivoxService.Instance.MuteOutputDevice();
 		}
+
+		MuteStateChanged?.Invoke();
 	}
 
 	//--- 장치 선택 ---//

@@ -15,7 +15,7 @@ public sealed class MicTestLevelMeter : MonoBehaviour
     [SerializeField] private float _riseSpeed = 15f;    // 막대가 상승할 때의 속도
     [SerializeField] private float _fallSpeed = 5f;     // 막대가 하강할 때의 속도
 
-    private const float MinBarHeight = 14f;     // 막대의 최소 높이
+    private const float MinBarHeight = 20f;     // 막대의 최소 높이
     private const float MaxBarHeight = 46f;     // 막대의 최대 높이
 
     private float _displayEnergy;
