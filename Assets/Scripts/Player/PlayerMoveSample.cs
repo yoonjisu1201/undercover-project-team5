@@ -427,6 +427,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_knockback.Push(sourcePosition);
 		}
+	}
+
 	// 몸체 yaw와 그 yaw를 기준으로 한 이동을 같은 물리 틱에서 처리한다.
 	// 렌더 프레임의 즉각적인 카메라 yaw는 PlayerCameraController가 별도로 보정한다.
 	private void ApplyViewRotation()
