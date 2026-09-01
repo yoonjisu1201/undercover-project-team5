@@ -124,7 +124,8 @@ public sealed class InfoHubController : MonoBehaviour, IClosableUi
             return;
         }
 
-        if (_actions.UI.Montage.WasPressedThisFrame())
+        // 글자를 치는 중이면 Tab 은 입력창의 것이다(다음 칸으로 넘기기 등).
+        if (!GameplayUiMode.IsTypingText && _actions.UI.Montage.WasPressedThisFrame())
         {
             if (_isOpen)
             {

@@ -156,7 +156,8 @@ public class GuideBook : MonoBehaviour, IClosableUi
         }
 
         // 이제 가이드북 아이템 아니다! 그래서 E로 닫는 것은 막고, H(여는 키)로만 닫히게 함
-        if (_actions.UI.OpenGuideBook.WasPressedThisFrame()) {
+        // 여는 쪽과 같은 이유로, 글자를 치는 중이면 H 를 단축키로 읽지 않는다.
+        if (!GameplayUiMode.IsTypingText && _actions.UI.OpenGuideBook.WasPressedThisFrame()) {
             Close();
         }
     }
