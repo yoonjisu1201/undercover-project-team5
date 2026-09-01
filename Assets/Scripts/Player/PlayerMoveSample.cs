@@ -25,23 +25,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private Rigidbody _rigidbody;
 
 	[Header("피격 넉백")]
-	[Tooltip("맞은 순간의 속도(m/s). 곧바로 줄어들므로 실제로 밀리는 거리는 이보다 짧다.")]
-	[SerializeField, Min(0f)] private float _knockbackSpeed = 8f;
-
-	[Tooltip("밀리는 동안 조작이 속도를 덮지 않는 시간(초). 길면 조작을 뺏긴 느낌이 난다.")]
-	[SerializeField, Min(0f)] private float _knockbackSeconds = 0.25f;
-
-	[Tooltip("초당 감쇠율. 클수록 처음만 세게 밀리고 금방 멎는다. 0이면 등속으로 미끄러진다.")]
-	[SerializeField, Min(0f)] private float _knockbackDamping = 12f;
-
-	// 밀려갈 자리를 볼 때 한 스텝 거리에 더하는 여유(m).
-	private const float KnockbackSkin = 0.05f;
-
-	// 그 자리에 몸을 놓아 볼 때 반경을 줄이는 비율. 스치는 접촉까지 막힘으로 치지 않는다.
-	private const float BlockCheckShrink = 0.9f;
-
-	// 밀려갈 자리 아래로 바닥을 찾아보는 거리(m). 계단·비탈은 넘어가고 낭떠러지만 걸러낸다.
-	private const float GroundProbeDistance = 1.5f;
+	[SerializeField] private PlayerKnockback _knockback = new PlayerKnockback();
 
 	// 맵 밖으로 떨어졌는지 확인하는 간격(초).
 	private const float FallCheckInterval = 0.5f;
@@ -53,17 +37,11 @@ public class PlayerMoveSample : NetworkBehaviour
 	// 안전 지점을 찾을 때 NavMesh 위로 끌어당기는 거리(m).
 	private const float SafeSampleRadius = 1.5f;
 
-	private float _knockbackUntil;
-	private Vector3 _knockbackVelocity;
-
 	// 마지막으로 멀쩡히 서 있던 자리. 맵 밖으로 떨어졌을 때 여기로 되돌린다.
 	private Vector3 _lastSafePosition;
 	private bool _hasSafePosition;
 	private float _lastFallCheckTime;
 	private float _fallingSeconds;
-
-	// 밀려갈 자리를 확인할 때 쓰는 버퍼. 인스턴스마다 따로 들고 있어야 서로 덮어쓰지 않는다.
-	private readonly Collider[] _blockBuffer = new Collider[8];
 
 	[Header("경사 미끄러짐 방지")]
 	[SerializeField] private PhysicsMaterial _gripMaterial; // 멈춰 있을 때 경사에 고정 (높은 마찰)
@@ -156,6 +134,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_slideMaterial = _bodyCollider.sharedMaterial; // 인스펙터에 붙어 있는 마찰0 머티리얼
 		}
+
+		_knockback.Initialize(transform, _rigidbody, _bodyCollider);
 
 	}
 
@@ -424,12 +404,12 @@ public class PlayerMoveSample : NetworkBehaviour
 		//
 		// 마찰은 미끄러지는 쪽으로 둔다. 서 있을 때 쓰는 접지 머티리얼은 마찰이 높아서,
 		// 밀어 준 속도를 바닥이 한두 프레임 만에 잡아먹는다.
-		if (Time.time < _knockbackUntil)
+		if (_knockback.IsActive)
 		{
 			SetMovingState(false);
 			SetRunningState(false);
 			UpdateFrictionMaterial(true);
-			ApplyKnockbackVelocity();
+			_knockback.Tick();
 			ApplyAirGravity();
 			return;
 		}
@@ -439,47 +419,13 @@ public class PlayerMoveSample : NetworkBehaviour
 		ApplyAirGravity();
 	}
 
-	// 맞은 자리의 반대쪽으로 민다. 오너에서만 부른다.
-	//
-	// 물리에 맡기지 않는다. 겹침 해소는 이동이 아니라 위치를 직접 보정하는 것이라
-	// 연속 충돌 판정을 켜 두어도 벽을 그대로 지나간다.
+	// 맞은 자리의 반대쪽으로 민다. PlayerHealth 가 오너에게만 보낸다.
 	public void ApplyKnockback(Vector3 sourcePosition)
 	{
-		if (!IsOwner || _knockbackSpeed <= 0f)
+		if (IsOwner)
 		{
-			return;
+			_knockback.Push(sourcePosition);
 		}
-
-		Vector3 away = transform.position - sourcePosition;
-		away.y = 0f;
-
-		if (away.sqrMagnitude <= 0.0001f)
-		{
-			return;
-		}
-
-		_knockbackVelocity = away.normalized * _knockbackSpeed;
-		_knockbackUntil = Time.time + _knockbackSeconds;
-	}
-
-	// 밀림을 물리 스텝마다 줄여가며 넣는다.
-	//
-	// 속도를 한 번 주고 놔두면 넉백 중에는 마찰이 0이라 끝까지 같은 빠르기로 미끄러진다.
-	// 맞아서 튕긴 것이 아니라 밀려나는 것으로 보인다. 처음이 세고 빨리 죽어야 타격으로 읽힌다.
-	private void ApplyKnockbackVelocity()
-	{
-		_knockbackVelocity *= Mathf.Exp(-_knockbackDamping * Time.fixedDeltaTime);
-
-		float step = _knockbackVelocity.magnitude * Time.fixedDeltaTime;
-
-		if (step > 0f && !CanPushTo(_knockbackVelocity.normalized, step + KnockbackSkin))
-		{
-			_knockbackVelocity = Vector3.zero;
-		}
-
-		// 세로 속도는 건드리지 않는다. 여기서 덮으면 공중에서 맞았을 때 낙하가 끊긴다.
-		_rigidbody.linearVelocity = new Vector3(
-			_knockbackVelocity.x, _rigidbody.linearVelocity.y, _knockbackVelocity.z);
 	}
 
 	// 입력 방향(바라보는 방향 기준)으로 Rigidbody를 물리적으로 이동시킨다
@@ -661,73 +607,6 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			ApplyTeleport(_lastSafePosition, transform.rotation);
 		}
-	}
-
-	// 그 방향으로 그만큼 밀어도 되는 자리인지. 벽이 없고 발 디딜 곳이 있어야 한다.
-	private bool CanPushTo(Vector3 direction, float distance)
-	{
-		if (_bodyCollider == null)
-		{
-			return true;
-		}
-
-		GetBodyCapsule(direction * distance, out Vector3 bottom, out Vector3 top, out float radius);
-
-		return HasGroundUnder(bottom, radius) && !HasWallAt(bottom, top, radius);
-	}
-
-	// 몸을 offset 만큼 옮겼을 때 캡슐이 놓일 자리. 캡슐 축은 y 로 서 있다고 본다.
-	private void GetBodyCapsule(Vector3 offset, out Vector3 bottom, out Vector3 top, out float radius)
-	{
-		float sideScale = Mathf.Max(transform.lossyScale.x, transform.lossyScale.z);
-		radius = _bodyCollider.radius * sideScale * BlockCheckShrink;
-
-		float half = Mathf.Max(0f, _bodyCollider.height * 0.5f * transform.lossyScale.y - radius);
-
-		Vector3 center = transform.TransformPoint(_bodyCollider.center) + offset;
-		bottom = center - Vector3.up * half;
-		top = center + Vector3.up * half;
-	}
-
-	// 벽을 뚫는 것만 막아서는 소용이 없다. 난간이나 통로 끝에서 맞으면 앞이 비어 있어서
-	// 검사를 그냥 통과하고, 그대로 밀려 떨어진다. 그쪽이 벽을 뚫는 것보다 자주 죽는다.
-	private static bool HasGroundUnder(Vector3 bottom, float radius)
-	{
-		return Physics.Raycast(
-			bottom + Vector3.up * radius, Vector3.down,
-			radius + GroundProbeDistance, ~0, QueryTriggerInteraction.Ignore);
-	}
-
-	// 도착할 자리에 몸을 놓아 보고 겹치는지 센다.
-	//
-	// 쓸기 검사(SweepTest, CapsuleCast)로는 안 된다. 물리 엔진의 쓸기는 출발 시점에 이미
-	// 겹쳐 있는 것을 무시한다. 벽에 등을 붙이고 맞는 상황이 정확히 그 경우라, 바로 앞의
-	// 벽을 못 보고 통과했다.
-	private bool HasWallAt(Vector3 bottom, Vector3 top, float radius)
-	{
-		int count = Physics.OverlapCapsuleNonAlloc(
-			bottom, top, radius, _blockBuffer, ~0, QueryTriggerInteraction.Ignore);
-
-		for (int i = 0; i < count; i++)
-		{
-			Collider other = _blockBuffer[i];
-
-			if (other == null || other.transform.IsChildOf(transform))
-			{
-				continue;
-			}
-
-			// 밀리는 물체는 막힘이 아니다. 벽·문처럼 꿈쩍 않는 것만 센다.
-			Rigidbody body = other.attachedRigidbody;
-			if (body != null && !body.isKinematic)
-			{
-				continue;
-			}
-
-			return true;
-		}
-
-		return false;
 	}
 
 	public bool IsGrounded()
