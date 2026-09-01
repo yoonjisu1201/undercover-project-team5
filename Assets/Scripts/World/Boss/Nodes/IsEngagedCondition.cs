@@ -1,40 +1,23 @@
 using System;
 using Unity.Behavior;
 using Unity.Properties;
-using UnityEngine;
 
 // 보스가 지금 누군가를 쫓거나 찾고 있는지.
 //
-// 순간이동 타이머가 반응 트리와 나란히 돌기 때문에, 그냥 두면 추격이나 소리 추적 도중에
-// 보스가 사라진다. 쫓기는 쪽에서는 이유를 알 수 없는 일이라 긴장이 풀린다.
+// 순간이동 타이머가 반응 트리와 나란히 돌기 때문에, 그냥 두면 추격 도중에 보스가 사라진다.
+// 쫓기는 쪽에서는 이유를 알 수 없는 일이라 긴장이 풀린다.
 //
-// 시야·근접 감지는 걸리는 순간 기억에 기록되므로 기억 하나로 함께 판정된다.
+// 흔적 하나만 보면 된다. 시야든 근접이든 소리든 단서는 전부 BossTargetMemory 가 흔적으로
+// 모으기 때문이다. 예전에는 여기서 소음 목록을 따로 뒤졌는데, 소리가 흔적이 되면서 같은 것을
+// 두 번 보는 셈이 됐고 청각 배율도 여기 따로 들고 있어야 했다.
 [Serializable, GeneratePropertyBag]
 [Condition(
     name: "Is Engaged",
     category: "Boss",
-    story: "[Agent] is chasing or searching within [Radius]",
+    story: "[Agent] is chasing or searching",
     id: "b0551ee1f4c14ab0a1e3d5c9f8a70051")]
 public partial class IsEngagedCondition : BossConditionBase
 {
-    [Tooltip("청각 배율. 소리 추적 중인지 판정할 때 쓴다. 감지에 쓰는 값과 같게 둔다.")]
-    [SerializeReference] public BlackboardVariable<float> Radius;
-
     public override bool IsTrue()
-    {
-        Transform agent = AgentTransform;
-        if (agent == null)
-        {
-            return false;
-        }
-
-        // 기억이 있으면 추격 중이거나 마지막 지점을 수색하는 중이다.
-        if (TryGetPart(out BossTargetMemory memory) && memory.HasMemory)
-        {
-            return true;
-        }
-
-        // 기억이 없어도 소리를 따라가는 중이면 교전으로 본다.
-        return NoiseSystem.TryGetLoudest(agent.position, Radius.Value, out _);
-    }
+        => TryGetPart(out BossTargetMemory memory) && memory.HasMemory;
 }

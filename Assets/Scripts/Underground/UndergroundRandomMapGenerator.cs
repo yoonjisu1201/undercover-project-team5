@@ -36,7 +36,11 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
     private readonly NetworkList<bool> _doorOpenStates = new();
 
     // 문 여는 소리가 들리는 거리(m). 보스 감지용이라 연출 사운드와는 별개다.
-    [SerializeField, Min(0f)] private float _doorNoiseRadius = 35f;
+    //
+    // 다른 소음(걷기 10 / 목소리 18 / 착지 18 / 달리기 26)과 같은 자로 재야 한다. 35는 달리기의
+    // 두 배가 넘어서, 조심히 걸어온 것이 문 한 번 여는 것으로 전부 무의미해졌다.
+    // 한 번에 나고 끝나는 소리라는 점에서 착지와 같은 무게로 둔다.
+    [SerializeField, Min(0f)] private float _doorNoiseRadius = 18f;
 
     private NavMeshSurface _navMeshSurface;
     private Random _random;
@@ -126,8 +130,8 @@ public class UndergroundRandomMapGenerator : NetworkBehaviour
 
         _doorOpenStates[doorIndex] = true;
 
-        // 문 여는 소리는 보스를 부르는 가장 큰 소음원이다. 지하에서는 문을 반드시 지나야 하므로
-        // 회피할 수 없는 긴장이 된다.
+        // 지하에서는 문을 반드시 지나야 하므로 회피할 수 없는 소음원이다. 다만 가장 큰 소음이어서는
+        // 안 된다. 그러면 조심히 움직이는 것 자체가 의미를 잃는다.
         if (doorIndex < _doors.Count && _doors[doorIndex] != null)
         {
             // 문을 연 사람의 음소거 보정을 그대로 적용한다. 소음 종류마다 보정이 빠지면

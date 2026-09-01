@@ -111,12 +111,17 @@ public class PlayerInteraction : NetworkBehaviour
         _prompt.UnsubscribeInventory();
     }
 
-    private void OnDestroy()
+    // NetworkBehaviour.OnDestroy 는 virtual 이고 Netcode 의 정리 작업을 한다.
+    // override 없이 같은 이름으로 선언하면 Unity 메시지 호출이 이쪽만 타서 그 정리가 통째로
+    // 건너뛰어진다. base 를 반드시 불러야 한다.
+    public override void OnDestroy()
     {
         if (_targeting != null)
         {
             _targeting.TargetChanged -= OnTargetChanged;
         }
+
+        base.OnDestroy();
     }
 
     private void Update()
