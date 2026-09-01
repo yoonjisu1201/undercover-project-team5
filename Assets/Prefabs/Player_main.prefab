@@ -231,7 +231,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5710485048384710612}
-  m_Father: {fileID: 6978609527677792072}
+  m_Father: {fileID: 7257694396862523126}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &382427833655791608
 GameObject:
@@ -586,11 +586,12 @@ Transform:
   m_GameObject: {fileID: 652807202391233900}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 1.3, z: 0.3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 6978609527677792072}
+  m_Children:
+  - {fileID: 6978609527677792072}
+  m_Father: {fileID: 7257694396862523126}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!20 &6481610273975784339
 Camera:
@@ -1382,7 +1383,9 @@ Transform:
   - {fileID: 432645721594799797}
   - {fileID: 2493310890254095942}
   - {fileID: 5119655668416212038}
-  - {fileID: 6978609527677792072}
+  - {fileID: 7467977410003670284}
+  - {fileID: 1105795469393611950}
+  - {fileID: 8638054919076455009}
   - {fileID: 7695406492542880755}
   - {fileID: 8754331359257675704}
   - {fileID: 8341254288104020309}
@@ -1422,7 +1425,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 433006339
+  GlobalObjectIdHash: 1139338985
   InScenePlacedSourceGlobalObjectIdHash: 433006339
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1541,6 +1544,10 @@ MonoBehaviour:
   _gravityValue: 2.5
   _riseMultiplier: 2
   _rigidbody: {fileID: 2513456902304565783}
+  _knockback:
+    _speed: 8
+    _seconds: 0.25
+    _damping: 12
   _gripMaterial: {fileID: 13400000, guid: b63e968860ba4ec5b647897462d69591, type: 2}
   _playerCameraController: {fileID: 6501738294651027834}
   _groundCheck: {fileID: 432645721594799797}
@@ -1563,9 +1570,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCameraController
   ShowTopMostFoldoutHeaderGroup: 1
-  _headPivot: {fileID: 652807202391233900}
+  _headPivot: {fileID: 6353375658605469420}
   _camera: {fileID: 6481610273975784339}
-  _cameraPivot: {fileID: 6978609527677792072}
   _headBone: {fileID: 8796666323345990700}
   _downedCameraAnchor: {fileID: 18798367909611978}
   _cameraTransitionDuration: 0.35
@@ -1970,7 +1976,7 @@ MonoBehaviour:
   _rightHandParent: {fileID: 6352429887493526682}
   _rightHandTarget: {fileID: 5119655668416212038}
   _flashLightPrefab: {fileID: 7096793582279882241, guid: 087327657a2387e4eb88b1905a89de03, type: 3}
-  _headPivot: {fileID: 652807202391233900}
+  _headPivot: {fileID: 6353375658605469420}
   _playerCameraController: {fileID: 0}
 --- !u!114 &2126864538568221489
 MonoBehaviour:
@@ -2662,7 +2668,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 6978609527677792072}
+  m_Father: {fileID: 7257694396862523126}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3339226632781045527
 GameObject:
@@ -4484,7 +4490,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6978609527677792072}
   m_Layer: 0
-  m_Name: CameraPivot
+  m_Name: HeadAnchorPosition
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4498,16 +4504,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6353375658605469420}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.015951447, y: -0, z: -0, w: 0.9998728}
-  m_LocalPosition: {x: 0, y: 1.3, z: 0.3}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 7467977410003670284}
-  - {fileID: 1105795469393611950}
-  - {fileID: 8638054919076455009}
+  m_Children: []
   m_Father: {fileID: 7257694396862523126}
-  m_LocalEulerAnglesHint: {x: 1.828, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6550118395829563766
 GameObject:
   m_ObjectHideFlags: 0

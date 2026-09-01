@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class PlayerCameraController : NetworkBehaviour
 {
@@ -8,7 +9,6 @@ public class PlayerCameraController : NetworkBehaviour
     [Header("카메라 관련")]
     [SerializeField] private GameObject _headPivot;
     [SerializeField] private Camera _camera;
-    [SerializeField] private Transform _cameraPivot;
     [SerializeField] private Transform _headBone;
     [SerializeField] private Transform _downedCameraAnchor;
     [SerializeField, Min(0.01f)] private float _cameraTransitionDuration = 0.35f;
@@ -49,9 +49,8 @@ public class PlayerCameraController : NetworkBehaviour
     private PlayerRenderer _playerRenderer;
     private float _yaw;
     private float _pitch;
-    private Vector3 _cameraPivotBaseLocalPosition;
-    private Quaternion _cameraPivotBaseLocalRotation;
     private Vector3 _cameraBaseLocalPosition;
+    private Quaternion _cameraBaseLocalRotation;
     private Quaternion _headBoneBaseRotation;
     private Vector3 _cameraTransitionStartPosition;
     private Quaternion _cameraTransitionStartRotation;
@@ -82,12 +81,6 @@ public class PlayerCameraController : NetworkBehaviour
         _exhaustedBreathEffect ??= GetComponent<ExhaustedBreathCameraEffect>();
         _playerRenderer = GetComponentInParent<PlayerRenderer>();
 
-        if (_cameraPivot != null)
-        {
-            _cameraPivotBaseLocalPosition = _cameraPivot.localPosition;
-            _cameraPivotBaseLocalRotation = _cameraPivot.localRotation;
-        }
-
         if (_headBone != null)
         {
             _headBoneBaseRotation = _headBone.localRotation;
@@ -104,6 +97,7 @@ public class PlayerCameraController : NetworkBehaviour
     {
         _camera ??= GetComponentInChildren<Camera>(true);
         _cameraBaseLocalPosition = _camera.transform.localPosition;
+        _cameraBaseLocalRotation = _camera.transform.localRotation;
 
         if (!IsOwner)
         {
@@ -133,9 +127,11 @@ public class PlayerCameraController : NetworkBehaviour
             return;
         }
 
-        if (_camera.gameObject.activeSelf != active)
+        // HeadAnchorPosition과 시점 추종 오브젝트가 카메라의 자식이므로
+        // 원격 플레이어에서도 계층 전체는 활성 상태를 유지한다.
+        if (!_camera.gameObject.activeSelf)
         {
-            _camera.gameObject.SetActive(active);
+            _camera.gameObject.SetActive(true);
         }
         _camera.enabled = active;
         if (_camera.TryGetComponent(out AudioListener listener))
@@ -163,6 +159,10 @@ public class PlayerCameraController : NetworkBehaviour
         }
 
         Vector2 mouseDelta = _actions.Player.Mouse.ReadValue<Vector2>();
+        if (mouseDelta.sqrMagnitude <= Mathf.Epsilon && Mouse.current != null)
+        {
+            mouseDelta = Mouse.current.delta.ReadValue();
+        }
 
         _yaw += mouseDelta.x * _rotateSpeed;
         _pitch -= mouseDelta.y * _rotateSpeed;
@@ -174,8 +174,7 @@ public class PlayerCameraController : NetworkBehaviour
         float breathPitch = 0f;
         _exhaustedBreathEffect?.Evaluate(Time.deltaTime, out breathBob, out breathPitch);
 
-        _headPivot.transform.localRotation = Quaternion.Euler(_pitch + breathPitch, 0f, 0f);
-        _camera.transform.localPosition = _cameraBaseLocalPosition + Vector3.up * breathBob;
+        ApplyFirstPersonCameraPose(breathBob, breathPitch);
 
         // 흔들림은 각자 화면의 연출이라 pitch 동기화 값에는 섞지 않는다.
         // 섞으면 남의 캐릭터 머리가 같이 떨린다.
@@ -184,11 +183,6 @@ public class PlayerCameraController : NetworkBehaviour
 
     private void LateUpdate()
     {
-        if (IsOwner)
-        {
-            ApplyLocalViewPoseCorrection();
-        }
-
         if (IsOwner && _isCameraTransitioning)
         {
             UpdateCameraTransition();
@@ -201,6 +195,14 @@ public class PlayerCameraController : NetworkBehaviour
                 _downedCameraAnchor.position,
                 _downedCameraAnchor.rotation);
             return;
+        }
+
+        if (IsOwner)
+        {
+            float breathBob = 0f;
+            float breathPitch = 0f;
+            _exhaustedBreathEffect?.Evaluate(0f, out breathBob, out breathPitch);
+            ApplyFirstPersonCameraPose(breathBob, breathPitch);
         }
 
         if (_headBone == null)
@@ -219,34 +221,32 @@ public class PlayerCameraController : NetworkBehaviour
         if (_armFollowPivot != null)
         {
             float armPitch = Mathf.Clamp(pitch, _armFollowMinPitch, _armFollowMaxPitch);
-            _armFollowPivot.localRotation = Quaternion.Euler(armPitch, 0f, 0f);
+            _armFollowPivot.rotation = ViewYawRotation * Quaternion.Euler(armPitch, 0f, 0f);
         }
 
         // 카메라와 동일한 시야각을 그대로 따라가야 하는 피벗(헤드램프 등). 클램프 없이 pitch 전체를 적용한다.
         if (_lightFollowPivot != null)
         {
-            _lightFollowPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            _lightFollowPivot.rotation = ViewYawRotation * Quaternion.Euler(pitch, 0f, 0f);
         }
     }
 
-    // Rigidbody 루트는 물리 틱에서 회전하므로 최신 마우스 yaw보다 늦다.
-    // 카메라 피벗의 방향과 루트에서 떨어진 위치를 모두 최신 yaw 기준으로 보정해
-    // 렌더 프레임에서 카메라 위치와 시선이 서로 다른 시점의 회전을 사용하지 않게 한다.
-    private void ApplyLocalViewPoseCorrection()
+    // 카메라는 본/헤드 피벗을 따라가지 않고 플레이어 루트 아래에서 직접 시점을 만든다.
+    // Rigidbody 보간으로 늦게 반영되는 루트 yaw도 렌더 프레임의 최신 입력 기준으로 보정한다.
+    private void ApplyFirstPersonCameraPose(float breathBob, float breathPitch)
     {
-        if (_cameraPivot == null)
+        if (_camera == null)
         {
             return;
         }
 
         Quaternion viewYawRotation = ViewYawRotation;
-        Quaternion inverseRootRotation = Quaternion.Inverse(transform.rotation);
-
-        _cameraPivot.localPosition = inverseRootRotation
-            * (viewYawRotation * _cameraPivotBaseLocalPosition);
-        _cameraPivot.localRotation = inverseRootRotation
-            * viewYawRotation
-            * _cameraPivotBaseLocalRotation;
+        _camera.transform.position = transform.position
+            + viewYawRotation * _cameraBaseLocalPosition
+            + Vector3.up * breathBob;
+        _camera.transform.rotation = viewYawRotation
+            * _cameraBaseLocalRotation
+            * Quaternion.Euler(_pitch + breathPitch, 0f, 0f);
     }
 
     private void ResetExhaustedBreath()
@@ -257,12 +257,8 @@ public class PlayerCameraController : NetworkBehaviour
         // 컨트롤러가 보관한 기준값으로 함께 복구해야 다음 카메라 상태가 어긋나지 않는다.
         if (_camera != null)
         {
-            _camera.transform.localPosition = _cameraBaseLocalPosition;
-        }
-
-        if (_headPivot != null)
-        {
-            _headPivot.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+            _camera.transform.position = transform.position + ViewYawRotation * _cameraBaseLocalPosition;
+            _camera.transform.rotation = ViewYawRotation * _cameraBaseLocalRotation * Quaternion.Euler(_pitch, 0f, 0f);
         }
     }
 
@@ -304,11 +300,11 @@ public class PlayerCameraController : NetworkBehaviour
     {
         Vector3 targetPosition = _useDownedCameraView
             ? _downedCameraAnchor.position
-            : _cameraPivot.position;
+            : transform.position + ViewYawRotation * _cameraBaseLocalPosition;
 
         Quaternion targetRotation = _useDownedCameraView
             ? _downedCameraAnchor.rotation
-            : _cameraPivot.rotation * Quaternion.Euler(_pitch, 0f, 0f);
+            : ViewYawRotation * _cameraBaseLocalRotation * Quaternion.Euler(_pitch, 0f, 0f);
 
         _cameraTransitionElapsedTime += Time.deltaTime;
         float transitionProgress = Mathf.Clamp01(_cameraTransitionElapsedTime / _cameraTransitionDuration);
