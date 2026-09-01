@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -11,7 +12,7 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
 {
     [Header("동작 모드")]
     // 켜면 미션 설명서가 아니라 공용 가이드북(GuideBook)을 여는 손잡이가 된다.
-    // 이 경우 Tab으로 정보 허브를 열었을 때 살짝 올라오고, 누르면 가이드북이 열린다.
+    // 정보 허브(Tab)와는 무관하게 동작한다. 손잡이를 누르거나 H 를 누르면 열고 닫는다.
     [SerializeField] private bool _isGuideBook;
 
     // 공용 가이드북 손잡이인지. 미션 화면과 겹칠 때 숨길 대상을 밖에서 가려내는 데 쓴다.
@@ -29,11 +30,21 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
     [SerializeField] private RectTransform _guideContent;
     [SerializeField] private float _openDuration = 0.22f;
 
+    // 작게 시작해 제자리 크기로 커진다. 여는 연출과 닫는 연출이 같은 값을 써야 되감기로 보인다.
+    private const float PopStartScale = 0.85f;
+
     private RectTransform _rect;
     // 처음 놓인 자리를 기억해 두고 그 자리를 기준으로 올렸다 내린다.
     private Vector2 _restPosition;
     private Tween _riseTween;
     private Tween _openTween;
+
+    // 가이드북 모드에서만 쓴다. H 로 여닫고, 어떤 경로로 닫히든 손잡이를 내리기 위해 붙잡아 둔다.
+    private CustomInputActions _actions;
+    private GuideBook _boundGuideBook;
+
+    // 확대·축소할 대상. 딤을 빼고 나면 하나가 아닐 수 있어 목록으로 들고 있는다.
+    private readonly List<RectTransform> _popTargets = new();
 
     private void Awake()
     {
@@ -44,18 +55,22 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
 
     private void OnEnable()
     {
-        if (_isGuideBook)
+        if (!_isGuideBook)
         {
-            InfoHubController.HubStateChanged += HandleHubStateChanged;
-            HandleHubStateChanged(InfoHubController.IsHubOpen);
+            return;
         }
+
+        _actions ??= new CustomInputActions();
+        _actions.UI.Enable();
+        BindGuideBook();
     }
 
     private void OnDisable()
     {
         if (_isGuideBook)
         {
-            InfoHubController.HubStateChanged -= HandleHubStateChanged;
+            _actions?.UI.Disable();
+            UnbindGuideBook();
         }
 
         // 올라간 채로 꺼지면 다시 켤 때 어긋난 자리에서 시작한다.
@@ -67,6 +82,58 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
         }
     }
 
+    // 손잡이를 누른 것과 똑같이 H 로도 여닫는다. 연출도 그대로 쓴다.
+    private void Update()
+    {
+        if (!_isGuideBook || _boundGuideBook == null)
+        {
+            return;
+        }
+
+        // 글자를 치는 중이면 H 는 입력창의 것이다. 닉네임에 h 를 넣을 때 가이드북이 열렸다.
+        if (GameplayUiMode.IsTypingText || !_actions.UI.OpenGuideBook.WasPressedThisFrame())
+        {
+            return;
+        }
+
+        if (_boundGuideBook.gameObject.activeSelf)
+        {
+            CloseGuideBookWithAnimation();
+            return;
+        }
+
+        OpenGuideBookWithAnimation();
+    }
+
+    private void BindGuideBook()
+    {
+        _boundGuideBook = GetGuideBook();
+        if (_boundGuideBook == null)
+        {
+            Debug.LogError("[MissionGuideBookTab] 씬에서 가이드북을 찾지 못했습니다.", this);
+            return;
+        }
+
+        // 단축키는 이쪽이 맡는다. 가이드북이 같은 키를 함께 읽으면 닫는 연출이 시작되기도 전에 꺼진다.
+        _boundGuideBook.HotkeyHandledExternally = true;
+        _boundGuideBook.OnClose += HandleGuideBookClosed;
+    }
+
+    private void UnbindGuideBook()
+    {
+        if (_boundGuideBook == null)
+        {
+            return;
+        }
+
+        _boundGuideBook.HotkeyHandledExternally = false;
+        _boundGuideBook.OnClose -= HandleGuideBookClosed;
+        _boundGuideBook = null;
+    }
+
+    // X 버튼이나 ESC 로 닫힌 경우에도 손잡이는 제자리로 내려와야 한다.
+    private void HandleGuideBookClosed() => MoveTo(_restPosition.y);
+
     private void OnDestroy()
     {
         _riseTween?.Kill();
@@ -75,11 +142,7 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
 
     public void OnPointerEnter(PointerEventData eventData) => MoveTo(_restPosition.y + _hoverRise);
 
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        bool keepRaised = _isGuideBook && InfoHubController.IsHubOpen;
-        MoveTo(keepRaised ? _restPosition.y + _hoverRise : _restPosition.y);
-    }
+    public void OnPointerExit(PointerEventData eventData) => MoveTo(_restPosition.y);
 
     public void OnPointerClick(PointerEventData eventData) => OpenGuide();
 
@@ -99,22 +162,11 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
         _riseTween = _rect.DOAnchorPosY(targetY, _riseDuration).SetEase(Ease.OutQuad);
     }
 
-    // 가이드북 모드에서는 Tab으로 허브가 열려 있는 동안만 손잡이가 올라와 있는다.
-    private void HandleHubStateChanged(bool hubOpen)
-    {
-        MoveTo(hubOpen ? _restPosition.y + _hoverRise : _restPosition.y);
-
-        // 허브를 닫으면 열어 둔 가이드북도 접히면서 같이 닫힌다.
-        if (!hubOpen)
-        {
-            CloseGuideBookWithAnimation();
-        }
-    }
-
     // 가이드북은 미션 설명 패널과 같은 방식으로 작게 시작해 제자리 크기로 커진다.
+    // 손잡이도 함께 살짝 올라온다.
     private void OpenGuideBookWithAnimation()
     {
-        GuideBook guideBook = GetGuideBook();
+        GuideBook guideBook = _boundGuideBook != null ? _boundGuideBook : GetGuideBook();
         if (guideBook == null)
         {
             Debug.LogError("[MissionGuideBookTab] 씬에서 가이드북을 찾지 못했습니다.", this);
@@ -124,39 +176,84 @@ public sealed class MissionGuideBookTab : MonoBehaviour,
         MoveTo(_restPosition.y + _hoverRise);
         guideBook.Show();
 
-        RectTransform content = GetGuideBookContent(guideBook);
-        if (content == null)
+        CollectPopTargets(guideBook);
+        if (_popTargets.Count == 0)
         {
             return;
         }
 
         _openTween?.Kill();
-        content.localScale = Vector3.one * 0.85f;
-        _openTween = content.DOScale(1f, _openDuration).SetEase(Ease.OutBack);
+        Sequence pop = DOTween.Sequence();
+        foreach (RectTransform target in _popTargets)
+        {
+            target.localScale = Vector3.one * PopStartScale;
+            pop.Join(target.DOScale(1f, _openDuration).SetEase(Ease.OutBack));
+        }
+
+        _openTween = pop;
     }
 
+    // 여는 연출을 그대로 되감는다. 손잡이는 가이드북이 실제로 꺼질 때 OnClose 를 받아 내려간다.
     private void CloseGuideBookWithAnimation()
     {
-        GuideBook guideBook = GetGuideBook();
+        GuideBook guideBook = _boundGuideBook != null ? _boundGuideBook : GetGuideBook();
         if (guideBook == null || !guideBook.gameObject.activeSelf)
         {
             return;
         }
 
-        RectTransform content = GetGuideBookContent(guideBook);
-        if (content == null)
+        CollectPopTargets(guideBook);
+        if (_popTargets.Count == 0)
         {
             guideBook.Close();
             return;
         }
 
         _openTween?.Kill();
-        _openTween = content.DOScale(0.85f, _openDuration * 0.7f).SetEase(Ease.InBack)
-            .OnComplete(() =>
+        Sequence pop = DOTween.Sequence();
+        foreach (RectTransform target in _popTargets)
+        {
+            pop.Join(target.DOScale(PopStartScale, _openDuration * 0.7f).SetEase(Ease.InBack));
+        }
+
+        _openTween = pop.OnComplete(() =>
+        {
+            guideBook.Close();
+            foreach (RectTransform target in _popTargets)
             {
-                guideBook.Close();
-                content.localScale = Vector3.one;
-            });
+                target.localScale = Vector3.one;
+            }
+        });
+    }
+
+    // 확대·축소 대상을 모은다.
+    //
+    // 화면 전체를 덮는 딤이 연출 대상 안에 들어 있으면 책과 함께 커져서 화면 밖으로 밀려나고,
+    // 그동안 화면 가장자리가 덮이지 않아 밝아진다. 딤만 빼고 나머지 형제(그림자·클립보드)를 키운다.
+    private void CollectPopTargets(GuideBook guideBook)
+    {
+        _popTargets.Clear();
+
+        RectTransform content = GetGuideBookContent(guideBook);
+        if (content == null)
+        {
+            return;
+        }
+
+        RectTransform dimmer = guideBook.FullScreenDimmer;
+        if (dimmer == null || dimmer.parent != content)
+        {
+            _popTargets.Add(content);
+            return;
+        }
+
+        for (int i = 0; i < content.childCount; i++)
+        {
+            if (content.GetChild(i) is RectTransform child && child != dimmer)
+            {
+                _popTargets.Add(child);
+            }
+        }
     }
 
     // 연출 대상은 가이드북 루트다. 인스펙터에서 따로 지정했으면 그것을 쓴다.
