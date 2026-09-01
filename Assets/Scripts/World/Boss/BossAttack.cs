@@ -48,12 +48,19 @@ public class BossAttack : NetworkBehaviour
     // 한 번 휘두를 때 같은 사람이 여러 번 맞지 않게 기록한다.
     private readonly HashSet<PlayerHealth> _hitPlayers = new();
 
+    // 지금 휘두르고 있는 대상. 준비 동작 동안 계속 이쪽으로 돌기 위해 들고 있는다.
+    private Transform _attackTarget;
+
     private bool _isAttacking;
     private bool _isSwingActive;
     private float _attackStateTimer;
     private float _cooldownTimer;
 
     public bool IsAttacking => _isAttacking;
+
+    // 휘두른 직후의 대기 시간이 아직 남았는지. 그래프의 공격 노드가 "붙어 있으니 기다린다"와
+    // "사거리를 벗어났으니 다시 쫓는다"를 가르는 데 쓴다.
+    public bool IsOnCooldown => _cooldownTimer > 0f;
 
     private void Awake()
     {
@@ -74,6 +81,7 @@ public class BossAttack : NetworkBehaviour
         }
 
         UpdateAttackStateTimer();
+        UpdateAttackFacing();
 
         if (_isSwingActive)
         {
@@ -119,6 +127,7 @@ public class BossAttack : NetworkBehaviour
             _agent.isStopped = true;
         }
 
+        _attackTarget = target.transform;
         FaceTarget(target.transform.position);
         PlayAttackAnimationRpc();
         return true;
@@ -232,6 +241,7 @@ public class BossAttack : NetworkBehaviour
         _isAttacking = false;
         _isSwingActive = false;
         _attackStateTimer = 0f;
+        _attackTarget = null;
 
         // isOnNavMesh 를 조건으로 걸면 안 된다. 공격을 끝내는 순간 에이전트가 NavMesh 를
         // 벗어나 있으면(순간이동 직후 등) isStopped 가 켜진 채로 남고, 다시 NavMesh 로
@@ -240,6 +250,25 @@ public class BossAttack : NetworkBehaviour
         {
             _agent.isStopped = false;
         }
+    }
+
+    // 준비 동작(타격 구간이 열리기 전) 동안 표적 쪽으로 계속 돈다.
+    //
+    // FaceTarget 은 회전 속도에 deltaTime 을 곱하는 "매 프레임 호출용" 함수인데 공격을 시작할 때
+    // 한 번만 불리고 있었다. 한 프레임치(540°/s × 0.016s ≈ 9°)밖에 못 돌아서, NavMeshAgent 가
+    // 멈추며 남긴 방향 그대로 휘둘렀다. 특히 붙어 선 뒤 상대가 옆으로 돌면 에이전트가 움직이지
+    // 않아 회전도 멈추므로, 보스가 엉뚱한 쪽을 때리고 헛치고 다시 자리를 잡는 일이 반복됐다.
+    //
+    // 타격 구간이 열린 뒤에는 돌지 않는다. 휘두르기 시작한 방향이 그대로 판정에 쓰여야
+    // 옆으로 파고들어 피하는 것이 통한다.
+    private void UpdateAttackFacing()
+    {
+        if (!_isAttacking || _isSwingActive || _attackTarget == null)
+        {
+            return;
+        }
+
+        FaceTarget(_attackTarget.position);
     }
 
     private void FaceTarget(Vector3 targetPosition)

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Unity.Behavior;
 using Unity.Behavior.GraphFramework;
@@ -20,10 +19,8 @@ public static class BossBehaviorGraphBuilder
     // Blackboard 변수 이름. 노드 연결과 이름이 어긋나면 조용히 실패하므로 상수로 묶어 둔다.
     // BossController 의 같은 이름 필드와 맞아야 런타임에 값이 들어온다.
     private const string VarTargetSurvivor = "Target Survivor";
-    private const string VarNoisePosition = "Noise Position";
-    private const string VarHearingFactor = "Hearing Factor";
-    private const string VarPatrolWaypoints = "Patrol Waypoints";
     private const string VarSearchPosition = "Search Position";
+    private const string VarWanderPosition = "Wander Position";
 
     // 이동 노드는 속도를 float 파라미터 하나로 애니메이터에 넘기는데, 이 프로젝트 애니메이터는
     // 걷기/달리기 bool 두 개를 쓴다. 비워 두면 노드가 애니메이터를 건드리지 않고,
@@ -34,8 +31,12 @@ public static class BossBehaviorGraphBuilder
     private const float TeleportIntervalMin = 60f;
     private const float TeleportIntervalMax = 180f;
 
-    // 이동 노드의 도착 판정 거리. BossAttack 의 사거리(기본 2)보다 좁아야 멈춘 자리에서 바로 때린다.
-    private const float AttackApproachDistance = 1.5f;
+    // 이동 노드의 도착 판정 거리. BossAttack 의 사거리(2.2)보다 좁아야 멈춘 자리에서 바로 때린다.
+    //
+    // 이동 노드는 여기에 보스 콜라이더 반경(약 0.45)을 더해서 멈추므로 실제 정지 거리는 이 값보다
+    // 크다. 1.5로 두면 1.95에서 멈춰 사거리까지 여유가 0.25밖에 없어서, 상대가 반 발짝만 물러나도
+    // 사거리를 벗어나 이동 노드가 다시 돌았다. 그게 때리고 다시 자리를 잡는 것처럼 보였다.
+    private const float AttackApproachDistance = 1f;
 
     // 교전이 끝났는지 다시 확인하는 간격(초).
     private const float EngagedRecheckInterval = 1f;
@@ -43,18 +44,36 @@ public static class BossBehaviorGraphBuilder
     // 잠든 동안 깨울 조건을 다시 확인하는 간격(초). 짧으면 반응이 빠르고 길면 검사가 싸다.
     private const float DormantCheckInterval = 0.25f;
 
-    // 수색 이동 속도. 추격보다 느려야 "찾고 있다"로 보이고, 도망칠 틈도 생긴다.
-    // BossController 의 달리기 판정(3.2)보다 낮아야 걷기 모션이 나온다.
+    // 그래프 배치. 가지 하나가 가로로 Column 만큼 자리를 차지하고, 아래로 Row 씩 내려간다.
+    // 손으로 옮기지 않아도 겹치지 않게 하려는 것이라 값 자체에 의미는 없다.
+    private const float Column = 440f;
+    private const float Row = 170f;
+
+    // 추격·수색 속도. 사람 걷기(5)보다 느려서 직선으로 걸으면 벗어날 수 있지만, 모퉁이에서
+    // 속도가 줄거나 미션에 잠깐 멈추면 붙는다. 5를 넘기면 걸어서는 절대 못 벗어나게 되므로
+    // 그 아래가 상한이다.
+    //
+    // BossController 의 달리기 판정(3.7)이 이 값들 사이를 가른다. 추격(4.2)만 달리고 나머지는
+    // 걷는다. 여기를 고치면 그쪽도 같이 봐야
+    // 추격 중에 걷기 모션만 나오거나 수색 중에 달리기 모션이 나오는 일이 없다.
+    private const float ChaseSpeed = 4.2f;
+
+    // 눈으로 본 게 아니라 기척으로 알아챈 경우. 봤을 때보다 느려서 도망칠 틈이 있다.
+    private const float NearChaseSpeed = 3.2f;
+
+    // 흔적 주변을 뒤질 때. 가장 느려야 "찾고 있다"로 보인다.
     private const float SearchSpeed = 2.8f;
 
-    // 소리 지점에 도착했을 때의 짧은 멈춤(초). 다음 소리를 기다리는 한 박자다.
+    // 단서 없이 훑고 다니는 기본 수색 속도. 예전 순찰 속도를 그대로 쓴다.
+    private const float WanderSpeed = 2.2f;
+
+    // 수색 지점마다 멈춰 서는 시간(초). 여기서 시야가 한 번 정착해야 "확인했다"가 된다.
+    // 추격 중 멈춤과 달리 이건 보여야 하는 동작이라 조금 길게 둔다.
     private const float SearchLookDuration = 0.4f;
 
-    // 수색 지점에 도착했을 때의 아주 짧은 멈춤(초). 0으로 두면 노드가 실패한다.
-    private const float SearchPassDuration = 0.2f;
-
-    // 소리를 따라온 지점에서의 짧은 멈춤(초).
-    private const float NoiseLookDuration = 0.5f;
+    // 수색을 포기한 뒤 쉬는 동안 조건을 다시 확인하는 간격(초).
+    // 휴식 시간 자체는 BossTargetMemory 가 들고 있다.
+    private const float RestTickInterval = 0.5f;
 
     [MenuItem("Tools/Undercover/보스 Behavior 그래프 생성")]
     public static void Build()
@@ -75,18 +94,16 @@ public static class BossBehaviorGraphBuilder
 
         VariableModel self = blackboard.Variables.First();
         VariableModel targetSurvivor = AddVariable<GameObject>(blackboard, VarTargetSurvivor, null);
-        VariableModel noisePosition = AddVariable<Vector3>(blackboard, VarNoisePosition, Vector3.zero);
-        VariableModel hearingFactor = AddVariable<float>(blackboard, VarHearingFactor, 1f);
-        VariableModel waypoints = AddVariable<List<GameObject>>(blackboard, VarPatrolWaypoints, new List<GameObject>());
         VariableModel searchPosition = AddVariable<Vector3>(blackboard, VarSearchPosition, Vector3.zero);
+        VariableModel wanderPosition = AddVariable<Vector3>(blackboard, VarWanderPosition, Vector3.zero);
 
         // 반응 트리와 순간이동 타이머는 서로를 기다릴 이유가 없어서 나란히 돌린다.
-        BehaviorGraphNodeModel start = CreateNode(graph, "On Start", new Vector2(0f, -320f));
-        BehaviorGraphNodeModel parallel = CreateNode(graph, "Run In Parallel", new Vector2(0f, -160f));
+        BehaviorGraphNodeModel start = CreateNode(graph, "On Start", new Vector2(0f, Row * -2f));
+        BehaviorGraphNodeModel parallel = CreateNode(graph, "Run In Parallel", new Vector2(0f, -Row));
         Connect(start, parallel);
 
-        BuildReactionTree(graph, parallel, self, targetSurvivor, noisePosition, searchPosition, hearingFactor, waypoints);
-        BuildTeleportLoop(graph, parallel, self, hearingFactor);
+        BuildReactionTree(graph, parallel, self, targetSurvivor, searchPosition, wanderPosition);
+        BuildTeleportLoop(graph, parallel, self);
 
         graph.SetAssetDirty(true);
         graph.ValidateAsset();
@@ -103,72 +120,86 @@ public static class BossBehaviorGraphBuilder
         BehaviorGraphNodeModel parallel,
         VariableModel self,
         VariableModel targetSurvivor,
-        VariableModel noisePosition,
         VariableModel searchPosition,
-        VariableModel hearingFactor,
-        VariableModel waypoints)
+        VariableModel wanderPosition)
     {
-        BehaviorGraphNodeModel repeat = CreateNode(graph, "Repeat", new Vector2(-220f, 0f));
-        BehaviorGraphNodeModel selector = CreateNode(graph, "Try In Order", new Vector2(-220f, 160f));
+        BehaviorGraphNodeModel repeat = CreateNode(graph, "Repeat", new Vector2(0f, 0f));
+        BehaviorGraphNodeModel selector = CreateNode(graph, "Try In Order", new Vector2(0f, Row));
         Connect(parallel, repeat);
         Connect(repeat, selector);
 
-        // 0순위: 아직 잠들어 있으면 아무것도 하지 않는다. 감지보다 위에 둬야
-        // 잠든 보스가 멀리 있는 사람을 보고 일어나 버리는 일이 없다.
-        BuildDormantBranch(graph, selector, self, new Vector2(-1320f, 340f));
+        // 가지를 왼쪽부터 우선순위 순으로 늘어놓는다. 위에서 아래로 읽으면 그대로 판단 순서다.
+        float top = Row * 2f;
 
-        // 1순위: 눈으로 봤다 → 시야에서 사라질 때까지 쫓는다.
-        BuildChaseBranch(graph, selector, self, targetSurvivor, searchPosition, noisePosition, hearingFactor,
-            new Vector2(-880f, 340f), "Sees Survivor", 4.5f);
+        // 0순위: 잠복(기본 꺼짐). 켜면 라운드 초반에 제자리에 서 있는다.
+        BuildDormantBranch(graph, selector, self, new Vector2(Column * -2.5f, top));
+
+        // 1순위: 눈으로 봤다 → 붙어서 때린다. 안 보이게 되는 즉시 끊긴다(Self 감시).
+        BuildChaseBranch(graph, selector, self, targetSurvivor,
+            new Vector2(Column * -1.5f, top), "Sees Survivor", ChaseSpeed);
 
         // 2순위: 시야각 밖이라도 가까이 있으면 알아챈다. 등 뒤를 스쳐 지나가도 걸리게 하는 가지다.
         // 봤을 때보다 조금 느려서 도망칠 틈이 있다.
-        BuildChaseBranch(graph, selector, self, targetSurvivor, searchPosition, noisePosition, hearingFactor,
-            new Vector2(-440f, 340f), "Survivor Is Near", 3.5f);
+        BuildChaseBranch(graph, selector, self, targetSurvivor,
+            new Vector2(Column * -0.5f, top), "Survivor Is Near", NearChaseSpeed);
 
-        // 3순위: 소리를 들었다 → 그 지점까지 가서 두리번거린다. 사람이 아니라 위치를 쫓는다.
-        // 소리에는 쿨다운을 걸지 않는다. 조우 뒤 쉬는 동안에도 소음은 따라와야 숨어 있는 의미가 생긴다.
-        BehaviorGraphNodeModel noiseGuard = CreateGuard(graph, new Vector2(0f, 340f));
-        ConditionModel hears = AddCondition(noiseGuard, "Hears Noise");
-        hears.SetField("Agent", self, typeof(GameObject));
-        hears.SetField("Radius", hearingFactor, typeof(float));
-        hears.SetField("NoisePosition", noisePosition, typeof(Vector3));
-        Connect(selector, noiseGuard);
-        EnableLowerPriorityAbort(noiseGuard);
+        // 3순위: 단서를 쫓는다. 눈으로 본 자리든 소리가 난 자리든 흔적 하나로 모여 있다.
+        //
+        // 소리 전용 가지를 따로 두지 않는다. 예전에는 소리를 그래프에서 직접 받아 그 좌표로
+        // 걸어갔는데, 그러면 단서가 두 곳(기억 / 소리)으로 갈려서 보스가 소리 쪽으로 갔다가
+        // 오래된 목격 지점으로 되돌아가는 왕복이 생겼다. 지금은 BossTargetMemory 가 소리를
+        // 받아 흔적으로 남기므로, 쫓을 대상이 언제나 하나다.
+        BuildTraceBranch(graph, selector, self, searchPosition, new Vector2(Column * 0.6f, top));
 
-        BehaviorGraphNodeModel noiseSequence = CreateNode(graph, "Sequence", new Vector2(0f, 500f));
-        Connect(noiseGuard, noiseSequence);
+        // 4순위: 포기한 직후면 한 박자 선다.
+        BuildRestBranch(graph, selector, self, new Vector2(Column * 1.4f, top));
 
-        BehaviorGraphNodeModel noiseNav = CreateNode(graph, "Navigate To Location", new Vector2(0f, 660f));
-        noiseNav.SetField("Agent", self, typeof(GameObject));
-        noiseNav.SetField("Location", noisePosition, typeof(Vector3));
-        noiseNav.SetField("Speed", 3f);
-        noiseNav.SetField("AnimatorSpeedParam", NoAnimatorSpeedParam);
-        Connect(noiseSequence, noiseNav);
+        // 5순위: 보스의 기본 상태. 단서가 없으면 여기로 떨어져 계속 훑고 다닌다.
+        // 조건이 항상 참이라 위 가지가 전부 실패하면 반드시 여기가 돈다.
+        BuildWanderBranch(graph, selector, self, wanderPosition, new Vector2(Column * 2.2f, top));
+    }
 
-        // 도착해서 고개를 돌리지 않는다. 제자리 회전은 "찾는 중"이 아니라 "고장난 것"으로 보이고,
-        // 소리가 계속 나면 이동이 즉시 끝나 회전만 반복된다. 대신 다음 소리로 계속 걸어간다.
-        // 시야각을 150°로 넓혀둔 것이 둘러보는 역할을 대신한다.
-        BehaviorGraphNodeModel noiseLook = CreateNode(graph, "Wait (Seconds)", new Vector2(0f, 820f));
-        noiseLook.SetField("SecondsToWait", NoiseLookDuration);
-        Connect(noiseSequence, noiseLook);
+    // 단서(흔적)를 쫓는 가지. 흔적까지 걸어갔다가 도착하면 그 주위를 뒤진다.
+    //
+    // 흔적이 어디서 왔는지는 여기서 따지지 않는다. 눈으로 본 자리든 소리가 난 자리든
+    // BossTargetMemory 가 같은 흔적으로 들고 있고, 조건 노드가 지금 향할 지점을 내준다.
+    // 도착 판정과 주변 수색 지점 선택도 전부 그쪽이 한다.
+    private static void BuildTraceBranch(
+        BehaviorAuthoringGraph graph,
+        BehaviorGraphNodeModel selector,
+        VariableModel self,
+        VariableModel searchPosition,
+        Vector2 position)
+    {
+        BehaviorGraphNodeModel guard = CreateGuard(graph, position);
+        ConditionModel remembers = AddCondition(guard, "Remembers Trace");
+        remembers.SetField("Agent", self, typeof(GameObject));
+        remembers.SetField("SearchPosition", searchPosition, typeof(Vector3));
+        Connect(selector, guard);
 
-        // 4순위: 아무 단서도 없으면 배회한다. 이 가지는 조건이 없어서 항상 성공한다.
-        BehaviorGraphNodeModel patrol = CreateNode(graph, "Patrol", new Vector2(300f, 340f));
-        patrol.SetField("Agent", self, typeof(GameObject));
-        patrol.SetField("Waypoints", waypoints, typeof(List<GameObject>));
-        patrol.SetField("Speed", 2.2f);
+        // 양방향 감시(Self + LowerPriority)를 건다.
+        //
+        // LowerPriority: 훑고 다니는 도중에 단서가 생기면 그 자리에서 끊고 이쪽으로 넘어온다.
+        //
+        // Self: 조건이 매 틱 평가되게 하려는 것이다. Remembers Trace 는 평가될 때마다 지금 향할
+        // 지점을 Blackboard 에 써 주는데, 이 감시가 없으면 가지에 들어갈 때 한 번만 평가된다.
+        // 그러면 걸어가는 도중에 흔적이 반대편으로 옮겨가도 원래 목적지까지 간 뒤에야 알아챈다.
+        // 흔적이 만료되는 즉시 가지가 끊기는 것도 같이 얻는다.
+        EnableAbort(guard, ObserverAbortTarget.Both);
 
-        // 0이어야 한다. 지점마다 멈춰 서면 "사람을 못 찾아 돌아다니는" 것이 아니라 굳은 것처럼 보인다.
-        // 시야를 훑는 것은 복도를 따라 걷다 방향이 꺾이는 것으로 이미 이루어진다.
-        patrol.SetField("WaypointWaitTime", 0f);
+        BehaviorGraphNodeModel sequence = CreateNode(graph, "Sequence", position + new Vector2(0f, Row));
+        Connect(guard, sequence);
 
-        // 배회가 끊겼다 다시 시작될 때 이어서 돈다. 기본값(false)이면 매번 첫 지점으로
-        // 되돌아가서, 조우가 끝날 때마다 같은 모듈로 돌아오는 것이 반복된다.
-        patrol.SetField("PreserveLatestPatrolPoint", true);
+        BehaviorGraphNodeModel nav = CreateNode(graph, "Navigate To Location", position + new Vector2(0f, Row * 2f));
+        nav.SetField("Agent", self, typeof(GameObject));
+        nav.SetField("Location", searchPosition, typeof(Vector3));
+        nav.SetField("Speed", SearchSpeed);
+        nav.SetField("AnimatorSpeedParam", NoAnimatorSpeedParam);
+        Connect(sequence, nav);
 
-        patrol.SetField("AnimatorSpeedParam", NoAnimatorSpeedParam);
-        Connect(selector, patrol);
+        BehaviorGraphNodeModel pause = CreateNode(graph, "Wait (Seconds)", position + new Vector2(0f, Row * 3f));
+        pause.SetField("SecondsToWait", SearchLookDuration);
+        Connect(sequence, pause);
     }
 
     // 잠복. 짧게 기다리기만 해서 제자리에 서 있고, 매번 성공으로 끝나 조건을 다시 평가한다.
@@ -187,31 +218,86 @@ public static class BossBehaviorGraphBuilder
         dormant.SetField("Agent", self, typeof(GameObject));
         Connect(selector, guard);
 
-        BehaviorGraphNodeModel wait = CreateNode(graph, "Wait (Seconds)", position + new Vector2(0f, 160f));
+        BehaviorGraphNodeModel wait = CreateNode(graph, "Wait (Seconds)", position + new Vector2(0f, Row));
         wait.SetField("SecondsToWait", DormantCheckInterval);
         Connect(guard, wait);
     }
 
-    // 시야/조명처럼 "대상을 특정했다"는 감지는 이후 동작이 같으므로 한 함수로 만든다.
+    // 흔적 주변을 다 뒤졌는데도 못 찾았을 때의 휴식. 짧게 기다리기만 해서 제자리에 서 있고,
+    // 매번 성공으로 끝나 조건을 다시 평가한다. 휴식이 끝나면 조건이 거짓이 되어 기본 수색으로 내려간다.
     //
-    // 추격을 "보이는 동안"이 아니라 "기억하는 동안"으로 묶는다. 시야가 끊기는 즉시 끝내면
-    // 기둥 뒤로 한 발 비킨 것과 완전히 도망친 것이 같아져서, 잠깐 숨었다 나오면 보스가
-    // 조우 쿨다운에 걸려 눈앞의 사람을 무시한다.
+    // 포기한 자리에서 곧바로 기본 수색으로 넘어가면, 숨어 있던 쪽에서는 보스가 계속 돌아다니는 것과
+    // 구분이 안 된다. 한 박자 멈췄다가 걸어 나가야 "포기하고 갔다"를 읽고 나올 틈이 생긴다.
     //
-    // 조우 쿨다운은 두지 않는다. 어떤 형태로 넣어도 "감지했지만 무시한다"는 구간이 생겨서,
-    // 눈앞에 서 있는데 보스가 지나가 버리는 일이 났다.
+    // 이 가지가 서 있는 동안 BossController 의 굳음 감시에 걸리지 않도록,
+    // 그쪽에서 휴식 상태를 예외로 빼 두었다.
+    private static void BuildRestBranch(
+        BehaviorAuthoringGraph graph,
+        BehaviorGraphNodeModel selector,
+        VariableModel self,
+        Vector2 position)
+    {
+        BehaviorGraphNodeModel guard = CreateGuard(graph, position);
+        ConditionModel resting = AddCondition(guard, "Is Resting");
+        resting.SetField("Agent", self, typeof(GameObject));
+        Connect(selector, guard);
+
+        // 수색 가지는 계속 도는 가지라, 감시를 켜지 않으면 이미 그쪽으로 내려간 뒤에는
+        // 이 가지로 올라올 기회가 없다. 그러면 포기 직후의 한 박자가 통째로 건너뛰어진다.
+        EnableLowerPriorityAbort(guard);
+
+        BehaviorGraphNodeModel wait = CreateNode(graph, "Wait (Seconds)", position + new Vector2(0f, Row));
+        wait.SetField("SecondsToWait", RestTickInterval);
+        Connect(guard, wait);
+    }
+
+    // 보스의 기본 상태(idle)인 수색. 한 걸음(5~12m)씩 갈 곳을 정해 걸어가는 것을 반복한다.
     //
-    // 겹 구조의 이유:
-    //  - Repeat While [Remembers Survivor] 는 기억이 살아 있는 동안 반복하고 만료되면 종료한다.
-    //  - 안쪽 Try In Order 가 매 주기 "보이나?"를 다시 물어서, 보이면 추격 / 안 보이면 수색으로 갈린다.
+    // 순찰(Patrol) 노드를 이걸로 대체했다. 순찰은 방마다 놓아둔 웨이포인트를 정해진 순서로 도는데,
+    // 목적지가 미리 정해져 있다는 게 문제였다. 보스가 그 점까지 한 번에 걸어가 버려서 가는 길에
+    // 아무것도 살피지 않고, 마침 그 직선이 숨은 사람 쪽이면 단서 없이 찾아오는 것처럼 보였다.
+    //
+    // 지점 선택은 BossTargetMemory 가 하고, 여기서는 그 지점으로 걸어갔다 아주 짧게 쉬는 것을
+    // 반복할 뿐이다. 지점마다 서서 고개를 돌리지 않는다. 제자리 회전은 "찾는 중"이 아니라
+    // "고장난 것"으로 보인다. 방향이 튀지 않게 하는 것도 지점을 뽑는 쪽에서 처리한다(진행 방향 ±60도).
+    private static void BuildWanderBranch(
+        BehaviorAuthoringGraph graph,
+        BehaviorGraphNodeModel selector,
+        VariableModel self,
+        VariableModel wanderPosition,
+        Vector2 position)
+    {
+        BehaviorGraphNodeModel guard = CreateGuard(graph, position);
+        ConditionModel wander = AddCondition(guard, "Wander");
+        wander.SetField("Agent", self, typeof(GameObject));
+        wander.SetField("WanderPosition", wanderPosition, typeof(Vector3));
+        Connect(selector, guard);
+
+        BehaviorGraphNodeModel sequence = CreateNode(graph, "Sequence", position + new Vector2(0f, Row));
+        Connect(guard, sequence);
+
+        BehaviorGraphNodeModel nav = CreateNode(graph, "Navigate To Location", position + new Vector2(0f, Row * 2f));
+        nav.SetField("Agent", self, typeof(GameObject));
+        nav.SetField("Location", wanderPosition, typeof(Vector3));
+        nav.SetField("Speed", WanderSpeed);
+        nav.SetField("AnimatorSpeedParam", NoAnimatorSpeedParam);
+        Connect(sequence, nav);
+
+        BehaviorGraphNodeModel pause = CreateNode(graph, "Wait (Seconds)", position + new Vector2(0f, Row * 3f));
+        pause.SetField("SecondsToWait", SearchLookDuration);
+        Connect(sequence, pause);
+    }
+
+    // 시야/근접처럼 "대상을 특정했다"는 감지는 이후 동작이 같으므로 한 함수로 만든다.
+    //
+    // 이 가지는 "보이는 동안 붙어서 때린다"만 한다. 놓친 뒤의 처리(흔적까지 이동, 주변 수색)는
+    // 위 단계의 흔적 가지가 맡는다. 예전에는 이 안에 흔적·소리 처리가 전부 중첩돼 있었는데,
+    // 그러면 사람을 한 번도 본 적 없을 때(소리만 들은 경우) 흔적을 쫓을 방법이 없었다.
     private static void BuildChaseBranch(
         BehaviorAuthoringGraph graph,
         BehaviorGraphNodeModel selector,
         VariableModel self,
         VariableModel targetSurvivor,
-        VariableModel searchPosition,
-        VariableModel noisePosition,
-        VariableModel hearingFactor,
         Vector2 position,
         string conditionName,
         float speed)
@@ -219,32 +305,29 @@ public static class BossBehaviorGraphBuilder
         BehaviorGraphNodeModel guard = CreateGuard(graph, position);
         LinkDetectionCondition(AddCondition(guard, conditionName), self, targetSurvivor);
         Connect(selector, guard);
-        EnableLowerPriorityAbort(guard);
 
-        BehaviorGraphNodeModel repeatWhile = CreateRepeatWhile(graph, position + new Vector2(0f, 160f));
-        ConditionModel remembers = AddCondition(repeatWhile, "Remembers Survivor");
-        remembers.SetField("Agent", self, typeof(GameObject));
-        remembers.SetField("Survivor", targetSurvivor, typeof(GameObject));
-        remembers.SetField("SearchPosition", searchPosition, typeof(Vector3));
+        // 양방향 감시(Self + LowerPriority)를 건다.
+        //
+        // LowerPriority: 흔적을 쫓거나 훑고 다니는 중에 사람이 보이면 그 자리에서 끊고 넘어온다.
+        //
+        // Self: 안 보이게 되는 즉시 추격을 끊는다. 이게 없으면 안쪽의 Navigate To Target 이
+        // 살아남는다. 그 노드는 매 프레임 표적의 '현재' 트랜스폼을 읽어 SetDestination 을 다시
+        // 거는데, 보이는지 들리는지는 전혀 보지 않고 사거리에 닿아야만 끝난다. 그래서 한 번
+        // 걸리면 시야가 끊겨도 숨은 자리까지 그대로 걸어온다.
+        EnableAbort(guard, ObserverAbortTarget.Both);
+
+        // 보고 있는 동안은 이 가지를 놓지 않는다. 안쪽 Sequence 가 한 번 실패할 때마다
+        // (공격 쿨다운 등) 아래 가지로 내려갔다 감시에 걸려 다시 올라오는 왕복을 막는다.
+        BehaviorGraphNodeModel repeatWhile = CreateRepeatWhile(graph, position + new Vector2(0f, Row));
+        LinkDetectionCondition(AddCondition(repeatWhile, conditionName), self, targetSurvivor);
         Connect(guard, repeatWhile);
 
-        BehaviorGraphNodeModel branch = CreateNode(graph, "Try In Order", position + new Vector2(0f, 320f));
-        Connect(repeatWhile, branch);
-
-        // 보이면 붙어서 때린다.
-        BehaviorGraphNodeModel chaseGuard = CreateGuard(graph, position + new Vector2(-150f, 480f));
-        LinkDetectionCondition(AddCondition(chaseGuard, conditionName), self, targetSurvivor);
-        Connect(branch, chaseGuard);
-
-        // 수색 중에 다시 보이면 그 자리에서 끊고 추격으로 돌아와야 한다.
-        EnableLowerPriorityAbort(chaseGuard);
-
-        BehaviorGraphNodeModel chase = CreateNode(graph, "Sequence", position + new Vector2(-150f, 640f));
-        Connect(chaseGuard, chase);
+        BehaviorGraphNodeModel chase = CreateNode(graph, "Sequence", position + new Vector2(0f, Row * 2f));
+        Connect(repeatWhile, chase);
 
         // 이동 노드는 표적이 움직이면 목적지를 스스로 다시 잡는다. 그래서 별도 재탐색 노드가 없다.
-        // 도착 판정 거리를 공격 사거리보다 조금 좁게 둬야, 멈춘 자리에서 바로 때릴 수 있다.
-        BehaviorGraphNodeModel navigate = CreateNode(graph, "Navigate To Target", position + new Vector2(-150f, 800f));
+        // 도착 판정 거리를 공격 사거리보다 좁게 둬야, 멈춘 자리에서 바로 때릴 수 있다.
+        BehaviorGraphNodeModel navigate = CreateNode(graph, "Navigate To Target", position + new Vector2(0f, Row * 3f));
         navigate.SetField("Agent", self, typeof(GameObject));
         navigate.SetField("Target", targetSurvivor, typeof(GameObject));
         navigate.SetField("Speed", speed);
@@ -252,58 +335,28 @@ public static class BossBehaviorGraphBuilder
         navigate.SetField("AnimatorSpeedParam", NoAnimatorSpeedParam);
         Connect(chase, navigate);
 
-        // 붙었으면 때린다. 사거리 밖이거나 쿨다운이면 실패하고 위의 반복이 다시 돌면서 이동으로 돌아간다.
-        BehaviorGraphNodeModel attack = CreateNode(graph, "Attack Survivor", position + new Vector2(-150f, 960f));
+        // 붙은 다음에 "때릴까 놓아줄까"를 고른다. 이동 노드 뒤에 있어야 하는 이유는,
+        // 사거리에 들어온 뒤라야 "몰렸다"가 확정되기 때문이다. 그 전에 물어보면 아직
+        // 빠져나갈 수 있는 사람까지 놓아주게 된다.
+        BehaviorGraphNodeModel decide = CreateNode(graph, "Try In Order", position + new Vector2(0f, Row * 4f));
+        Connect(chase, decide);
+
+        // 막다른 곳에 몰아넣은 참이면 낮은 확률로 그냥 지나친다.
+        BehaviorGraphNodeModel spareGuard = CreateGuard(graph, position + new Vector2(-Column * 0.35f, Row * 5f));
+        ConditionModel spare = AddCondition(spareGuard, "Should Spare");
+        spare.SetField("Agent", self, typeof(GameObject));
+        spare.SetField("Survivor", targetSurvivor, typeof(GameObject));
+        Connect(decide, spareGuard);
+
+        BehaviorGraphNodeModel giveUp = CreateNode(graph, "Give Up Chase", position + new Vector2(-Column * 0.35f, Row * 6f));
+        giveUp.SetField("Agent", self, typeof(GameObject));
+        Connect(spareGuard, giveUp);
+
+        // 그 외에는 때린다. 쿨다운 중에는 붙어 있는 동안 기다리고, 사거리를 벗어나면 끝난다.
+        BehaviorGraphNodeModel attack = CreateNode(graph, "Attack Survivor", position + new Vector2(Column * 0.35f, Row * 5f));
         attack.SetField("Agent", self, typeof(GameObject));
         attack.SetField("Survivor", targetSurvivor, typeof(GameObject));
-        Connect(chase, attack);
-
-        // 놓친 동안 소리가 나면 오래된 목격 지점보다 그쪽이 우선이다. 사람이 사라졌어도
-        // 방금 난 소리가 지금 위치를 더 잘 알려준다.
-        BehaviorGraphNodeModel chaseNoiseGuard = CreateGuard(graph, position + new Vector2(180f, 480f));
-        ConditionModel chaseHears = AddCondition(chaseNoiseGuard, "Hears Noise");
-        chaseHears.SetField("Agent", self, typeof(GameObject));
-        chaseHears.SetField("Radius", hearingFactor, typeof(float));
-        chaseHears.SetField("NoisePosition", noisePosition, typeof(Vector3));
-        Connect(branch, chaseNoiseGuard);
-
-        // 수색 중에 소리가 나면 그 자리에서 끊고 소리 쪽으로 돌린다.
-        EnableLowerPriorityAbort(chaseNoiseGuard);
-
-        BehaviorGraphNodeModel chaseNoise = CreateNode(graph, "Sequence", position + new Vector2(180f, 640f));
-        Connect(chaseNoiseGuard, chaseNoise);
-
-        BehaviorGraphNodeModel chaseNoiseNav = CreateNode(graph, "Navigate To Location", position + new Vector2(180f, 800f));
-        chaseNoiseNav.SetField("Agent", self, typeof(GameObject));
-        chaseNoiseNav.SetField("Location", noisePosition, typeof(Vector3));
-        chaseNoiseNav.SetField("Speed", SearchSpeed);
-        chaseNoiseNav.SetField("AnimatorSpeedParam", NoAnimatorSpeedParam);
-        Connect(chaseNoise, chaseNoiseNav);
-
-        BehaviorGraphNodeModel chaseNoiseLook = CreateNode(graph, "Wait (Seconds)", position + new Vector2(180f, 960f));
-        chaseNoiseLook.SetField("SecondsToWait", SearchLookDuration);
-        Connect(chaseNoise, chaseNoiseLook);
-
-        // 아무 소리도 없으면 마지막으로 본 지점을 뒤진다. 조건 노드가 매 주기 지점을 갱신하고, 도착하면
-        // 다음 지점이 새로 뽑히므로 이 두 노드의 반복만으로 주변을 돌아다니는 수색이 된다.
-        // 지점마다 오래 서 있으면 수색이 아니라 멈춘 것으로 보이니 훑어보는 시간은 짧게 둔다.
-        BehaviorGraphNodeModel search = CreateNode(graph, "Sequence", position + new Vector2(520f, 480f));
-        Connect(branch, search);
-
-        BehaviorGraphNodeModel searchNav = CreateNode(graph, "Navigate To Location", position + new Vector2(520f, 640f));
-        searchNav.SetField("Agent", self, typeof(GameObject));
-        searchNav.SetField("Location", searchPosition, typeof(Vector3));
-        searchNav.SetField("Speed", SearchSpeed);
-        searchNav.SetField("AnimatorSpeedParam", NoAnimatorSpeedParam);
-        Connect(search, searchNav);
-
-        // 그냥 기다리면 도착한 방향만 보고 서 있어서 등 뒤의 사람을 영원히 못 본다. 몸을 돌려 훑는다.
-        // 지점마다 멈춰서 고개를 돌리면 도리도리가 과하게 보인다. 수색은 이동으로만 하고,
-        // 시야 확인은 복도를 따라 걷다 방향이 꺾이는 것으로 자연히 이루어지게 한다.
-        // 시야각을 넓게 잡아둔 것이 이 역할을 대신한다.
-        BehaviorGraphNodeModel searchPause = CreateNode(graph, "Wait (Seconds)", position + new Vector2(520f, 800f));
-        searchPause.SetField("SecondsToWait", SearchPassDuration);
-        Connect(search, searchPause);
+        Connect(decide, attack);
     }
 
     // 주기적으로 먼 모듈로 옮긴다. 반응 트리와 나란히 돌아서 추격 중에도 시간이 흐른다.
@@ -315,42 +368,40 @@ public static class BossBehaviorGraphBuilder
     private static void BuildTeleportLoop(
         BehaviorAuthoringGraph graph,
         BehaviorGraphNodeModel parallel,
-        VariableModel self,
-        VariableModel hearingFactor)
+        VariableModel self)
     {
-        BehaviorGraphNodeModel repeat = CreateNode(graph, "Repeat", new Vector2(700f, 0f));
+        BehaviorGraphNodeModel repeat = CreateNode(graph, "Repeat", new Vector2(Column * 3.4f, 0f));
         Connect(parallel, repeat);
 
-        BehaviorGraphNodeModel sequence = CreateNode(graph, "Sequence", new Vector2(700f, 160f));
+        BehaviorGraphNodeModel sequence = CreateNode(graph, "Sequence", new Vector2(Column * 3.4f, Row));
         Connect(repeat, sequence);
 
         // 깨어날 때까지는 주기 자체를 시작하지 않는다.
-        BehaviorGraphNodeModel waitForWake = CreateRepeatWhile(graph, new Vector2(700f, 320f));
+        BehaviorGraphNodeModel waitForWake = CreateRepeatWhile(graph, new Vector2(Column * 3.4f, Row * 2f));
         ConditionModel dormant = AddCondition(waitForWake, "Is Dormant");
         dormant.SetField("Agent", self, typeof(GameObject));
         Connect(sequence, waitForWake);
 
-        BehaviorGraphNodeModel wakeTick = CreateNode(graph, "Wait (Seconds)", new Vector2(700f, 480f));
+        BehaviorGraphNodeModel wakeTick = CreateNode(graph, "Wait (Seconds)", new Vector2(Column * 3.4f, Row * 3f));
         wakeTick.SetField("SecondsToWait", DormantCheckInterval);
         Connect(waitForWake, wakeTick);
 
-        BehaviorGraphNodeModel wait = CreateNode(graph, "Wait (Range) (Seconds)", new Vector2(700f, 640f));
+        BehaviorGraphNodeModel wait = CreateNode(graph, "Wait (Range) (Seconds)", new Vector2(Column * 3.4f, Row * 4f));
         wait.SetField("Min", TeleportIntervalMin);
         wait.SetField("Max", TeleportIntervalMax);
         Connect(sequence, wait);
 
         // 교전이 끝날 때까지 1초씩 확인하며 기다린다. 조건이 거짓이면 즉시 통과한다.
-        BehaviorGraphNodeModel waitForCalm = CreateRepeatWhile(graph, new Vector2(700f, 800f));
+        BehaviorGraphNodeModel waitForCalm = CreateRepeatWhile(graph, new Vector2(Column * 3.4f, Row * 5f));
         ConditionModel engaged = AddCondition(waitForCalm, "Is Engaged");
         engaged.SetField("Agent", self, typeof(GameObject));
-        engaged.SetField("Radius", hearingFactor, typeof(float));
         Connect(sequence, waitForCalm);
 
-        BehaviorGraphNodeModel calmTick = CreateNode(graph, "Wait (Seconds)", new Vector2(700f, 960f));
+        BehaviorGraphNodeModel calmTick = CreateNode(graph, "Wait (Seconds)", new Vector2(Column * 3.4f, Row * 6f));
         calmTick.SetField("SecondsToWait", EngagedRecheckInterval);
         Connect(waitForCalm, calmTick);
 
-        BehaviorGraphNodeModel teleport = CreateNode(graph, "Teleport To Distant Module", new Vector2(700f, 1120f));
+        BehaviorGraphNodeModel teleport = CreateNode(graph, "Teleport To Distant Module", new Vector2(Column * 3.4f, Row * 7f));
         teleport.SetField("Agent", self, typeof(GameObject));
         Connect(sequence, teleport);
     }
@@ -392,12 +443,15 @@ public static class BossBehaviorGraphBuilder
 
     // 아래 우선순위 가지가 돌고 있어도 조건을 계속 감시해서, 참이 되면 그 가지를 끊고 이쪽으로 넘어온다.
     //
-    // 이게 없으면 보스가 사람을 무시한다. 배회(Patrol) 노드는 끝나지 않고 계속 Running 이라서,
-    // Try In Order 가 한 번 배회로 내려가면 위쪽 감지 가지를 다시 평가할 기회가 없다.
+    // 이게 없으면 보스가 사람을 무시한다. 수색 가지는 끝나지 않고 계속 Running 이라서,
+    // Try In Order 가 한 번 수색으로 내려가면 위쪽 감지 가지를 다시 평가할 기회가 없다.
     //
     // Guard 가 Try In Order 에 이어진 뒤에 호출해야 한다. 연결 전에는 Modifier 모드로 확정되지 않아
     // OnValidate 가 ObserverType 을 None 으로 되돌린다.
     private static void EnableLowerPriorityAbort(BehaviorGraphNodeModel node)
+        => EnableAbort(node, ObserverAbortTarget.LowerPriority);
+
+    private static void EnableAbort(BehaviorGraphNodeModel node, ObserverAbortTarget target)
     {
         var guard = (ConditionalGuardNodeModel)node;
         if (!guard.CanUseObserverAbort())
@@ -405,7 +459,7 @@ public static class BossBehaviorGraphBuilder
             throw new InvalidOperationException("Guard 가 Try In Order 에 연결되기 전에 감시를 켤 수 없습니다.");
         }
 
-        guard.ObserverType = ObserverAbortTarget.LowerPriority;
+        guard.ObserverType = target;
     }
 
     private static ConditionModel AddCondition(BehaviorGraphNodeModel node, string conditionName)

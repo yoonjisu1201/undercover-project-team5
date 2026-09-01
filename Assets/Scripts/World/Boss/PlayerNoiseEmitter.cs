@@ -20,14 +20,18 @@ public class PlayerNoiseEmitter : NetworkBehaviour
     // 이 간격 동안 이 거리보다 덜 움직였으면 멈춴 것으로 본다.
     [SerializeField, Min(0f)] private float _movedThreshold = 0.15f;
 
-    // 들리는 거리는 넉넉해야 한다. 짧으면 보스가 사람 바로 옆에 와야 반응해서, 멀리서 조심하는
-    // 플레이가 의미를 잃는다. 들킨 뒤의 시야 거리와는 별개 값이다.
+    // 들리는 거리. 소리는 벽을 통과하는 유일한 감각이라 보스 시야(7m)와의 관계로 잡는다.
+    // 시야보다 작으면 눈이 먼저 잡아서 청각이 하는 일이 없어진다.
+    //
+    // 달리기 26m 의 근거: 질주는 스태미나상 5초가 전부고 그동안 15m 가 벌어진다. 발각 거리 5m
+    // 에서 시작하면 20m 지점에서 스태미나가 떨어지므로, 26m 는 질주만으로 아슬아슬하게
+    // 못 벗어난다. 모퉁이를 함께 써야 하는 거리다.
     [Header("들리는 거리 (m)")]
     [SerializeField, Min(0f)] private float _walkRadius = 10f;
-    [SerializeField, Min(0f)] private float _sprintRadius = 30f;
+    [SerializeField, Min(0f)] private float _sprintRadius = 26f;
 
     [Tooltip("착지 소음. 한 번에 크게 나는 소리라 걷기보다 훨씬 멀리 들린다.")]
-    [SerializeField, Min(0f)] private float _landingRadius = 20f;
+    [SerializeField, Min(0f)] private float _landingRadius = 18f;
 
     [Tooltip("목소리 소음. 보스가 가까울 때 말을 참게 만드는 값이다.")]
     [SerializeField, Min(0f)] private float _voiceRadius = 18f;

@@ -65,13 +65,21 @@ public static class BossPrefabBuilder
     {
         NavMeshAgent agent = Require<NavMeshAgent>(root);
 
-        // 그래프의 이동 노드가 상황별 속도(배회 2.2 / 소리 3.0 / 조명 3.5 / 추격 4.5)를 직접 넣으므로
-        // 여기 speed 는 상한 역할만 한다.
-        agent.speed = 4.5f;
+        // 그래프의 이동 노드가 상황별 속도(수색 2.2 / 수색 2.8 / 기척 3.2 / 추격 4.2)를
+        // 직접 넣으므로 여기 speed 는 상한 역할만 한다.
+        agent.speed = 4.2f;
 
-        // 회전이 빠르면 코너에서 순간적으로 꺾여 "봤다"는 느낌 없이 붙는다. 느리게 둬서 돌아서는 게 보이게 한다.
-        agent.angularSpeed = 200f;
-        agent.acceleration = 10f;
+        // 큰 덩치가 갖는 관성. 이 두 값이 곧 "무겁게 움직인다"의 전부다.
+        //
+        // 회전(도/초): 표적이 지나쳐 가면 몸을 돌리는 데 시간이 걸려야 한다. 200 이면 한 바퀴를
+        // 1.8초에 돌아서 사실상 즉시 꺾이고, 어떻게 피해도 똑같이 붙어 온다. 120 이면 180도
+        // 돌아서는 데 1.5초가 걸려서, 지나쳐 달리는 것이 실제로 거리를 버는 수가 된다.
+        //
+        // 가속(m/s^2): 멈추고 다시 붙는 데 걸리는 시간이자 미끄러지는 거리다. 추격 속도 4.2 기준
+        // 10 이면 0.4초에 멈춰서 브레이크가 없는 것과 같고, 4 면 약 1초에 걸쳐 2.2m 를 미끄러진다.
+        // 방향을 바꿀 때도 같은 만큼 굼떠지므로 급회전이 저절로 무거워진다.
+        agent.angularSpeed = 120f;
+        agent.acceleration = 4f;
 
         // 문틀을 지나야 하므로 반경을 넉넉히 잡으면 경로가 끊긴다.
         agent.radius = 0.4f;
@@ -99,7 +107,13 @@ public static class BossPrefabBuilder
         }
         else
         {
-            brain.Graph = authoring.BuildRuntimeGraph(false);
+            // 반드시 강제로 다시 만든다(true).
+            //
+            // false 면 "바뀐 게 없다"고 판단될 때 예전 런타임 그래프를 그대로 돌려준다. 그래프를
+            // 새로 만든 직후에는 변경 플래그가 이미 정리돼 있어서 이 경우에 걸리고, 결과적으로
+            // 프리팹에는 옛 노드가 붙은 그래프가 그대로 남는다. 실제로 순찰 노드를 지웠는데도
+            // 프리팹에는 계속 남아 있었다.
+            brain.Graph = authoring.BuildRuntimeGraph(true);
         }
 
         // 서버가 스폰한 오브젝트의 소유자는 서버다. 이 옵션을 켜면 그래프가 서버에서만 돌아서
@@ -112,11 +126,18 @@ public static class BossPrefabBuilder
         BossPerception perception = Require<BossPerception>(root);
 
         // 지하 모듈은 좁아서 시야를 길게 주면 방 하나를 통째로 훑는다.
-        SetPrivateField(perception, "_sightRange", 16f);
+        // 방 하나를 다 보지는 못하는 거리라야 엄폐물과 조명이 의미를 가진다.
+        //
+        // 이 값이 곧 '얼마나 달려야 시야를 끊을 수 있는가'다. 길게 잡으면 곧은 복도에서
+        // 계속 보이는 채로 달리게 되고, 보이는 동안에는 기억이 매 틱 갱신돼 추격 제한 시간이
+        // 아예 시작되지 않는다. 아무리 도망쳐도 떨어지지 않는 느낌이 여기서 나온다.
+        SetPrivateField(perception, "_sightRange", 7f);
 
         // 넓게 잡는다. 제자리에서 고개를 돌리는 대신, 복도를 따라 걷다 방향이 꺾이는 것만으로
         // 시야가 훑어지게 하려는 것이다. 좁으면 결국 도리도리로 메워야 한다.
-        SetPrivateField(perception, "_sightAngle", 150f);
+        // 다만 150도는 등 뒤만 빼고 다 보는 것과 같아서, 옆으로 비켜서는 것이 통하지 않았다.
+        // 90도(좌우 45도씩)면 정면은 확실히 보되 옆으로 파고들어 벗어날 여지가 남는다.
+        SetPrivateField(perception, "_sightAngle", 90f);
         // 프리팹 루트 스케일이 1.5라 모델 눈높이도 그만큼 올라간다. 1.6으로 두면 허리에서
         // 레이를 쏘는 셈이어서 낮은 지형지물에 쉽게 막힌다.
         SetPrivateField(perception, "_eyeHeight", 2.4f);
@@ -126,9 +147,10 @@ public static class BossPrefabBuilder
         int blockers = (1 << LayerMask.NameToLayer("Default")) | (1 << LayerMask.NameToLayer("Ground"));
         SetPrivateField(perception, "_sightBlockers", (LayerMask)blockers);
 
-        // 시야각 밖이라도 알아채는 거리. 시야(16)보다 짧게 둬서, 멀리서는 보고 있어야만 걸리고
+        // 시야각 밖이라도 알아채는 거리. 시야(7)보다 짧게 둬서, 멀리서는 보고 있어야만 걸리고
         // 가까이서는 방향과 무관하게 걸리게 한다.
-        SetPrivateField(perception, "_senseRadius", 14f);
+        // 등 뒤로 도는 것이 통해야 하므로 "바로 옆"일 때만 걸리는 거리까지 줄인다.
+        SetPrivateField(perception, "_senseRadius", 4.5f);
     }
 
     // 외형마다 Animator가 달라져서 루트에 묶인 NetworkAnimator는 아무것도 동기화하지 않는다.
