@@ -208,6 +208,24 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""SpectateNext"",
+                    ""type"": ""Button"",
+                    ""id"": ""3f8a2c1d-5e7b-4a9c-8d2e-6b4f1a3c7e5d"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""SpectatePrev"",
+                    ""type"": ""Button"",
+                    ""id"": ""9c4e7b2a-1d5f-4c8e-b3a6-7f2d5e8a1c4b"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -397,6 +415,28 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
                     ""action"": ""Flashlight"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""1a7d3f5c-8b2e-4d6a-9c1f-3e5b7a2d8f4c"",
+                    ""path"": ""<Mouse>/leftButton"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""SpectateNext"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""5b2f8e1a-4c7d-4b3e-a9d2-1f6c4a8e3b7d"",
+                    ""path"": ""<Mouse>/rightButton"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""SpectatePrev"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         },
@@ -494,6 +534,8 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         m_Player_ArrestTool = m_Player.FindAction("ArrestTool", throwIfNotFound: true);
         m_Player_InventoryScroll = m_Player.FindAction("InventoryScroll", throwIfNotFound: true);
         m_Player_Flashlight = m_Player.FindAction("Flashlight", throwIfNotFound: true);
+        m_Player_SpectateNext = m_Player.FindAction("SpectateNext", throwIfNotFound: true);
+        m_Player_SpectatePrev = m_Player.FindAction("SpectatePrev", throwIfNotFound: true);
         // System
         m_System = asset.FindActionMap("System", throwIfNotFound: true);
         m_System_Escape = m_System.FindAction("Escape", throwIfNotFound: true);
@@ -596,6 +638,8 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_ArrestTool;
     private readonly InputAction m_Player_InventoryScroll;
     private readonly InputAction m_Player_Flashlight;
+    private readonly InputAction m_Player_SpectateNext;
+    private readonly InputAction m_Player_SpectatePrev;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
     /// </summary>
@@ -659,6 +703,14 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Player/Flashlight".
         /// </summary>
         public InputAction @Flashlight => m_Wrapper.m_Player_Flashlight;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/SpectateNext".
+        /// </summary>
+        public InputAction @SpectateNext => m_Wrapper.m_Player_SpectateNext;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/SpectatePrev".
+        /// </summary>
+        public InputAction @SpectatePrev => m_Wrapper.m_Player_SpectatePrev;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -724,6 +776,12 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
             @Flashlight.started += instance.OnFlashlight;
             @Flashlight.performed += instance.OnFlashlight;
             @Flashlight.canceled += instance.OnFlashlight;
+            @SpectateNext.started += instance.OnSpectateNext;
+            @SpectateNext.performed += instance.OnSpectateNext;
+            @SpectateNext.canceled += instance.OnSpectateNext;
+            @SpectatePrev.started += instance.OnSpectatePrev;
+            @SpectatePrev.performed += instance.OnSpectatePrev;
+            @SpectatePrev.canceled += instance.OnSpectatePrev;
         }
 
         /// <summary>
@@ -774,6 +832,12 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
             @Flashlight.started -= instance.OnFlashlight;
             @Flashlight.performed -= instance.OnFlashlight;
             @Flashlight.canceled -= instance.OnFlashlight;
+            @SpectateNext.started -= instance.OnSpectateNext;
+            @SpectateNext.performed -= instance.OnSpectateNext;
+            @SpectateNext.canceled -= instance.OnSpectateNext;
+            @SpectatePrev.started -= instance.OnSpectatePrev;
+            @SpectatePrev.performed -= instance.OnSpectatePrev;
+            @SpectatePrev.canceled -= instance.OnSpectatePrev;
         }
 
         /// <summary>
@@ -1108,6 +1172,20 @@ public partial class @CustomInputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnFlashlight(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "SpectateNext" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnSpectateNext(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "SpectatePrev" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnSpectatePrev(InputAction.CallbackContext context);
     }
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "System" which allows adding and removing callbacks.

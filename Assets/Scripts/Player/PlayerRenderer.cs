@@ -34,6 +34,16 @@ public class PlayerRenderer : MonoBehaviour {
 		}
 	}
 
+	// 관전 중에는 보고 있는 팀원의 머리가 카메라 앞으로 들어와 시야를 가린다. 머리 레이어는
+	// 각자 자기 머리만 숨기는 용도라 대상만 골라 컬링할 수 없어 오브젝트를 끈다.
+	public void SetHeadObjectsActive(bool active) {
+		foreach (var obj in _headObjects) {
+			if (obj != null) {
+				obj.SetActive(active);
+			}
+		}
+	}
+
 	private static GameObject CreateShadowOnlyCopy(GameObject source) {
 		if (source == null || !source.TryGetComponent(out SkinnedMeshRenderer sourceRenderer)) {
 			return null;
