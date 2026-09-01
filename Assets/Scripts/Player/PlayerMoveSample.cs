@@ -23,6 +23,12 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private float _riseMultiplier = 2f;   // 올라갈 때 중력 배수 (클수록 정점에 빨리 도달 = 상승이 빨라짐)
 	[SerializeField] private Rigidbody _rigidbody;
 
+	[Header("피격 넉백")]
+	[SerializeField] private PlayerKnockback _knockback = new PlayerKnockback();
+
+	// 맵 밖으로 떨어졌을 때의 안전망. 조정할 값이 없어서 인스펙터에 내놓지 않는다.
+	private readonly PlayerFallRecovery _fallRecovery = new PlayerFallRecovery();
+
 	[Header("경사 미끄러짐 방지")]
 	[SerializeField] private PhysicsMaterial _gripMaterial; // 멈춰 있을 때 경사에 고정 (높은 마찰)
 	private CapsuleCollider _bodyCollider;
@@ -114,6 +120,10 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_slideMaterial = _bodyCollider.sharedMaterial; // 인스펙터에 붙어 있는 마찰0 머티리얼
 		}
+
+		_knockback.Initialize(transform, _rigidbody, _bodyCollider);
+		_fallRecovery.Initialize(transform, _rigidbody);
+
 	}
 
 	public override void OnDestroy()
@@ -211,8 +221,6 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		ApplyAnimatorBool(IsDownedHash, value);
 
-		SetBossCollisionIgnored(value);
-
 		if (value)
 		{
 			SoundManager.Instance?.PlayAt(SoundKey.Player_Downed, transform.position);
@@ -237,20 +245,18 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 	}
 
-	// 쓰러진 동안에는 보스가 몸을 통과하게 한다.
+	// 보스와는 물리로 부딪히지 않는다. 밀리는 것은 공격이 넉백으로 직접 준다.
 	//
-	// 보스는 Rigidbody 없이 콜라이더만 들고 transform 으로 움직인다. 그러면 겹침이 질량 없이
-	// 밀어내기로만 해소돼서, 지나갈 때마다 쓰러진 몸이 떠밀린다. 다운 중에는 입력이 막혀
-	// 스스로 되돌아올 수도 없고, NetworkTransform 이 소유자 권한이라 밀려난 위치를 본인이
-	// 그대로 확정해 전원에게 퍼뜨린다. 서버가 교정해 주지 않으므로 접촉 자체를 없앤다.
+	// 물리에 맡기면 어떻게 해도 벽을 뚫는다. 벽과 보스 사이에 끼면 솔버는 둘 중 하나를
+	// 포기해야 하는데, 벽을 포기하는 쪽이 싸서 사람이 벽 밖으로 나간다. 겹치는 문제는
+	// BossController 가 물러나는 것으로 푼다.
 	//
-	// 몸을 고정하는 방법도 있지만 그러면 보스가 시신에 막히거나 타고 올라간다.
-	// 레이어로 가르는 것도 안 된다. 보스와 플레이어가 같은 Default 레이어라, 그 조합을 끄면
-	// 시신이 벽과 바닥까지 통과한다.
+	// 레이어로 가를 수는 없다. 보스와 사람이 같은 Default 레이어라, 그 조합을 끄면
+	// 사람이 벽과 바닥까지 통과한다.
 	//
-	// 이 호출은 각 피어에서 자기 물리 씬에만 적용되므로 모든 클라이언트가 각자 호출해야 한다.
-	// 다운 상태는 NetworkVariable 이라 이 콜백이 전원에게서 돌아간다.
-	private void SetBossCollisionIgnored(bool ignored)
+	// 물리 설정은 피어마다 따로라 모든 클라이언트가 각자 불러야 한다. 보스가 나중에
+	// 등장하면 보스 쪽에서 같은 짝을 맺는다.
+	public void IgnoreBossCollision()
 	{
 		if (_bodyCollider == null)
 		{
@@ -263,7 +269,7 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		Physics.IgnoreCollision(bossCollider, _bodyCollider, ignored);
+		Physics.IgnoreCollision(bossCollider, _bodyCollider, true);
 	}
 
 	private void UpdateJumpAnimation()
@@ -294,6 +300,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		HandleJumpingChanged(false, _networkIsJumping.Value);
 		// #392: 기존 상태 초기화와 형식을 맞추되, false를 이전 값으로 넘겨 최초 스폰을 소생으로 판정하지 않는다.
 		HandleDownedStateChanged(false, _playerHealth.IsDowned);
+
+		IgnoreBossCollision();
 	}
 
 	public override void OnNetworkDespawn()
@@ -315,6 +323,12 @@ public class PlayerMoveSample : NetworkBehaviour
 		if (!IsOwner)
 		{
 			return;
+		}
+
+		// 조작이 막혀 있어도 떨어지는 것은 막아야 하므로 UI 가드보다 앞에 둔다.
+		if (_fallRecovery.NeedsRecovery(IsGrounded(), out Vector3 safePosition))
+		{
+			ApplyTeleport(safePosition, transform.rotation);
 		}
 
 		if (GameplayUiMode.IsActive)
@@ -376,9 +390,33 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
+		// 넉백 중에는 입력이 속도를 덮지 않는다. 덮으면 밀린 속도가 다음 물리 스텝에
+		// 그대로 지워져서, 맞아도 제자리에 서 있는 것처럼 보인다.
+		//
+		// 마찰은 미끄러지는 쪽으로 둔다. 서 있을 때 쓰는 접지 머티리얼은 마찰이 높아서,
+		// 밀어 준 속도를 바닥이 한두 프레임 만에 잡아먹는다.
+		if (_knockback.IsActive)
+		{
+			SetMovingState(false);
+			SetRunningState(false);
+			UpdateFrictionMaterial(true);
+			_knockback.Tick();
+			ApplyAirGravity();
+			return;
+		}
+
 		HandleMovement();
 		HandleJump();
 		ApplyAirGravity();
+	}
+
+	// 맞은 자리의 반대쪽으로 민다. PlayerHealth 가 오너에게만 보낸다.
+	public void ApplyKnockback(Vector3 sourcePosition)
+	{
+		if (IsOwner)
+		{
+			_knockback.Push(sourcePosition);
+		}
 	}
 
 	// 몸체 yaw와 그 yaw를 기준으로 한 이동을 같은 물리 틱에서 처리한다.
@@ -552,6 +590,8 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void ApplyTeleport(Vector3 position, Quaternion rotation)
 	{
+		_fallRecovery.Forget();
+
 		_playerCameraController.SetYaw(rotation.eulerAngles.y);
 
 		_rigidbody.linearVelocity = Vector3.zero;

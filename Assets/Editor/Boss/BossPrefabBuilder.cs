@@ -88,12 +88,35 @@ public static class BossPrefabBuilder
         // 다른 NPC와 서로 밀어내며 춤추는 것을 막는다. 보스는 한 마리라 회피가 필요 없다.
         agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
 
+        ConfigureBody(root);
+
         NetworkTransform networkTransform = root.GetComponent<NetworkTransform>();
         if (networkTransform != null)
         {
             // 보스 위치 판정은 전부 서버에서 하므로 클라이언트가 트랜스폼을 쓰지 않게 한다.
             networkTransform.AuthorityMode = NetworkTransform.AuthorityModes.Server;
         }
+    }
+
+    // 콜라이더만 들고 있으면 물리 엔진이 보스를 정적 지형으로 다룬다.
+    //
+    // 그 지형을 NavMeshAgent 가 매 프레임 순간이동시키는 꼴이라, 플레이어와 겹치는 순간을
+    // 접촉으로 풀지 못하고 겹침 해소로 밀어낸다. 겹침 해소는 이동이 아니라 위치를 직접
+    // 보정하는 것이라, 플레이어가 연속 충돌 판정을 켜 두어도 벽을 그대로 통과한다.
+    //
+    // 운동학 Rigidbody 를 붙이면 움직이는 물체로 잡혀서 정상 접촉으로 밀어낸다.
+    // 다운 상태에서는 PlayerMoveSample 이 IgnoreCollision 으로 접촉을 끊으므로 시신에는
+    // 영향이 없다.
+    private static void ConfigureBody(GameObject root)
+    {
+        Rigidbody body = Require<Rigidbody>(root);
+
+        body.isKinematic = true;
+        body.useGravity = false;
+        body.interpolation = RigidbodyInterpolation.None;
+
+        // 운동학 물체가 쓸 수 있는 유일한 연속 판정. 보스가 빠르게 지나갈 때도 접촉을 놓치지 않는다.
+        body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
     }
 
     private static void ConfigureBrain(GameObject root)
