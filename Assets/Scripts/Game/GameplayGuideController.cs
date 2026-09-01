@@ -142,11 +142,12 @@ public sealed class GameplayGuideController : NetworkBehaviour
         _roundActive = state == RoundState.InRound;
     }
 
-    // 배전반 완료 전에는 본부 안전지대를 벗어날 때마다 전력 복구 목적을 다시 안내한다.
-    private void OnTriggerExit(Collider other)
+    // 배전반 완료 전에는 본부에서 현장으로 나갈 때마다 전력 복구 목적을 다시 안내한다.
+    // 세이프존 트리거가 아니라 현장으로 나가는 문(HqExit)이 직접 알린다.
+    // 트리거로는 지하로 내려가는 문과 구분할 수 없어 지하로 갈 때도 안내가 떴다.
+    public void NotifyExitedHqToField()
     {
-        if (!IsOwner || !_roundActive || _breakerCompleted
-            || other.GetComponent<HqSafeZone>() == null)
+        if (!IsOwner || !_roundActive || _breakerCompleted)
         {
             return;
         }
