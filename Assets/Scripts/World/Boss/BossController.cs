@@ -9,7 +9,6 @@ using UnityEngine.AI;
 //
 // 하는 일:
 //  - 서버가 아닌 인스턴스에서 NavMeshAgent가 트랜스폼을 건드리지 않게 막는다(NetworkTransform과 충돌).
-//  - 매 라운드 새로 생성되는 지하 모듈에서 배회 지점을 만들어 그래프 Blackboard에 넣는다.
 //  - 먼 모듈로 순간이동시키고, 위치를 알 수 없는 쿵 소리로 "옮겨왔다"는 것만 알린다.
 //  - 발소리를 낸다. 소리는 전부 SoundManager/SoundData 를 거친다.
 //    옮긴 뒤에는 그래프를 다시 시작해서 이동 노드가 목적지를 새로 잡게 한다.
@@ -22,17 +21,10 @@ using UnityEngine.AI;
 [RequireComponent(typeof(BossVisual))]
 public class BossController : NetworkBehaviour
 {
-    [Header("배회")]
-    [Tooltip("그래프 Blackboard의 배회 지점 변수 이름. 그래프에서 이름을 바꾸면 여기도 바꿔야 한다.")]
-    [SerializeField] private string _waypointsVariableName = "Patrol Waypoints";
-
-    [Tooltip("모듈 바닥에서 이만큼 띄운 곳을 배회 지점으로 삼는다. 바닥에 딱 붙이면 NavMesh 샘플링이 실패할 수 있다.")]
-    [SerializeField, Min(0f)] private float _waypointHeightOffset = 0.5f;
-
-    [Tooltip("모듈 중심에서 이 거리 안의 NavMesh를 찾는다. 넓은 방은 중심이 통로 밖일 수 있어 넉넉히 둔다.")]
-    [SerializeField, Min(0.1f)] private float _waypointSampleRadius = 6f;
-
     [Header("순간이동")]
+    [Tooltip("모듈 바닥에서 이만큼 띄운 곳을 도착 후보로 삼는다. 바닥에 딱 붙이면 NavMesh 샘플링이 실패할 수 있다.")]
+    [SerializeField, Min(0f)] private float _moduleFloorOffset = 0.5f;
+
     [Tooltip("이 거리 안에 사람이 있는 모듈로는 옮기지 않는다. 눈앞에 나타나면 대응할 여지가 없다.")]
     [SerializeField, Min(0f)] private float _teleportMinPlayerDistance = 25f;
 
@@ -44,8 +36,10 @@ public class BossController : NetworkBehaviour
     [SerializeField] private string _walkParameter = "IsWalking";
     [SerializeField] private string _runParameter = "IsRunning";
 
-    [Tooltip("이 속도 이상이면 달리는 것으로 본다. 추격 속도(4.5)와 배회 속도(2.2) 사이 값이어야 한다.")]
-    [SerializeField, Min(0f)] private float _runSpeedThreshold = 3.2f;
+    [Tooltip("이 속도 이상이면 달리는 것으로 본다. 어느 속도와도 같은 값을 쓰면 안 된다 - "
+        + "실제 속도가 그 값 근처에서 흔들려 걷기/달리기 모션이 매 프레임 뒤바뀐다. "
+        + "3.7 은 기척 추격(3.2)과 추격(4.2) 사이라, 눈으로 보고 쫓을 때만 달린다.")]
+    [SerializeField, Min(0f)] private float _runSpeedThreshold = 3.7f;
 
     [SerializeField, Min(0f)] private float _walkSpeedThreshold = 0.2f;
 
@@ -71,9 +65,7 @@ public class BossController : NetworkBehaviour
     private float _stuckSeconds;
     private BossDormancy _dormancy;
     private BossAttack _attack;
-
-    private Transform _waypointRoot;
-    private readonly List<GameObject> _waypoints = new();
+    private BossTargetMemory _memory;
 
     // 이 시간 넘게 제자리에 있으면 굳은 것으로 본다.
     // 그래프의 Wait 노드 중 가장 긴 것(0.5초)과 공격 쿨다운(2초)보다 길게 둬야 정상 대기를 끊지 않는다.
@@ -97,6 +89,7 @@ public class BossController : NetworkBehaviour
         _visual = GetComponent<BossVisual>();
         _dormancy = GetComponent<BossDormancy>();
         _attack = GetComponent<BossAttack>();
+        _memory = GetComponent<BossTargetMemory>();
         _lastAnimationPosition = transform.position;
         _stuckAnchor = transform.position;
     }
@@ -117,35 +110,13 @@ public class BossController : NetworkBehaviour
             return;
         }
 
+        // 순간이동 목적지를 고를 때 모듈 목록이 필요하다.
         _mapGenerator = FindFirstObjectByType<UndergroundRandomMapGenerator>();
-        if (_mapGenerator != null)
-        {
-            _mapGenerator.OnGenerated += RebuildWaypoints;
-        }
-
-        RebuildWaypoints();
     }
 
     public override void OnNetworkDespawn()
     {
-        if (_mapGenerator != null)
-        {
-            _mapGenerator.OnGenerated -= RebuildWaypoints;
-            _mapGenerator = null;
-        }
-
-        if (IsServer)
-        {
-            ClearWaypoints();
-
-            // 루트는 보스의 자식이 아니라 씬 루트에 만든 별도 오브젝트다. 여기서 지우지 않으면
-            // 보스가 라운드마다 새로 스폰되면서 빈 BossPatrolPoints 가 계속 쌓인다.
-            if (_waypointRoot != null)
-            {
-                Destroy(_waypointRoot.gameObject);
-                _waypointRoot = null;
-            }
-        }
+        _mapGenerator = null;
     }
 
     private void Update()
@@ -191,9 +162,12 @@ public class BossController : NetworkBehaviour
     // 그 노드에 갇힌 채로 서 있게 된다. 패키지 노드를 고칠 수 없으니 밖에서 끊는다.
     private void UpdateStuckWatchdog()
     {
-        // 멈춰 있는 것이 의도된 상황은 제외한다. 잠복 중이거나 공격 모션 중이다.
+        // 멈춰 있는 것이 의도된 상황은 제외한다. 잠복, 공격 모션, 공격 사이의 대기,
+        // 수색을 포기한 뒤의 휴식이 그렇다. 휴식은 이 감시 시간보다 길게 잡혀 있어서
+        // 빼놓지 않으면 쉬는 동안 행동 트리가 계속 다시 시작된다.
         bool shouldBeMoving = (_dormancy == null || !_dormancy.IsDormant)
-            && (_attack == null || !_attack.IsAttacking);
+            && (_attack == null || (!_attack.IsAttacking && !_attack.IsOnCooldown))
+            && (_memory == null || !_memory.IsResting);
 
         Vector3 position = transform.position;
         if (!shouldBeMoving ||
@@ -289,7 +263,7 @@ public class BossController : NetworkBehaviour
             }
 
             Vector3 candidate = module.Bounds.bounds.center;
-            candidate.y = module.Bounds.bounds.min.y + _waypointHeightOffset;
+            candidate.y = module.Bounds.bounds.min.y + _moduleFloorOffset;
 
             // 가장 가까운 사람과의 거리로 평가한다. 한 명에게서 멀어도 다른 사람 옆이면 의미가 없다.
             float nearest = NearestDistance(candidate, playerPositions);
@@ -417,73 +391,9 @@ public class BossController : NetworkBehaviour
         // 사라져 있던 시간은 굳은 것이 아니다. 감시 타이머를 새 자리 기준으로 되돌린다.
         _stuckAnchor = transform.position;
         _stuckSeconds = 0f;
+
     }
 
     #endregion
 
-    #region 배회 지점
-
-    // 배회 지점은 모듈 하나당 하나. 방마다 들르게 해야 보스가 한쪽 구석만 맴돌지 않는다.
-    private void RebuildWaypoints()
-    {
-        ClearWaypoints();
-
-        if (_mapGenerator == null)
-        {
-            return;
-        }
-
-        if (_waypointRoot == null)
-        {
-            _waypointRoot = new GameObject("BossPatrolPoints").transform;
-        }
-
-        foreach (UndergroundModule module in _mapGenerator.PlacedModules)
-        {
-            if (module == null || module.Bounds == null)
-            {
-                continue;
-            }
-
-            Vector3 center = module.Bounds.bounds.center;
-            center.y = module.Bounds.bounds.min.y + _waypointHeightOffset;
-
-            // 모듈 중심이 벽 안이나 통로 밖일 수 있다. NavMesh 위로 당겨두지 않으면
-            // Patrol 노드가 그 지점을 못 찾아 실패하고, 보스가 가만히 서 있게 된다.
-            if (!NavMesh.SamplePosition(center, out NavMeshHit navHit, _waypointSampleRadius, NavMesh.AllAreas))
-            {
-                continue;
-            }
-
-            center = navHit.position;
-
-            var point = new GameObject($"PatrolPoint_{_waypoints.Count}");
-            point.transform.SetParent(_waypointRoot, worldPositionStays: true);
-            point.transform.position = center;
-            _waypoints.Add(point);
-        }
-
-        // 목록을 그때그때 새로 만들어 넘긴다. Blackboard가 들고 있는 List를 직접 고치면
-        // 그래프가 이미 순회 중인 인덱스와 어긋난다.
-        if (!_brain.SetVariableValue(_waypointsVariableName, new List<GameObject>(_waypoints)))
-        {
-            Debug.LogWarning(
-                $"[보스 배회] 그래프에 '{_waypointsVariableName}' 변수가 없어 배회 지점을 넘기지 못했습니다.", this);
-        }
-    }
-
-    private void ClearWaypoints()
-    {
-        foreach (GameObject point in _waypoints)
-        {
-            if (point != null)
-            {
-                Destroy(point);
-            }
-        }
-
-        _waypoints.Clear();
-    }
-
-    #endregion
 }
