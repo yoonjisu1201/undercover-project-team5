@@ -42,8 +42,18 @@ public class BossController : NetworkBehaviour
 
     [Tooltip("이 속도 이상이면 달리는 것으로 본다. 어느 속도와도 같은 값을 쓰면 안 된다 - "
         + "실제 속도가 그 값 근처에서 흔들려 걷기/달리기 모션이 매 프레임 뒤바뀐다. "
-        + "3.7 은 기척 추격(3.2)과 추격(4.2) 사이라, 눈으로 보고 쫓을 때만 달린다.")]
-    [SerializeField, Min(0f)] private float _runSpeedThreshold = 3.7f;
+        + "4.0 은 기척 추격(3.5)과 추격(4.6) 사이라, 눈으로 보고 쫓을 때만 달린다.")]
+    [SerializeField, Min(0f)] private float _runSpeedThreshold = 4f;
+
+    [Tooltip("걸어 다닐 때 좌우로 살피는 각도(±도). 0이면 두리번거리지 않는다.")]
+    [SerializeField, Min(0f)] private float _lookAroundAngle = 35f;
+
+    [Tooltip("한 번 살피고 다음까지의 평균 간격(초). 실제로는 여기에 ±30%를 섞는다. "
+        + "가끔 하는 동작이라 짧게 잡으면 안 된다 - 계속 두리번거리면 산만해 보인다.")]
+    [SerializeField, Min(0.1f)] private float _lookAroundInterval = 20f;
+
+    [Tooltip("한 번 살피는 데 걸리는 시간(초). 왼쪽 - 오른쪽 - 정면으로 한 바퀴다.")]
+    [SerializeField, Min(0.1f)] private float _lookAroundDuration = 2.5f;
 
     [SerializeField, Min(0f)] private float _walkSpeedThreshold = 0.2f;
 
@@ -212,6 +222,67 @@ public class BossController : NetworkBehaviour
         }
     }
 
+    // 걸어 다니는 동안 가끔 좌우를 살핀다. 가는 방향을 기준으로 얹는 각도라 경로는 그대로다.
+    //
+    // 에이전트가 회전을 잡은 뒤에 얹어야 해서 LateUpdate 다. 얹은 각도는 다음 프레임에 먼저
+    // 걷어낸다. 그냥 두면 에이전트가 틀어진 각도에서 다시 돌기 시작해 편향이 쌓인다.
+    private void LateUpdate()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        transform.rotation *= Quaternion.Inverse(_lookOffset);
+        _lookOffset = Quaternion.identity;
+
+        if (!ShouldLookAround())
+        {
+            _lookStartTime = float.NegativeInfinity;
+            return;
+        }
+
+        float now = Time.time;
+        float elapsed = now - _lookStartTime;
+
+        if (elapsed > _lookAroundDuration)
+        {
+            if (now < _lookNextTime)
+            {
+                return;
+            }
+
+            _lookStartTime = now;
+            _lookNextTime = now + _lookAroundInterval * UnityEngine.Random.Range(0.7f, 1.3f);
+            elapsed = 0f;
+        }
+
+        // 사인 한 바퀴면 왼쪽 - 정면 - 오른쪽 - 정면 순서가 그대로 나온다.
+        float yaw = Mathf.Sin(elapsed / _lookAroundDuration * Mathf.PI * 2f) * _lookAroundAngle;
+
+        _lookOffset = Quaternion.Euler(0f, yaw, 0f);
+        transform.rotation *= _lookOffset;
+    }
+
+    // 걸어 다닐 때만 살핀다. 눈으로 보고 쫓는 중(달리기 속도)에는 시야가 같이 흔들려서
+    // 쫓던 사람을 놓친다. 공격 중이나 잠복 중에도 하지 않는다.
+    private bool ShouldLookAround()
+    {
+        if (_isHidden || _lookAroundAngle <= 0f || _agent == null || !_agent.isOnNavMesh)
+        {
+            return false;
+        }
+
+        if ((_dormancy != null && _dormancy.IsDormant) ||
+            (_attack != null && (_attack.IsAttacking || _attack.IsOnCooldown)))
+        {
+            return false;
+        }
+
+        float speed = _agent.velocity.magnitude;
+        return speed > _walkSpeedThreshold && speed < _runSpeedThreshold;
+    }
+
     // 보스가 이유 없이 굳어 있으면 그래프를 다시 시작한다.
     //
     // 경로 상태로 판정하면 안 된다. 굳는 원인이 여러 가지인데(경로가 무효해진 이동 노드,
@@ -223,6 +294,10 @@ public class BossController : NetworkBehaviour
     // 끝난 뒤에만 조건을 다시 보고, Selector 직속 자식이 아니라서 Observer Abort 도 걸 수 없다.
     // 그래서 한 번 매달리면 스스로 나올 길이 없다 — 사람이 바로 뒤에 있어도, 소리가 나도
     // 그 노드에 갇힌 채로 서 있게 된다. 패키지 노드를 고칠 수 없으니 밖에서 끊는다.
+    private Quaternion _lookOffset = Quaternion.identity;
+    private float _lookStartTime = float.NegativeInfinity;
+    private float _lookNextTime;
+
     private void UpdateStuckWatchdog()
     {
         // 멈춰 있는 것이 의도된 상황은 제외한다. 잠복, 공격 모션, 공격 사이의 대기,
@@ -450,6 +525,13 @@ public class BossController : NetworkBehaviour
         // 표적은 그대로이므로 목적지를 다시 잡지 않고, 결과적으로 새 자리에서 멈춰 선다.
         // 그래프를 다시 시작해서 이동 노드가 목적지를 새로 계산하게 만든다.
         _restartGraphPending = true;
+
+        // 옮겨오기 전의 목적지를 버린다. 그대로 두면 새 자리에 나타나자마자 지도 반대편의
+        // 흔적으로 되돌아 걸어가서, 도망치려고 옮긴 것이 아무 의미가 없어진다.
+        if (_memory != null)
+        {
+            _memory.ForgetDestination();
+        }
 
         // 사라져 있던 시간은 굳은 것이 아니다. 감시 타이머를 새 자리 기준으로 되돌린다.
         _stuckAnchor = transform.position;

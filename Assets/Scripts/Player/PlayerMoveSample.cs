@@ -374,6 +374,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 
 		UpdateJumpAnimation();
+		ApplyViewRotation();
 
 		// #392: Getting Up -> Idle 전환과 블렌딩이 모두 끝난 뒤에만 이동 잠금을 해제한다.
 		if (_isGettingUp &&
@@ -426,6 +427,11 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_knockback.Push(sourcePosition);
 		}
+	// 몸체 yaw와 그 yaw를 기준으로 한 이동을 같은 물리 틱에서 처리한다.
+	// 렌더 프레임의 즉각적인 카메라 yaw는 PlayerCameraController가 별도로 보정한다.
+	private void ApplyViewRotation()
+	{
+		_rigidbody.MoveRotation(_playerCameraController.ViewYawRotation);
 	}
 
 	// 입력 방향(바라보는 방향 기준)으로 Rigidbody를 물리적으로 이동시킨다
@@ -450,8 +456,9 @@ public class PlayerMoveSample : NetworkBehaviour
 		UpdateFrictionMaterial(isMoving);
 
 		// forward/right에서 y를 제거해 수평 이동만 남긴다
-		Vector3 forward = transform.forward;
-		Vector3 right = transform.right;
+		Quaternion viewYawRotation = _playerCameraController.ViewYawRotation;
+		Vector3 forward = viewYawRotation * Vector3.forward;
+		Vector3 right = viewYawRotation * Vector3.right;
 		forward.y = 0;
 		right.y = 0;
 		forward.Normalize();

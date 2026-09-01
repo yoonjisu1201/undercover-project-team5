@@ -49,6 +49,8 @@ public class PlayerCameraController : NetworkBehaviour
     private PlayerRenderer _playerRenderer;
     private float _yaw;
     private float _pitch;
+    private Vector3 _cameraPivotBaseLocalPosition;
+    private Quaternion _cameraPivotBaseLocalRotation;
     private Vector3 _cameraBaseLocalPosition;
     private Quaternion _headBoneBaseRotation;
     private Vector3 _cameraTransitionStartPosition;
@@ -67,6 +69,9 @@ public class PlayerCameraController : NetworkBehaviour
     // 팔 IK와 레이저가 카메라 상하 조준을 따라가도록 소유자는 로컬 값, 다른 클라이언트는 동기화 값을 제공한다.
     public float ViewPitch => IsOwner ? _pitch : _networkPitch.Value;
 
+    // 이동 컴포넌트가 물리 틱에서 몸체 회전과 이동 방향을 같은 yaw로 계산할 때 사용한다.
+    public Quaternion ViewYawRotation => Quaternion.Euler(0f, _yaw, 0f);
+
     public bool IsCameraTransitioning => _isCameraTransitioning;
 
     private void Awake()
@@ -76,6 +81,12 @@ public class PlayerCameraController : NetworkBehaviour
         _actions.Enable();
         _exhaustedBreathEffect ??= GetComponent<ExhaustedBreathCameraEffect>();
         _playerRenderer = GetComponentInParent<PlayerRenderer>();
+
+        if (_cameraPivot != null)
+        {
+            _cameraPivotBaseLocalPosition = _cameraPivot.localPosition;
+            _cameraPivotBaseLocalRotation = _cameraPivot.localRotation;
+        }
 
         if (_headBone != null)
         {
@@ -157,8 +168,6 @@ public class PlayerCameraController : NetworkBehaviour
         _pitch -= mouseDelta.y * _rotateSpeed;
         _pitch = Mathf.Clamp(_pitch, _minPitch, _maxPitch);
 
-        transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
-
         // 호흡 컴포넌트는 계산만 담당한다. 최종 Transform 적용을 이곳에 모아
         // 마우스 시점 회전 및 다른 카메라 전환과 값이 서로 덮어쓰이지 않게 한다.
         float breathBob = 0f;
@@ -175,6 +184,11 @@ public class PlayerCameraController : NetworkBehaviour
 
     private void LateUpdate()
     {
+        if (IsOwner)
+        {
+            ApplyLocalViewPoseCorrection();
+        }
+
         if (IsOwner && _isCameraTransitioning)
         {
             UpdateCameraTransition();
@@ -213,6 +227,26 @@ public class PlayerCameraController : NetworkBehaviour
         {
             _lightFollowPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
+    }
+
+    // Rigidbody 루트는 물리 틱에서 회전하므로 최신 마우스 yaw보다 늦다.
+    // 카메라 피벗의 방향과 루트에서 떨어진 위치를 모두 최신 yaw 기준으로 보정해
+    // 렌더 프레임에서 카메라 위치와 시선이 서로 다른 시점의 회전을 사용하지 않게 한다.
+    private void ApplyLocalViewPoseCorrection()
+    {
+        if (_cameraPivot == null)
+        {
+            return;
+        }
+
+        Quaternion viewYawRotation = ViewYawRotation;
+        Quaternion inverseRootRotation = Quaternion.Inverse(transform.rotation);
+
+        _cameraPivot.localPosition = inverseRootRotation
+            * (viewYawRotation * _cameraPivotBaseLocalPosition);
+        _cameraPivot.localRotation = inverseRootRotation
+            * viewYawRotation
+            * _cameraPivotBaseLocalRotation;
     }
 
     private void ResetExhaustedBreath()
@@ -281,7 +315,7 @@ public class PlayerCameraController : NetworkBehaviour
         float smoothedProgress = Mathf.SmoothStep(0f, 1f, transitionProgress);
 
         _camera.transform.SetPositionAndRotation(
-            Vector3.Lerp(_cameraTransitionStartPosition, targetPosition, smoothedProgress),
+            Vector3.Lerp(_cameraTransitionStartPosition, targetPosition, transitionProgress),
             Quaternion.Slerp(_cameraTransitionStartRotation, targetRotation, smoothedProgress));
 
         _isCameraTransitioning = transitionProgress < 1f;
