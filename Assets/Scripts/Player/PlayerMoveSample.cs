@@ -1,7 +1,6 @@
 using System;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.AI;
 
 
 /* InputActions를 활용하여 Input을 처리하는 방법 샘플입니다.
@@ -27,21 +26,8 @@ public class PlayerMoveSample : NetworkBehaviour
 	[Header("피격 넉백")]
 	[SerializeField] private PlayerKnockback _knockback = new PlayerKnockback();
 
-	// 맵 밖으로 떨어졌는지 확인하는 간격(초).
-	private const float FallCheckInterval = 0.5f;
-
-	// 되돌리는 조건. 이 시간 동안 계속 떨어지고, 안전 지점보다 이만큼 아래여야 한다.
-	private const float FallRecoverSeconds = 1.5f;
-	private const float FallRecoverDepth = 5f;
-
-	// 안전 지점을 찾을 때 NavMesh 위로 끌어당기는 거리(m).
-	private const float SafeSampleRadius = 1.5f;
-
-	// 마지막으로 멀쩡히 서 있던 자리. 맵 밖으로 떨어졌을 때 여기로 되돌린다.
-	private Vector3 _lastSafePosition;
-	private bool _hasSafePosition;
-	private float _lastFallCheckTime;
-	private float _fallingSeconds;
+	// 맵 밖으로 떨어졌을 때의 안전망. 조정할 값이 없어서 인스펙터에 내놓지 않는다.
+	private readonly PlayerFallRecovery _fallRecovery = new PlayerFallRecovery();
 
 	[Header("경사 미끄러짐 방지")]
 	[SerializeField] private PhysicsMaterial _gripMaterial; // 멈춰 있을 때 경사에 고정 (높은 마찰)
@@ -136,6 +122,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 
 		_knockback.Initialize(transform, _rigidbody, _bodyCollider);
+		_fallRecovery.Initialize(transform, _rigidbody);
 
 	}
 
@@ -339,7 +326,10 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 
 		// 조작이 막혀 있어도 떨어지는 것은 막아야 하므로 UI 가드보다 앞에 둔다.
-		UpdateFallRecovery();
+		if (_fallRecovery.NeedsRecovery(IsGrounded(), out Vector3 safePosition))
+		{
+			ApplyTeleport(safePosition, transform.rotation);
+		}
 
 		if (GameplayUiMode.IsActive)
 		{
@@ -570,54 +560,6 @@ public class PlayerMoveSample : NetworkBehaviour
 	}
 
 	// 긴급 탈출 컴포넌트도 이동 코드와 같은 지면 판정을 재사용한다.
-	// 맵 밖으로 떨어졌으면 마지막으로 멀쩡히 서 있던 자리로 되돌린다.
-	//
-	// 밀려나서 벽을 통과하면 스스로 돌아올 방법이 없다. 조작으로 올라올 수 없고,
-	// NetworkTransform 이 소유자 권한이라 서버가 교정해 주지도 않는다. 낙사하거나
-	// 라운드가 끝날 때까지 갇힌다.
-	//
-	// 통과 자체를 막는 것은 물리 쪽에서 하고, 여기는 그래도 뚫렸을 때의 안전망이다.
-	// 안전망이 정상 이동을 되돌리는 일이 있어서는 안 되므로, 조건은 셋을 모두 만족할 때만이다.
-	// 공중에 떠 있고, 계속 아래로 떨어지는 중이고, 기억해 둔 자리보다 한참 아래여야 한다.
-	private void UpdateFallRecovery()
-	{
-		float elapsed = Time.time - _lastFallCheckTime;
-		if (elapsed < FallCheckInterval)
-		{
-			return;
-		}
-
-		_lastFallCheckTime = Time.time;
-
-		Vector3 position = transform.position;
-
-		// 바닥을 딛고 NavMesh 위에 있으면 그 자리를 기억해 둔다.
-		if (IsGrounded() &&
-			NavMesh.SamplePosition(position, out NavMeshHit hit, SafeSampleRadius, NavMesh.AllAreas))
-		{
-			_lastSafePosition = hit.position;
-			_hasSafePosition = true;
-			_fallingSeconds = 0f;
-			return;
-		}
-
-		// 아래로 떨어지는 중일 때만 센다. 점프해서 올라가는 중이거나 떠 있기만 하면 아니다.
-		if (_rigidbody.linearVelocity.y >= 0f)
-		{
-			_fallingSeconds = 0f;
-			return;
-		}
-
-		_fallingSeconds += elapsed;
-
-		if (_hasSafePosition &&
-			_fallingSeconds >= FallRecoverSeconds &&
-			position.y < _lastSafePosition.y - FallRecoverDepth)
-		{
-			ApplyTeleport(_lastSafePosition, transform.rotation);
-		}
-	}
-
 	public bool IsGrounded()
 	{
 		return _groundCheck != null && Physics.CheckSphere(
@@ -648,10 +590,7 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void ApplyTeleport(Vector3 position, Quaternion rotation)
 	{
-		// 옮겨간 곳은 다른 구역이라 이전 안전 지점이 의미가 없다. 그대로 두면 지하에서
-		// 기억한 자리가 지상까지 따라와서, 정상적으로 나간 사람을 도로 지하로 끌어내린다.
-		_hasSafePosition = false;
-		_fallingSeconds = 0f;
+		_fallRecovery.Forget();
 
 		_playerCameraController.SetYaw(rotation.eulerAngles.y);
 
