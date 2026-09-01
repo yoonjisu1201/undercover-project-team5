@@ -20,6 +20,13 @@ public class GuideBook : MonoBehaviour, IClosableUi
 
     [Header("=== 가이드북 열리면 사라져야 할 UI들 ===")]
     [SerializeField] private List<GameObject> _uisToHide;
+
+    [Header("=== 여닫는 연출에서 제외할 딤 ===")]
+    [Tooltip("화면 전체를 덮는 판. 책과 함께 커지면 화면 밖으로 밀려 가장자리가 밝아진다.")]
+    [SerializeField] private RectTransform _fullScreenDimmer;
+
+    // 여닫는 연출을 맡는 쪽이 이 대상만 빼고 키웠다 줄인다.
+    public RectTransform FullScreenDimmer => _fullScreenDimmer;
     
     [Header("페이지 (논리 순서대로: Page_01 ~ Page_05)")]
     [SerializeField] private List<GuideBookPage> _pages = new List<GuideBookPage>();
@@ -50,6 +57,11 @@ public class GuideBook : MonoBehaviour, IClosableUi
     private readonly List<GuideBookNavigationTab> _navigationTabs = new List<GuideBookNavigationTab>();
     
     public event Action OnClose;
+
+    // 손잡이(MissionGuideBookTab)가 여닫기 연출까지 맡는 가이드북은 여기서 H 를 읽지 않는다.
+    // 두 곳이 같은 키를 읽으면 닫는 연출이 시작되기도 전에 창이 꺼진다.
+    // 손잡이가 없는 미션 설명서는 이 값이 false 라 기존대로 H 로 닫힌다.
+    public bool HotkeyHandledExternally { get; set; }
 
     private void Awake()
     {
@@ -165,7 +177,9 @@ public class GuideBook : MonoBehaviour, IClosableUi
 
         // 이제 가이드북 아이템 아니다! 그래서 E로 닫는 것은 막고, H(여는 키)로만 닫히게 함
         // 여는 쪽과 같은 이유로, 글자를 치는 중이면 H 를 단축키로 읽지 않는다.
-        if (!GameplayUiMode.IsTypingText && _actions.UI.OpenGuideBook.WasPressedThisFrame()) {
+        if (!HotkeyHandledExternally
+            && !GameplayUiMode.IsTypingText
+            && _actions.UI.OpenGuideBook.WasPressedThisFrame()) {
             Close();
         }
     }
