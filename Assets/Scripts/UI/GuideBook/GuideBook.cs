@@ -95,19 +95,27 @@ public class GuideBook : MonoBehaviour, IClosableUi
 
     private void ApplyLocalizedTexts()
     {
-        string header = _headerText.GetLocalizedString();
-        string subtitle = _subtitleText.GetLocalizedString();
-
-        foreach (GuideBookPage page in _pages)
+        // 공통 헤더·부제를 지정한 가이드북(공용 가이드북)만 페이지에 문구를 밀어 넣는다.
+        // 미션 설명서는 페이지마다 LocalizeStringEvent로 직접 채우느라 이 값이 비어 있는데,
+        // 빈 참조를 그대로 조회하면 예외가 나면서 OnEnable에 남은 커서·입력 초기화까지 끊긴다.
+        if (!_headerText.IsEmpty || !_subtitleText.IsEmpty)
         {
-            if (page == null) continue;
-            page.ApplyTexts(header, subtitle);
+            string header = _headerText.IsEmpty ? string.Empty : _headerText.GetLocalizedString();
+            string subtitle = _subtitleText.IsEmpty ? string.Empty : _subtitleText.GetLocalizedString();
+
+            foreach (GuideBookPage page in _pages)
+            {
+                if (page == null) continue;
+                page.ApplyTexts(header, subtitle);
+            }
         }
 
         for (int i = 0; i < _navigationTabs.Count; i++)
         {
             _navigationTabs[i].SetTitle(
-                i < _navigationTitles.Count ? _navigationTitles[i].GetLocalizedString() : string.Empty);
+                i < _navigationTitles.Count && !_navigationTitles[i].IsEmpty
+                    ? _navigationTitles[i].GetLocalizedString()
+                    : string.Empty);
         }
     }
 
