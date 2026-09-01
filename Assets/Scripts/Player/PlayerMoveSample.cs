@@ -23,6 +23,12 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField] private float _riseMultiplier = 2f;   // 올라갈 때 중력 배수 (클수록 정점에 빨리 도달 = 상승이 빨라짐)
 	[SerializeField] private Rigidbody _rigidbody;
 
+	[Header("피격 넉백")]
+	[SerializeField] private PlayerKnockback _knockback = new PlayerKnockback();
+
+	// 맵 밖으로 떨어졌을 때의 안전망. 조정할 값이 없어서 인스펙터에 내놓지 않는다.
+	private readonly PlayerFallRecovery _fallRecovery = new PlayerFallRecovery();
+
 	[Header("경사 미끄러짐 방지")]
 	[SerializeField] private PhysicsMaterial _gripMaterial; // 멈춰 있을 때 경사에 고정 (높은 마찰)
 	private CapsuleCollider _bodyCollider;
@@ -43,8 +49,17 @@ public class PlayerMoveSample : NetworkBehaviour
 	private readonly FootstepLoop _footsteps = new(SoundKey.Player_FootstepWalk, SoundKey.Player_FootstepRun);
 	[SerializeField] private LayerMask _jumpableSurfaceMask;
 
-	// 점프 입력 예약 (Update에서 감지 → FixedUpdate에서 힘 적용)
-	private bool _jumpRequested = false;
+	private const float MoveInputDeadZone = 0.01f;
+
+	// Update에서 입력을 수집하고 FixedUpdate에서 같은 스냅샷을 소비한다.
+	private Vector2 _moveInput;
+	private bool _runHeld;
+	private bool _jumpRequested;
+	private bool _recoveryRequested;
+	private Vector3 _recoveryPosition;
+
+	// 접지 판정은 물리 쿼리라 Update 에서 프레임당 한 번만 갱신하고 모두가 이 값을 읽는다.
+	private bool _isGrounded;
 
 	// 만들어 둔 InputActions 파일
 	private CustomInputActions _actions;
@@ -58,16 +73,12 @@ public class PlayerMoveSample : NetworkBehaviour
 	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
 	// #392: PlayerHealth의 동기화된 다운 상태를 Animator의 Downed/Getting Up 전이에 연결한다.
 	private static readonly int IsDownedHash = Animator.StringToHash("IsDowned");
-	private readonly NetworkVariable<bool> _networkIsMoving = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+	private readonly NetworkVariable<bool> _networkIsMoving = new NetworkVariable<bool>(
+		false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 	private readonly NetworkVariable<bool> _networkIsRunning = new NetworkVariable<bool>(
-			false,
-			NetworkVariableReadPermission.Everyone,
-			NetworkVariableWritePermission.Owner);
-	private readonly NetworkVariable<bool> _networkIsJumping =
-		new NetworkVariable<bool>(
-			false,
-			NetworkVariableReadPermission.Everyone,
-			NetworkVariableWritePermission.Owner);
+		false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+	private readonly NetworkVariable<bool> _networkIsJumping = new NetworkVariable<bool>(
+		false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
 	private bool _isJumping;
 
@@ -114,17 +125,44 @@ public class PlayerMoveSample : NetworkBehaviour
 		{
 			_slideMaterial = _bodyCollider.sharedMaterial; // 인스펙터에 붙어 있는 마찰0 머티리얼
 		}
+
+		ValidateRequiredReferences();
+
+		_knockback.Initialize(transform, _rigidbody, _bodyCollider);
+		_fallRecovery.Initialize(transform, _rigidbody);
+	}
+
+	// 없으면 동작할 수 없는 참조는 여기서 한 번만 검사한다.
+	// 이후 코드가 널 검사 없이 바로 쓰는 근거이자, 프리팹 연결이 빠졌을 때의 유일한 신호다.
+	private void ValidateRequiredReferences()
+	{
+		LogIfMissing(_rigidbody, nameof(_rigidbody));
+		LogIfMissing(_playerCameraController, nameof(_playerCameraController));
+		LogIfMissing(_animator, nameof(_animator));
+		LogIfMissing(_playerHealth, nameof(_playerHealth));
+		LogIfMissing(_playerStamina, nameof(_playerStamina));
+		LogIfMissing(_playerInteraction, nameof(_playerInteraction));
+		LogIfMissing(_groundCheck, nameof(_groundCheck));
+	}
+
+	private void LogIfMissing(UnityEngine.Object reference, string fieldName)
+	{
+		if (reference == null)
+		{
+			Debug.LogError($"[PlayerMoveSample] {fieldName} 참조가 없습니다. Player 프리팹 연결을 확인하세요.", this);
+		}
 	}
 
 	public override void OnDestroy()
 	{
-		_actions.Disable();
+		// Awake 가 돌기 전에 파괴되면 _actions 가 아직 없다.
+		_actions?.Disable();
 		base.OnDestroy();
 	}
 
 	private void ApplyAnimatorBool(int hash, bool value)
 	{
-		_animator?.SetBool(hash, value);
+		_animator.SetBool(hash, value);
 	}
 
 	private void SyncAnimatorBool(int hash, NetworkVariable<bool> networkState, bool value)
@@ -211,16 +249,13 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		ApplyAnimatorBool(IsDownedHash, value);
 
-		SetBossCollisionIgnored(value);
-
 		if (value)
 		{
 			SoundManager.Instance?.PlayAt(SoundKey.Player_Downed, transform.position);
 
-			_jumpRequested = false;
+			ClearInputSnapshot();
 
-			SetMovingState(false);
-			SetRunningState(false);
+			SetLocomotionState(false, false);
 			SetJumpingState(false);
 
 			if (IsOwner)
@@ -237,20 +272,18 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 	}
 
-	// 쓰러진 동안에는 보스가 몸을 통과하게 한다.
+	// 보스와는 물리로 부딪히지 않는다. 밀리는 것은 공격이 넉백으로 직접 준다.
 	//
-	// 보스는 Rigidbody 없이 콜라이더만 들고 transform 으로 움직인다. 그러면 겹침이 질량 없이
-	// 밀어내기로만 해소돼서, 지나갈 때마다 쓰러진 몸이 떠밀린다. 다운 중에는 입력이 막혀
-	// 스스로 되돌아올 수도 없고, NetworkTransform 이 소유자 권한이라 밀려난 위치를 본인이
-	// 그대로 확정해 전원에게 퍼뜨린다. 서버가 교정해 주지 않으므로 접촉 자체를 없앤다.
+	// 물리에 맡기면 어떻게 해도 벽을 뚫는다. 벽과 보스 사이에 끼면 솔버는 둘 중 하나를
+	// 포기해야 하는데, 벽을 포기하는 쪽이 싸서 사람이 벽 밖으로 나간다. 겹치는 문제는
+	// BossController 가 물러나는 것으로 푼다.
 	//
-	// 몸을 고정하는 방법도 있지만 그러면 보스가 시신에 막히거나 타고 올라간다.
-	// 레이어로 가르는 것도 안 된다. 보스와 플레이어가 같은 Default 레이어라, 그 조합을 끄면
-	// 시신이 벽과 바닥까지 통과한다.
+	// 레이어로 가를 수는 없다. 보스와 사람이 같은 Default 레이어라, 그 조합을 끄면
+	// 사람이 벽과 바닥까지 통과한다.
 	//
-	// 이 호출은 각 피어에서 자기 물리 씬에만 적용되므로 모든 클라이언트가 각자 호출해야 한다.
-	// 다운 상태는 NetworkVariable 이라 이 콜백이 전원에게서 돌아간다.
-	private void SetBossCollisionIgnored(bool ignored)
+	// 물리 설정은 피어마다 따로라 모든 클라이언트가 각자 불러야 한다. 보스가 나중에
+	// 등장하면 보스 쪽에서 같은 짝을 맺는다.
+	public void IgnoreBossCollision()
 	{
 		if (_bodyCollider == null)
 		{
@@ -263,12 +296,12 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		Physics.IgnoreCollision(bossCollider, _bodyCollider, ignored);
+		Physics.IgnoreCollision(bossCollider, _bodyCollider, true);
 	}
 
 	private void UpdateJumpAnimation()
 	{
-		if (_isJumping && _rigidbody.linearVelocity.y <= 0f && IsGrounded())
+		if (_isJumping && _rigidbody.linearVelocity.y <= 0f && _isGrounded)
 		{
 			// 낙하 속도는 여기서 잡아둔다. 접지하면 곧바로 0 이 되므로, 착지 이벤트를 낼 때
 			// 다시 읽으면 세기를 구할 수 없다.
@@ -294,6 +327,8 @@ public class PlayerMoveSample : NetworkBehaviour
 		HandleJumpingChanged(false, _networkIsJumping.Value);
 		// #392: 기존 상태 초기화와 형식을 맞추되, false를 이전 값으로 넘겨 최초 스폰을 소생으로 판정하지 않는다.
 		HandleDownedStateChanged(false, _playerHealth.IsDowned);
+
+		IgnoreBossCollision();
 	}
 
 	public override void OnNetworkDespawn()
@@ -309,7 +344,9 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void Update()
 	{
-		// 원격 플레이어 인스턴스에서도 돌아야 하므로 IsOwner 가드보다 앞에 둔다.
+		// 접지 판정은 물리 쿼리다. 발소리·점프 입력·착지 애니메이션·추락 감지가 모두 필요로 하므로
+		// 여기서 한 번만 구해 돌려 쓴다. 원격 플레이어도 발소리를 내야 해서 IsOwner 가드보다 앞이다.
+		_isGrounded = IsGrounded();
 		UpdateFootstep();
 
 		if (!IsOwner)
@@ -317,26 +354,27 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
-		if (GameplayUiMode.IsActive)
+		// 조작이 막혀 있어도 떨어지는 것은 막아야 하므로 UI 가드보다 앞에 둔다.
+		if (_fallRecovery.NeedsRecovery(_isGrounded, out Vector3 safePosition))
 		{
-			_jumpRequested = false;
-			SetMovingState(false);
-			SetRunningState(false);
+			_recoveryPosition = safePosition;
+			_recoveryRequested = true;
+		}
+
+		// 기상 판정은 스스로 IsControlBlocked 의 조건(_isGettingUp)이다.
+		// 막힘 검사 뒤에 두면 한 번 쓰러진 사람이 영영 일어나지 못한다.
+		UpdateGettingUpState();
+
+		if (IsControlBlocked())
+		{
+			ClearInputSnapshot();
 			return;
 		}
 
-		if (_playerHealth.IsDowned ||
-			_isGettingUp ||
-			_playerCameraController.IsCameraTransitioning)
-		{
-			return;
-		}
+		_moveInput = Vector2.ClampMagnitude(_actions.Player.Move.ReadValue<Vector2>(), 1f);
+		_runHeld = _actions.Player.Shift.IsPressed();
 
-		/// 버튼 입력 방식 적용하기
-		// Player - Interact라는 행동이 이번 프레임에 눌렸는지 확인한다.
-		// Keyboard.current.eKey.wasPressedThisFrame와 비슷하게 동작함
-		// 점프 입력은 Update에서 감지(입력 놓침 방지)하고, 실제 힘은 FixedUpdate에서 적용
-		if (_actions.Player.Jump.WasPressedThisFrame() && IsGrounded())
+		if (_actions.Player.Jump.WasPressedThisFrame() && _isGrounded)
 		{
 			_jumpRequested = true;
 		}
@@ -349,36 +387,89 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
+		if (_recoveryRequested)
+		{
+			_recoveryRequested = false;
+			ApplyTeleport(_recoveryPosition, transform.rotation);
+		}
+
+		// 낙하 속도를 Rigidbody 에서 직접 읽어야 해서 물리 틱에 남겨 둔다.
 		UpdateJumpAnimation();
 		ApplyViewRotation();
 
-		// #392: Getting Up -> Idle 전환과 블렌딩이 모두 끝난 뒤에만 이동 잠금을 해제한다.
-		if (_isGettingUp &&
-			!_animator.IsInTransition(0) &&
-			_animator.GetCurrentAnimatorStateInfo(0).IsName("Base Layer.Idle"))
+		// 넉백을 조작 차단보다 먼저 본다. 쓰러뜨리는 타격도 넉백을 함께 보내는데,
+		// 차단 분기가 먼저 수평 속도를 지워 버리면 맞고도 제자리에 서 있는 것처럼 보인다.
+		//
+		// 마찰은 미끄러지는 쪽으로 둔다. 서 있을 때 쓰는 접지 머티리얼은 마찰이 높아서,
+		// 밀어 준 속도를 바닥이 한두 프레임 만에 잡아먹는다.
+		if (_knockback.IsActive)
 		{
-			_isGettingUp = false;
-			GettingUpFinished?.Invoke();
-			_playerCameraController.TransitionToFirstPersonView();
-		}
-
-		// #392: 다운 중에는 PlayerHealth, 소생 후 기상 중에는 _isGettingUp으로 이동을 차단한다.
-		if (GameplayUiMode.IsMovementBlocked ||
-			_playerHealth.IsDowned ||
-			_isGettingUp ||
-			_playerCameraController.IsCameraTransitioning)
-		{
+			// 밀리는 동안 예약된 점프는 버린다. 넉백이 끝난 뒤 공중에서 튀어 오르지 않게 한다.
 			_jumpRequested = false;
-			SetMovingState(false);
-			SetRunningState(false);
-			UpdateFrictionMaterial(false);
+
+			SetLocomotionState(false, false);
+			UpdateFrictionMaterial(true, _isGrounded);
+			_knockback.Tick();
 			ApplyAirGravity();
 			return;
 		}
 
-		HandleMovement();
-		HandleJump();
+		if (IsControlBlocked())
+		{
+			StopControlledMovement();
+			ApplyAirGravity();
+			return;
+		}
+
+		ApplyControlledMovement();
+		TryJump();
 		ApplyAirGravity();
+	}
+
+	private bool IsControlBlocked()
+	{
+		return GameplayUiMode.IsMovementBlocked
+			|| _playerHealth.IsDowned
+			|| _isGettingUp
+			|| _playerCameraController.IsCameraTransitioning;
+	}
+
+	private void ClearInputSnapshot()
+	{
+		_moveInput = Vector2.zero;
+		_runHeld = false;
+		_jumpRequested = false;
+	}
+
+	private void UpdateGettingUpState()
+	{
+		if (!_isGettingUp
+			|| _animator.IsInTransition(0)
+			|| !_animator.GetCurrentAnimatorStateInfo(0).IsName("Base Layer.Idle"))
+		{
+			return;
+		}
+
+		_isGettingUp = false;
+		GettingUpFinished?.Invoke();
+		_playerCameraController.TransitionToFirstPersonView();
+	}
+
+	private void StopControlledMovement()
+	{
+		ClearInputSnapshot();
+		SetLocomotionState(false, false);
+		UpdateFrictionMaterial(false, _isGrounded);
+		SetHorizontalVelocity(Vector3.zero);
+	}
+
+	// 맞은 자리의 반대쪽으로 민다. PlayerHealth 가 오너에게만 보낸다.
+	public void ApplyKnockback(Vector3 sourcePosition)
+	{
+		if (IsOwner)
+		{
+			_knockback.Push(sourcePosition);
+		}
 	}
 
 	// 몸체 yaw와 그 yaw를 기준으로 한 이동을 같은 물리 틱에서 처리한다.
@@ -388,52 +479,52 @@ public class PlayerMoveSample : NetworkBehaviour
 		_rigidbody.MoveRotation(_playerCameraController.ViewYawRotation);
 	}
 
-	// 입력 방향(바라보는 방향 기준)으로 Rigidbody를 물리적으로 이동시킨다
-	private void HandleMovement()
+	private void ApplyControlledMovement()
 	{
-		Vector2 move = _actions.Player.Move.ReadValue<Vector2>();
-
-		bool isMoving = move.sqrMagnitude > 0.01f;
+		bool isMoving = _moveInput.sqrMagnitude > MoveInputDeadZone;
 		UpdateStaminaExhaustion();
+		bool isRunning = CanRun(isMoving);
 
-		bool isRunning =
-			isMoving
-			&& _actions.Player.Shift.IsPressed()
-			&& _playerInteraction.CarryingCart == null // 카트 끄는 중에는 달릴 수 없다.
+		SetLocomotionState(isMoving, isRunning);
+		UpdateFrictionMaterial(isMoving, _isGrounded);
+
+		Vector3 localDirection = new Vector3(_moveInput.x, 0f, _moveInput.y);
+		Vector3 worldDirection = _playerCameraController.ViewYawRotation * localDirection;
+		SetHorizontalVelocity(worldDirection * ResolveMoveSpeed(isRunning));
+	}
+
+	private bool CanRun(bool isMoving)
+	{
+		return isMoving
+			&& _runHeld
+			&& _playerInteraction.CarryingCart == null
 			&& !_isStaminaExhausted
-			&& !_playerStamina.IsRedZonePenalized // 빨간 구간 패널티 중에는 회복도 사용도 막힌다.
-			&& _playerStamina.CurrentStamina > _minimumRunStamina; // 스태미나가 없으면 달릴 수 없다.
+			&& !_playerStamina.IsRedZonePenalized
+			&& _playerStamina.CurrentStamina > _minimumRunStamina;
+	}
 
+	private float ResolveMoveSpeed(bool isRunning)
+	{
+		if (_playerInteraction.CarryingCart != null)
+		{
+			return _moveSpeedWithCart;
+		}
+
+		return isRunning ? _moveSpeed * _runSpeedMultiplier : _moveSpeed;
+	}
+
+	private void SetLocomotionState(bool isMoving, bool isRunning)
+	{
 		SetMovingState(isMoving);
 		SetRunningState(isRunning);
+	}
 
-		UpdateFrictionMaterial(isMoving);
-
-		// forward/right에서 y를 제거해 수평 이동만 남긴다
-		Quaternion viewYawRotation = _playerCameraController.ViewYawRotation;
-		Vector3 forward = viewYawRotation * Vector3.forward;
-		Vector3 right = viewYawRotation * Vector3.right;
-		forward.y = 0;
-		right.y = 0;
-		forward.Normalize();
-		right.Normalize();
-		
-		float speed =
-			// 카트 끄는 중이면, 카트 속도 적용
-			_playerInteraction.CarryingCart != null 
-				? _moveSpeedWithCart 
-				// 카트 끄는 중 아니라면, isRunning여부 체크해서 알맞은 속도 적용
-				: isRunning 
-					? _moveSpeed * _runSpeedMultiplier 
-					: _moveSpeed;
-
-		// MovePosition은 메서드 → 목표 위치를 계산해서 넘긴다 (fixedDeltaTime 사용)
-		Vector3 delta = (forward * move.y + right * move.x) * speed;
-
-		// 점프했을 때의 속도 없애면 안되므로, 이건 직접 적용
-		// 벽 뚫리지 않게 하기 위해 MovePosition -> linearVelocity로 수정
-		delta.y = _rigidbody.linearVelocity.y;
-		_rigidbody.linearVelocity = delta;
+	private void SetHorizontalVelocity(Vector3 horizontalVelocity)
+	{
+		Vector3 velocity = _rigidbody.linearVelocity;
+		velocity.x = horizontalVelocity.x;
+		velocity.z = horizontalVelocity.z;
+		_rigidbody.linearVelocity = velocity;
 	}
 
 	private void UpdateStaminaExhaustion()
@@ -453,14 +544,14 @@ public class PlayerMoveSample : NetworkBehaviour
 	}
 
 	// 이동 중이거나 공중이면 마찰0(벽을 미끄러져 지나감), 지면에 멈춰 있으면 높은 마찰(경사에서 안 미끄러짐)
-	private void UpdateFrictionMaterial(bool isMoving)
+	private void UpdateFrictionMaterial(bool isMoving, bool grounded)
 	{
 		if (_bodyCollider == null || _gripMaterial == null)
 		{
 			return;
 		}
 
-		PhysicsMaterial target = (isMoving || !IsGrounded()) ? _slideMaterial : _gripMaterial;
+		PhysicsMaterial target = (isMoving || !grounded) ? _slideMaterial : _gripMaterial;
 		if (_bodyCollider.sharedMaterial != target)
 		{
 			_bodyCollider.sharedMaterial = target;
@@ -469,21 +560,33 @@ public class PlayerMoveSample : NetworkBehaviour
 
 
 	// 점프 예약이 있으면 위 방향 속도를 부여한다 (누른 시간과 무관하게 항상 같은 점프)
-	private void HandleJump()
+	private void TryJump()
 	{
-		if (!_jumpRequested) return;
+		if (!_jumpRequested)
+		{
+			return;
+		}
 
+		// 접지 검사는 입력을 받은 Update 에서 이미 끝났다. 여기서 다시 보면
+		// 난간 끝에서 누른 점프가 판정만 먹고 사라진다.
+		_jumpRequested = false;
 		SetJumpingState(true);
 
-		Vector3 v = _rigidbody.linearVelocity;
-		v.y = _jumpPower;   // _jumpPower가 곧 상승 속도(m/s)
-		_rigidbody.linearVelocity = v;
-		_jumpRequested = false;
+		Vector3 velocity = _rigidbody.linearVelocity;
+		velocity.y = _jumpPower;
+		_rigidbody.linearVelocity = velocity;
 	}
 
 	// 공중에서 상승/낙하에 추가 중력을 줘서 스냅감을 만든다
 	private void ApplyAirGravity()
 	{
+		// 땅을 딛고 내려가는 중이면 추가 중력을 얹지 않는다.
+		// 얹으면 경사에서 몸이 계속 아래로 눌려 미끄러진다.
+		if (_isGrounded && _rigidbody.linearVelocity.y <= 0f)
+		{
+			return;
+		}
+
 		float multiplier = 0f;
 		if (_rigidbody.linearVelocity.y < 0)
 		{
@@ -513,7 +616,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		}
 
 		// 발이 땅에 없으면 이번 걸음은 넘긴다. 타이머는 위에서 이미 갱신했다.
-		if (!IsGrounded())
+		if (!_isGrounded)
 		{
 			return;
 		}
@@ -552,6 +655,8 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void ApplyTeleport(Vector3 position, Quaternion rotation)
 	{
+		_fallRecovery.Forget();
+
 		_playerCameraController.SetYaw(rotation.eulerAngles.y);
 
 		_rigidbody.linearVelocity = Vector3.zero;

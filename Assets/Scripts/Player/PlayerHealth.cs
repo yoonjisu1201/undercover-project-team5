@@ -184,6 +184,7 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
 
         PlayHitSoundRpc();
         PlayHitEffectRpc(sourcePosition);
+        ApplyKnockbackRpc(sourcePosition);
     }
 
     // 외계인(복제체) 공격 시스템이 호출할 진입점.
@@ -191,6 +192,16 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     public void TakeAlienAttackDamage(Vector3 sourcePosition)
     {
         TakeDamage(_alienAttackDamage, sourcePosition);
+    }
+
+    // 맞으면 뒤로 밀린다. NetworkTransform 이 소유자 권한이라 본인이 움직여야 반영된다.
+    [Rpc(SendTo.Owner)]
+    private void ApplyKnockbackRpc(Vector3 sourcePosition)
+    {
+        if (TryGetComponent(out PlayerMoveSample movement))
+        {
+            movement.ApplyKnockback(sourcePosition);
+        }
     }
 
     // 맞는 소리는 화면 연출과 달리 본인만의 것이 아니다. 옆에 있던 팀원도 누가 맞았는지 들어야 한다.

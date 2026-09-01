@@ -25,6 +25,10 @@ public class BossController : NetworkBehaviour
     [Tooltip("모듈 바닥에서 이만큼 띄운 곳을 도착 후보로 삼는다. 바닥에 딱 붙이면 NavMesh 샘플링이 실패할 수 있다.")]
     [SerializeField, Min(0f)] private float _moduleFloorOffset = 0.5f;
 
+    [Tooltip("사람에게 이 거리보다 가까워지면 보스가 물러난다(m). 사람을 미는 것이 아니라 "
+        + "보스가 물러나므로 벽을 뚫지 않는다. 공격 사거리(2.2)보다 좁아야 붙어서 때릴 수 있다.")]
+    [SerializeField, Min(0f)] private float _personalSpace = 1.1f;
+
     [Tooltip("이 거리 안에 사람이 있는 모듈로는 옮기지 않는다. 눈앞에 나타나면 대응할 여지가 없다.")]
     [SerializeField, Min(0f)] private float _teleportMinPlayerDistance = 25f;
 
@@ -106,6 +110,13 @@ public class BossController : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        // 사람과는 물리로 부딪히지 않는다. 이유는 PlayerMoveSample.IgnoreBossCollision 에 적었다.
+        // 사람이 먼저 들어와 있었으면 그쪽에서 이미 맺었고, 보스가 늦게 나오면 여기서 맺는다.
+        foreach (PlayerMoveSample player in FindObjectsByType<PlayerMoveSample>(FindObjectsSortMode.None))
+        {
+            player.IgnoreBossCollision();
+        }
+
         // 서버가 아닌 인스턴스는 NavMeshAgent가 스스로 트랜스폼을 갱신하지 않게 해서
         // NetworkTransform이 동기화한 값과 충돌하지 않게 한다.
         if (!IsServer)
@@ -157,6 +168,58 @@ public class BossController : NetworkBehaviour
         }
 
         UpdateStuckWatchdog();
+        KeepPersonalSpace();
+    }
+
+    // 사람 몸 안으로 파고들지 않게 보스가 물러난다.
+    //
+    // 사람과의 물리 충돌은 꺼 두었다(PlayerMoveSample.IgnoreBossCollision). 대신 아무것도
+    // 보스를 막지 않아서, 모퉁이에 몰린 사람과 그대로 겹치면 그쪽 화면에 모델 안쪽이 보인다.
+    //
+    // 겹침을 사람이 아니라 보스를 옮겨서 푼다. 사람을 밀면 벽 밖으로 나갈 수 있지만,
+    // 보스는 서버 권한이고 NavMesh 위에서만 움직여서 옮겨도 안전하다.
+    private void KeepPersonalSpace()
+    {
+        if (_personalSpace <= 0f)
+        {
+            return;
+        }
+
+        Vector3 position = transform.position;
+        Vector3 pushed = position;
+
+        foreach (PlayerHealth survivor in SurvivorRegistry.Active())
+        {
+            Vector3 delta = pushed - survivor.transform.position;
+            delta.y = 0f;
+
+            float distance = delta.magnitude;
+            if (distance >= _personalSpace || distance <= 0.0001f)
+            {
+                continue;
+            }
+
+            pushed += delta / distance * (_personalSpace - distance);
+        }
+
+        if (pushed == position)
+        {
+            return;
+        }
+
+        // NavMesh 밖으로 밀려나면 경로가 끊긴다. 바닥 위로 끌어당긴 뒤에 옮긴다.
+        if (!NavMesh.SamplePosition(pushed, out NavMeshHit hit, _personalSpace, NavMesh.AllAreas))
+        {
+            return;
+        }
+
+        transform.position = hit.position;
+
+        // 에이전트 내부 위치도 같이 맞춘다. 안 맞추면 다음 프레임에 원래 자리로 되돌아간다.
+        if (_agent.isOnNavMesh)
+        {
+            _agent.nextPosition = hit.position;
+        }
     }
 
     // 걸어 다니는 동안 가끔 좌우를 살핀다. 가는 방향을 기준으로 얹는 각도라 경로는 그대로다.
