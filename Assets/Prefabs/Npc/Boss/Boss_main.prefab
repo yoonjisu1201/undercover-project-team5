@@ -174,10 +174,10 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.4
-  m_Speed: 4.5
-  m_Acceleration: 10
+  m_Speed: 4.2
+  m_Acceleration: 4
   avoidancePriority: 50
-  m_AngularSpeed: 200
+  m_AngularSpeed: 120
   m_StoppingDistance: 1.2
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
@@ -201,7 +201,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   m_Graph: {fileID: 1173650473825493465, guid: 7f1141db21c47b14a95adf8dea455077, type: 2}
   m_BlackboardVariableOverridesList:
-  - rid: 6789730047584109337
+  - rid: 6789730210853684011
   m_OriginalGraph: {fileID: 1173650473825493465, guid: 7f1141db21c47b14a95adf8dea455077, type: 2}
   m_IsInitialised: 0
   m_IsStarted: 0
@@ -209,7 +209,7 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 6789730047584109337
+    - rid: 6789730210853684011
       type: {class: 'BlackboardVariable`1[[UnityEngine.GameObject, UnityEngine.CoreModule]]', ns: Unity.Behavior, asm: Unity.Behavior}
       data:
         GUID:
@@ -230,13 +230,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BossPerception
   _eyeHeight: 2.4
-  _sightRange: 16
-  _sightAngle: 150
+  _sightRange: 7
+  _sightAngle: 90
   _sightBlockers:
     serializedVersion: 2
     m_Bits: 9
   _targetSwitchMargin: 3.5
-  _senseRadius: 14
+  _switchAfterSeconds: 4
+  _switchRollInterval: 1.5
+  _switchChance: 0.35
+  _switchBackCooldown: 10
+  _mercyChance: 0.15
+  _mercySeconds: 6
+  _mercySenseMultiplier: 0.3
+  _mercyCooldown: 60
+  _corneredCheckRadius: 6
+  _corneredEscapeCount: 2
+  _senseRadius: 4.5
 --- !u!114 &867195548031847311
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -250,14 +260,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BossController
   ShowTopMostFoldoutHeaderGroup: 1
-  _waypointsVariableName: Patrol Waypoints
-  _waypointHeightOffset: 0.5
-  _waypointSampleRadius: 6
+  _moduleFloorOffset: 0.5
   _teleportMinPlayerDistance: 25
   _teleportHiddenSeconds: 3
   _walkParameter: IsWalking
   _runParameter: IsRunning
-  _runSpeedThreshold: 3.2
+  _runSpeedThreshold: 3.7
   _walkSpeedThreshold: 0.2
   _footstepWalkInterval: 0.7
   _footstepRunInterval: 0.45
@@ -298,7 +306,7 @@ MonoBehaviour:
   _attackCooldown: 2
   _attackStateTimeout: 1.5
   _attackTurnSpeed: 540
-  _damage: 34
+  _damage: 40
   _hitHeight: 1.1
   _hitForwardOffset: 0.9
   _hitRadius: 1.1
@@ -332,12 +340,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab2d983f25c38e341bd86d5940f5419b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BossTargetMemory
-  _memoryDuration: 10
-  _searchStride: 7
-  _searchSpread: 3
-  _blockedTurnAngle: 35
-  _maxTurnAngle: 100
-  _searchArriveDistance: 2
+  _memoryDuration: 4
+  _noiseMemoryDuration: 6
+  _noiseTraceInterval: 2
+  _hearingFactor: 1
+  _arriveDistance: 2
+  _searchRadius: 5
+  _searchPointCount: 4
+  _restDuration: 1.5
+  _wanderStepMin: 6
+  _wanderStepMax: 12
 --- !u!114 &709870034923616331
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -352,6 +364,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BossDebugView
   _toggleKey: 101
   _showOverlay: 1
+  _showWorldMarkers: 1
 --- !u!114 &1350405527293648409
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -364,7 +377,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 00d11feaa379f67419ab9abc753a5a10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BossThreatReporter
-  _searchDistance: 25
+  _spottedSeconds: 5
+  _afterSpottedSeconds: 5
   _playerSightRange: 8
   _playerSightAngle: 60
   _sightBlockers:

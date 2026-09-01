@@ -5,6 +5,8 @@ using UnityEngine;
 // 처음부터 쫓아오면 지하에 들어서는 순간 도망만 치게 된다. 잠든 보스를 먼저 마주치게 해서
 // "저기 있다"를 알고 들어갈지 말지 고르게 만드는 것이 목적이다.
 //
+// 깨어난 뒤부터가 보스의 기본 상태인 "수색"이다.
+//
 // 한 번 깨면 그 라운드 동안 다시 잠들지 않는다. 보스는 라운드마다 새로 스폰되므로
 // 다음 라운드에는 다시 잠든 상태로 시작한다.
 //
@@ -16,7 +18,7 @@ public class BossDormancy : MonoBehaviour
     [Tooltip("이 거리 안에 사람이 들어오면 깨어난다. 시야와 무관하게 거리만 본다.")]
     [SerializeField, Min(0f)] private float _wakeRadius = 12f;
 
-    [Tooltip("아무도 오지 않아도 이 시간이 지나면 스스로 깨어나 배회를 시작한다. 0이면 계속 잠들어 있는다.")]
+    [Tooltip("아무도 오지 않아도 이 시간이 지나면 스스로 깨어나 수색을 시작한다. 0이면 계속 잠들어 있는다.")]
     [SerializeField, Min(0f)] private float _wakeAfterSeconds = 30f;
 
     [Tooltip("끄면 처음부터 깨어 있는 상태로 시작한다.")]
