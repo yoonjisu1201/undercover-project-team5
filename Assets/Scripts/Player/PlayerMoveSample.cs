@@ -1,5 +1,6 @@
 using System;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 
 
@@ -68,6 +69,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	private PlayerHealth _playerHealth;
 	private PlayerStamina _playerStamina;
 	private PlayerInteraction _playerInteraction;
+	private NetworkTransform _networkTransform;
 	private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
 	private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
 	private static readonly int IsJumpingHash = Animator.StringToHash("IsJumping");
@@ -119,6 +121,7 @@ public class PlayerMoveSample : NetworkBehaviour
 		_playerHealth = GetComponent<PlayerHealth>();
 		_playerStamina = GetComponent<PlayerStamina>();
 		_playerInteraction = GetComponent<PlayerInteraction>();
+		_networkTransform = GetComponent<NetworkTransform>();
 
 		_bodyCollider = GetComponent<CapsuleCollider>();
 		if (_bodyCollider != null)
@@ -663,5 +666,10 @@ public class PlayerMoveSample : NetworkBehaviour
 		_rigidbody.angularVelocity = Vector3.zero;
 		_rigidbody.position = position;
 		_rigidbody.rotation = rotation;
+
+		// 다른 클라이언트에서는 이 순간이동도 NetworkTransform 보간을 타서, 지상(0)·본부(-300)·
+		// 지하(-500) 사이를 훑으며 넘어간다. 관전 중이면 그 구간이 그대로 화면에 보인다.
+		// 텔레포트 플래그를 실어 보내면 받는 쪽이 보간 없이 바로 옮겨 간다.
+		_networkTransform.Teleport(position, rotation, transform.localScale);
 	}
 }
