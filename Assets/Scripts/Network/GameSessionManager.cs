@@ -103,6 +103,7 @@ public class GameSessionManager : MonoBehaviour
 	// 퇴장 요청은 로비 복귀를 늦추지 않도록 기다리지 않는다. 다만 방금 나온 방이 목록에
 	// 남지 않으려면 조회 전에는 끝나 있어야 하므로 참조를 들고 있는다.
 	private Task _pendingLeaveTask;
+	private readonly Dictionary<ulong, int> _waitingRoomSpawnSlots = new();
 
 	private void Awake()
 	{
@@ -459,6 +460,8 @@ public class GameSessionManager : MonoBehaviour
 	// 세션 생성/참가보다 먼저 호출한다.
 	private void PrepareConnectionApproval()
 	{
+		_waitingRoomSpawnSlots.Clear();
+
 		// 싱글턴이 씬을 넘어 살아남으므로, 게임을 시작했던 상태가 다음 방까지 따라오면 아무도 못 들어온다.
 		_isSessionLocked = false;
 
@@ -690,14 +693,8 @@ public class GameSessionManager : MonoBehaviour
 					// 서버/네트워크 권한이 필요하면 여기서 검증하거나 서버-side 초기화로 옮기세요.
 					playerHealth.ResetForNewRound();
 				}
-				// 새 대기방 레이아웃의 명시적 입장 위치로 복귀시키되, 지점 누락 시 전체 복귀가 중단되지 않게 원점을 사용한다.
-                GameObject WaitingRoomSpawnPointObj = GameObject.Find("WaitingRoomSpawnPoint");
-
-                Vector3 WaitingroomSpawnPoint = WaitingRoomSpawnPointObj != null
-					? WaitingRoomSpawnPointObj.transform.position
-					: Vector3.zero;
-
-				player.TeleportToPosition(WaitingroomSpawnPoint, playerObject.transform.rotation);
+				Transform spawnPoint = GetWaitingRoomSpawnPoint(clientId);
+				player.TeleportToPosition(spawnPoint.position, playerObject.transform.rotation);
 			}
 		}
 	}
@@ -738,20 +735,43 @@ public class GameSessionManager : MonoBehaviour
 	{
 		if (NetworkManager.Singleton.ConnectedClients[clientId].PlayerObject != null) return;
 
-		var playerInstance = InstantiatePlayerAtWaitingRoomSpawn(NetworkManager.Singleton.NetworkConfig.PlayerPrefab);
+		var playerInstance = InstantiatePlayerAtWaitingRoomSpawn(
+			NetworkManager.Singleton.NetworkConfig.PlayerPrefab,
+			clientId);
 		playerInstance.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
 	}
 
-	private static GameObject InstantiatePlayerAtWaitingRoomSpawn(GameObject playerPrefab)
+	private GameObject InstantiatePlayerAtWaitingRoomSpawn(GameObject playerPrefab, ulong clientId)
 	{
-		// 최초 입장도 씬에 배치한 위치와 방향을 사용해 원점이나 구조물 내부에 생성되지 않게 한다.
-		Transform spawnPoint = GameObject.Find("WaitingRoomSpawnPoint").transform;
+		Transform spawnPoint = GetWaitingRoomSpawnPoint(clientId);
 		return Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
+	}
+
+	private Transform GetWaitingRoomSpawnPoint(ulong clientId)
+	{
+		Transform spawnPoints = GameObject.Find("WaitingRoomSpawnPoints").transform;
+
+		if (_waitingRoomSpawnSlots.TryGetValue(clientId, out int assignedIndex))
+		{
+			return spawnPoints.GetChild(assignedIndex);
+		}
+
+		for (int index = 0; index < _maxPlayers; index++)
+		{
+			if (_waitingRoomSpawnSlots.ContainsValue(index)) continue;
+
+			_waitingRoomSpawnSlots.Add(clientId, index);
+			return spawnPoints.GetChild(index);
+		}
+
+		throw new InvalidOperationException("사용 가능한 대기방 스폰 위치가 없습니다.");
 	}
 
 	// 내 연결이 끊긴 경우에만 로비로 돌아간다 (자진 퇴장/호스트가 나가서 강제로 끊긴 경우 모두 포함).
 	private void HandleClientDisconnected(ulong clientId)
 	{
+		_waitingRoomSpawnSlots.Remove(clientId);
+
 		if (clientId != NetworkManager.Singleton.LocalClientId) return;
 
 		LastLeaveReason = ResolveLeaveReason();
