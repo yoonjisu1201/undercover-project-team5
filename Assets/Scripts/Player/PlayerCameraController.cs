@@ -8,6 +8,9 @@ public class PlayerCameraController : NetworkBehaviour
     [Header("카메라 관련")]
     [SerializeField] private GameObject _headPivot;
     [SerializeField] private Camera _camera;
+
+    [Tooltip("1인칭 전용 레이어만 그리는 오버레이 카메라. 벽에 붙어도 잘리지 않도록 근평면을 짧게 잡는다.")]
+    [SerializeField] private Camera _firstPersonHandsCamera;
     [SerializeField] private Transform _headBone;
     [SerializeField] private Transform _downedCameraAnchor;
     [SerializeField, Min(0.01f)] private float _cameraTransitionDuration = 0.35f;
@@ -63,6 +66,14 @@ public class PlayerCameraController : NetworkBehaviour
     // 오너가 갱신하는 pitch 값. 다른 클라이언트는 이 값을 읽어 헤드 본을 회전시킨다.
     private readonly NetworkVariable<float> _networkPitch =
         new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    // 오버레이가 켜지고 꺼질 때 알린다. 손에 든 물건을 뷰모델 손과 캐릭터 손 사이에서
+    // 옮겨야 하는 쪽(PlayerItemIK)이 듣는다.
+    public event System.Action<bool> FirstPersonHandsVisibilityChanged;
+
+    // 이벤트는 스폰 때 한 번만 울려서, 늦게 구독한 쪽은 첫 상태를 놓친다.
+    // 구독자가 스폰 시점에 지금 상태를 직접 물어볼 수 있어야 한다.
+    public bool IsFirstPersonHandsActive => _firstPersonHandsCamera != null && _firstPersonHandsCamera.enabled;
 
     public GameObject HeadPivot => _headPivot;
     public Transform LightFollowPivot => _lightFollowPivot;
@@ -151,6 +162,25 @@ public class PlayerCameraController : NetworkBehaviour
         {
             listener.enabled = active;
         }
+
+        // 1인칭 전용 오버레이는 내 화면에만 필요하다. 원격 플레이어 쪽에서는 그릴 것이 없다.
+        SetFirstPersonOverlayEnabled(active);
+    }
+
+    // 다운처럼 카메라가 3인칭으로 물러나면 오버레이도 꺼야 한다.
+    // 켜 둔 채로 두면 화면 앞에 1인칭 전용 오브젝트만 떠 있는 꼴이 된다.
+    private void SetFirstPersonOverlayEnabled(bool enabledNow)
+    {
+        if (_firstPersonHandsCamera != null)
+        {
+            // 카메라 컴포넌트만 끄면 손 오브젝트는 씬에 그대로 남는다. 오버레이 카메라는 레이어만
+            // 보고 그리므로, 남의 플레이어 손까지 내 화면에 같이 딸려 나온다.
+            // 손이 이 카메라의 자식이라 오브젝트째 꺼야 남의 뷰모델이 사라진다.
+            _firstPersonHandsCamera.gameObject.SetActive(enabledNow);
+            _firstPersonHandsCamera.enabled = enabledNow;
+        }
+
+        FirstPersonHandsVisibilityChanged?.Invoke(enabledNow);
     }
 
     private void Update()
@@ -287,8 +317,9 @@ public class PlayerCameraController : NetworkBehaviour
         ResetExhaustedBreath();
         _useDownedCameraView = true;
         Layers.ShowLayerToCamera(_camera, Layers.LocalPlayerHead);
-        // 머리가 다시 보이므로 전용 그림자 캐스터는 꺼서 그림자가 겹치지 않게 한다
-        _playerRenderer?.SetHeadShadowCastersActive(false);
+        // 몸이 다시 보이므로 전용 그림자 캐스터는 꺼서 그림자가 겹치지 않게 한다
+        _playerRenderer?.SetBodyShadowCastersActive(false);
+        SetFirstPersonOverlayEnabled(false);
         BeginCameraTransition();
     }
 
@@ -398,7 +429,8 @@ public class PlayerCameraController : NetworkBehaviour
         if (!_isCameraTransitioning && !_useDownedCameraView)
         {
             Layers.HideLayerFromCamera(_camera, Layers.LocalPlayerHead);
-            _playerRenderer?.SetHeadShadowCastersActive(true);
+            _playerRenderer?.SetBodyShadowCastersActive(true);
+            SetFirstPersonOverlayEnabled(true);
         }
     }
 }
