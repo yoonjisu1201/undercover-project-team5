@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -22,6 +23,9 @@ public sealed class PlayerSpectator : NetworkBehaviour
 
     // 지금 보고 있는 팀원. 내 시점이면 null이다.
     public Player CurrentTarget { get; private set; }
+
+    // 관전 대상이 바뀔 때 알린다. 내 시점으로 돌아오면 null이 실린다.
+    public event Action<Player> TargetChanged;
 
     private void Awake()
     {
@@ -50,12 +54,13 @@ public sealed class PlayerSpectator : NetworkBehaviour
         }
 
         _health.DownedStateChanged += HandleDownedStateChanged;
-
     }
 
     private void Update()
     {
         RetargetIfTargetLost();
+
+        if (!_health.IsDowned) return;
 
         // 메뉴나 가이드북이 떠 있는 동안의 키 입력은 그쪽 몫이다. (PlayerArrestInput과 같은 차단 방식)
         if (GameplayUiMode.IsActive) return;
@@ -74,7 +79,6 @@ public sealed class PlayerSpectator : NetworkBehaviour
         {
             _health.DownedStateChanged -= HandleDownedStateChanged;
         }
-
     }
 
     // 살아 있는 팀원을 차례로 넘긴다.
@@ -98,11 +102,13 @@ public sealed class PlayerSpectator : NetworkBehaviour
         {
             CurrentTarget = null;
             _cameraController.EndSpectate();
+            TargetChanged?.Invoke(null);
             return;
         }
 
         CurrentTarget = _targets[_slotIndex];
         _cameraController.BeginSpectate(CurrentTarget.GetComponent<PlayerCameraController>());
+        TargetChanged?.Invoke(CurrentTarget);
     }
 
     // 보고 있던 팀원이 쓰러지거나 접속을 끊으면 그 시야에 머물 수 없다. 살아 있는 첫 팀원으로
@@ -148,5 +154,6 @@ public sealed class PlayerSpectator : NetworkBehaviour
         _slotIndex = OwnViewSlot;
         CurrentTarget = null;
         _cameraController.EndSpectate();
+        TargetChanged?.Invoke(null);
     }
 }
