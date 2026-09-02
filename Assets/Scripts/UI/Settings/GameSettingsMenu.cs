@@ -48,6 +48,8 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [SerializeField] private TMP_Text _inputDeviceText;
     [SerializeField] private TMP_Text _outputDeviceText;
     [SerializeField] private TMP_Text _micTestButtonText;
+    [SerializeField] private TMP_Text _micMuteButtonText;
+    [SerializeField] private TMP_Text _speakerMuteButtonText;
 
     // 조건에 따라 문구가 바뀌므로 LocalizeStringEvent 로는 안 되고 코드에서 조회해야 한다.
     [Header("Localized Strings")]
@@ -55,6 +57,8 @@ public sealed class GameSettingsMenu : MonoBehaviour
     [SerializeField] private LocalizedString _micTestStopText;
     [SerializeField] private LocalizedString _noInputDeviceText;
     [SerializeField] private LocalizedString _noOutputDeviceText;
+    [SerializeField] private LocalizedString _onText;
+    [SerializeField] private LocalizedString _offText;
 
     [Header("Volume")]
     [SerializeField] private AudioMixer _audioMixer;
@@ -153,9 +157,12 @@ public sealed class GameSettingsMenu : MonoBehaviour
             if (_tabButtons != null && i < _tabButtons.Length)
             {
                 Button tabButton = _tabButtons[i];
+                // ColorTint는 Image 색에 곱해지므로 탭 Image는 흰색이어야 이 값이 그대로 나온다.
+                // 네 상태를 모두 지정하지 않으면 남은 상태에 기본 회색이 남아 클릭할 때 번쩍인다.
                 ColorBlock colors = tabButton.colors;
                 colors.normalColor = _inactiveTabColor;
                 colors.highlightedColor = _activeTabColor;
+                colors.pressedColor = _activeTabColor;
                 colors.selectedColor = _activeTabColor;
                 colors.disabledColor = _activeTabColor;
                 tabButton.colors = colors;
@@ -385,6 +392,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
         {
             VivoxManager.Instance.AudioDevicesChanged -= RefreshDeviceNames;
             VivoxManager.Instance.MicTestStateChanged -= RefreshMicTestButtonText;
+            VivoxManager.Instance.MuteStateChanged -= RefreshAudioToggleButtonTexts;
             _vivoxEventsSubscribed = false;
         }
 
@@ -411,10 +419,12 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
         VivoxManager.Instance.AudioDevicesChanged += RefreshDeviceNames;
         VivoxManager.Instance.MicTestStateChanged += RefreshMicTestButtonText;
+        VivoxManager.Instance.MuteStateChanged += RefreshAudioToggleButtonTexts;
         _vivoxEventsSubscribed = true;
 
         RefreshDeviceNames();
         RefreshMicTestButtonText(VivoxManager.Instance.IsMicTesting);
+        RefreshAudioToggleButtonTexts();
         SetVoiceVolume(_voiceSlider.value);
         SetMicVolume(_micSlider.value);
     }
@@ -448,6 +458,7 @@ public sealed class GameSettingsMenu : MonoBehaviour
 
         if (active)
         {
+            RefreshAudioToggleButtonTexts();
             GameplayUiMode.Instance?.ActivateCursor();  // 커서 활성화
         }
         else
@@ -504,6 +515,8 @@ public sealed class GameSettingsMenu : MonoBehaviour
     // 코드가 한 번 채워 넣은 뒤로는 스스로 갱신되지 않는다. 언어가 바뀌면 여기서 다시 채운다.
     private void HandleLocaleChanged(Locale locale)
     {
+        RefreshAudioToggleButtonTexts();
+
         // Vivox 로그인 전에는 표시할 장치 정보 자체가 없다.
         if (!_vivoxEventsSubscribed)
         {
@@ -517,6 +530,19 @@ public sealed class GameSettingsMenu : MonoBehaviour
     private void RefreshMicTestButtonText(bool isTesting)
     {
         _micTestButtonText.text = (isTesting ? _micTestStopText : _micTestStartText).GetLocalizedString();
+    }
+
+    private void RefreshAudioToggleButtonTexts()
+    {
+        if (_micMuteButtonText != null)
+        {
+            _micMuteButtonText.text = (VivoxManager.IsMicMuted ? _offText : _onText).GetLocalizedString();
+        }
+
+        if (_speakerMuteButtonText != null)
+        {
+            _speakerMuteButtonText.text = (VivoxManager.IsOutputMuted ? _offText : _onText).GetLocalizedString();
+        }
     }
 
     private void RefreshDeviceNames()

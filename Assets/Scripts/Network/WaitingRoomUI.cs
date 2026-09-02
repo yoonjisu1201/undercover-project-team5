@@ -137,8 +137,10 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
         // 오브젝트 활성화 순서와 관계없이 초기 호스트·준비 상태가 결정된 뒤 월드 버튼에도 현재 상태를 알린다.
         ReadyStartStateChanged?.Invoke();
 
-        UpdateMicMuteButtonColor();
-        UpdateOutputMuteButtonColor();
+        // 뮤트 상태는 설정창 버튼 안의 ON/OFF 문구로 보여주므로 색은 칠하지 않는다.
+        // 색으로 되돌리려면 아래 두 줄의 주석을 풀면 된다.
+        // UpdateMicMuteButtonColor();
+        // UpdateOutputMuteButtonColor();
 
         // 다른 플레이어들의 PlayerObject가 씬 전환 중이라 아직 재연결되지 않았을 수 있으므로,
         // 준비돼 있으면 바로, 아니면 씬 동기화가 끝난 뒤에 구독/역할 선택 UI를 초기화한다.
@@ -381,7 +383,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
     private void HandleMicMuteButtonClicked()
 	{
 		VivoxManager.Instance.ToggleMicMute();
-		UpdateMicMuteButtonColor();
+		// UpdateMicMuteButtonColor();
 	}
 
 	private void UpdateMicMuteButtonColor()
@@ -392,7 +394,7 @@ public class WaitingRoomUI : MonoBehaviour, IClosableUi
 	private void HandleOutputMuteButtonClicked()
 	{
 		VivoxManager.Instance.ToggleOutputMute();
-		UpdateOutputMuteButtonColor();
+		// UpdateOutputMuteButtonColor();
 	}
 
 	private void UpdateOutputMuteButtonColor()
