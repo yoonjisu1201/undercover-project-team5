@@ -39,9 +39,6 @@ public sealed partial class DebugMenuController
     }
 
     // 현재 라운드의 외계인(지하 보스) 뒤쪽으로 이동합니다.
-    //
-    // 보스는 지하 모듈 안에만 있어서, 지상에서 곧장 넘어가면 지하 문을 지나지 않아 안개가 지상 값으로 남는다.
-    // 지하 문이 하는 일과 같은 처리를 여기서 해 준다.
     public void OnTeleportBossClick()
     {
         BossController boss = FindFirstObjectByType<BossController>();
@@ -53,7 +50,6 @@ public sealed partial class DebugMenuController
 
         Transform target = boss.transform;
         TeleportLocalPlayer(target.position - target.forward * 2f, target.rotation);
-        UndergroundFog.ApplyUnderground();
         ShowStatus("외계인 위치로 이동했습니다.");
     }
 
