@@ -17,8 +17,10 @@ public class GameSceneUI : MonoBehaviour
         _micMuteButton.onClick.AddListener(HandleMicMuteButtonClicked);
         _outputMuteButton.onClick.AddListener(HandleOutputMuteButtonClicked);
 
-        UpdateMicMuteButtonColor();
-        UpdateOutputMuteButtonColor();
+        // 뮤트 상태는 설정창 버튼 안의 ON/OFF 문구로 보여주므로 색은 칠하지 않는다.
+        // 색으로 되돌리려면 아래 두 줄의 주석을 풀면 된다.
+        // UpdateMicMuteButtonColor();
+        // UpdateOutputMuteButtonColor();
     }
 
     private void OnDestroy()
@@ -30,7 +32,7 @@ public class GameSceneUI : MonoBehaviour
     private void HandleMicMuteButtonClicked()
     {
         VivoxManager.Instance.ToggleMicMute();
-        UpdateMicMuteButtonColor();
+        // UpdateMicMuteButtonColor();
     }
 
     private void UpdateMicMuteButtonColor()
@@ -41,7 +43,7 @@ public class GameSceneUI : MonoBehaviour
     private void HandleOutputMuteButtonClicked()
     {
         VivoxManager.Instance.ToggleOutputMute();
-        UpdateOutputMuteButtonColor();
+        // UpdateOutputMuteButtonColor();
     }
 
     private void UpdateOutputMuteButtonColor()
