@@ -82,7 +82,14 @@ public class PlayerCameraController : NetworkBehaviour
     public float ViewPitch => IsOwner ? _pitch : _networkPitch.Value;
 
     // 이동 컴포넌트가 물리 틱에서 몸체 회전과 이동 방향을 같은 yaw로 계산할 때 사용한다.
-    public Quaternion ViewYawRotation => Quaternion.Euler(0f, _yaw, 0f);
+    // _yaw 는 오너의 Update 에서만 갱신된다. 다른 클라이언트에서는 스폰 당시 값에 멈춰 있어서
+    // 그대로 쓰면 시야 방향이 몸과 따로 논다 - 팔 IK 목표와 손전등 피벗이 월드 회전으로
+    // 잡히기 때문에, 상대방 화면에서 왼팔이 엉뚱한 곳을 쫓아가며 뒤틀린다.
+    // 몸통은 오너가 MoveRotation(ViewYawRotation) 으로 돌리고 NetworkTransform 이 회전을
+    // 동기화하므로, 논오너에게는 몸통 회전이 곧 시야 yaw 다.
+    public Quaternion ViewYawRotation => IsOwner
+        ? Quaternion.Euler(0f, _yaw, 0f)
+        : Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
 
     public bool IsCameraTransitioning => _isCameraTransitioning;
 
