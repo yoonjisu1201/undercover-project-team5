@@ -50,22 +50,19 @@ public sealed class PlayerSpectator : NetworkBehaviour
         }
 
         _health.DownedStateChanged += HandleDownedStateChanged;
+
     }
 
     private void Update()
     {
         RetargetIfTargetLost();
 
-        // 메뉴나 가이드북이 떠 있는 동안의 클릭은 그쪽 몫이다. (PlayerArrestInput과 같은 차단 방식)
+        // 메뉴나 가이드북이 떠 있는 동안의 키 입력은 그쪽 몫이다. (PlayerArrestInput과 같은 차단 방식)
         if (GameplayUiMode.IsActive) return;
 
-        if (_actions.Player.SpectateNext.WasPressedThisFrame())
+        if (_actions.Player.SwitchSpectateTarget.WasPressedThisFrame())
         {
-            CycleTarget(1);
-        }
-        else if (_actions.Player.SpectatePrev.WasPressedThisFrame())
-        {
-            CycleTarget(-1);
+            SwitchTarget();
         }
     }
 
@@ -77,21 +74,20 @@ public sealed class PlayerSpectator : NetworkBehaviour
         {
             _health.DownedStateChanged -= HandleDownedStateChanged;
         }
+
     }
 
-    // direction이 +1이면 다음 팀원, -1이면 이전 팀원으로 넘어간다.
+    // 살아 있는 팀원을 차례로 넘긴다.
     // 순환 목록의 첫 칸은 내 시점이라, 계속 넘기면 자기 몸으로 돌아온다.
-    public void CycleTarget(int direction)
+    public void SwitchTarget()
     {
         if (!_health.IsDowned) return;
 
         RebuildTargets();
 
         // 내 시점 한 칸을 앞에 붙여 0부터 세는 값으로 옮기고, 넘긴 뒤 다시 되돌린다.
-        // C#의 %는 음수를 음수 그대로 두므로 한 번 더 더해서 양수로 만든다.
         int slotCount = _targets.Count + 1;
-        int shifted = _slotIndex + 1 + direction;
-        _slotIndex = ((shifted % slotCount) + slotCount) % slotCount - 1;
+        _slotIndex = (_slotIndex + 2) % slotCount - 1;
 
         ApplyCurrentSlot();
     }
@@ -110,7 +106,7 @@ public sealed class PlayerSpectator : NetworkBehaviour
     }
 
     // 보고 있던 팀원이 쓰러지거나 접속을 끊으면 그 시야에 머물 수 없다. 살아 있는 첫 팀원으로
-    // 옮기고, 아무도 남지 않았으면 CycleTarget이 알아서 내 시점으로 돌려준다.
+    // 옮기고, 아무도 남지 않았으면 SwitchTarget이 알아서 내 시점으로 돌려준다.
     private void RetargetIfTargetLost()
     {
         // 관전 중이 아니면 잃을 대상도 없다.
@@ -124,7 +120,7 @@ public sealed class PlayerSpectator : NetworkBehaviour
         // 사라지기 전 목록 기준의 인덱스는 믿을 수 없다. 처음부터 다시 세서
         // 항상 살아 있는 첫 팀원에 안착하게 한다.
         _slotIndex = OwnViewSlot;
-        CycleTarget(1);
+        SwitchTarget();
     }
 
     // 살아 있는 다른 팀원만 모은다. 넘길 때마다 목록을 새로 만들기 때문에 순서가 흔들리면
