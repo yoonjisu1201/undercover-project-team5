@@ -316,6 +316,11 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		Debug.Log($"[PlayerMoveNetworkTest] OwnerClientId = {OwnerClientId}, IsOwner = {IsOwner}");
 
+		if (IsOwner && gameObject.scene.name == "WaitingRoom")
+		{
+			SynchronizeSpawnRigidbody(_rigidbody, transform.position, transform.rotation);
+		}
+
 		_networkIsMoving.OnValueChanged += HandleMovingChanged;
 		_networkIsRunning.OnValueChanged += HandleRunningChanged;
 		_networkIsJumping.OnValueChanged += HandleJumpingChanged;
@@ -329,6 +334,14 @@ public class PlayerMoveSample : NetworkBehaviour
 		HandleDownedStateChanged(false, _playerHealth.IsDowned);
 
 		IgnoreBossCollision();
+	}
+
+	private static void SynchronizeSpawnRigidbody(Rigidbody rigidbody, Vector3 position, Quaternion rotation)
+	{
+		rigidbody.linearVelocity = Vector3.zero;
+		rigidbody.angularVelocity = Vector3.zero;
+		rigidbody.position = position;
+		rigidbody.rotation = rotation;
 	}
 
 	public override void OnNetworkDespawn()
