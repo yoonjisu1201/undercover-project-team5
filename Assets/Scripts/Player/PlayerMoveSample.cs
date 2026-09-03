@@ -32,6 +32,13 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	[Header("경사 미끄러짐 방지")]
 	[SerializeField] private PhysicsMaterial _gripMaterial; // 멈춰 있을 때 경사에 고정 (높은 마찰)
+	// 보스 몸 안으로 이 거리까지만 들어갈 수 있다. 보스의 _personalSpace(1.1)보다 좁게 둬야,
+	// 그 사이 구간에서 사람이 밀고 들어가며 보스를 조금씩 밀어낼 수 있다.
+	// 같거나 넓으면 애초에 닿지를 못해 미는 느낌이 아예 사라진다.
+	[Tooltip("보스에게 이 거리까지만 다가갈 수 있다(m). 보스의 Personal Space 보다 좁게 둔다")]
+	[SerializeField, Min(0f)] private float _bossBlockRadius = 0.9f;
+
+	private BossController _boss;
 	private CapsuleCollider _bodyCollider;
 	private PhysicsMaterial _slideMaterial;                 // 이동 중 사용 (초기 마찰0 머티리얼)
 
@@ -299,7 +306,41 @@ public class PlayerMoveSample : NetworkBehaviour
 			return;
 		}
 
+		_boss = boss;
 		Physics.IgnoreCollision(bossCollider, _bodyCollider, true);
+	}
+
+	// 물리 충돌을 껐으니 보스 몸 안으로 그냥 걸어 들어갈 수 있다. 밀어내서 막으면 벽에
+	// 끼었을 때 벽 밖으로 나가므로(위 주석 참고), 밀지 않고 보스 쪽으로 향하는 속도 성분만
+	// 깎는다. 이동을 줄이기만 하니 어떤 경우에도 사람을 벽 밖으로 내보내지 않는다.
+	//
+	// 옆으로 향하는 성분은 남겨서, 막힌 채로 보스 주위를 미끄러지듯 돌 수 있다.
+	private Vector3 BlockMovementIntoBoss(Vector3 horizontalVelocity)
+	{
+		if (_bossBlockRadius <= 0f || _boss == null || _boss.IsHidden)
+		{
+			return horizontalVelocity;
+		}
+
+		Vector3 away = transform.position - _boss.transform.position;
+		away.y = 0f;
+
+		float distance = away.magnitude;
+		if (distance >= _bossBlockRadius || distance <= 0.0001f)
+		{
+			return horizontalVelocity;
+		}
+
+		Vector3 towardBoss = -away / distance;
+		float speedIntoBoss = Vector3.Dot(horizontalVelocity, towardBoss);
+
+		// 이미 멀어지는 중이면 건드리지 않는다. 겹친 상태에서 빠져나오는 것까지 막으면 갇힌다.
+		if (speedIntoBoss <= 0f)
+		{
+			return horizontalVelocity;
+		}
+
+		return horizontalVelocity - towardBoss * speedIntoBoss;
 	}
 
 	private void UpdateJumpAnimation()
@@ -537,6 +578,8 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void SetHorizontalVelocity(Vector3 horizontalVelocity)
 	{
+		horizontalVelocity = BlockMovementIntoBoss(horizontalVelocity);
+
 		Vector3 velocity = _rigidbody.linearVelocity;
 		velocity.x = horizontalVelocity.x;
 		velocity.z = horizontalVelocity.z;
