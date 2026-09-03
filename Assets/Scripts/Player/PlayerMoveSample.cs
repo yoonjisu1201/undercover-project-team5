@@ -45,9 +45,24 @@ public class PlayerMoveSample : NetworkBehaviour
 	[Header("카메라 관련")]
 	[SerializeField] private PlayerCameraController _playerCameraController;
 
+	// 판정 범위를 코드 안의 숫자로 두면 캡슐 바닥과 바닥면 사이 어디에 걸쳐 있는지 눈으로
+	// 확인할 수 없다. 발밑에 트리거 콜라이더를 두고 거기에 닿는지로 본다.
 	[Header("지면 판정")]
-	[SerializeField] private Transform _groundCheck;
-	[SerializeField, Min(0.01f)] private float _groundCheckRadius = 0.3f;
+	[SerializeField] private GroundCheckTrigger _groundCheck;
+
+	// 발이 닿는 순간과 몸이 완전히 내려앉는 순간은 다르다. 닿자마자 점프를 받으면
+	// 아직 내려앉는 중에 다시 떠서, 공중에서 점프한 것처럼 보인다.
+	[Tooltip("발이 닿고 이 시간이 지나야 다시 점프할 수 있다(초). 내려앉는 동안을 덮는다")]
+	[SerializeField, Min(0f)] private float _jumpGroundedDelay = 0.12f;
+
+	// 발이 닿은 뒤에 착지 자세를 잡으면, 닿는 동작과 자세가 정리되는 동작이 따로 보인다.
+	// 남의 화면은 보간 때문에 더 늦게 그려져서 그 간격이 더 벌어진다.
+	// 내려오는 동안 미리 잡아 두면 닿는 순간에는 이미 끝나 있어 한 동작으로 보인다.
+	[Tooltip("착지 몇 초 전에 착지 자세를 미리 잡을지(초). 0 이면 닿은 뒤에 잡는다")]
+	[SerializeField, Min(0f)] private float _landAnticipationSeconds = 0.12f;
+
+	// 접지가 시작된 시각. 공중에 뜨면 초기화한다.
+	private float _groundedSince = float.NegativeInfinity;
 
 	[Header("발소리")]
 	// 한 걸음 사이의 간격. 달리기는 이동 속도가 _runSpeedMultiplier(1.5)배라 간격도 그만큼 짧다.
@@ -55,7 +70,6 @@ public class PlayerMoveSample : NetworkBehaviour
 	[SerializeField, Min(0.05f)] private float _footstepRunInterval = 0.3f;
 
 	private readonly FootstepLoop _footsteps = new(SoundKey.Player_FootstepWalk, SoundKey.Player_FootstepRun);
-	[SerializeField] private LayerMask _jumpableSurfaceMask;
 
 	private const float MoveInputDeadZone = 0.01f;
 
@@ -345,14 +359,46 @@ public class PlayerMoveSample : NetworkBehaviour
 
 	private void UpdateJumpAnimation()
 	{
-		if (_isJumping && _rigidbody.linearVelocity.y <= 0f && _isGrounded)
+		if (!_isJumping)
+		{
+			return;
+		}
+
+		float verticalSpeed = _rigidbody.linearVelocity.y;
+
+		if (verticalSpeed <= 0f && _isGrounded)
 		{
 			// 낙하 속도는 여기서 잡아둔다. 접지하면 곧바로 0 이 되므로, 착지 이벤트를 낼 때
 			// 다시 읽으면 세기를 구할 수 없다.
-			_landingImpactSpeed = -_rigidbody.linearVelocity.y;
+			_landingImpactSpeed = -verticalSpeed;
 
 			SetJumpingState(false);
+			return;
 		}
+
+		// 아직 공중이어도 곧 닿을 것이 보이면 미리 끝낸다.
+		// 점프 자체는 여전히 막힌다. 점프 조건에 _isGrounded 가 들어 있어서 공중에서는 못 뛴다.
+		if (verticalSpeed >= 0f || _landAnticipationSeconds <= 0f || _groundCheck == null)
+		{
+			return;
+		}
+
+		float fallSpeed = -verticalSpeed;
+		float lookAhead = fallSpeed * _landAnticipationSeconds;
+
+		// 트리거는 무시한다. 맵 구역 볼륨 같은 것에 걸리면 공중에서 착지 자세가 나온다.
+		if (!Physics.Raycast(
+				_groundCheck.transform.position,
+				Vector3.down,
+				lookAhead,
+				_groundCheck.JumpableSurfaceMask,
+				QueryTriggerInteraction.Ignore))
+		{
+			return;
+		}
+
+		_landingImpactSpeed = fallSpeed;
+		SetJumpingState(false);
 	}
 
 	// 스폰될 때마다(내 캐릭터든 다른 사람 캐릭터든) 호출된다.
@@ -403,7 +449,22 @@ public class PlayerMoveSample : NetworkBehaviour
 	{
 		// 접지 판정은 물리 쿼리다. 발소리·점프 입력·착지 애니메이션·추락 감지가 모두 필요로 하므로
 		// 여기서 한 번만 구해 돌려 쓴다. 원격 플레이어도 발소리를 내야 해서 IsOwner 가드보다 앞이다.
+		bool wasGrounded = _isGrounded;
 		_isGrounded = IsGrounded();
+
+		// 닿은 순간을 기록해 둔다. 떠 있는 동안은 비워서 다음 착지 때 다시 세게 한다.
+		if (_isGrounded)
+		{
+			if (!wasGrounded)
+			{
+				_groundedSince = Time.time;
+			}
+		}
+		else
+		{
+			_groundedSince = float.NegativeInfinity;
+		}
+
 		UpdateFootstep();
 
 		if (!IsOwner)
@@ -431,7 +492,14 @@ public class PlayerMoveSample : NetworkBehaviour
 		_moveInput = Vector2.ClampMagnitude(_actions.Player.Move.ReadValue<Vector2>(), 1f);
 		_runHeld = _actions.Player.Shift.IsPressed();
 
-		if (_actions.Player.Jump.WasPressedThisFrame() && _isGrounded)
+		// 세 가지를 모두 만족해야 점프한다.
+		//  - 접지: 발이 땅에 닿아 있다
+		//  - !_isJumping: 이전 점프가 끝났다. 판정이 한 프레임 흔들려도 공중에서 다시 뜨지 않는다
+		//  - 안착 대기: 닿은 뒤 _jumpGroundedDelay 만큼 지났다. 내려앉는 중에는 받지 않는다
+		if (_actions.Player.Jump.WasPressedThisFrame()
+			&& _isGrounded
+			&& !_isJumping
+			&& Time.time - _groundedSince >= _jumpGroundedDelay)
 		{
 			_jumpRequested = true;
 		}
@@ -686,11 +754,7 @@ public class PlayerMoveSample : NetworkBehaviour
 	// 긴급 탈출 컴포넌트도 이동 코드와 같은 지면 판정을 재사용한다.
 	public bool IsGrounded()
 	{
-		return _groundCheck != null && Physics.CheckSphere(
-			_groundCheck.position,
-			_groundCheckRadius,
-			_jumpableSurfaceMask,
-			QueryTriggerInteraction.Ignore);
+		return _groundCheck != null && _groundCheck.IsGrounded;
 	}
 
 	// 서버에서 지정한 스폰 위치로 이동한다.
