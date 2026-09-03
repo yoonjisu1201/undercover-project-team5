@@ -44,9 +44,17 @@ public sealed class PlayerVitalsHud : NetworkBehaviour
     [SerializeField, Min(1f)] private float _fillLerpSpeed = 14f;
     [SerializeField, Min(0f)] private float _lowPulseSpeed = 8f;
 
+    // 내 것. 관전이 끝나면 여기로 되돌아온다.
     private PlayerHealth _playerHealth;
     private PlayerStamina _playerStamina;
     private PlayerHeartbeat _playerHeartbeat;
+
+    // 지금 화면에 그리는 대상. 관전 중이면 팀원 것, 아니면 내 것이다.
+    // 그래프 박자도 대상을 따라간다. 소리는 SoundManager 가 각자 자기 것만 내므로 영향이 없다.
+    private PlayerHealth _boundHealth;
+    private PlayerStamina _boundStamina;
+    private PlayerHeartbeat _boundHeartbeat;
+    private PlayerSpectator _spectator;
 
     private float _displayHpRatio;
     private float _targetHpRatio;
@@ -67,6 +75,7 @@ public sealed class PlayerVitalsHud : NetworkBehaviour
         _playerHealth = GetComponent<PlayerHealth>();
         _playerStamina = GetComponent<PlayerStamina>();
         _playerHeartbeat = GetComponent<PlayerHeartbeat>();
+        _spectator = GetComponent<PlayerSpectator>();
     }
 
     public override void OnNetworkSpawn()
@@ -92,9 +101,51 @@ public sealed class PlayerVitalsHud : NetworkBehaviour
             _canvasRoot.transform.localScale = Vector3.one;
         }
 
-        // 늦게 들어온 클라이언트는 스폰 시점에 이미 동기화된 현재 값으로 시작해야 한다.
-        // 보간 없이 바로 맞춰두지 않으면 최대치에서 실제값까지 훑고 내려오는 게 보인다.
-        _isDowned = _playerHealth.IsDowned;
+        BindVitals(_playerHealth, _playerStamina, _playerHeartbeat);
+
+        // 관전 컴포넌트가 없으면 남의 시점을 빌릴 일도 없으니 내 값만 그린다.
+        if (_spectator != null)
+        {
+            _spectator.TargetChanged += HandleSpectateTargetChanged;
+        }
+    }
+
+    private void HandleSpectateTargetChanged(Player target)
+    {
+        // 대상이 null이면 내 시점(쓰러진 자리)으로 돌아온 것이다. 그때는 내 값을 다시 그린다.
+        bool spectating = target != null;
+
+        BindVitals(
+            spectating ? target.PlayerHealth : _playerHealth,
+            spectating ? target.PlayerStamina : _playerStamina,
+            spectating ? target.GetComponent<PlayerHeartbeat>() : _playerHeartbeat);
+    }
+
+    // 그릴 대상을 바꾼다. 스폰 직후와 관전 대상 전환에서 같은 처리를 쓴다.
+    //
+    // 체력·스태미나는 둘 다 서버 권한 NetworkVariable이고 구독에 오너 제한이 없어서,
+    // 남의 복제본에 붙어도 값과 변경 알림이 그대로 들어온다.
+    private void BindVitals(PlayerHealth health, PlayerStamina stamina, PlayerHeartbeat heartbeat)
+    {
+        // 같은 대상에 다시 붙으면 구독만 하나 더 쌓여서 한 번의 변경이 두 번 반영된다.
+        if (health == _boundHealth && stamina == _boundStamina) return;
+
+        UnsubscribeVitals();
+
+        _boundHealth = health;
+        _boundStamina = stamina;
+        _boundHeartbeat = heartbeat;
+
+        // 대상이 접속을 끊으면 파괴된 참조가 넘어올 수 있다. 붙을 곳이 없으니 표시를 멈추고,
+        // PlayerSpectator가 다음 팀원으로 넘겨줄 때 다시 붙는다.
+        if (_boundHealth == null || _boundStamina == null) return;
+
+        _boundHealth.HpChanged += HandleHpChanged;
+        _boundHealth.DownedStateChanged += HandleDownedStateChanged;
+        _boundStamina.StaminaChanged += HandleStaminaChanged;
+
+        // 붙는 순간의 값으로 바로 맞춘다. 보간을 두면 최대치에서 실제값까지 훑고 내려오는 게 보인다.
+        _isDowned = _boundHealth.IsDowned;
         _targetHpRatio = ReadHpRatio();
         _displayHpRatio = _targetHpRatio;
         _targetStaminaRatio = ReadStaminaRatio();
@@ -102,31 +153,38 @@ public sealed class PlayerVitalsHud : NetworkBehaviour
 
         ApplyHp(0f);
         ApplyStamina();
+    }
 
-        _playerHealth.HpChanged += HandleHpChanged;
-        _playerHealth.DownedStateChanged += HandleDownedStateChanged;
-        _playerStamina.StaminaChanged += HandleStaminaChanged;
+    // 대상이 접속을 끊으면 오브젝트가 파괴되어 null이 된다. 그때는 뗄 구독도 없다.
+    private void UnsubscribeVitals()
+    {
+        if (_boundHealth != null)
+        {
+            _boundHealth.HpChanged -= HandleHpChanged;
+            _boundHealth.DownedStateChanged -= HandleDownedStateChanged;
+        }
+
+        if (_boundStamina != null)
+        {
+            _boundStamina.StaminaChanged -= HandleStaminaChanged;
+        }
     }
 
     public override void OnNetworkDespawn()
     {
         if (!IsOwner) return;
 
-        if (_playerHealth != null)
-        {
-            _playerHealth.HpChanged -= HandleHpChanged;
-            _playerHealth.DownedStateChanged -= HandleDownedStateChanged;
-        }
+        UnsubscribeVitals();
 
-        if (_playerStamina != null)
+        if (_spectator != null)
         {
-            _playerStamina.StaminaChanged -= HandleStaminaChanged;
+            _spectator.TargetChanged -= HandleSpectateTargetChanged;
         }
     }
 
     private void Update()
     {
-        if (!IsOwner || _playerHealth == null || _playerStamina == null) return;
+        if (!IsOwner || _boundHealth == null || _boundStamina == null) return;
 
         float t = 1f - Mathf.Exp(-_fillLerpSpeed * Time.deltaTime);
 
@@ -135,12 +193,12 @@ public sealed class PlayerVitalsHud : NetworkBehaviour
         // 보간은 표시값이 실제값을 시간상수만큼 뒤따라가게 만든다. 계속 소모되는 동안에는 그 지연이
         // 소모 속도에 비례해 쌓여서, 실제로 0이 돼도 게이지에 몇 % 가 남은 채로 회복이 시작된다.
         // 다 비었을 때만 보간을 건너뛰어 끝까지 닳은 것으로 보이게 한다.
-        _displayStaminaRatio = _playerStamina.IsEmpty
+        _displayStaminaRatio = _boundStamina.IsEmpty
             ? 0f
             : Mathf.Lerp(_displayStaminaRatio, _targetStaminaRatio, t);
 
         // 귀에 들리는 박동과 같은 박자로 뛰게 하려고 소리 쪽 단계를 그대로 읽어온다.
-        float audibleBpm = _playerHeartbeat != null ? _playerHeartbeat.CurrentBpm : 0f;
+        float audibleBpm = _boundHeartbeat != null ? _boundHeartbeat.CurrentBpm : 0f;
         float blendTarget = audibleBpm > 0f && !_isDowned ? 1f : 0f;
 
         _heartbeatBlend = Mathf.Lerp(_heartbeatBlend, blendTarget,
@@ -152,7 +210,7 @@ public sealed class PlayerVitalsHud : NetworkBehaviour
 
     private void HandleHpChanged(float previousValue, float newValue)
     {
-        _targetHpRatio = _playerHealth.MaxHp <= 0f ? 0f : Mathf.Clamp01(newValue / _playerHealth.MaxHp);
+        _targetHpRatio = _boundHealth.MaxHp <= 0f ? 0f : Mathf.Clamp01(newValue / _boundHealth.MaxHp);
     }
 
     private void HandleDownedStateChanged(bool previousValue, bool newValue)
@@ -162,21 +220,21 @@ public sealed class PlayerVitalsHud : NetworkBehaviour
 
     private void HandleStaminaChanged(float previousValue, float newValue)
     {
-        _targetStaminaRatio = _playerStamina.MaxStamina <= 0f
+        _targetStaminaRatio = _boundStamina.MaxStamina <= 0f
             ? 0f
-            : Mathf.Clamp01(newValue / _playerStamina.MaxStamina);
+            : Mathf.Clamp01(newValue / _boundStamina.MaxStamina);
     }
 
     private float ReadHpRatio()
     {
-        return _playerHealth.MaxHp <= 0f ? 0f : Mathf.Clamp01(_playerHealth.CurrentHp / _playerHealth.MaxHp);
+        return _boundHealth.MaxHp <= 0f ? 0f : Mathf.Clamp01(_boundHealth.CurrentHp / _boundHealth.MaxHp);
     }
 
     private float ReadStaminaRatio()
     {
-        return _playerStamina.MaxStamina <= 0f
+        return _boundStamina.MaxStamina <= 0f
             ? 0f
-            : Mathf.Clamp01(_playerStamina.CurrentStamina / _playerStamina.MaxStamina);
+            : Mathf.Clamp01(_boundStamina.CurrentStamina / _boundStamina.MaxStamina);
     }
 
     private void ApplyHp(float audibleBpm)
@@ -213,7 +271,7 @@ public sealed class PlayerVitalsHud : NetworkBehaviour
         float lowBlend = Mathf.InverseLerp(_lowStaminaRatio, 0f, _displayStaminaRatio);
         Color staminaColor = Color.Lerp(_staminaNormalColor, _staminaLowColor, lowBlend);
         // 잠긴 동안에는 남은 양과 무관하게 깜빡인다. 깜빡임이 "지금은 못 달린다"를 알리는 신호다.
-        float pulse = _playerStamina.IsRedZonePenalized
+        float pulse = _boundStamina.IsRedZonePenalized
             ? Mathf.Abs(Mathf.Sin(Time.unscaledTime * _lowPulseSpeed))
             : PulseAmount(_displayStaminaRatio, _lowStaminaRatio);
 

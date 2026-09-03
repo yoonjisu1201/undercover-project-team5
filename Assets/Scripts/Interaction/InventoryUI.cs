@@ -21,6 +21,10 @@ public class InventoryUI : MonoBehaviour
     private GameObject[] _slots;    // 인벤토리 슬롯 UI 오브젝트 배열
     private PlayerInventory _boundInventory;
 
+    // 로컬 플레이어 쪽 참조. 관전 중이 아니면 이 인벤토리를 그린다.
+    private PlayerInventory _ownerInventory;
+    private PlayerSpectator _spectator;
+
     private void Awake()
     {
         _slots = new GameObject[SlotCount];
@@ -49,15 +53,26 @@ public class InventoryUI : MonoBehaviour
     // 대상이 없을 때만 다시 찾는다. 살아 있으면 아무것도 하지 않는다.
     private void Update()
     {
-        if (_boundInventory != null) return;
-
-        foreach (Player player in Player.ActiveInstances)
+        if (_ownerInventory == null)
         {
-            if (!player.IsOwner) continue;
+            foreach (Player player in Player.ActiveInstances)
+            {
+                if (!player.IsOwner) continue;
 
-            Bind(player.PlayerInventory);
-            return;
+                _ownerInventory = player.PlayerInventory;
+                _spectator = player.GetComponent<PlayerSpectator>();
+                break;
+            }
         }
+
+        // 관전 중에는 보고 있는 팀원의 인벤토리를, 아니면 내 것을 그린다.
+        Player target = _spectator != null ? _spectator.CurrentTarget : null;
+        PlayerInventory desired = target != null ? target.PlayerInventory : _ownerInventory;
+
+        if (desired == _boundInventory) return;
+
+        Unbind();
+        Bind(desired);
     }
 
     private void Bind(PlayerInventory inventory)
