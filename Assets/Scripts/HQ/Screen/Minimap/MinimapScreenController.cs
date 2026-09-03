@@ -139,6 +139,9 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 		SetMode(MinimapMode.Underground);
 	}
 
+	// 지상/지하 전환 순간. 관전 미러가 대상 화면을 따라가는 데 쓴다.
+	public event Action<MinimapMode> ModeChanged;
+
 	private void SetMode(MinimapMode mode) {
 		if (_mode == mode) {
 			return;
@@ -146,6 +149,7 @@ public class MinimapScreenController : ScreenBase, IDragHandler, IScrollHandler 
 
 		_mode = mode;
 		RefreshDisplay();
+		ModeChanged?.Invoke(mode);
 	}
 
 	public override void ActivateScreen() {

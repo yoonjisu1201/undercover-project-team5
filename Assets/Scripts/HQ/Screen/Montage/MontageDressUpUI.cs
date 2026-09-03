@@ -197,6 +197,13 @@ public class MontageDressUpUI : ScreenBase {
 	   }
 	}
 
+	// 지금 보고 있는 항목 탭. 관전 미러가 대상 화면을 따라가는 데 쓴다.
+	public ClothPart ActivePart => _activePart;
+	public event Action<ClothPart> ActivePartChanged;
+
+	// 관전 미러가 대상의 항목 탭을 그대로 따라갈 때 쓴다.
+	public void ShowPart(ClothPart part) => SetActiveTab(part);
+
 	private void SetActiveTab(ClothPart part) {
 	   _activePart = part;
 
@@ -206,6 +213,7 @@ public class MontageDressUpUI : ScreenBase {
 	   }
 
 	   RefreshRecords();
+	   ActivePartChanged?.Invoke(part);
 	}
 
 	private void RefreshRecords() {

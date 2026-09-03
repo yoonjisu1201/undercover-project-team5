@@ -33,6 +33,21 @@ public class MinimapModeToggle : MonoBehaviour {
 	private void OnEnable() {
 		// 화면을 다시 열었을 때 지도가 보고 있는 모드와 표시가 어긋나지 않도록 맞춘다.
 		ApplySelection(_minimapScreen != null ? _minimapScreen.Mode : MinimapScreenController.MinimapMode.Field, false);
+
+		// 관전 미러처럼 버튼을 거치지 않고 모드가 바뀌는 경로가 있다. 그때도 표시가 따라와야 한다.
+		if (_minimapScreen != null) {
+			_minimapScreen.ModeChanged += HandleModeChanged;
+		}
+	}
+
+	private void OnDisable() {
+		if (_minimapScreen != null) {
+			_minimapScreen.ModeChanged -= HandleModeChanged;
+		}
+	}
+
+	private void HandleModeChanged(MinimapScreenController.MinimapMode mode) {
+		ApplySelection(mode, true);
 	}
 
 	private void OnDestroy() {
@@ -41,14 +56,13 @@ public class MinimapModeToggle : MonoBehaviour {
 		_slideTween?.Kill();
 	}
 
+	// 표시 갱신은 ModeChanged 하나로 모은다. 여기서 또 부르면 같은 전환에 두 번 돈다.
 	private void SelectField() {
 		_minimapScreen?.ShowField();
-		ApplySelection(MinimapScreenController.MinimapMode.Field, true);
 	}
 
 	private void SelectUnderground() {
 		_minimapScreen?.ShowUnderground();
-		ApplySelection(MinimapScreenController.MinimapMode.Underground, true);
 	}
 
 	private void ApplySelection(MinimapScreenController.MinimapMode mode, bool animate) {

@@ -75,9 +75,26 @@ public class Player : NetworkBehaviour
 		NetworkVariableWritePermission.Owner
 	);
 
+	// 본부 콘솔에서 보고 있는 화면. 탭·CCTV 카메라·몽타주 항목·지도 모드를 한 덩어리로 담는다.
+	// 콘솔 UI는 씬에 하나뿐이라 미션 기기처럼 대상을 지목할 필요가 없다.
+	private readonly NetworkVariable<HqConsoleState> _hqConsole = new NetworkVariable<HqConsoleState>(
+		HqConsoleState.Closed,
+		NetworkVariableReadPermission.Everyone,
+		NetworkVariableWritePermission.Owner
+	);
+
 	public bool IsSpeaking => _isSpeaking.Value;
 	public bool IsMicMuted => _micMuted.Value;
 	public ulong OpenMissionObjectId => _openMissionObjectId.Value;
+	public HqConsoleState HqConsole => _hqConsole.Value;
+
+	// 콘솔을 열고 닫거나 보고 있는 화면이 바뀔 때 통째로 올린다.
+	public void SetHqConsole(HqConsoleState state)
+	{
+		if (!IsOwner) return;
+
+		_hqConsole.Value = state;
+	}
 
 	// 미션 기기가 열고 닫을 때 알려준다. 오너만 쓸 수 있는 값이다.
 	public void SetOpenMission(ulong networkObjectId)
@@ -93,6 +110,9 @@ public class Player : NetworkBehaviour
 
 	// 이 플레이어가 연 미션 기기가 바뀐 순간. 관전 미러가 구독한다.
 	public event Action<ulong, ulong> OpenMissionChanged;
+
+	// 본부 콘솔 화면이 바뀐 순간. 관전 미러가 구독한다.
+	public event Action<HqConsoleState, HqConsoleState> HqConsoleChanged;
 
 	// 서버의 이름 요청 처리 결과를 요청한 본인에게만 알린다. true면 반영됐다.
 	public event Action<bool> NameRequestResolved;
@@ -215,6 +235,7 @@ public class Player : NetworkBehaviour
 		_playerColor.OnValueChanged += HandlePlayerColorChanged;
 		_isSpeaking.OnValueChanged += HandleSpeakingChanged;
 		_openMissionObjectId.OnValueChanged += HandleOpenMissionChanged;
+		_hqConsole.OnValueChanged += HandleHqConsoleChanged;
 
 		PlayerNameChanged += PlayerInfoPresenter.HandlePlayerNameChanged;
 
@@ -228,6 +249,7 @@ public class Player : NetworkBehaviour
 		_playerColor.OnValueChanged -= HandlePlayerColorChanged;
 		_isSpeaking.OnValueChanged -= HandleSpeakingChanged;
 		_openMissionObjectId.OnValueChanged -= HandleOpenMissionChanged;
+		_hqConsole.OnValueChanged -= HandleHqConsoleChanged;
 		_activeInstances.Remove(this);
 	}
 
@@ -283,5 +305,10 @@ public class Player : NetworkBehaviour
 	private void HandleOpenMissionChanged(ulong previousValue, ulong newValue)
 	{
 		OpenMissionChanged?.Invoke(previousValue, newValue);
+	}
+
+	private void HandleHqConsoleChanged(HqConsoleState previousValue, HqConsoleState newValue)
+	{
+		HqConsoleChanged?.Invoke(previousValue, newValue);
 	}
 }
