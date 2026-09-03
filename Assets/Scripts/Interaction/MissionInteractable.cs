@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Localization;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -48,6 +49,9 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
 
     private GameObject _uiInstance; // 열려있는 미션 ui 인스턴스
     private Transform _interactingPlayer;
+
+    // UI를 연 본인. 닫을 때 "열고 있음" 표시를 되돌리는 데 쓴다. 관전 미러에서는 비어 있다.
+    private Player _uiOwnerPlayer;
     private static MissionInteractable _activeInteractable;
 
     // 이 클라이언트가 지금 열어 두고 보고 있는 미션. 디버그 메뉴가 대상으로 삼는다.
@@ -184,12 +188,42 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
 
         _activeInteractable = this;
         _interactingPlayer = interactor.transform;
+        _uiOwnerPlayer = interactor.GetComponent<Player>();
 
+        OpenUi(interactive: true);
+
+        // 관전자가 같은 패널을 띄울 수 있도록 어떤 기기를 열었는지 알린다.
+        _uiOwnerPlayer?.SetOpenMission(NetworkObjectId);
+    }
+
+    // 관전자가 대상과 같은 패널을 띄운다. 조작을 막고 커서는 켜지 않는다.
+    public void OpenMirrorUi() => OpenUi(interactive: false);
+
+    // 관전을 그만두거나 대상이 패널을 닫으면 미러도 같이 치운다.
+    public void CloseMirrorUi()
+    {
+        if (_uiInstance == null) return;
+
+        Destroy(_uiInstance);
+        _uiInstance = null;
+    }
+
+    // 상호작용으로 여는 경우와 관전 미러가 같은 코드를 쓴다. 시드가 동기화되어 있어
+    // 어느 쪽에서 만들어도 같은 문제가 나온다.
+    private void OpenUi(bool interactive)
+    {
         // 미완료 상태로 닫아 보관한 단계형 게임은 새로 만들지 않고 기존 진행 상태를 재개한다.
         if (_uiInstance != null)
         {
             _uiInstance.SetActive(true);
-            GameplayUiMode.Instance?.ActivateCursor();
+
+            // 보관본을 미러로 켜는 경우가 있어, 열 때마다 조작 가능 여부를 다시 맞춘다.
+            SetInteractable(_uiInstance, interactive);
+
+            if (interactive)
+            {
+                GameplayUiMode.Instance?.ActivateCursor();
+            }
             return;
         }
 
@@ -218,8 +252,13 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
 
         controller.Initialize(this);
 
+        SetInteractable(_uiInstance, interactive);
+
         // 미션별 초기화가 실패해도 커서 없이 UI만 열린 상태로 갇히지 않도록 커서를 먼저 활성화한다.
-        GameplayUiMode.Instance?.ActivateCursor();
+        if (interactive)
+        {
+            GameplayUiMode.Instance?.ActivateCursor();
+        }
 
         // 배터리 미션은 레버·게이지 등 다른 역할과 공유하는 상태를 별도 컴포넌트에서 관리한다.
         if (_uiInstance.TryGetComponent(out BreakerBatteryMission breakerGame))
@@ -236,6 +275,23 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
         if (IsCompleted)
         {
             controller.ShowCompletedState();
+        }
+    }
+
+    // 관전자 화면의 패널은 보기만 한다. CCTV 선 연결처럼 서버로 올라가는 조작이 있어서,
+    // 클릭이 들어가면 기절한 사람이 남의 미션을 실제로 진행시키게 된다.
+    private static void SetInteractable(GameObject uiInstance, bool interactive)
+    {
+        foreach (GraphicRaycaster raycaster in uiInstance.GetComponentsInChildren<GraphicRaycaster>(true))
+        {
+            raycaster.enabled = interactive;
+        }
+
+        // MissionUIController가 OnEnable에서 ESC 스택에 자기를 올린다. 관전자가 ESC로 남의 패널을
+        // 닫지 못하도록 미러일 때만 다시 뺀다.
+        if (!interactive && uiInstance.TryGetComponent(out MissionUIController controller))
+        {
+            GameplayUiMode.Instance?.UnregisterUi(controller);
         }
     }
 
@@ -423,6 +479,7 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
         {
             _uiInstance = null;
             ReleaseActiveState();
+            ClearOpenMissionFlag();
         }
     }
 
@@ -432,7 +489,15 @@ public sealed class MissionInteractable : InteractableBase, ICctvHighlightTarget
         if (controller != null && controller.gameObject == _uiInstance)
         {
             ReleaseActiveState();
+            ClearOpenMissionFlag();
         }
+    }
+
+    // 관전자에게 알렸던 "이 기기를 열고 있음" 표시를 되돌린다. 미러로 연 경우에는 비어 있어 아무 일도 없다.
+    private void ClearOpenMissionFlag()
+    {
+        _uiOwnerPlayer?.SetOpenMission(0);
+        _uiOwnerPlayer = null;
     }
 
     // 현재 기계가 사용 중인 미션 상태를 해제한다.

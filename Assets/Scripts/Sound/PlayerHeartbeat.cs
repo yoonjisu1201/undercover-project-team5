@@ -59,6 +59,11 @@ public class PlayerHeartbeat : NetworkBehaviour
     private readonly NetworkVariable<BossThreat> _bossThreat =
         new(BossThreat.None, NetworkVariableReadPermission.Owner, NetworkVariableWritePermission.Server);
 
+    // 관전자가 대상의 심박 그래프를 같은 박자로 그리려면 남의 BPM 을 읽을 수 있어야 한다.
+    // 소리는 각자 자기 것만 듣고, 이 값은 그래프 속도로만 쓰인다.
+    private readonly NetworkVariable<float> _sharedBpm =
+        new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
     private PlayerStamina _stamina;
     private PlayerHealth _health;
 
@@ -79,20 +84,22 @@ public class PlayerHeartbeat : NetworkBehaviour
     // 아직 한 번도 발각되지 않았음을 뜻하는 값으로 시작한다.
     private float _lastSpottedTime = float.NegativeInfinity;
 
-    // 지금 들리는 박동의 BPM. 소리가 안 나면 0 이다. 개인 HUD 의 심박 그래프가 귀에 들리는
-    // 박자와 같은 속도로 뛰도록 이 값을 읽어간다. 단계별 BPM 은 SoundKey 주석과 같다.
-    public float CurrentBpm
+    // 지금 내는 박동의 BPM. 소리가 안 나면 0 이다. 개인 HUD 의 심박 그래프가 같은 속도로 뛰도록
+    // 이 값을 읽어간다. 단계별 BPM 은 SoundKey 주석과 같다.
+    //
+    // 단계 판정은 오너만 하므로 남의 복제본에서는 _current 가 계속 None 이다. 그래서 그쪽에서는
+    // 복제된 값을 돌려준다. 관전 중인 팀원의 그래프를 그 사람 화면과 같은 박자로 그리는 데 쓴다.
+    public float CurrentBpm => IsOwner ? ResolveBpm(_current) : _sharedBpm.Value;
+
+    private static float ResolveBpm(SoundKey key)
     {
-        get
+        switch (key)
         {
-            switch (_current)
-            {
-                case SoundKey.Player_HeartBeat_Tired: return 70f;
-                case SoundKey.Player_HeartBeat_Exhausted: return 90f;
-                case SoundKey.Player_HeartBeat_Hiding: return 120f;
-                case SoundKey.Player_HeartBeat_Spotted: return 180f;
-                default: return 0f;
-            }
+            case SoundKey.Player_HeartBeat_Tired: return 70f;
+            case SoundKey.Player_HeartBeat_Exhausted: return 90f;
+            case SoundKey.Player_HeartBeat_Hiding: return 120f;
+            case SoundKey.Player_HeartBeat_Spotted: return 180f;
+            default: return 0f;
         }
     }
 
@@ -155,6 +162,9 @@ public class PlayerHeartbeat : NetworkBehaviour
             }
 
             _current = desired;
+
+            // 단계가 바뀌는 순간에만 알린다. BPM 은 단계로만 정해져 매 프레임 쓸 이유가 없다.
+            _sharedBpm.Value = ResolveBpm(_current);
         }
 
         // 세기는 매 프레임 다시 넣는다. 스태미나가 차오르는 동안 계속 줄어들어야 하기 때문에,
