@@ -111,6 +111,11 @@ public class FirstPersonHandMotion : MonoBehaviour {
 	[Tooltip("다 올라갔을 때 왼손 회전 (기본 자세 기준 추가 회전). 손전등이 총구 방향을 보게 맞춘 값")]
 	[SerializeField] private Vector3 _arrestRaiseLeftEuler = new Vector3(330.91f, 0.55f, 217.16f);
 
+	// 조준 자세는 고정된 자리라, 그대로 두면 점프 아크가 통째로 덮여 총이 화면에 붙박이가 된다.
+	// 조준 자세 위에 점프만 살짝 얹어서 들썩이게 한다. 조준선이 흔들리지 않도록 작게 준다.
+	[Tooltip("제압기를 든 채 점프할 때 양손이 들썩이는 각도(도). 0 이면 붙박이")]
+	[SerializeField] private float _arrestJumpDegrees = 4f;
+
 	[Header("=== 오른손 감추기 ===")]
 	// 빈손이면 감추되 그 자리에서 사라지면 눈에 띈다. 화면 아래로 내려보낸 뒤에 끈다.
 	[Tooltip("감출 때 손이 내려가는 거리(m)")]
@@ -223,6 +228,9 @@ public class FirstPersonHandMotion : MonoBehaviour {
 			leftPosition = Vector3.Lerp(leftPosition, _arrestRaiseLeftPosition, raiseLeft);
 			leftFinal = Quaternion.Slerp(
 				leftFinal, Quaternion.Euler(_arrestRaiseLeftEuler) * _leftBaseRotation, raiseLeft);
+
+			// 섞고 난 뒤에 얹어야 조준 자세로 덮이지 않는다.
+			ApplyArrestJump(pivot, raiseLeft, jumpLift01, ref leftPosition, ref leftFinal);
 		}
 
 		_leftHandRig.localPosition = leftPosition;
@@ -256,6 +264,8 @@ public class FirstPersonHandMotion : MonoBehaviour {
 			rightPosition = Vector3.Lerp(rightPosition, _arrestRaisePosition, raise);
 			rightFinal = Quaternion.Slerp(
 				rightFinal, Quaternion.Euler(_arrestRaiseEuler) * _rightBaseRotation, raise);
+
+			ApplyArrestJump(rightPivot, raise, jumpLift01, ref rightPosition, ref rightFinal);
 		}
 
 		_rightHandRig.localPosition = rightPosition;
@@ -266,6 +276,19 @@ public class FirstPersonHandMotion : MonoBehaviour {
 			_rightHandActive = active;
 			_rightHandRig.gameObject.SetActive(active);
 		}
+	}
+
+	// 조준 자세로 섞인 뒤의 손에 점프 들썩임만 얹는다. 평소와 같은 팔꿈치 축 회전이라
+	// 손이 호를 그리며 오르내리고 손목 각도도 같이 따라온다.
+	private void ApplyArrestJump(
+		Vector3 pivot, float raise, float jumpLift01, ref Vector3 position, ref Quaternion rotation) {
+		if (_arrestJumpDegrees == 0f || jumpLift01 == 0f) {
+			return;
+		}
+
+		Quaternion lift = Quaternion.AngleAxis(-jumpLift01 * _arrestJumpDegrees * raise, Vector3.right);
+		position = pivot + lift * (position - pivot);
+		rotation = lift * rotation;
 	}
 
 	// 뛰어오르면 팔을 올리고 정점에서 곧바로 내린다. 오르내리는 길이를 실제 체공(상승 0.34초 /

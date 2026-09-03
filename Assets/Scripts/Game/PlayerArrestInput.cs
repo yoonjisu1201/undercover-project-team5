@@ -25,6 +25,28 @@ public class PlayerArrestInput : NetworkBehaviour
     [Tooltip("좌클릭 후 도구가 켜지기까지 기다리는 시간(초). 팔이 올라오는 시간")]
     [SerializeField] private float _toolRaiseDelay = 0.22f;
 
+    [Tooltip("레이저를 한 번에 유지할 수 있는 시간(초). 게이지가 가득 찼을 때의 길이다")]
+    [SerializeField, Min(0.1f)] private float _attackSeconds = 7f;
+
+    // 쏘기를 멈추면 잠깐 기다렸다가 다시 차오른다.
+    [Tooltip("쏘기를 멈춘 뒤 게이지가 다시 차기 시작할 때까지의 시간(초)")]
+    [SerializeField, Min(0f)] private float _regenDelay = 1f;
+
+    [Tooltip("게이지가 차는 속도(초당). 클수록 빨리 회복한다")]
+    [SerializeField, Min(0.01f)] private float _regenPerSecond = 3f;
+
+    // 끝에 닿기 전부터 빨갛게 경고하되, 경고 구간에서도 계속 쏠 수 있어야 한다.
+    // 빨개지는 순간 멈추면 남은 구간을 아예 못 쓴다.
+    [Tooltip("이 비율 아래로 내려가면 게이지가 빨갛게 바뀐다. 그래도 계속 쏠 수 있다")]
+    [SerializeField, Range(0f, 0.5f)] private float _redZoneRatio = 0.25f;
+
+    private float _attackRemaining;
+    private float _regenResumeTime;
+
+    // 다 쓰고 난 뒤에는 누르고 있던 손을 한 번 떼야 다시 나간다.
+    private bool _waitingForRelease;
+    private bool _didShowLaserThisHold;
+
     // 올리는 도중에 손을 떼면 켜지 않고 취소해야 한다.
     private Coroutine _raiseRoutine;
 
@@ -32,6 +54,7 @@ public class PlayerArrestInput : NetworkBehaviour
     private PlayerInventory _inventory;
     private PlayerHealth _health;
     private Animator _animator;
+    private ArrestToolGaugeUI _gaugeUi;
 
     private void Awake()
     {
@@ -39,17 +62,32 @@ public class PlayerArrestInput : NetworkBehaviour
         _inventory = GetComponent<PlayerInventory>();
         _health = GetComponent<PlayerHealth>();
         _animator = GetComponent<Animator>();
+        _attackRemaining = _attackSeconds;
     }
 
     private void OnEnable()
     {
         _actions ??= new CustomInputActions();
         _actions.Enable();
+
+        // 꺼져 있는 동안 코루틴이 끊겼을 수 있다. 지금 상태로 다시 맞춘다.
+        if (IsSpawned)
+        {
+            ApplyVisual(_isHoldingArrestKey.Value);
+        }
     }
 
     private void OnDisable()
     {
         _actions?.Disable();
+
+        // 비활성화되면 유니티가 코루틴을 죽인다. 핸들만 남겨 두면 다시 켜졌을 때
+        // 도구가 영영 안 나타난 채로 남는다.
+        if (_raiseRoutine != null)
+        {
+            StopCoroutine(_raiseRoutine);
+            _raiseRoutine = null;
+        }
     }
 
     public override void OnNetworkSpawn()
@@ -78,11 +116,79 @@ public class PlayerArrestInput : NetworkBehaviour
         if (_health != null && _health.IsDowned)
         {
             _isHoldingArrestKey.Value = false;
+            UpdateRegen(false);
+            UpdateGaugeUi(false);
             return;
         }
 
+        bool isToolSelected = IsToolSelected();
+
         // 메뉴/UI가 떠 있는 동안(GameplayUiMode.IsActive)은 홀드로 치지 않는다. (PlayerInteraction의 입력 차단 방식과 동일)
-        _isHoldingArrestKey.Value = !GameplayUiMode.IsActive && IsToolSelected() && _actions.Player.ArrestTool.IsPressed();
+        bool canUse = !GameplayUiMode.IsActive && isToolSelected;
+        bool pressed = _actions.Player.ArrestTool.IsPressed();
+        bool wasHolding = _isHoldingArrestKey.Value;
+        float ratio = _attackSeconds > 0f ? _attackRemaining / _attackSeconds : 1f;
+
+        // 쏘던 중이면 빨간 구간에 들어서도 끊지 않는다. 남은 구간을 못 쓰게 되면
+        // 경고가 아니라 그냥 더 짧은 게이지일 뿐이다.
+        // 대신 손을 뗀 뒤에는 흰색으로 돌아올 때까지 다시 못 쏜다.
+        bool canStart = ratio > _redZoneRatio;
+        bool wants = canUse && pressed && _attackRemaining > 0f && (wasHolding || canStart);
+
+        // 다 쓰고 나면 손을 뗐다 다시 눌러야 한다. 안 그러면 꾹 누르고 있는 것만으로
+        // 차오르는 족족 다시 나가서 기다린 의미가 없어진다.
+        if (_waitingForRelease)
+        {
+            if (pressed)
+            {
+                wants = false;
+            }
+            else
+            {
+                _waitingForRelease = false;
+            }
+        }
+
+        if (!wasHolding && wants)
+        {
+            _didShowLaserThisHold = false;
+        }
+
+        _isHoldingArrestKey.Value = wants;
+
+        UpdateRegen(wants && _didShowLaserThisHold);
+        UpdateGaugeUi(canUse);
+    }
+
+    // 쏘는 동안은 닳고, 멈추면 기다렸다가 차오른다. 끝까지 다 쓰면 더 오래 기다린다.
+    // 다른 아이템을 들어도 회복은 계속 돈다 - 손에 없다고 멈추면 바꿔 들 때마다 손해다.
+    private void UpdateRegen(bool firing)
+    {
+        if (firing)
+        {
+            _attackRemaining = Mathf.Max(0f, _attackRemaining - Time.deltaTime);
+
+            // 쏘는 동안 매 프레임 뒤로 민다. 시작할 때 한 번만 재면 계속 쏘는 사이에
+            // 대기가 끝나 버려서, 손을 떼자마자 곧바로 차오른다.
+            _regenResumeTime = Time.time + _regenDelay;
+
+            // 다 써도 벌칙은 없다. 다른 때와 똑같이 기다렸다가 차오른다.
+            if (_attackRemaining <= 0f)
+            {
+                _waitingForRelease = true;
+                _didShowLaserThisHold = false;
+                _isHoldingArrestKey.Value = false;
+            }
+
+            return;
+        }
+
+        if (_attackRemaining >= _attackSeconds || Time.time < _regenResumeTime)
+        {
+            return;
+        }
+
+        _attackRemaining = Mathf.Min(_attackSeconds, _attackRemaining + _regenPerSecond * Time.deltaTime);
     }
 
     // 검거도구를 선택하지 않은 상태에서 좌클릭해도 홀드로 인정되지 않고, 손에도 표시되지 않는다.
@@ -96,6 +202,39 @@ public class PlayerArrestInput : NetworkBehaviour
     private void HandleHoldingChanged(bool previousValue, bool currentValue)
     {
         ApplyVisual(currentValue);
+    }
+
+    // 손에 들고 있고 가득 차지 않았을 때만 보인다. 다 차면 알아서 사라진다.
+    // 다른 아이템으로 바꾸면 감추기만 하고 회복은 계속 돈다.
+    private void UpdateGaugeUi(bool canUse)
+    {
+        ArrestToolGaugeUI gauge = ResolveGaugeUi();
+        if (gauge == null)
+        {
+            return;
+        }
+
+        if (!canUse || _attackRemaining >= _attackSeconds)
+        {
+            gauge.SetVisible(false);
+            return;
+        }
+
+        float ratio = _attackSeconds > 0f ? Mathf.Clamp01(_attackRemaining / _attackSeconds) : 1f;
+
+        // 경고 구간에서만 빨갛다. 차오르다 임계점을 넘으면 그 자리에서 흰색으로 돌아온다.
+        gauge.SetDanger(ratio <= _redZoneRatio);
+        gauge.SetGauge(ratio);
+    }
+
+    private ArrestToolGaugeUI ResolveGaugeUi()
+    {
+        if (_gaugeUi == null)
+        {
+            _gaugeUi = ArrestToolGaugeUI.Resolve();
+        }
+
+        return _gaugeUi;
     }
 
     private void ApplyVisual(bool isHolding)
@@ -136,7 +275,14 @@ public class PlayerArrestInput : NetworkBehaviour
     {
         yield return new WaitForSeconds(_toolRaiseDelay);
 
+        if (!IsOwner || GameplayUiMode.IsActive || !IsToolSelected() || !_actions.Player.ArrestTool.IsPressed())
+        {
+            _raiseRoutine = null;
+            yield break;
+        }
+
         _handToolVisual.SetActive(true);
+        _didShowLaserThisHold = true;
         _raiseRoutine = null;
     }
 }
