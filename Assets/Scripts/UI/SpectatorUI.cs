@@ -73,6 +73,9 @@ public sealed class SpectatorUI : MonoBehaviour
         _localPlayer.PlayerHealth.DownedStateChanged += HandleDownedStateChanged;
         _spectator.TargetChanged += HandleTargetChanged;
         LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
+        RoundManager.Instance.OnRoundStateChanged += HandleRoundStateChanged;
+
+        UpdateVisibility();
     }
 
     private void OnDestroy()
@@ -89,6 +92,11 @@ public sealed class SpectatorUI : MonoBehaviour
         }
 
         LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
+
+        if (RoundManager.Instance != null)
+        {
+            RoundManager.Instance.OnRoundStateChanged -= HandleRoundStateChanged;
+        }
     }
 
     private void Update()
@@ -104,11 +112,25 @@ public sealed class SpectatorUI : MonoBehaviour
         _spectator.SwitchTarget();
     }
 
-    private void HandleDownedStateChanged(bool previousValue, bool newValue)
-    {
-        _canvas.enabled = newValue;
+    private void HandleDownedStateChanged(bool previousValue, bool newValue) => UpdateVisibility();
 
-        if (newValue)
+    private void HandleRoundStateChanged(RoundState state) => UpdateVisibility();
+
+    // 라운드가 끝나면 결과창이 뜬다. 그 위에 관전 패널이 겹쳐 보이지 않도록 함께 내린다.
+    private void UpdateVisibility()
+    {
+        bool visible = _localPlayer.PlayerHealth.IsDowned
+            && RoundManager.Instance != null
+            && RoundManager.Instance.CurrentState == RoundState.InRound;
+
+        if (_canvas.enabled == visible)
+        {
+            return;
+        }
+
+        _canvas.enabled = visible;
+
+        if (visible)
         {
             Render();
         }
