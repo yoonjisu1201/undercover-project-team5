@@ -29,6 +29,12 @@ public class BossController : NetworkBehaviour
         + "보스가 물러나므로 벽을 뚫지 않는다. 공격 사거리(2.2)보다 좁아야 붙어서 때릴 수 있다.")]
     [SerializeField, Min(0f)] private float _personalSpace = 1.1f;
 
+    // 겹친 만큼을 한 프레임에 다 물러나면, 다가가는 만큼 그대로 밀려나서 사람이 보스를
+    // 몸으로 밀고 다니게 된다. 일부만 해소해 두면 버티는 것처럼 보이면서도,
+    // 겹침이 이어지는 동안 조금씩 풀려서 모델이 관통해 보이는 일은 없다.
+    [Tooltip("겹쳤을 때 한 프레임에 물러나는 비율. 1 이면 즉시 다 물러나고, 작을수록 잘 안 밀린다")]
+    [SerializeField, Range(0.01f, 1f)] private float _pushResistance = 0.15f;
+
     [Tooltip("이 거리 안에 사람이 있는 모듈로는 옮기지 않는다. 눈앞에 나타나면 대응할 여지가 없다.")]
     [SerializeField, Min(0f)] private float _teleportMinPlayerDistance = 25f;
 
@@ -90,6 +96,10 @@ public class BossController : NetworkBehaviour
 
     // 순간이동으로 모습을 감추고 있는 중인지와, 다시 나타나기까지 남은 시간.
     private bool _isHidden;
+
+    // 순간이동으로 사라져 있는 동안은 모습만 감추고 콜라이더는 남는다.
+    // 그 사이에 사람의 이동까지 막으면 보이지도 않는 벽에 걸린다.
+    public bool IsHidden => _isHidden;
     private float _hiddenRemainingSeconds;
 
     // 발소리를 낸 지점과 그 소리의 키. 소리가 사람에게 닿았는지는 듣는 쪽이 판단한다.
@@ -199,7 +209,7 @@ public class BossController : NetworkBehaviour
                 continue;
             }
 
-            pushed += delta / distance * (_personalSpace - distance);
+            pushed += delta / distance * (_personalSpace - distance) * _pushResistance;
         }
 
         if (pushed == position)
