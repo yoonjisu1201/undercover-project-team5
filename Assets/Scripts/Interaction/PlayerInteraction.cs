@@ -158,32 +158,28 @@ public class PlayerInteraction : NetworkBehaviour
         UpdateHoldAction();
 
         // 조준 대상을 갱신한 뒤 상호작용 입력을 처리한다.
-        if (_actions.Player.Interact.WasPressedThisFrame()) // 상호작용 버튼이 눌렸을 때
+        // 누름 프레임에만 받는다. 누르고 있는 동안 다시 받으면 홀드가 끝나는 즉시
+        // 다음 홀드가 이어져서, 한 번 누른 것으로 여러 번 상호작용하게 된다.
+        if (_actions.Player.Interact.WasPressedThisFrame())
         {
-            HandleInteractInput(allowInstantAction: true);
-        }
-        else if (_activeHoldAction == HoldAction.None && _actions.Player.Interact.IsPressed())
-        {
-            // 제압기 클릭 후 조준/손 상태가 바뀌는 프레임에 E를 이미 누르고 있으면
-            // WasPressedThisFrame을 놓친다. 길게 누르는 동작만 뒤늦게 시작해 홀드 UI를 살린다.
-            HandleInteractInput(allowInstantAction: false);
+            HandleInteractInput();
         }
 
     }
 
-    private void HandleInteractInput(bool allowInstantAction)
+    private void HandleInteractInput()
     {
         // 대상을 조준 중이고 그 대상에 적용 가능한 IInteractionApplier 아이템을 들고 있으면 최우선으로 적용을 시도한다.
         if (CurrentTarget != null && TryGetApplierForTarget(CurrentTarget, out ItemBase applierItem, out _))
         {
-            TryBeginHoldAction(HoldAction.ApplyItem, applierItem.ItemHoldThreshold, allowInstantAction, CurrentTarget);
+            BeginHoldAction(HoldAction.ApplyItem, applierItem.ItemHoldThreshold, CurrentTarget);
             return;
         }
 
         // 조준 중인 대상이 있으면 필드 상호작용을 우선한다. threshold가 0이면 BeginHoldAction 안에서 그 자리에 즉시 처리된다.
         if (CurrentTarget != null)
         {
-            TryBeginHoldAction(HoldAction.Interactable, CurrentTarget.InteractHoldThreshold, allowInstantAction, CurrentTarget);
+            BeginHoldAction(HoldAction.Interactable, CurrentTarget.InteractHoldThreshold, CurrentTarget);
             return;
         }
         // 선택한 아이템이 사용 가능하면 그 처리를 우선한다.
@@ -191,11 +187,11 @@ public class PlayerInteraction : NetworkBehaviour
         {
             if (usable.CanUse(gameObject, out string failReason))
             {
-                TryBeginHoldAction(HoldAction.UseItem, item.ItemHoldThreshold, allowInstantAction);
+                BeginHoldAction(HoldAction.UseItem, item.ItemHoldThreshold);
                 return;
             }
 
-            if (allowInstantAction && failReason != null)
+            if (failReason != null)
             {
                 _prompt.ShowTemporary(failReason);
                 return;
@@ -222,16 +218,6 @@ public class PlayerInteraction : NetworkBehaviour
         item = selected;
         applier = itemApplier;
         return true;
-    }
-
-    private void TryBeginHoldAction(HoldAction action, float holdThreshold, bool allowInstantAction, InteractableBase target = null)
-    {
-        if (!allowInstantAction && holdThreshold <= 0f)
-        {
-            return;
-        }
-
-        BeginHoldAction(action, holdThreshold, target);
     }
 
     private void BeginHoldAction(HoldAction action, float holdThreshold, InteractableBase target = null)
