@@ -47,10 +47,26 @@ public class PlayerHandIK : MonoBehaviour
 
     private void HandleDownedStateChanged(bool previousValue, bool isDowned)
     {
-        if (!isDowned) return; // 소생 시작 시점은 아직 Getting Up 중이므로 무시, GettingUpFinished에서 해제한다.
+        if (isDowned)
+        {
+            _handsSuppressed = true;
+            _itemIK.DisableItems();
+            return;
+        }
 
-        _handsSuppressed = true;
-        _itemIK.DisableItems();
+        // 소생 시작 시점은 아직 Getting Up 중이라, 오너는 GettingUpFinished 를 기다렸다가 푼다.
+        //
+        // 그런데 그 신호를 만드는 PlayerMoveSample.UpdateGettingUpState 는 오너 전용 구간에 있어서
+        // 남의 화면에서는 영영 오지 않는다. 한 번 쓰러진 사람은 그 뒤로 손에 든 것이 계속
+        // 숨겨진 채로 남는다(1인칭에서는 멀쩡한데 3인칭에서만 손전등이 사라져 보인다).
+        // 오너가 아니면 기다릴 신호가 없으므로 소생과 동시에 되돌린다.
+        if (_itemIK.IsOwner)
+        {
+            return;
+        }
+
+        _handsSuppressed = false;
+        _itemIK.EnableItems();
     }
 
     private void HandleGettingUpFinished()
