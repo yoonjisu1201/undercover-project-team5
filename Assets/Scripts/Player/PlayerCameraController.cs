@@ -57,6 +57,9 @@ public class PlayerCameraController : NetworkBehaviour
     private bool _useDownedCameraView;
     private bool _isCameraTransitioning;
 
+    // 관전 중 시야를 빌려오는 팀원. null이면 내 시점이다.
+    private PlayerCameraController _spectateTarget;
+
     // 오너가 갱신하는 pitch 값. 다른 클라이언트는 이 값을 읽어 헤드 본을 회전시킨다.
     private readonly NetworkVariable<float> _networkPitch =
         new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
@@ -189,6 +192,13 @@ public class PlayerCameraController : NetworkBehaviour
             return;
         }
 
+        if (IsOwner && _spectateTarget != null)
+        {
+            _spectateTarget.ResolveSpectatePose(out Vector3 spectatePosition, out Quaternion spectateRotation);
+            _camera.transform.SetPositionAndRotation(spectatePosition, spectateRotation);
+            return;
+        }
+
         if (IsOwner && _useDownedCameraView)
         {
             _camera.transform.SetPositionAndRotation(
@@ -286,6 +296,75 @@ public class PlayerCameraController : NetworkBehaviour
     {
         _useDownedCameraView = false;
         BeginCameraTransition();
+    }
+
+    // 다운된 동안 팀원의 시야를 빌린다. 대상의 카메라를 켜는 대신 내 카메라를 대상의 눈 위치로
+    // 옮기므로, LocalCameraProvider에 등록된 카메라와 AudioListener가 그대로 유지된다.
+    public void BeginSpectate(PlayerCameraController target)
+    {
+        if (target == null || target == this)
+        {
+            return;
+        }
+
+        // 다른 팀원을 보고 있었다면 그 사람 머리부터 되돌린다.
+        ClearSpectateTarget();
+        _spectateTarget = target;
+        _spectateTarget.SetHeadVisibleToSpectator(false);
+
+        // 다운 전환 보간이 아직 돌고 있으면 그쪽이 카메라를 계속 잡는다. 관전 대상은 맵 반대편에
+        // 있을 수도 있어서 그 거리를 보간으로 훑으면 화면이 크게 쓸린다. 끊고 바로 넘긴다.
+        _isCameraTransitioning = false;
+    }
+
+    public void EndSpectate()
+    {
+        if (_spectateTarget == null)
+        {
+            return;
+        }
+
+        ClearSpectateTarget();
+
+        // 카메라가 아직 팀원 눈 위치에 있다. 여기서 내 몸으로 되돌려 두지 않으면
+        // 뒤따르는 기상 전환이 맵 반대편에서 내 몸까지 훑는 보간이 된다.
+        _camera.transform.SetPositionAndRotation(
+            _downedCameraAnchor.position,
+            _downedCameraAnchor.rotation);
+    }
+
+    private void ClearSpectateTarget()
+    {
+        if (_spectateTarget == null)
+        {
+            return;
+        }
+
+        _spectateTarget.SetHeadVisibleToSpectator(true);
+        _spectateTarget = null;
+    }
+
+    // 관전자 화면에서만 도는 로컬 처리다. 머리를 끄면 그림자도 같이 사라지므로
+    // 1인칭 시점과 같은 방식으로 그림자 전용 사본을 대신 켠다.
+    private void SetHeadVisibleToSpectator(bool visible)
+    {
+        if (_playerRenderer == null)
+        {
+            return;
+        }
+
+        _playerRenderer.SetHeadObjectsActive(visible);
+        _playerRenderer.SetHeadShadowCastersActive(!visible);
+    }
+
+    // 다른 클라이언트에서 이 플레이어의 1인칭 시점을 재현한다. 오너의 _yaw/_pitch는 로컬 값이라
+    // 쓸 수 없지만, 몸 회전(NetworkTransform)과 _networkPitch가 같은 시선을 이미 동기화하고 있다.
+    // 몸통은 yaw만 회전하므로 transform.rotation을 그대로 시점 yaw로 쓴다.
+    public void ResolveSpectatePose(out Vector3 position, out Quaternion rotation)
+    {
+        Quaternion yawRotation = transform.rotation;
+        position = transform.position + yawRotation * _cameraBaseLocalPosition;
+        rotation = yawRotation * _cameraBaseLocalRotation * Quaternion.Euler(ViewPitch, 0f, 0f);
     }
 
     private void BeginCameraTransition()
