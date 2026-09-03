@@ -50,6 +50,10 @@ public sealed class PlayerAimIK : MonoBehaviour, IHandIK
     private Vector3 frozenRightHandPosition;
     private Quaternion frozenHandRotation = Quaternion.identity;
 
+    // 한 번도 잡아 두지 않은 얼린 값은 원점(발밑)이라, 그대로 쓰면 양손이 발밑으로 순간이동한다.
+    // 도구를 든 프레임이 한 번은 지나야 쓸 수 있다.
+    private bool hasFrozenGoal;
+
     public Vector3 AimDirection => CalculateAimDirection(out _);
 
     // PlayerItemIK가 이 값을 보고 지금 이 IK를 적용할지 판단한다.
@@ -59,9 +63,6 @@ public sealed class PlayerAimIK : MonoBehaviour, IHandIK
         && gunAimAxis.sqrMagnitude >= Mathf.Epsilon
         && gunUpAxis.sqrMagnitude >= Mathf.Epsilon
         && (IsToolHeld || blend > 0f);
-
-    // 아직 섞이는 중인지. 이 동안에는 바탕에 아이템 자세를 먼저 깔아 두어야 한다.
-    public bool IsBlending => blend < 1f;
 
     private bool IsToolHeld => !hasActiveParameter || _animator.GetBool(activeParameterHash);
 
@@ -105,7 +106,9 @@ public sealed class PlayerAimIK : MonoBehaviour, IHandIK
             return;
         }
 
-        bool held = IsToolHeld;
+        // 얼린 값이 아직 없으면 놓은 상태라도 새로 계산한다. 놓자마자 첫 호출이 오는
+        // 경우(도구 플래그가 한 프레임 안에서 켜졌다 꺼짐)에 원점으로 튀는 것을 막는다.
+        bool held = IsToolHeld || !hasFrozenGoal;
         Quaternion targetHandRotation;
         if (held)
         {
@@ -117,6 +120,7 @@ public sealed class PlayerAimIK : MonoBehaviour, IHandIK
             Quaternion desiredGunRotation = desiredGunFrame * Quaternion.Inverse(gunLocalFrame);
             targetHandRotation = desiredGunRotation * Quaternion.Inverse(gun.localRotation);
             frozenHandRotation = targetHandRotation;
+            hasFrozenGoal = true;
         }
         else
         {
@@ -132,28 +136,36 @@ public sealed class PlayerAimIK : MonoBehaviour, IHandIK
         // 다만 바탕이 실제로 깔려 있을 때만이다. 아이템 IK 가 가중치 0 으로 꺼 두면 그 목표값은
         // 지난 프레임 찌꺼기라 아무 자리도 가리키지 않는다. 그걸 출발점으로 섞으면 손이 엉뚱한
         // 유령 목표에 한 번 끌려갔다가 애니메이션 자세로 내려온다.
+        // 가중치도 바탕에서 조준 값으로 이어서 섞는다. Max 로 집으면 다 섞인 지점에서
+        // 값이 한 번 꺾여 손이 톡 튄다. 바탕이 없으면(가중치 0) 자연히 0 에서 올라간다.
         float baseRotationWeight = _animator.GetIKRotationWeight(AvatarIKGoal.RightHand);
-        float aimRotationWeight = rotationWeight * blend;
-        if (baseRotationWeight > 0f)
-        {
-            Quaternion baseRotation = _animator.GetIKRotation(AvatarIKGoal.RightHand);
-            _animator.SetIKRotationWeight(
-                AvatarIKGoal.RightHand, Mathf.Max(baseRotationWeight, aimRotationWeight));
-            _animator.SetIKRotation(
-                AvatarIKGoal.RightHand, Quaternion.Slerp(baseRotation, targetHandRotation, blend));
-        }
-        else
-        {
-            _animator.SetIKRotationWeight(AvatarIKGoal.RightHand, aimRotationWeight);
-            _animator.SetIKRotation(AvatarIKGoal.RightHand, targetHandRotation);
-        }
+        _animator.SetIKRotationWeight(
+            AvatarIKGoal.RightHand, Mathf.Lerp(baseRotationWeight, rotationWeight, blend));
+
+        // 값은 바탕이 실제로 깔려 있을 때만 섞는다. 가중치 0 일 때의 목표는 지난 프레임
+        // 찌꺼기라 아무 자리도 가리키지 않는다.
+        _animator.SetIKRotation(
+            AvatarIKGoal.RightHand,
+            baseRotationWeight > 0f
+                ? Quaternion.Slerp(_animator.GetIKRotation(AvatarIKGoal.RightHand), targetHandRotation, blend)
+                : targetHandRotation);
     }
 
+    // 몸통 회전은 물리 틱에서 MoveRotation 으로 돌고 Rigidbody 보간까지 거쳐서, 렌더 프레임의
+    // 카메라 yaw 보다 한 박자 늦다. 몸통 기준으로 조준 방향을 잡으면 화면을 돌리는 동안
+    // 레이저가 카메라를 뒤따라오며 끌린다. 카메라 yaw 를 직접 기준으로 쓴다.
     private Vector3 CalculateAimDirection(out float pitch)
     {
-        float viewPitch = playerCameraController != null ? playerCameraController.ViewPitch : 0f;
-        pitch = Mathf.Clamp(viewPitch, -maxAimPitch, maxAimPitch) * aimPitchWeight;
-        return Quaternion.AngleAxis(pitch, transform.right) * transform.forward;
+        if (playerCameraController == null)
+        {
+            pitch = 0f;
+            return transform.forward;
+        }
+
+        pitch = Mathf.Clamp(playerCameraController.ViewPitch, -maxAimPitch, maxAimPitch) * aimPitchWeight;
+
+        Quaternion yaw = playerCameraController.ViewYawRotation;
+        return Quaternion.AngleAxis(pitch, yaw * Vector3.right) * (yaw * Vector3.forward);
     }
 
     private void MoveHandTowardCenter(AvatarIKGoal hand, bool held)
@@ -197,21 +209,14 @@ public sealed class PlayerAimIK : MonoBehaviour, IHandIK
 
             aimPosition = transform.TransformPoint(startLocal);
         }
-        // 회전과 같은 이유로, 바탕 가중치가 0 이면 섞을 자리가 없다. 목표는 조준 자세에 그대로
-        // 두고 가중치만 빼야 손이 곧장 애니메이션 자세로 풀린다.
+        // 회전과 같은 방식이다. 가중치는 이어서 섞고, 값은 바탕이 있을 때만 섞는다.
         float baseWeight = _animator.GetIKPositionWeight(hand);
-        float aimWeight = positionWeight * blend;
-        if (baseWeight > 0f)
-        {
-            Vector3 basePosition = _animator.GetIKPosition(hand);
-            _animator.SetIKPositionWeight(hand, Mathf.Max(baseWeight, aimWeight));
-            _animator.SetIKPosition(hand, Vector3.Lerp(basePosition, aimPosition, blend));
-        }
-        else
-        {
-            _animator.SetIKPositionWeight(hand, aimWeight);
-            _animator.SetIKPosition(hand, aimPosition);
-        }
+        _animator.SetIKPositionWeight(hand, Mathf.Lerp(baseWeight, positionWeight, blend));
+        _animator.SetIKPosition(
+            hand,
+            baseWeight > 0f
+                ? Vector3.Lerp(_animator.GetIKPosition(hand), aimPosition, blend)
+                : aimPosition);
     }
 
     private static Transform FindChildByName(Transform parent, string childName)

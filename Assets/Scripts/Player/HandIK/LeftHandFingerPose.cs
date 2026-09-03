@@ -58,6 +58,18 @@ public class LeftHandFingerPose : MonoBehaviour {
 
 	private PlayerCameraController _cameraController;
 	private Transform _upperArm;
+
+	// 본 회전을 지금 값에 곱해서 얹는데, 이건 애니메이터가 매 프레임 본을 새로 써 준다는
+	// 전제 위에서만 안전하다. 컬링이나 Animator 비활성으로 그 갱신이 한 번이라도 빠지면
+	// 우리가 쓴 값 위에 또 얹혀 프레임마다 각도가 쌓이고 팔이 돌아가 버린다.
+	// 직전에 쓴 값과 지금 값이 같으면 애니메이터가 안 썼다는 뜻이라, 그때는 우리가 얹기 전
+	// 자세에서 다시 계산한다.
+	private Quaternion _upperArmSource;
+	private Quaternion _upperArmWritten;
+	private Quaternion _handSource;
+	private Quaternion _handWritten;
+	private bool _hasWritten;
+
 	private Transform[] _bones;
 	private Quaternion[] _rotations;
 	private Vector3[] _curlAxes;
@@ -70,9 +82,21 @@ public class LeftHandFingerPose : MonoBehaviour {
 			_upperArm = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
 		}
 
-		if (_sourceHand == null || _targetHand == null) {
-			Debug.LogWarning("[LeftHandFingerPose] 손 참조가 비어 있어 꺼 둔다.", this);
+		// 손목·어깨는 실제 손만 있으면 된다. 이게 없을 때만 통째로 끈다.
+		if (_targetHand == null) {
+			Debug.LogWarning("[LeftHandFingerPose] 실제 손(Hand.L) 참조가 비어 있어 꺼 둔다.", this);
 			enabled = false;
+			return;
+		}
+
+		// 아래는 손가락 자세 전용이다. 못 갖추더라도 손목·어깨는 계속 돌아야 하므로
+		// 컴포넌트를 끄지 않고 손가락만 건너뛴다.
+		_bones = System.Array.Empty<Transform>();
+		_rotations = System.Array.Empty<Quaternion>();
+		_curlAxes = System.Array.Empty<Vector3>();
+
+		if (_sourceHand == null) {
+			Debug.LogWarning("[LeftHandFingerPose] 뷰모델 손 참조가 없어 손가락 자세만 건너뛴다.", this);
 			return;
 		}
 
@@ -106,8 +130,7 @@ public class LeftHandFingerPose : MonoBehaviour {
 		_curlAxes = curlAxes.ToArray();
 
 		if (_bones.Length == 0) {
-			Debug.LogWarning("[LeftHandFingerPose] 이름이 맞는 손가락 본을 못 찾아 꺼 둔다.", this);
-			enabled = false;
+			Debug.LogWarning("[LeftHandFingerPose] 이름이 맞는 손가락 본을 못 찾아 손가락 자세만 건너뛴다.", this);
 		}
 	}
 
@@ -127,9 +150,17 @@ public class LeftHandFingerPose : MonoBehaviour {
 
 		// 어깨부터 든다. 손목보다 먼저 해야 손목 각도가 들린 팔 위에 얹힌다.
 		// 팔은 아래로 늘어져 있어서, 오른쪽 축 음의 회전이 팔을 앞으로 들어 올린다.
-		if (_upperArm != null && viewPitch < 0f) {
-			float lift = Mathf.Min(-viewPitch * _armLiftViewRatio, _maxArmLift);
-			_upperArm.rotation = Quaternion.AngleAxis(-lift, transform.right) * _upperArm.rotation;
+		if (_upperArm != null) {
+			Quaternion source = _hasWritten && _upperArm.rotation == _upperArmWritten
+				? _upperArmSource
+				: _upperArm.rotation;
+			_upperArmSource = source;
+
+			float lift = viewPitch < 0f
+				? Mathf.Min(-viewPitch * _armLiftViewRatio, _maxArmLift)
+				: 0f;
+			_upperArmWritten = Quaternion.AngleAxis(-lift, transform.right) * source;
+			_upperArm.rotation = _upperArmWritten;
 		}
 
 		float wristAngle = _wristPitch + (viewPitch < 0f
@@ -139,10 +170,14 @@ public class LeftHandFingerPose : MonoBehaviour {
 		wristAngle = Mathf.Clamp(wristAngle, -90f, 90f);
 
 		// 손전등은 이 손을 따라오므로(실행 순서가 뒤다) 손목을 꺾으면 손전등도 같이 숙는다.
-		if (wristAngle != 0f) {
-			_targetHand.rotation =
-				Quaternion.AngleAxis(wristAngle, transform.right) * _targetHand.rotation;
-		}
+		Quaternion handSource = _hasWritten && _targetHand.rotation == _handWritten
+			? _handSource
+			: _targetHand.rotation;
+		_handSource = handSource;
+		_handWritten = Quaternion.AngleAxis(wristAngle, transform.right) * handSource;
+		_targetHand.rotation = _handWritten;
+
+		_hasWritten = true;
 
 		if (_weight <= 0f) {
 			return;

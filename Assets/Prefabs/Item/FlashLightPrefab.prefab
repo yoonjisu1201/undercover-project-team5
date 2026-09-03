@@ -346,6 +346,37 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &6759801405640441594
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4491046552026671934}
+  m_Layer: 0
+  m_Name: LensAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4491046552026671934
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6759801405640441594}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.11, y: 0.05, z: 0.01}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1749023418360908252}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7554012784043586558
 GameObject:
   m_ObjectHideFlags: 0
@@ -378,6 +409,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8243374453438287322}
+  - {fileID: 4491046552026671934}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7260956614824358718
@@ -421,6 +453,6 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _holdOffset: {x: 0.046400003, y: 0.056800004, z: 0.0226}
   _holdRotationOffset: {x: 0, y: 0, z: 0}
-  _lensAnchor: {fileID: 0}
+  _lensAnchor: {fileID: 4491046552026671934}
   _headLightLocalOffset: {x: 0.11, y: 0.05, z: 0.01}
   _headLightLocalEuler: {x: 3, y: 0, z: 0}

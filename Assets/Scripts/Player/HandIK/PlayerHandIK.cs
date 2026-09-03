@@ -79,9 +79,12 @@ public class PlayerHandIK : MonoBehaviour
 
         if (_aimIK.IsActive)
         {
-            // 섞이는 중에는 아이템 자세를 먼저 깔아 둔다. 조준 IK 가 그 자세에서 출발해 섞이므로
+            // 아이템 자세를 항상 먼저 깔아 둔다. 조준 IK 가 그 자세에서 출발해 섞이므로
             // 손에 든 것이 있으면 빈손 자세를 거치지 않고 곧바로 이어진다.
-            if (_aimIK.IsBlending && _itemIK.IsActive)
+            //
+            // 섞이는 중에만 깔면 다 섞인 프레임 하나만 바탕이 비어, 그 프레임에서 가중치가
+            // 1 에서 조준 가중치로 뚝 떨어져 손이 톡 튄다. 매 프레임 깔아야 이어진다.
+            if (_itemIK.IsActive)
             {
                 _itemIK.ApplyIK(layerIndex);
             }

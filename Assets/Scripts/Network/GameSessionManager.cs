@@ -481,21 +481,30 @@ public class GameSessionManager : MonoBehaviour
 	// 전에는 반드시 그 정리가 끝나기를 기다린다.
 	private async Task WaitForPendingLeaveAsync()
 	{
-		if (_pendingLeaveTask == null) return;
+		// 기다리는 사이에 Shutdown() 이 끊김 콜백을 울려 새 정리 작업이 걸릴 수 있다.
+		// 무조건 비우면 그 새 작업을 놓쳐서, 다음 참가가 정리 중인 세션 위로 겹친다.
+		// 내가 기다린 그 작업일 때만 비운다.
+		Task awaited = _pendingLeaveTask;
+		if (awaited == null) return;
 
 		try
 		{
-			await _pendingLeaveTask;
+			await awaited;
 		}
 		catch (Exception e)
 		{
 			// 정리 실패는 이미 그쪽에서 로그를 남긴다. 여기서는 새 참가를 막지 않는다.
 			Debug.LogWarning($"[GameSessionManager] 이전 세션 정리가 실패했지만 계속 진행합니다. {e.Message}");
 		}
-		finally
+
+		if (ReferenceEquals(_pendingLeaveTask, awaited))
 		{
 			_pendingLeaveTask = null;
+			return;
 		}
+
+		// 기다리는 동안 새로 걸린 정리가 있다. 그것까지 끝나야 다음 참가가 안전하다.
+		await WaitForPendingLeaveAsync();
 	}
 
 	// Shutdown() 은 곧바로 끝나지 않고 다음 프레임 이후에 실제로 내려간다.

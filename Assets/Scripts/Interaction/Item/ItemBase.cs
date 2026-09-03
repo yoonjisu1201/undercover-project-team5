@@ -40,9 +40,6 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
     // 검증), 실제 파렌팅 대신 매 프레임 위치·회전을 복사한다 (Flashlight와 동일한 이유).
     private Transform _handAnchor;
 
-    // 1인칭 앵커는 프리팹에서 눈으로 맞춘 정확한 자리라 ItemData 오프셋을 더하지 않는다.
-    // 캐릭터 손 본은 대략적인 기준이라 아이템마다 오프셋이 필요하다.
-    private bool _handAnchorIsExact;
     private bool _isHandVisible = true;
 
     // 1인칭에서 제압기를 들어올릴 때처럼 한때만 크게 보여야 하는 경우에 곱한다.
@@ -164,12 +161,6 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
             return;
         }
 
-        if (_handAnchorIsExact)
-        {
-            transform.SetPositionAndRotation(_handAnchor.position, _handAnchor.rotation);
-            return;
-        }
-
         Vector3 positionOffset = _itemData != null
             ? _itemData.ResolveHoldPositionOffset(_isFirstPersonHold)
             : Vector3.zero;
@@ -180,15 +171,11 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
     }
 
     // PlayerItemIK가 이 아이템을 오른손에 들리거나(rightHand != null) 내려놓을 때(null) 호출한다.
+    // 1인칭·3인칭 모두 ItemData 의 오프셋을 손 앵커 기준으로 얹는다. 1인칭 전용 값은
+    // ItemData 쪽에서 갈라지므로 여기서는 앵커만 갈아 끼우면 된다.
     public void SetEquipped(Transform rightHand)
     {
-        SetEquipped(rightHand, isExact: false);
-    }
-
-    public void SetEquipped(Transform rightHand, bool isExact)
-    {
         _handAnchor = rightHand;
-        _handAnchorIsExact = isExact;
 
         // 들고 있는 동안은 서버 권한 NetworkTransform이 위치를 되돌리지 않도록 끈다.
         if (_networkTransform != null)
