@@ -23,9 +23,13 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	[Header("=== 1인칭 손전등 그립 (뷰모델 왼손) ===")]
 	[SerializeField] private Transform _firstPersonLeftHandAnchor;
 
-	// 앵커 위치를 에디터에서 눈으로 잡기 위한 껍데기. 실제 손전등은 런타임에 스폰되므로 꺼 둔다.
-	[Tooltip("앵커 자리를 눈으로 확인하기 위한 미리보기. 플레이하면 자동으로 꺼진다.")]
-	[SerializeField] private GameObject _firstPersonFlashlightPreview;
+	// 아이템은 _itemData 의 오프셋을 손 로컬 기준으로 쓰므로, 뷰모델 손 본을 그대로 넘기면
+	// 캐릭터 손에 들렸을 때와 같은 자리에 붙는다. 따로 맞출 값이 없다.
+	// 손 본과 같은 기준점이어야 한다. 아이템마다 쥐는 자리가 달라서 ItemData 의 오프셋을
+	// 그대로 얹어 쓰고, 이 앵커는 손 전체를 한 번에 밀고 당기는 용도다.
+	[Tooltip("뷰모델 오른손 아래의 FpItemAnchor. 손 본과 같은 자세로 두고, 아이템별 위치는 ItemData 에서 잡는다")]
+	[SerializeField] private Transform _firstPersonRightHandAnchor;
+
 
 	[Header("=== 머리 피벗(참고용) ===")]
 	[SerializeField] private GameObject _headPivot;
@@ -45,14 +49,21 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 
 	public bool IsActive => true;
 
+	// 1인칭 뷰모델이 오른손을 그릴지 정할 때 쓴다. 빈손이면 화면만 가린다.
+	public bool HasRightHandItem => _itemOnRightHand != null;
+
+	// 지금 오른손에 들린 아이템.
+	public ItemBase RightHandItem => _itemOnRightHand;
+
+	// 제압기를 들어올릴 때 총만 크게 보이게 한다. 손 크기는 그대로 둔다.
+	public void SetRightHandItemScale(float multiplier) {
+		_itemOnRightHand?.SetHeldScaleMultiplier(multiplier);
+	}
+
 	private void Awake() {
 		_animator = GetComponent<Animator>();
 		_playerCameraController ??= GetComponent<PlayerCameraController>();
 		_inventory = GetComponent<PlayerInventory>();
-
-		if (_firstPersonFlashlightPreview != null) {
-			_firstPersonFlashlightPreview.SetActive(false);
-		}
 	}
 
 	private void OnEnable() {
@@ -141,8 +152,23 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 		}
 	}
 
+	// 제압기를 쓰는 동안에도 손전등은 뷰모델 왼손에 그대로 둔다. 1인칭에서는 진짜 손이
+	// 레이어 컬링으로 안 보이므로, 옮기면 손전등만 허공에 떠 보이고 옮기는 순간 툭 튄다.
 	private bool UseFirstPersonFlashlight =>
 		_useFirstPersonHands && IsOwner && _firstPersonLeftHandAnchor != null;
+
+	private bool UseFirstPersonRightHand =>
+		_useFirstPersonHands && IsOwner && _firstPersonRightHandAnchor != null;
+
+	private void ApplyRightHandItem() {
+		if (_itemOnRightHand == null) {
+			return;
+		}
+
+		bool firstPerson = UseFirstPersonRightHand;
+		_itemOnRightHand.SetEquipped(firstPerson ? _firstPersonRightHandAnchor : _rightHandParent);
+		_itemOnRightHand.SetFirstPersonRendering(firstPerson);
+	}
 
 	private void ApplyFlashlightHand() {
 		if (_flashlight == null) {
@@ -157,6 +183,7 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	private void HandleFirstPersonHandsChanged(bool visible) {
 		_useFirstPersonHands = visible;
 		ApplyFlashlightHand();
+		ApplyRightHandItem();
 	}
 
 	// 인벤토리 선택이 바뀔 때마다(전 클라이언트) 호출된다. 오른손에 들린 아이템을 현재 선택된 슬롯의
@@ -169,13 +196,35 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 		}
 
 		_itemOnRightHand?.SetEquipped(null);
+		_itemOnRightHand?.SetFirstPersonRendering(false);
 		_itemOnRightHand = item;
-		_itemOnRightHand?.SetEquipped(_rightHandParent);
+		ApplyRightHandItem();
+	}
+
+	// 숨겨 뒀던 것을 다시 보이게 한다. 조준 자세가 풀리는 동안 손이 비지 않게 하려고 쓴다.
+	public void EnableItems() {
+		_flashlight?.SetVisible(true);
+		_itemOnRightHand?.SetHandVisible(true);
 	}
 
 	// 다른 걸 잡을 때(카트 잡을 때 등)에는 손에 있는 오브젝트 비활성화한다.
 	public void DisableItems() {
-		_flashlight?.SetVisible(false);
+		DisableItems(hideFlashlight: true);
+	}
+
+	// 카트나 다운처럼 양손을 다 쓰는 상황에서는 손전등까지 내린다.
+	// 제압기는 왼손이 손전등을 그대로 들고 있으므로 오른손 아이템만 내린다.
+	public void DisableItems(bool hideFlashlight) {
+		if (hideFlashlight) {
+			_flashlight?.SetVisible(false);
+		}
+
+		// 1인칭에서는 손에 든 아이템이 곧 화면에 보이는 총이다. 여기서 내리면 화면이 비고,
+		// 진짜 총으로 갈아 끼우면 자리가 달라 툭 튄다. 내 화면에서는 그대로 들고 있는다.
+		if (UseFirstPersonRightHand) {
+			return;
+		}
+
 		_itemOnRightHand?.SetHandVisible(false);
 	}
 

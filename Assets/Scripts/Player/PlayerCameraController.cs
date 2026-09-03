@@ -35,7 +35,9 @@ public class PlayerCameraController : NetworkBehaviour
     // 손전등 등 손 IK가 따라가는 각도. 헤드 피벗(카메라)보다 좁게 잡아서 팔이 가동 범위를 넘어 꺾이지 않게 한다.
     [Header("팔 IK 따라가기 (헤드 피벗과 별도로 클램프)")]
     [SerializeField] private Transform _armFollowPivot;
-    private readonly float _armFollowMinPitch = -40f;
+    // 카메라 상한(-50)까지 그대로 따라가게 둔다. -40 에서 잘리면 끝까지 올려다봤을 때
+    // 손만 멈춰 있어서 시선과 팔이 어긋난다.
+    private readonly float _armFollowMinPitch = -50f;
     private readonly float _armFollowMaxPitch = 20f;
 
     // 헤드램프(Flashlight) 등 카메라와 동일한 시야각을 그대로 따라가야 하는 오브젝트가 붙는 피벗.

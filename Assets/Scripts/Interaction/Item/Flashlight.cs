@@ -13,7 +13,18 @@ using UnityEngine;
 public class Flashlight : NetworkBehaviour
 {
     [SerializeField] private Vector3 _holdOffset;
+    [Tooltip("시야 피벗 기준 빛의 위치. 피벗이 플레이어 원점(허리 높이)이라, 왼손 높이만큼 올려야 한다")]
     [SerializeField] private Vector3 _headLightLocalOffset;
+
+    [Tooltip("빛이 향할 방향. x 를 양수로 두면 살짝 아래를 비춘다")]
+    [SerializeField] private Vector3 _headLightLocalEuler;
+
+    // 캐릭터 손에 들렸을 때의 자리. 손 로컬 기준이라 손이 돌아도 같이 따라간다.
+    // 플레이 중에 눈으로 맞출 수 있도록 열어 둔다.
+    public Vector3 HoldOffset {
+        get => _holdOffset;
+        set => _holdOffset = value;
+    }
 
     // On/Off 상태는 오너가 직접 토글하는 값이라 Owner 권한으로 쓴다.
     private readonly NetworkVariable<bool> _isOn =
@@ -55,7 +66,8 @@ public class Flashlight : NetworkBehaviour
         foreach (Light light in _lights)
         {
             light.transform.SetParent(lightAnchor, worldPositionStays: false);
-            light.transform.SetLocalPositionAndRotation(_headLightLocalOffset, Quaternion.identity);
+            light.transform.SetLocalPositionAndRotation(
+                _headLightLocalOffset, Quaternion.Euler(_headLightLocalEuler));
         }
     }
 

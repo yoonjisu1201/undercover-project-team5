@@ -12,9 +12,21 @@ public class PlayerArrestInput : NetworkBehaviour
 
     public bool IsHoldingArrestKey => _isHoldingArrestKey.Value;
 
+    // 팔이 다 올라와 도구가 화면에 나온 뒤에야 손에 든 것들을 내린다.
+    // 좌클릭 즉시 내리면 총과 손전등이 사라진 빈손이 올라간다.
+    public bool IsToolVisualShown => _handToolVisual != null && _handToolVisual.activeSelf;
+
     // 손에 든 검거도구 시각 오브젝트. 기본 비활성으로 미리 배치해두고, 도구 장착 + 좌클릭 홀드 중일 때만 켠다.
     // 네트워크로 새로 스폰하지 않고 로컬에서 SetActive만 하므로, 모든 클라이언트(자기 자신 포함)에 미리 배치돼 있어야 한다.
     [SerializeField] private GameObject _handToolVisual;
+
+    // 좌클릭과 동시에 도구를 켜면 총이 손에서 중앙으로 올라오기도 전에 이펙트가 먼저 터진다.
+    // 팔이 올라오는 동안 기다렸다가 켠다. 뷰모델 손이 중앙으로 이동하는 시간과 맞춰 둔다.
+    [Tooltip("좌클릭 후 도구가 켜지기까지 기다리는 시간(초). 팔이 올라오는 시간")]
+    [SerializeField] private float _toolRaiseDelay = 0.22f;
+
+    // 올리는 도중에 손을 떼면 켜지 않고 취소해야 한다.
+    private Coroutine _raiseRoutine;
 
     private CustomInputActions _actions;
     private PlayerInventory _inventory;
@@ -90,9 +102,41 @@ public class PlayerArrestInput : NetworkBehaviour
     {
         _animator?.SetBool(IsUsingArrestToolHash, isHolding);
 
-        if (_handToolVisual != null)
+        if (_handToolVisual == null)
         {
-            _handToolVisual.SetActive(isHolding);
+            return;
         }
+
+        if (_raiseRoutine != null)
+        {
+            StopCoroutine(_raiseRoutine);
+            _raiseRoutine = null;
+        }
+
+        // 내릴 때는 기다릴 이유가 없다. 바로 끈다.
+        if (!isHolding)
+        {
+            _handToolVisual.SetActive(false);
+            return;
+        }
+
+        // 지연은 내 1인칭에서 손이 올라오는 연출을 기다리기 위한 것이다.
+        // 다른 클라이언트에서는 조준 자세가 즉시 잡히므로, 여기서 늦추면 총만 뒤늦게 나타나
+        // 자세가 한 번 바뀐 뒤 총이 텔레포트한 것처럼 보인다.
+        if (!IsOwner)
+        {
+            _handToolVisual.SetActive(true);
+            return;
+        }
+
+        _raiseRoutine = StartCoroutine(ShowToolAfterRaise());
+    }
+
+    private System.Collections.IEnumerator ShowToolAfterRaise()
+    {
+        yield return new WaitForSeconds(_toolRaiseDelay);
+
+        _handToolVisual.SetActive(true);
+        _raiseRoutine = null;
     }
 }
