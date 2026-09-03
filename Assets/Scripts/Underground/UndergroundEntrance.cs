@@ -6,4 +6,13 @@ public class UndergroundEntrance : EntranceDoor {
 
 	// 안개는 UndergroundFogApplier가 카메라 위치로 정한다. 문에서 토글하면 관전이나
 	// 순간이동으로 카메라만 옮겨갔을 때 화면과 어긋난다.
+
+	// 단서 수색 안내는 지하로 내려가는 이 문에서만 띄운다.
+	public override void Interact(GameObject interactor) {
+		base.Interact(interactor);
+
+		if (interactor.TryGetComponent(out GameplayGuideController guide)) {
+			guide.NotifyEnteredBasement();
+		}
+	}
 }

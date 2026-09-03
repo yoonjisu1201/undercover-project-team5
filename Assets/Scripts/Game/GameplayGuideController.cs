@@ -15,6 +15,8 @@ public sealed class GameplayGuideController : NetworkBehaviour
     private const string Round2GuideTitleKey = "round_start_guide_title_2";
     private const string Round3GuideTitleKey = "round_start_guide_title_3";
     private const string ClueGuideTitleKey = "clue_guide_title";
+    private const string BasementGuideTitleKey = "basement_guide_title";
+    private const string ReviveGuideTitleKey = "revive_guide_title";
 
     private PlayerInventory _inventory;
     private PlayerClueBook _clueBook;
@@ -25,6 +27,10 @@ public sealed class GameplayGuideController : NetworkBehaviour
     private bool _breakerCompleted;
     // 완료 안내를 띄워야 하지만 미션 UI에 가려지는 상태. UI가 닫힌 뒤로 미룬다.
     private bool _breakerCompletionGuidePending;
+    // 지하실 안내는 라운드마다 첫 진입 한 번만 띄운다. 오르내릴 때마다 반복되면 방해가 된다.
+    private bool _basementGuideShown;
+    // 소생 안내도 라운드마다 첫 다운 한 번만 띄운다. 쓰러질 때마다 반복될 안내가 아니다.
+    private bool _reviveGuideShown;
     private bool _missingGuideUiWarned;
 
     // 같은 플레이어 오브젝트에 있는 로컬 인벤토리를 캐시한다.
@@ -45,6 +51,7 @@ public sealed class GameplayGuideController : NetworkBehaviour
         _inventory.OnItemAdded += HandleItemAdded;
         _clueBook.OnClueAdded += HandleClueAdded;
         BreakerCircuitState.CompletionChangedLocally += HandleCompletionChanged;
+        PlayerHealth.DownedLocally += HandleAnyPlayerDowned;
         BindRoundManager();
     }
 
@@ -56,6 +63,7 @@ public sealed class GameplayGuideController : NetworkBehaviour
             _inventory.OnItemAdded -= HandleItemAdded;
             _clueBook.OnClueAdded -= HandleClueAdded;
             BreakerCircuitState.CompletionChangedLocally -= HandleCompletionChanged;
+            PlayerHealth.DownedLocally -= HandleAnyPlayerDowned;
             UnbindRoundManager();
         }
 
@@ -121,6 +129,8 @@ public sealed class GameplayGuideController : NetworkBehaviour
         // 완료 해제 이벤트가 언제 도착하든 로컬 안내 상태도 라운드 시작 시점에 함께 되돌린다.
         _breakerCompleted = false;
         _breakerCompletionGuidePending = false;
+        _basementGuideShown = false;
+        _reviveGuideShown = false;
 
         if (roundIndex == 0)
         {
@@ -153,6 +163,32 @@ public sealed class GameplayGuideController : NetworkBehaviour
         }
 
         Show(BreakerGuideTitleKey, "breaker_guide_power_outage");
+    }
+
+    // 이번 라운드에 처음 지하실로 내려갈 때 단서 수색 목적을 안내한다.
+    // 세이프존 트리거가 아니라 지하로 내려가는 문(UndergroundEntrance)이 직접 알린다.
+    public void NotifyEnteredBasement()
+    {
+        if (!IsOwner || !_roundActive || _basementGuideShown)
+        {
+            return;
+        }
+
+        _basementGuideShown = true;
+        Show(BasementGuideTitleKey, "basement_guide_first_entered");
+    }
+
+    // 이번 라운드에 팀원이 처음 쓰러진 순간, 소생시킬 수 있다는 것을 남은 사람들에게 알린다.
+    // 쓰러진 본인은 소생 주체가 아니라서 제외한다.
+    private void HandleAnyPlayerDowned(PlayerHealth downed)
+    {
+        if (!_roundActive || _reviveGuideShown || downed == null || downed.gameObject == gameObject)
+        {
+            return;
+        }
+
+        _reviveGuideShown = true;
+        Show(ReviveGuideTitleKey, "revive_guide_first_downed");
     }
 
     // 배전반 완료 전에는 배전반용 건전지를 얻을 때마다 사용 목적을 안내한다.
