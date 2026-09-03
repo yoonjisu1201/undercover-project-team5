@@ -102,11 +102,9 @@ public class PlayerInventory : NetworkBehaviour
         }
     }
 
-    // 휠 굴리면 휠로 아이템 선택. 빈 슬롯은 건너뛰고 다음으로 들 수 있는 자리를 찾는다.
-    // 한 칸씩만 옮기면 빈 자리에서 멈춰 휠이 안 먹는 것처럼 느껴진다.
+    // 휠 굴리면 휠로 아이템 선택. 하나라도 들고 있으면 빈 칸도 지나갈 수 있으므로 한 칸씩 옮긴다.
     //
-    // 지금 자리로 되돌아오기 직전까지만 돈다. 들 수 있는 자리가 지금 자리뿐이거나 하나도 없으면
-    // 아무 일도 일어나지 않는다.
+    // 지금 자리로 되돌아오기 직전까지만 돈다. 인벤토리가 통째로 비어 있으면 아무 일도 일어나지 않는다.
     private void SelectSlotByScroll(float scrollY)
     {
         int direction = scrollY > 0f ? -1 : 1;
@@ -125,10 +123,12 @@ public class PlayerInventory : NetworkBehaviour
         }
     }
 
-    // 들 것이 있는 자리인지. 슬롯 목록은 스폰 뒤에 채워지므로 개수도 함께 본다.
+    // 하나라도 들고 있으면 빈 칸도 고를 수 있다. 손을 비우거나 칸 사이를 오갈 수 있어야 하기 때문이다.
+    // 인벤토리가 통째로 비어 있으면 고를 것이 없으므로 아무 칸도 고르지 못한다.
+    // 슬롯 목록은 스폰 뒤에 채워지므로 개수도 함께 본다.
     private bool CanSelectSlot(int index)
     {
-        return index >= 0 && index < _slots.Count && !_slots[index].IsEmpty;
+        return index >= 0 && index < _slots.Count && FindFirstOccupiedSlot() >= 0;
     }
 
     public override void OnNetworkSpawn()
@@ -339,8 +339,8 @@ public class PlayerInventory : NetworkBehaviour
         if (index < 0 || index >= InventorySize)
             return;
 
-        // 빈 슬롯은 고르지 않는다. 들 것이 없는 자리를 가리켜도 할 수 있는 게 없는데,
-        // 선택이 옮겨가고 소리까지 나면 뭔가 집힌 것처럼 들린다.
+        // 인벤토리가 통째로 비었으면 고르지 않는다. 가리킬 것이 없는데 선택이 옮겨가고
+        // 소리까지 나면 뭔가 집힌 것처럼 들린다.
         if (!CanSelectSlot(index))
             return;
 

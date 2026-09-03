@@ -49,6 +49,14 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 
 	public bool IsActive => true;
 
+	// 파괴된 UnityEngine.Object 는 C# 기준으로 null 이 아니라 ?. 를 그대로 통과한다.
+	// 그대로 메서드를 부르면 transform 접근에서 MissingReferenceException 이 나는데,
+	// 이게 NetworkList.ReadDelta 안에서 터지면 그 메시지의 남은 슬롯 변경이 통째로 버려진다.
+	// 라운드가 끝나 아이템이 파괴된 뒤 재입장하면 인벤토리가 갱신되지 않던 원인이다.
+	// 유니티가 오버로드한 == 로 한 번 걸러 낸 참조만 쓴다.
+	private ItemBase AliveRightHandItem => _itemOnRightHand != null ? _itemOnRightHand : null;
+	private Flashlight AliveFlashlight => _flashlight != null ? _flashlight : null;
+
 	// 1인칭 뷰모델이 오른손을 그릴지 정할 때 쓴다. 빈손이면 화면만 가린다.
 	public bool HasRightHandItem => _itemOnRightHand != null;
 
@@ -57,7 +65,7 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 
 	// 제압기를 들어올릴 때 총만 크게 보이게 한다. 손 크기는 그대로 둔다.
 	public void SetRightHandItemScale(float multiplier) {
-		_itemOnRightHand?.SetHeldScaleMultiplier(multiplier);
+		AliveRightHandItem?.SetHeldScaleMultiplier(multiplier);
 	}
 
 	private void Awake() {
@@ -124,7 +132,7 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 		}
 
 		if (_actions.Player.Flashlight.WasPressedThisFrame()) {
-			_flashlight?.ToggleOnOff();
+			AliveFlashlight?.ToggleOnOff();
 		}
 	}
 
@@ -195,16 +203,16 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 			return;
 		}
 
-		_itemOnRightHand?.SetEquipped(null);
-		_itemOnRightHand?.SetFirstPersonRendering(false);
+		AliveRightHandItem?.SetEquipped(null);
+		AliveRightHandItem?.SetFirstPersonRendering(false);
 		_itemOnRightHand = item;
 		ApplyRightHandItem();
 	}
 
 	// 숨겨 뒀던 것을 다시 보이게 한다. 조준 자세가 풀리는 동안 손이 비지 않게 하려고 쓴다.
 	public void EnableItems() {
-		_flashlight?.SetVisible(true);
-		_itemOnRightHand?.SetHandVisible(true);
+		AliveFlashlight?.SetVisible(true);
+		AliveRightHandItem?.SetHandVisible(true);
 	}
 
 	// 다른 걸 잡을 때(카트 잡을 때 등)에는 손에 있는 오브젝트 비활성화한다.
@@ -216,7 +224,7 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	// 제압기는 왼손이 손전등을 그대로 들고 있으므로 오른손 아이템만 내린다.
 	public void DisableItems(bool hideFlashlight) {
 		if (hideFlashlight) {
-			_flashlight?.SetVisible(false);
+			AliveFlashlight?.SetVisible(false);
 		}
 
 		// 1인칭에서는 손에 든 아이템이 곧 화면에 보이는 총이다. 여기서 내리면 화면이 비고,
@@ -225,13 +233,13 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 			return;
 		}
 
-		_itemOnRightHand?.SetHandVisible(false);
+		AliveRightHandItem?.SetHandVisible(false);
 	}
 
 	public void ApplyIK(int layerIndex) {
 		// 잡을 때 손에 있는 오브젝트 활성화
-		_flashlight?.SetVisible(true);
-		_itemOnRightHand?.SetHandVisible(true);
+		AliveFlashlight?.SetVisible(true);
+		AliveRightHandItem?.SetHandVisible(true);
 
 		// 왼손에 아이템 있으면, 왼손 위치 옮기기
 		if (_leftHandItemRef.Value.TryGet(out NetworkObject _)) {
