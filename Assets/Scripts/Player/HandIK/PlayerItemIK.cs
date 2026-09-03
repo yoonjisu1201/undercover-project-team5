@@ -6,14 +6,30 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	[SerializeField] private Transform _leftHandParent;
 	[Header("=== 왼손 목표 위치 ===")]
 	[SerializeField] private Transform _leftHandTarget;
+	[SerializeField, Range(0f, 1f)] private float _leftHandPositionWeight = 1f;
+	[SerializeField, Range(0f, 1f)] private float _leftHandRotationWeight = 0.25f;
 
 	[Header("=== 오른손 아이템 드는 슬롯 ===")]
 	[SerializeField] private Transform _rightHandParent;
 	[Header("=== 오른손 목표 위치 ===")]
 	[SerializeField] private Transform _rightHandTarget;
+	[SerializeField, Range(0f, 1f)] private float _rightHandPositionWeight = 1f;
+	[SerializeField, Range(0f, 1f)] private float _rightHandRotationWeight = 1f;
 
 	[Header("=== 손전등 오브젝트 ===")]
 	[SerializeField] private Flashlight _flashLightPrefab;
+
+	// 내 화면 전용. 뷰모델 왼손의 엄지-검지 사이를 가리키는 앵커다.
+	[Header("=== 1인칭 손전등 그립 (뷰모델 왼손) ===")]
+	[SerializeField] private Transform _firstPersonLeftHandAnchor;
+
+	// 아이템은 _itemData 의 오프셋을 손 로컬 기준으로 쓰므로, 뷰모델 손 본을 그대로 넘기면
+	// 캐릭터 손에 들렸을 때와 같은 자리에 붙는다. 따로 맞출 값이 없다.
+	// 손 본과 같은 기준점이어야 한다. 아이템마다 쥐는 자리가 달라서 ItemData 의 오프셋을
+	// 그대로 얹어 쓰고, 이 앵커는 손 전체를 한 번에 밀고 당기는 용도다.
+	[Tooltip("뷰모델 오른손 아래의 FpItemAnchor. 손 본과 같은 자세로 두고, 아이템별 위치는 ItemData 에서 잡는다")]
+	[SerializeField] private Transform _firstPersonRightHandAnchor;
+
 
 	[Header("=== 머리 피벗(참고용) ===")]
 	[SerializeField] private GameObject _headPivot;
@@ -29,8 +45,20 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	private PlayerInventory _inventory;
 	private ItemBase _itemOnRightHand;
 	private Flashlight _flashlight;
+	private bool _useFirstPersonHands;
 
 	public bool IsActive => true;
+
+	// 1인칭 뷰모델이 오른손을 그릴지 정할 때 쓴다. 빈손이면 화면만 가린다.
+	public bool HasRightHandItem => _itemOnRightHand != null;
+
+	// 지금 오른손에 들린 아이템.
+	public ItemBase RightHandItem => _itemOnRightHand;
+
+	// 제압기를 들어올릴 때 총만 크게 보이게 한다. 손 크기는 그대로 둔다.
+	public void SetRightHandItemScale(float multiplier) {
+		_itemOnRightHand?.SetHeldScaleMultiplier(multiplier);
+	}
 
 	private void Awake() {
 		_animator = GetComponent<Animator>();
@@ -51,6 +79,16 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 		_leftHandItemRef.OnValueChanged += HandleLeftHandItemChanged;
 		_inventory.OnInventoryChanged += RefreshRightHandItem;
 
+		// 오버레이가 켜져 있는 동안만 뷰모델 손에 붙인다. 다운되어 3인칭으로 물러나면
+		// 오버레이가 꺼지므로 캐릭터 손으로 돌려보내야 한다.
+		//
+		// 카메라 쪽은 자기 OnNetworkSpawn에서 이벤트를 한 번 쏘고 끝이라, 이 컴포넌트가 늦게
+		// 스폰되면 그 한 번을 놓친다. 구독만 하지 말고 현재 상태를 직접 읽어 와야 한다.
+		if (IsOwner && _playerCameraController != null) {
+			_playerCameraController.FirstPersonHandsVisibilityChanged += HandleFirstPersonHandsChanged;
+			_useFirstPersonHands = _playerCameraController.IsFirstPersonHandsActive;
+		}
+
 		// 스폰 시점에 이미 값이 채워져 있는 경우(뒤늦게 관전하는 클라이언트 등)를 대비해 한 번 직접 반영한다.
 		ResolveLeftHand(_leftHandItemRef.Value);
 		RefreshRightHandItem();
@@ -64,6 +102,10 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	public override void OnNetworkDespawn() {
 		_leftHandItemRef.OnValueChanged -= HandleLeftHandItemChanged;
 		_inventory.OnInventoryChanged -= RefreshRightHandItem;
+
+		if (_playerCameraController != null) {
+			_playerCameraController.FirstPersonHandsVisibilityChanged -= HandleFirstPersonHandsChanged;
+		}
 
 		if (IsServer && _leftHandItemRef.Value.TryGet(out NetworkObject networkObject)) {
 			networkObject.Despawn(true);
@@ -106,7 +148,42 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 	private void ResolveLeftHand(NetworkObjectReference reference) {
 		if (reference.TryGet(out NetworkObject networkObject) && networkObject.TryGetComponent(out _flashlight)) {
 			_flashlight.Initialize(_playerCameraController, _leftHandParent);
+			ApplyFlashlightHand();
 		}
+	}
+
+	// 제압기를 쓰는 동안에도 손전등은 뷰모델 왼손에 그대로 둔다. 1인칭에서는 진짜 손이
+	// 레이어 컬링으로 안 보이므로, 옮기면 손전등만 허공에 떠 보이고 옮기는 순간 툭 튄다.
+	private bool UseFirstPersonFlashlight =>
+		_useFirstPersonHands && IsOwner && _firstPersonLeftHandAnchor != null;
+
+	private bool UseFirstPersonRightHand =>
+		_useFirstPersonHands && IsOwner && _firstPersonRightHandAnchor != null;
+
+	private void ApplyRightHandItem() {
+		if (_itemOnRightHand == null) {
+			return;
+		}
+
+		bool firstPerson = UseFirstPersonRightHand;
+		_itemOnRightHand.SetEquipped(firstPerson ? _firstPersonRightHandAnchor : _rightHandParent);
+		_itemOnRightHand.SetFirstPersonRendering(firstPerson);
+	}
+
+	private void ApplyFlashlightHand() {
+		if (_flashlight == null) {
+			return;
+		}
+
+		bool firstPerson = UseFirstPersonFlashlight;
+		_flashlight.SetHandAnchor(firstPerson ? _firstPersonLeftHandAnchor : _leftHandParent, firstPerson);
+		_flashlight.SetFirstPersonRendering(firstPerson);
+	}
+
+	private void HandleFirstPersonHandsChanged(bool visible) {
+		_useFirstPersonHands = visible;
+		ApplyFlashlightHand();
+		ApplyRightHandItem();
 	}
 
 	// 인벤토리 선택이 바뀔 때마다(전 클라이언트) 호출된다. 오른손에 들린 아이템을 현재 선택된 슬롯의
@@ -119,13 +196,35 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 		}
 
 		_itemOnRightHand?.SetEquipped(null);
+		_itemOnRightHand?.SetFirstPersonRendering(false);
 		_itemOnRightHand = item;
-		_itemOnRightHand?.SetEquipped(_rightHandParent);
+		ApplyRightHandItem();
+	}
+
+	// 숨겨 뒀던 것을 다시 보이게 한다. 조준 자세가 풀리는 동안 손이 비지 않게 하려고 쓴다.
+	public void EnableItems() {
+		_flashlight?.SetVisible(true);
+		_itemOnRightHand?.SetHandVisible(true);
 	}
 
 	// 다른 걸 잡을 때(카트 잡을 때 등)에는 손에 있는 오브젝트 비활성화한다.
 	public void DisableItems() {
-		_flashlight?.SetVisible(false);
+		DisableItems(hideFlashlight: true);
+	}
+
+	// 카트나 다운처럼 양손을 다 쓰는 상황에서는 손전등까지 내린다.
+	// 제압기는 왼손이 손전등을 그대로 들고 있으므로 오른손 아이템만 내린다.
+	public void DisableItems(bool hideFlashlight) {
+		if (hideFlashlight) {
+			_flashlight?.SetVisible(false);
+		}
+
+		// 1인칭에서는 손에 든 아이템이 곧 화면에 보이는 총이다. 여기서 내리면 화면이 비고,
+		// 진짜 총으로 갈아 끼우면 자리가 달라 툭 튄다. 내 화면에서는 그대로 들고 있는다.
+		if (UseFirstPersonRightHand) {
+			return;
+		}
+
 		_itemOnRightHand?.SetHandVisible(false);
 	}
 
@@ -136,8 +235,8 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 
 		// 왼손에 아이템 있으면, 왼손 위치 옮기기
 		if (_leftHandItemRef.Value.TryGet(out NetworkObject _)) {
-			_animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 1f);
-			_animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 1f);
+			_animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, _leftHandPositionWeight);
+			_animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, _leftHandRotationWeight);
 			_animator.SetIKPosition(AvatarIKGoal.LeftHand, _leftHandTarget.position);
 			_animator.SetIKRotation(AvatarIKGoal.LeftHand, _leftHandTarget.rotation);
 		}
@@ -149,8 +248,8 @@ public class PlayerItemIK : NetworkBehaviour, IHandIK {
 
 		// 오른손에 아이템 있으면, 오른손 위치 옮기기
 		if (_itemOnRightHand != null) {
-			_animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 1f);
-			_animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 1f);
+			_animator.SetIKPositionWeight(AvatarIKGoal.RightHand, _rightHandPositionWeight);
+			_animator.SetIKRotationWeight(AvatarIKGoal.RightHand, _rightHandRotationWeight);
 			_animator.SetIKPosition(AvatarIKGoal.RightHand, _rightHandTarget.position);
 			_animator.SetIKRotation(AvatarIKGoal.RightHand, _rightHandTarget.rotation);
 		}

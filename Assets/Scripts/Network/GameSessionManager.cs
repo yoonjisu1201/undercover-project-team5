@@ -103,6 +103,10 @@ public class GameSessionManager : MonoBehaviour
 	// 퇴장 요청은 로비 복귀를 늦추지 않도록 기다리지 않는다. 다만 방금 나온 방이 목록에
 	// 남지 않으려면 조회 전에는 끝나 있어야 하므로 참조를 들고 있는다.
 	private Task _pendingLeaveTask;
+	private readonly Dictionary<ulong, int> _waitingRoomSpawnSlots = new();
+
+	private const string WaitingRoomSpawnRootName = "WaitingRoomSpawnPoints";
+	private Transform _waitingRoomSpawnRoot;
 
 	private void Awake()
 	{
@@ -141,6 +145,9 @@ public class GameSessionManager : MonoBehaviour
 		try
 		{
 			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
+
+			stage = "이전 세션 정리 대기";
+			await WaitForPendingLeaveAsync();
 
 			stage = "연결 승인 설정";
 			PrepareConnectionApproval();
@@ -255,6 +262,9 @@ public class GameSessionManager : MonoBehaviour
 		{
 			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
 
+			stage = "이전 세션 정리 대기";
+			await WaitForPendingLeaveAsync();
+
 			stage = "연결 승인 설정";
 			PrepareConnectionApproval();
 
@@ -309,7 +319,7 @@ public class GameSessionManager : MonoBehaviour
 			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
 
 			// 방금 나온 방의 삭제가 끝나기 전에 조회하면 사라진 방이 목록에 남는다.
-			if (_pendingLeaveTask != null) await _pendingLeaveTask;
+			await WaitForPendingLeaveAsync();
 
 			var results = await MultiplayerService.Instance.QuerySessionsAsync(new QuerySessionsOptions());
 			return results.Sessions;
@@ -375,6 +385,7 @@ public class GameSessionManager : MonoBehaviour
 		if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
 		{
 			NetworkManager.Singleton.Shutdown();
+			await WaitUntilNetworkStoppedAsync();
 		}
 
 		// 나가기 요청이 도는 동안 다른 코드가 죽은 세션을 잡지 않도록 참조부터 끊는다.
@@ -459,6 +470,8 @@ public class GameSessionManager : MonoBehaviour
 	// 세션 생성/참가보다 먼저 호출한다.
 	private void PrepareConnectionApproval()
 	{
+		_waitingRoomSpawnSlots.Clear();
+
 		// 싱글턴이 씬을 넘어 살아남으므로, 게임을 시작했던 상태가 다음 방까지 따라오면 아무도 못 들어온다.
 		_isSessionLocked = false;
 
@@ -467,6 +480,63 @@ public class GameSessionManager : MonoBehaviour
 		// 승인 단계에서 빌드 버전을 대조하려면 클라이언트가 자기 버전을 미리 실어 보내야 한다.
 		networkManager.NetworkConfig.ConnectionData = Encoding.UTF8.GetBytes(Application.version);
 		networkManager.ConnectionApprovalCallback = HandleConnectionApproval;
+	}
+
+	// 방을 나가는 뒷정리는 로비 복귀를 늦추지 않으려고 기다리지 않고 배경으로 돌린다.
+	// 그래서 나가자마자 다른 방에 들어가면 이전 정리와 새 참가가 겹친다. 새로 세션을 잡기
+	// 전에는 반드시 그 정리가 끝나기를 기다린다.
+	private async Task WaitForPendingLeaveAsync()
+	{
+		// 기다리는 사이에 Shutdown() 이 끊김 콜백을 울려 새 정리 작업이 걸릴 수 있다.
+		// 무조건 비우면 그 새 작업을 놓쳐서, 다음 참가가 정리 중인 세션 위로 겹친다.
+		// 내가 기다린 그 작업일 때만 비운다.
+		Task awaited = _pendingLeaveTask;
+		if (awaited == null) return;
+
+		try
+		{
+			await awaited;
+		}
+		catch (Exception e)
+		{
+			// 정리 실패는 이미 그쪽에서 로그를 남긴다. 여기서는 새 참가를 막지 않는다.
+			Debug.LogWarning($"[GameSessionManager] 이전 세션 정리가 실패했지만 계속 진행합니다. {e.Message}");
+		}
+
+		if (ReferenceEquals(_pendingLeaveTask, awaited))
+		{
+			_pendingLeaveTask = null;
+			return;
+		}
+
+		// 기다리는 동안 새로 걸린 정리가 있다. 그것까지 끝나야 다음 참가가 안전하다.
+		await WaitForPendingLeaveAsync();
+	}
+
+	// Shutdown() 은 곧바로 끝나지 않고 다음 프레임 이후에 실제로 내려간다.
+	// 그 여운이 남은 채로 다음 참가를 시작하면, 새 세션의 StartAsync 가 이전 종료의
+	// OnManagerStopped 를 자기 실패로 받아 "session was never started" 경고를 남기며 실패한다.
+	// 방을 나갔다 곧바로 다시 들어갈 때 가끔 재현되던 문제라, 완전히 내려간 뒤에 넘어간다.
+	private static async Task WaitUntilNetworkStoppedAsync()
+	{
+		var networkManager = NetworkManager.Singleton;
+		if (networkManager == null) return;
+
+		const int timeoutMilliseconds = 3000;
+		const int pollDelayMilliseconds = 50;
+		int elapsedMilliseconds = 0;
+
+		while (networkManager.IsListening && elapsedMilliseconds < timeoutMilliseconds)
+		{
+			await Task.Delay(pollDelayMilliseconds);
+			elapsedMilliseconds += pollDelayMilliseconds;
+		}
+
+		if (networkManager.IsListening)
+		{
+			Debug.LogWarning("[GameSessionManager] Shutdown 후에도 NetworkManager 가 내려가지 않았습니다. " +
+							 "그대로 진행하지만 다음 참가가 실패할 수 있습니다.");
+		}
 	}
 
 	private static async Task<bool> WaitUntilNetworkReadyAsync(bool requireServer)
@@ -690,14 +760,12 @@ public class GameSessionManager : MonoBehaviour
 					// 서버/네트워크 권한이 필요하면 여기서 검증하거나 서버-side 초기화로 옮기세요.
 					playerHealth.ResetForNewRound();
 				}
-				// 새 대기방 레이아웃의 명시적 입장 위치로 복귀시키되, 지점 누락 시 전체 복귀가 중단되지 않게 원점을 사용한다.
-                GameObject WaitingRoomSpawnPointObj = GameObject.Find("WaitingRoomSpawnPoint");
-
-                Vector3 WaitingroomSpawnPoint = WaitingRoomSpawnPointObj != null
-					? WaitingRoomSpawnPointObj.transform.position
-					: Vector3.zero;
-
-				player.TeleportToPosition(WaitingroomSpawnPoint, playerObject.transform.rotation);
+				// 자리를 못 찾으면 옮기지 않는다. 원점으로 보내면 맵 밖으로 떨어진다.
+				Transform spawnPoint = GetWaitingRoomSpawnPoint(clientId);
+				if (spawnPoint != null)
+				{
+					player.TeleportToPosition(spawnPoint.position, playerObject.transform.rotation);
+				}
 			}
 		}
 	}
@@ -738,20 +806,87 @@ public class GameSessionManager : MonoBehaviour
 	{
 		if (NetworkManager.Singleton.ConnectedClients[clientId].PlayerObject != null) return;
 
-		var playerInstance = InstantiatePlayerAtWaitingRoomSpawn(NetworkManager.Singleton.NetworkConfig.PlayerPrefab);
+		var playerInstance = InstantiatePlayerAtWaitingRoomSpawn(
+			NetworkManager.Singleton.NetworkConfig.PlayerPrefab,
+			clientId);
 		playerInstance.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
 	}
 
-	private static GameObject InstantiatePlayerAtWaitingRoomSpawn(GameObject playerPrefab)
+	private GameObject InstantiatePlayerAtWaitingRoomSpawn(GameObject playerPrefab, ulong clientId)
 	{
-		// 최초 입장도 씬에 배치한 위치와 방향을 사용해 원점이나 구조물 내부에 생성되지 않게 한다.
-		Transform spawnPoint = GameObject.Find("WaitingRoomSpawnPoint").transform;
-		return Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
+		// 자리를 못 찾아도 스폰은 시킨다. 오브젝트가 아예 없으면 그 사람은 아무것도 못 한다.
+		// 자리 없이 스폰된 경우는 위에서 이미 에러 로그를 남겼다.
+		Transform spawnPoint = GetWaitingRoomSpawnPoint(clientId);
+		return spawnPoint != null
+			? Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation)
+			: Instantiate(playerPrefab, transform.position, Quaternion.identity);
+	}
+
+	// 이 매니저는 DontDestroyOnLoad 라 대기방을 드나들어도 살아남는다. 반면 스폰 위치 오브젝트는
+	// 씬과 함께 사라지므로, 캐시는 들고 있되 파괴됐으면(유니티의 null 판정) 다시 찾는다.
+	private Transform ResolveWaitingRoomSpawnRoot()
+	{
+		if (_waitingRoomSpawnRoot != null) return _waitingRoomSpawnRoot;
+
+		GameObject root = GameObject.Find(WaitingRoomSpawnRootName);
+		if (root == null)
+		{
+			// GameObject.Find 는 비활성 오브젝트를 못 찾는다. 이름이 바뀐 경우와 구분이 안 되므로 둘 다 알린다.
+			Debug.LogError($"[GameSessionManager] 대기방에서 '{WaitingRoomSpawnRootName}' 을 찾지 못했습니다. " +
+						   "이름이 바뀌었거나 비활성 상태인지 확인하세요.");
+			return null;
+		}
+
+		_waitingRoomSpawnRoot = root.transform;
+
+		if (_waitingRoomSpawnRoot.childCount < _maxPlayers)
+		{
+			Debug.LogWarning($"[GameSessionManager] 스폰 위치가 {_waitingRoomSpawnRoot.childCount} 개인데 " +
+							 $"최대 인원은 {_maxPlayers} 명입니다. 넘치는 인원은 자리를 겹쳐 씁니다.");
+		}
+
+		return _waitingRoomSpawnRoot;
+	}
+
+	// 자리 수는 _maxPlayers 가 아니라 씬의 자식 수를 따른다. 둘이 어긋나면 GetChild 가 범위를 벗어난다.
+	private Transform GetWaitingRoomSpawnPoint(ulong clientId)
+	{
+		Transform spawnPoints = ResolveWaitingRoomSpawnRoot();
+		if (spawnPoints == null || spawnPoints.childCount == 0)
+		{
+			return null;
+		}
+
+		int slotCount = spawnPoints.childCount;
+
+		if (_waitingRoomSpawnSlots.TryGetValue(clientId, out int assignedIndex))
+		{
+			// 씬이 바뀌어 자리 수가 줄었을 수 있다. 저장해 둔 번호를 그대로 믿지 않는다.
+			return spawnPoints.GetChild(Mathf.Clamp(assignedIndex, 0, slotCount - 1));
+		}
+
+		for (int index = 0; index < slotCount; index++)
+		{
+			if (_waitingRoomSpawnSlots.ContainsValue(index)) continue;
+
+			_waitingRoomSpawnSlots.Add(clientId, index);
+			return spawnPoints.GetChild(index);
+		}
+
+		// 예외를 던지면 그 클라이언트는 플레이어 오브젝트 없이 남아 아무것도 못 한다.
+		// 겹쳐 서는 편이 낫다. 대신 원인을 로그로 남긴다.
+		int fallbackIndex = (int)(clientId % (ulong)slotCount);
+		Debug.LogError($"[GameSessionManager] 대기방 스폰 자리가 부족합니다(자리 {slotCount}개). " +
+					   $"클라이언트 {clientId} 를 {fallbackIndex} 번 자리에 겹쳐 배치합니다.");
+		_waitingRoomSpawnSlots[clientId] = fallbackIndex;
+		return spawnPoints.GetChild(fallbackIndex);
 	}
 
 	// 내 연결이 끊긴 경우에만 로비로 돌아간다 (자진 퇴장/호스트가 나가서 강제로 끊긴 경우 모두 포함).
 	private void HandleClientDisconnected(ulong clientId)
 	{
+		_waitingRoomSpawnSlots.Remove(clientId);
+
 		if (clientId != NetworkManager.Singleton.LocalClientId) return;
 
 		LastLeaveReason = ResolveLeaveReason();

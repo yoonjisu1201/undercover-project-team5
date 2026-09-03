@@ -3,6 +3,11 @@ using UnityEngine;
 
 // 원본 레이저 효과만으로는 카메라 조준 방향과 게임의 충돌 규칙을 정확히 반영하기 어렵다.
 // 검거 도구의 레이저가 PlayerAimIK와 같은 방향을 바라보고, 실제로 맞은 지점까지만 보이도록 제어하는 스크립트다.
+//
+// 총구는 1인칭에서 FirstPersonArrestToolView(120) 가 뷰모델 총 자리로 옮긴다. 그보다 먼저
+// 돌면 옮기기 전 자리, 곧 한 프레임 전 총구에서 쏘게 된다. 서 있을 때는 티가 안 나지만
+// 화면을 돌리면 총구가 프레임마다 크게 움직여서 레이저가 엉뚱한 데서 나간다.
+[DefaultExecutionOrder(130)]
 [DisallowMultipleComponent]
 [RequireComponent(typeof(LineRenderer))]
 public sealed class ArrestLaserBeam : MonoBehaviour

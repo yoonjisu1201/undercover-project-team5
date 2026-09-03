@@ -26,4 +26,7 @@ public static class Layers {
 	public static readonly int CCTVPostProcessing = LayerMask.NameToLayer("CCTVPostProcessing");
 	public static readonly int NotInMinimap = LayerMask.NameToLayer("NotInMinimap");
 	public static readonly int NavMeshOnly = LayerMask.NameToLayer("NavMeshOnly");
+
+	// 1인칭 전용 손·장비 뷰모델. 오버레이 카메라만 이 레이어를 그리고, 본 카메라는 제외한다.
+	public static readonly int FirstPersonHands = LayerMask.NameToLayer("FirstPersonHands");
 }

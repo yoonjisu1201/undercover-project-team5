@@ -8,6 +8,9 @@ public class PlayerCameraController : NetworkBehaviour
     [Header("카메라 관련")]
     [SerializeField] private GameObject _headPivot;
     [SerializeField] private Camera _camera;
+
+    [Tooltip("1인칭 전용 레이어만 그리는 오버레이 카메라. 벽에 붙어도 잘리지 않도록 근평면을 짧게 잡는다.")]
+    [SerializeField] private Camera _firstPersonHandsCamera;
     [SerializeField] private Transform _headBone;
     [SerializeField] private Transform _downedCameraAnchor;
     [SerializeField, Min(0.01f)] private float _cameraTransitionDuration = 0.35f;
@@ -32,8 +35,16 @@ public class PlayerCameraController : NetworkBehaviour
     // 손전등 등 손 IK가 따라가는 각도. 헤드 피벗(카메라)보다 좁게 잡아서 팔이 가동 범위를 넘어 꺾이지 않게 한다.
     [Header("팔 IK 따라가기 (헤드 피벗과 별도로 클램프)")]
     [SerializeField] private Transform _armFollowPivot;
-    private readonly float _armFollowMinPitch = -40f;
-    private readonly float _armFollowMaxPitch = 20f;
+    // 카메라 상한까지 그대로 따라가게 둔다. 중간에서 잘리면 끝까지 올려다봤을 때
+    // 손만 멈춰 있어서 시선과 팔이 어긋난다.
+    [Tooltip("팔이 올라갈 수 있는 최대 각도. 카메라 상한(-60)과 맞춰 둔다")]
+    [SerializeField] private float _armFollowMinPitch = -60f;
+    [SerializeField] private float _armFollowMaxPitch = 20f;
+
+    // 배율만 걸어 두면 중간에서 상한에 부딪혀 팔이 툭 멈춘다. 사인 곡선으로 태우면 초반에
+    // 빠르게 올라가고 끝에서 스르르 멎어서, 어디서도 끊기는 지점이 없다.
+    [Tooltip("올려다볼 때 팔이 올라가는 속도. 클수록 조금만 올려다봐도 팔이 많이 올라간다")]
+    [SerializeField, Range(0.5f, 3f)] private float _armFollowUpGain = 1.6f;
 
     // 헤드램프(Flashlight) 등 카메라와 동일한 시야각을 그대로 따라가야 하는 오브젝트가 붙는 피벗.
     // 헤드 피벗과 달리 오너/논오너 모두 이 시점에 갱신되므로, raycast 없이 파렌팅만으로 시선을 따라간다.
@@ -64,14 +75,32 @@ public class PlayerCameraController : NetworkBehaviour
     private readonly NetworkVariable<float> _networkPitch =
         new NetworkVariable<float>(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
+    // 오버레이가 켜지고 꺼질 때 알린다. 손에 든 물건을 뷰모델 손과 캐릭터 손 사이에서
+    // 옮겨야 하는 쪽(PlayerItemIK)이 듣는다.
+    public event System.Action<bool> FirstPersonHandsVisibilityChanged;
+
+    // 이벤트는 스폰 때 한 번만 울려서, 늦게 구독한 쪽은 첫 상태를 놓친다.
+    // 구독자가 스폰 시점에 지금 상태를 직접 물어볼 수 있어야 한다.
+    public bool IsFirstPersonHandsActive => _firstPersonHandsCamera != null && _firstPersonHandsCamera.enabled;
+
     public GameObject HeadPivot => _headPivot;
     public Transform LightFollowPivot => _lightFollowPivot;
 
     // 팔 IK와 레이저가 카메라 상하 조준을 따라가도록 소유자는 로컬 값, 다른 클라이언트는 동기화 값을 제공한다.
     public float ViewPitch => IsOwner ? _pitch : _networkPitch.Value;
 
+    // 손전등 빔이 팔보다 위로 올라가지 않도록, 팔이 멈추는 각도를 같이 쓴다.
+    public float ArmFollowMinPitch => _armFollowMinPitch;
+
     // 이동 컴포넌트가 물리 틱에서 몸체 회전과 이동 방향을 같은 yaw로 계산할 때 사용한다.
-    public Quaternion ViewYawRotation => Quaternion.Euler(0f, _yaw, 0f);
+    // _yaw 는 오너의 Update 에서만 갱신된다. 다른 클라이언트에서는 스폰 당시 값에 멈춰 있어서
+    // 그대로 쓰면 시야 방향이 몸과 따로 논다 - 팔 IK 목표와 손전등 피벗이 월드 회전으로
+    // 잡히기 때문에, 상대방 화면에서 왼팔이 엉뚱한 곳을 쫓아가며 뒤틀린다.
+    // 몸통은 오너가 MoveRotation(ViewYawRotation) 으로 돌리고 NetworkTransform 이 회전을
+    // 동기화하므로, 논오너에게는 몸통 회전이 곧 시야 yaw 다.
+    public Quaternion ViewYawRotation => IsOwner
+        ? Quaternion.Euler(0f, _yaw, 0f)
+        : Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
 
     public bool IsCameraTransitioning => _isCameraTransitioning;
 
@@ -151,6 +180,25 @@ public class PlayerCameraController : NetworkBehaviour
         {
             listener.enabled = active;
         }
+
+        // 1인칭 전용 오버레이는 내 화면에만 필요하다. 원격 플레이어 쪽에서는 그릴 것이 없다.
+        SetFirstPersonOverlayEnabled(active);
+    }
+
+    // 다운처럼 카메라가 3인칭으로 물러나면 오버레이도 꺼야 한다.
+    // 켜 둔 채로 두면 화면 앞에 1인칭 전용 오브젝트만 떠 있는 꼴이 된다.
+    private void SetFirstPersonOverlayEnabled(bool enabledNow)
+    {
+        if (_firstPersonHandsCamera != null)
+        {
+            // 카메라 컴포넌트만 끄면 손 오브젝트는 씬에 그대로 남는다. 오버레이 카메라는 레이어만
+            // 보고 그리므로, 남의 플레이어 손까지 내 화면에 같이 딸려 나온다.
+            // 손이 이 카메라의 자식이라 오브젝트째 꺼야 남의 뷰모델이 사라진다.
+            _firstPersonHandsCamera.gameObject.SetActive(enabledNow);
+            _firstPersonHandsCamera.enabled = enabledNow;
+        }
+
+        FirstPersonHandsVisibilityChanged?.Invoke(enabledNow);
     }
 
     private void Update()
@@ -231,7 +279,17 @@ public class PlayerCameraController : NetworkBehaviour
         // 다른 클라이언트에서도 보여야 하므로 헤드 본과 동일하게 이 시점에 갱신한다.
         if (_armFollowPivot != null)
         {
-            float armPitch = Mathf.Clamp(pitch, _armFollowMinPitch, _armFollowMaxPitch);
+            // 올려다보는 쪽(음수)만 따로 태운다. 사인 곡선이라 상한에 부딪히지 않고 스르르 멎는다.
+            float armPitch;
+            if (pitch < 0f)
+            {
+                float t = Mathf.Clamp01(pitch / _minPitch * _armFollowUpGain);
+                armPitch = _armFollowMinPitch * Mathf.Sin(t * Mathf.PI * 0.5f);
+            }
+            else
+            {
+                armPitch = Mathf.Min(pitch, _armFollowMaxPitch);
+            }
             _armFollowPivot.rotation = ViewYawRotation * Quaternion.Euler(armPitch, 0f, 0f);
         }
 
@@ -287,8 +345,9 @@ public class PlayerCameraController : NetworkBehaviour
         ResetExhaustedBreath();
         _useDownedCameraView = true;
         Layers.ShowLayerToCamera(_camera, Layers.LocalPlayerHead);
-        // 머리가 다시 보이므로 전용 그림자 캐스터는 꺼서 그림자가 겹치지 않게 한다
-        _playerRenderer?.SetHeadShadowCastersActive(false);
+        // 몸이 다시 보이므로 전용 그림자 캐스터는 꺼서 그림자가 겹치지 않게 한다
+        _playerRenderer?.SetBodyShadowCastersActive(false);
+        SetFirstPersonOverlayEnabled(false);
         BeginCameraTransition();
     }
 
@@ -398,7 +457,8 @@ public class PlayerCameraController : NetworkBehaviour
         if (!_isCameraTransitioning && !_useDownedCameraView)
         {
             Layers.HideLayerFromCamera(_camera, Layers.LocalPlayerHead);
-            _playerRenderer?.SetHeadShadowCastersActive(true);
+            _playerRenderer?.SetBodyShadowCastersActive(true);
+            SetFirstPersonOverlayEnabled(true);
         }
     }
 }
