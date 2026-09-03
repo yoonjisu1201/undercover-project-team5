@@ -142,6 +142,9 @@ public class GameSessionManager : MonoBehaviour
 		{
 			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
 
+			stage = "이전 세션 정리 대기";
+			await WaitForPendingLeaveAsync();
+
 			stage = "연결 승인 설정";
 			PrepareConnectionApproval();
 
@@ -255,6 +258,9 @@ public class GameSessionManager : MonoBehaviour
 		{
 			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
 
+			stage = "이전 세션 정리 대기";
+			await WaitForPendingLeaveAsync();
+
 			stage = "연결 승인 설정";
 			PrepareConnectionApproval();
 
@@ -309,7 +315,7 @@ public class GameSessionManager : MonoBehaviour
 			await NetworkBootstrap.SignInTask; // 로그인 끝날 때까지 대기
 
 			// 방금 나온 방의 삭제가 끝나기 전에 조회하면 사라진 방이 목록에 남는다.
-			if (_pendingLeaveTask != null) await _pendingLeaveTask;
+			await WaitForPendingLeaveAsync();
 
 			var results = await MultiplayerService.Instance.QuerySessionsAsync(new QuerySessionsOptions());
 			return results.Sessions;
@@ -375,6 +381,7 @@ public class GameSessionManager : MonoBehaviour
 		if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
 		{
 			NetworkManager.Singleton.Shutdown();
+			await WaitUntilNetworkStoppedAsync();
 		}
 
 		// 나가기 요청이 도는 동안 다른 코드가 죽은 세션을 잡지 않도록 참조부터 끊는다.
@@ -467,6 +474,54 @@ public class GameSessionManager : MonoBehaviour
 		// 승인 단계에서 빌드 버전을 대조하려면 클라이언트가 자기 버전을 미리 실어 보내야 한다.
 		networkManager.NetworkConfig.ConnectionData = Encoding.UTF8.GetBytes(Application.version);
 		networkManager.ConnectionApprovalCallback = HandleConnectionApproval;
+	}
+
+	// 방을 나가는 뒷정리는 로비 복귀를 늦추지 않으려고 기다리지 않고 배경으로 돌린다.
+	// 그래서 나가자마자 다른 방에 들어가면 이전 정리와 새 참가가 겹친다. 새로 세션을 잡기
+	// 전에는 반드시 그 정리가 끝나기를 기다린다.
+	private async Task WaitForPendingLeaveAsync()
+	{
+		if (_pendingLeaveTask == null) return;
+
+		try
+		{
+			await _pendingLeaveTask;
+		}
+		catch (Exception e)
+		{
+			// 정리 실패는 이미 그쪽에서 로그를 남긴다. 여기서는 새 참가를 막지 않는다.
+			Debug.LogWarning($"[GameSessionManager] 이전 세션 정리가 실패했지만 계속 진행합니다. {e.Message}");
+		}
+		finally
+		{
+			_pendingLeaveTask = null;
+		}
+	}
+
+	// Shutdown() 은 곧바로 끝나지 않고 다음 프레임 이후에 실제로 내려간다.
+	// 그 여운이 남은 채로 다음 참가를 시작하면, 새 세션의 StartAsync 가 이전 종료의
+	// OnManagerStopped 를 자기 실패로 받아 "session was never started" 경고를 남기며 실패한다.
+	// 방을 나갔다 곧바로 다시 들어갈 때 가끔 재현되던 문제라, 완전히 내려간 뒤에 넘어간다.
+	private static async Task WaitUntilNetworkStoppedAsync()
+	{
+		var networkManager = NetworkManager.Singleton;
+		if (networkManager == null) return;
+
+		const int timeoutMilliseconds = 3000;
+		const int pollDelayMilliseconds = 50;
+		int elapsedMilliseconds = 0;
+
+		while (networkManager.IsListening && elapsedMilliseconds < timeoutMilliseconds)
+		{
+			await Task.Delay(pollDelayMilliseconds);
+			elapsedMilliseconds += pollDelayMilliseconds;
+		}
+
+		if (networkManager.IsListening)
+		{
+			Debug.LogWarning("[GameSessionManager] Shutdown 후에도 NetworkManager 가 내려가지 않았습니다. " +
+							 "그대로 진행하지만 다음 참가가 실패할 수 있습니다.");
+		}
 	}
 
 	private static async Task<bool> WaitUntilNetworkReadyAsync(bool requireServer)
