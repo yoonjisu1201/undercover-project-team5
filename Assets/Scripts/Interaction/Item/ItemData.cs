@@ -18,6 +18,18 @@ public class ItemData : ScriptableObject
     [SerializeField] private Vector3 _holdRotationOffset;
     [SerializeField, Range(0.1f, 1f)] private float _holdScale = 1f;
 
+    // 1인칭은 아이템이 카메라 코앞에 오므로 3인칭과 같은 크기면 화면을 덮는다.
+    // 0 이면 따로 두지 않고 위 _holdScale 을 그대로 쓴다.
+    [Tooltip("1인칭 전용 크기. 0 이면 위 값을 그대로 쓴다")]
+    [SerializeField, Range(0f, 1f)] private float _holdScaleFirstPerson;
+
+    // 1인칭은 카메라 코앞이라 3인칭과 같은 자리에 들면 화면을 가리거나 어긋난다.
+    // 자리까지 따로 잡아야 하는 아이템만 이 토글을 켠다.
+    [Header("=== 1인칭에서 다른 자리에 들 때 ===")]
+    [SerializeField] private bool _overrideFirstPersonHold;
+    [SerializeField] private Vector3 _holdPositionOffsetFirstPerson;
+    [SerializeField] private Vector3 _holdRotationOffsetFirstPerson;
+
     public ItemType ItemId => _itemId;
 
     // 테이블 키 규칙: item_display_<ItemType> / item_desc_<ItemType>
@@ -32,6 +44,16 @@ public class ItemData : ScriptableObject
     public Vector3 HoldPositionOffset => _holdPositionOffset;
     public Vector3 HoldRotationOffset => _holdRotationOffset;
     public float HoldScale => _holdScale;
+
+    // 1인칭 전용 값이 있으면 그것을, 없으면 공용 값을 돌려준다.
+    public float ResolveHoldScale(bool firstPerson)
+        => firstPerson && _holdScaleFirstPerson > 0f ? _holdScaleFirstPerson : _holdScale;
+
+    public Vector3 ResolveHoldPositionOffset(bool firstPerson)
+        => firstPerson && _overrideFirstPersonHold ? _holdPositionOffsetFirstPerson : _holdPositionOffset;
+
+    public Vector3 ResolveHoldRotationOffset(bool firstPerson)
+        => firstPerson && _overrideFirstPersonHold ? _holdRotationOffsetFirstPerson : _holdRotationOffset;
 
     // 키가 테이블에 없으면 빈 문자열이 온다. 호출부가 "문구 없음"으로 다룰 수 있게 null로 바꿔 돌려준다.
     private static string Localize(string key)

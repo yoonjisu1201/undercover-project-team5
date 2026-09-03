@@ -183,10 +183,11 @@ public class Player : NetworkBehaviour
 			// 색상은 처음 스폰 시에 랜덤하게 정한다. 추후 설정할 수 있게 해도 됨
 			_playerColor.Value = Random.ColorHSV();
 
-			// 스폰 시 내 머리 안보이게 해야 함
-			PlayerRenderer.SetHeadObjectsLayer(Layers.LocalPlayerHead);
-			// 머리가 숨겨지면 그림자도 같이 사라지므로 전용 그림자 캐스터를 켠다
-			PlayerRenderer.SetHeadShadowCastersActive(true);
+			// 1인칭 화면에서는 내 몸이 보이면 안 된다.
+			// 손은 PlayerCameraController 와 PlayerItemIK 가 따로 관리한다.
+			PlayerRenderer.SetLocalBodyLayer(Layers.LocalPlayerHead);
+			// 몸이 숨겨지면 그림자도 같이 사라지므로 전용 그림자 캐스터를 켠다
+			PlayerRenderer.SetBodyShadowCastersActive(true);
 		}
 
 		_playerName.OnValueChanged += HandlePlayerNameChanged;

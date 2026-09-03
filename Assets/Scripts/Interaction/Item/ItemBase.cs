@@ -4,6 +4,10 @@ using EPOOutline;
 using UnityEngine;
 using UnityEngine.Localization;
 
+// 손에 들린 아이템은 LateUpdate 에서 손 앵커를 따라간다. 1인칭에서는 그 앵커가 뷰모델 손이라,
+// 손을 옮기는 FirstPersonHandMotion(60) 보다 먼저 돌면 한 프레임 뒤처져 손과 따로 논다.
+// Flashlight 와 같은 이유로 순서를 뒤로 민다.
+[DefaultExecutionOrder(100)]
 [RequireComponent(typeof(NetworkTransform),
     typeof(ItemRigidbodySetter))]
 public class ItemBase : InteractableBase, ICctvHighlightTarget {
@@ -35,7 +39,19 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
     // NGO가 NetworkObject를 non-NetworkObject 밑으로 파렌팅하는 걸 막아서(OnTransformParentChanged
     // 검증), 실제 파렌팅 대신 매 프레임 위치·회전을 복사한다 (Flashlight와 동일한 이유).
     private Transform _handAnchor;
+
     private bool _isHandVisible = true;
+
+    // 1인칭에서 제압기를 들어올릴 때처럼 한때만 크게 보여야 하는 경우에 곱한다.
+    // ItemData 의 HoldScale 은 모든 화면이 공유하는 값이라 여기서 따로 얹는다.
+    private float _heldScaleMultiplier = 1f;
+
+    // 1인칭에서는 ItemData 의 1인칭 전용 크기를 쓴다. 3인칭·남의 화면은 공용 값 그대로다.
+    private bool _isFirstPersonHold;
+
+    // 1인칭에서는 뷰모델 손에 들리므로 오버레이 카메라가 그리는 레이어로 옮긴다.
+    // 레이어는 클라이언트마다 따로라 남의 화면에는 영향이 없다.
+    private int _defaultLayer;
 
     // 드롭된 뒤 바닥에 처음 닿기를 기다리는 중인지. 물리는 서버만 돌리므로 서버에서만 의미가 있다.
     private bool _awaitingDropLanding;
@@ -67,6 +83,7 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
         _rigidBodySetter = GetComponent<ItemRigidbodySetter>();
         _networkTransform = GetComponent<NetworkTransform>();
 
+		_defaultLayer = Layers.Item;
 		SetLayerRecursively(transform, Layers.Item);
 		_cctvOutline = CctvHighlight.CreateOutline(this, transform, Layers.Item, _renderers, CctvHighlightKind.Item);
     }
@@ -144,12 +161,18 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
             return;
         }
 
-        Vector3 positionOffset = _itemData != null ? _itemData.HoldPositionOffset : Vector3.zero;
-        Quaternion rotationOffset = _itemData != null ? Quaternion.Euler(_itemData.HoldRotationOffset) : Quaternion.identity;
+        Vector3 positionOffset = _itemData != null
+            ? _itemData.ResolveHoldPositionOffset(_isFirstPersonHold)
+            : Vector3.zero;
+        Quaternion rotationOffset = _itemData != null
+            ? Quaternion.Euler(_itemData.ResolveHoldRotationOffset(_isFirstPersonHold))
+            : Quaternion.identity;
         transform.SetPositionAndRotation(_handAnchor.TransformPoint(positionOffset), _handAnchor.rotation * rotationOffset);
     }
 
     // PlayerItemIK가 이 아이템을 오른손에 들리거나(rightHand != null) 내려놓을 때(null) 호출한다.
+    // 1인칭·3인칭 모두 ItemData 의 오프셋을 손 앵커 기준으로 얹는다. 1인칭 전용 값은
+    // ItemData 쪽에서 갈라지므로 여기서는 앵커만 갈아 끼우면 된다.
     public void SetEquipped(Transform rightHand)
     {
         _handAnchor = rightHand;
@@ -160,11 +183,40 @@ public class ItemBase : InteractableBase, ICctvHighlightTarget {
             _networkTransform.enabled = rightHand == null;
         }
 
-        transform.localScale = rightHand != null && _itemData != null
-            ? _initialScale * _itemData.HoldScale
-            : _initialScale;
-
+        ApplyHeldScale();
         ApplyStoredPresentation(_isStored.Value);
+    }
+
+    // 들고 있는 동안만 크기를 더 키우거나 줄인다. 1 이면 ItemData 값 그대로다.
+    public void SetHeldScaleMultiplier(float multiplier)
+    {
+        if (Mathf.Approximately(_heldScaleMultiplier, multiplier))
+        {
+            return;
+        }
+
+        _heldScaleMultiplier = multiplier;
+        ApplyHeldScale();
+    }
+
+    private void ApplyHeldScale()
+    {
+        transform.localScale = _handAnchor != null && _itemData != null
+            ? _initialScale * (_itemData.ResolveHoldScale(_isFirstPersonHold) * _heldScaleMultiplier)
+            : _initialScale;
+    }
+
+    // 내 화면에서만 레이어를 옮긴다. 위치도 각 클라이언트가 따로 잡으므로 서로 간섭하지 않는다.
+    public void SetFirstPersonRendering(bool useFirstPerson)
+    {
+        int layer = useFirstPerson ? Layers.FirstPersonHands : _defaultLayer;
+        foreach (Renderer itemRenderer in _renderers)
+        {
+            itemRenderer.gameObject.layer = layer;
+        }
+
+        _isFirstPersonHold = useFirstPerson;
+        ApplyHeldScale();
     }
 
     // 카트를 끌거나 총을 조준하는 등 손이 다른 데 쓰일 때 시각적으로만 숨긴다.

@@ -17,6 +17,7 @@ public class PlayerHandIK : MonoBehaviour
     private PlayerItemIK _itemIK;
     private PlayerHealth _playerHealth;
     private PlayerMoveSample _playerMove;
+    private PlayerArrestInput _arrestInput;
 
     // 다운~기상(Getting Up) 애니메이션이 끝날 때까지 손 IK를 전부 애니메이션에 맡긴다.
     private bool _handsSuppressed;
@@ -29,6 +30,7 @@ public class PlayerHandIK : MonoBehaviour
         _itemIK = GetComponent<PlayerItemIK>();
         _playerHealth = GetComponent<PlayerHealth>();
         _playerMove = GetComponent<PlayerMoveSample>();
+        _arrestInput = GetComponent<PlayerArrestInput>();
     }
 
     private void OnEnable()
@@ -45,10 +47,26 @@ public class PlayerHandIK : MonoBehaviour
 
     private void HandleDownedStateChanged(bool previousValue, bool isDowned)
     {
-        if (!isDowned) return; // 소생 시작 시점은 아직 Getting Up 중이므로 무시, GettingUpFinished에서 해제한다.
+        if (isDowned)
+        {
+            _handsSuppressed = true;
+            _itemIK.DisableItems();
+            return;
+        }
 
-        _handsSuppressed = true;
-        _itemIK.DisableItems();
+        // 소생 시작 시점은 아직 Getting Up 중이라, 오너는 GettingUpFinished 를 기다렸다가 푼다.
+        //
+        // 그런데 그 신호를 만드는 PlayerMoveSample.UpdateGettingUpState 는 오너 전용 구간에 있어서
+        // 남의 화면에서는 영영 오지 않는다. 한 번 쓰러진 사람은 그 뒤로 손에 든 것이 계속
+        // 숨겨진 채로 남는다(1인칭에서는 멀쩡한데 3인칭에서만 손전등이 사라져 보인다).
+        // 오너가 아니면 기다릴 신호가 없으므로 소생과 동시에 되돌린다.
+        if (_itemIK.IsOwner)
+        {
+            return;
+        }
+
+        _handsSuppressed = false;
+        _itemIK.EnableItems();
     }
 
     private void HandleGettingUpFinished()
@@ -77,9 +95,32 @@ public class PlayerHandIK : MonoBehaviour
 
         if (_aimIK.IsActive)
         {
+            // 아이템 자세를 항상 먼저 깔아 둔다. 조준 IK 가 그 자세에서 출발해 섞이므로
+            // 손에 든 것이 있으면 빈손 자세를 거치지 않고 곧바로 이어진다.
+            //
+            // 섞이는 중에만 깔면 다 섞인 프레임 하나만 바탕이 비어, 그 프레임에서 가중치가
+            // 1 에서 조준 가중치로 뚝 떨어져 손이 톡 튄다. 매 프레임 깔아야 이어진다.
+            if (_itemIK.IsActive)
+            {
+                _itemIK.ApplyIK(layerIndex);
+            }
+
             _aimIK.ApplyIK(layerIndex);
-            // 총 사용중 손 아이템 비활성화
-            _itemIK.DisableItems();
+
+            // 총 사용중 손 아이템 비활성화. 다만 팔이 올라오는 동안에는 아직 들고 있어야 한다.
+            // 좌클릭하자마자 내리면 총과 손전등이 사라진 빈손이 화면 중앙으로 올라간다.
+            // 손전등은 왼손에 그대로 들고 있는다. 오른손 아이템만 내린다.
+            if (_arrestInput == null || _arrestInput.IsToolVisualShown)
+            {
+                _itemIK.DisableItems(hideFlashlight: false);
+            }
+            else
+            {
+                // 손에 붙은 제압기가 꺼진 뒤에도 조준 자세가 풀릴 때까지는 IK 가 계속 돈다.
+                // 그동안 아이템까지 숨겨 두면 손에 아무것도 없다가 끝에서 툭 나타난다.
+                _itemIK.EnableItems();
+            }
+
             return;
         }
         
