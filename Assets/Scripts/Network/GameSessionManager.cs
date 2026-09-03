@@ -105,6 +105,9 @@ public class GameSessionManager : MonoBehaviour
 	private Task _pendingLeaveTask;
 	private readonly Dictionary<ulong, int> _waitingRoomSpawnSlots = new();
 
+	private const string WaitingRoomSpawnRootName = "WaitingRoomSpawnPoints";
+	private Transform _waitingRoomSpawnRoot;
+
 	private void Awake()
 	{
 		if (Instance != null && Instance != this)
@@ -693,8 +696,12 @@ public class GameSessionManager : MonoBehaviour
 					// 서버/네트워크 권한이 필요하면 여기서 검증하거나 서버-side 초기화로 옮기세요.
 					playerHealth.ResetForNewRound();
 				}
+				// 자리를 못 찾으면 옮기지 않는다. 원점으로 보내면 맵 밖으로 떨어진다.
 				Transform spawnPoint = GetWaitingRoomSpawnPoint(clientId);
-				player.TeleportToPosition(spawnPoint.position, playerObject.transform.rotation);
+				if (spawnPoint != null)
+				{
+					player.TeleportToPosition(spawnPoint.position, playerObject.transform.rotation);
+				}
 			}
 		}
 	}
@@ -743,20 +750,58 @@ public class GameSessionManager : MonoBehaviour
 
 	private GameObject InstantiatePlayerAtWaitingRoomSpawn(GameObject playerPrefab, ulong clientId)
 	{
+		// 자리를 못 찾아도 스폰은 시킨다. 오브젝트가 아예 없으면 그 사람은 아무것도 못 한다.
+		// 자리 없이 스폰된 경우는 위에서 이미 에러 로그를 남겼다.
 		Transform spawnPoint = GetWaitingRoomSpawnPoint(clientId);
-		return Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
+		return spawnPoint != null
+			? Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation)
+			: Instantiate(playerPrefab, transform.position, Quaternion.identity);
 	}
 
+	// 이 매니저는 DontDestroyOnLoad 라 대기방을 드나들어도 살아남는다. 반면 스폰 위치 오브젝트는
+	// 씬과 함께 사라지므로, 캐시는 들고 있되 파괴됐으면(유니티의 null 판정) 다시 찾는다.
+	private Transform ResolveWaitingRoomSpawnRoot()
+	{
+		if (_waitingRoomSpawnRoot != null) return _waitingRoomSpawnRoot;
+
+		GameObject root = GameObject.Find(WaitingRoomSpawnRootName);
+		if (root == null)
+		{
+			// GameObject.Find 는 비활성 오브젝트를 못 찾는다. 이름이 바뀐 경우와 구분이 안 되므로 둘 다 알린다.
+			Debug.LogError($"[GameSessionManager] 대기방에서 '{WaitingRoomSpawnRootName}' 을 찾지 못했습니다. " +
+						   "이름이 바뀌었거나 비활성 상태인지 확인하세요.");
+			return null;
+		}
+
+		_waitingRoomSpawnRoot = root.transform;
+
+		if (_waitingRoomSpawnRoot.childCount < _maxPlayers)
+		{
+			Debug.LogWarning($"[GameSessionManager] 스폰 위치가 {_waitingRoomSpawnRoot.childCount} 개인데 " +
+							 $"최대 인원은 {_maxPlayers} 명입니다. 넘치는 인원은 자리를 겹쳐 씁니다.");
+		}
+
+		return _waitingRoomSpawnRoot;
+	}
+
+	// 자리 수는 _maxPlayers 가 아니라 씬의 자식 수를 따른다. 둘이 어긋나면 GetChild 가 범위를 벗어난다.
 	private Transform GetWaitingRoomSpawnPoint(ulong clientId)
 	{
-		Transform spawnPoints = GameObject.Find("WaitingRoomSpawnPoints").transform;
+		Transform spawnPoints = ResolveWaitingRoomSpawnRoot();
+		if (spawnPoints == null || spawnPoints.childCount == 0)
+		{
+			return null;
+		}
+
+		int slotCount = spawnPoints.childCount;
 
 		if (_waitingRoomSpawnSlots.TryGetValue(clientId, out int assignedIndex))
 		{
-			return spawnPoints.GetChild(assignedIndex);
+			// 씬이 바뀌어 자리 수가 줄었을 수 있다. 저장해 둔 번호를 그대로 믿지 않는다.
+			return spawnPoints.GetChild(Mathf.Clamp(assignedIndex, 0, slotCount - 1));
 		}
 
-		for (int index = 0; index < _maxPlayers; index++)
+		for (int index = 0; index < slotCount; index++)
 		{
 			if (_waitingRoomSpawnSlots.ContainsValue(index)) continue;
 
@@ -764,7 +809,13 @@ public class GameSessionManager : MonoBehaviour
 			return spawnPoints.GetChild(index);
 		}
 
-		throw new InvalidOperationException("사용 가능한 대기방 스폰 위치가 없습니다.");
+		// 예외를 던지면 그 클라이언트는 플레이어 오브젝트 없이 남아 아무것도 못 한다.
+		// 겹쳐 서는 편이 낫다. 대신 원인을 로그로 남긴다.
+		int fallbackIndex = (int)(clientId % (ulong)slotCount);
+		Debug.LogError($"[GameSessionManager] 대기방 스폰 자리가 부족합니다(자리 {slotCount}개). " +
+					   $"클라이언트 {clientId} 를 {fallbackIndex} 번 자리에 겹쳐 배치합니다.");
+		_waitingRoomSpawnSlots[clientId] = fallbackIndex;
+		return spawnPoints.GetChild(fallbackIndex);
 	}
 
 	// 내 연결이 끊긴 경우에만 로비로 돌아간다 (자진 퇴장/호스트가 나가서 강제로 끊긴 경우 모두 포함).
