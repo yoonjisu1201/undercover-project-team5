@@ -11,7 +11,13 @@ public class PlayerRenderer : MonoBehaviour {
 	[FormerlySerializedAs("_headObjects")]
 	[SerializeField] private GameObject[] _localBodyObjects;
 
+	// 관전은 몸 전체가 아니라 머리만 치운다. 보고 있는 팀원의 머리가 카메라 앞을 가리기
+	// 때문인데, 몸까지 끄면 관전 화면에서 대상이 통째로 사라진다. 그래서 배열을 따로 둔다.
+	[Header("=== 관전 중 감출 머리 ===")]
+	[SerializeField] private GameObject[] _headObjects;
+
 	private GameObject[] _bodyShadowCasters;
+	private GameObject[] _headShadowCasters;
 
 	// 몸은 레이어 컬링으로 숨겨서 그림자까지 사라진다. 같은 메시를 Shadows Only로
 	// 그리는 사본을 골격에 붙여 카메라에는 안 잡히고 그림자만 남게 한다.
@@ -20,6 +26,11 @@ public class PlayerRenderer : MonoBehaviour {
 		_bodyShadowCasters = new GameObject[_localBodyObjects.Length];
 		for (int i = 0; i < _localBodyObjects.Length; i++) {
 			_bodyShadowCasters[i] = CreateShadowOnlyCopy(_localBodyObjects[i]);
+		}
+
+		_headShadowCasters = new GameObject[_headObjects.Length];
+		for (int i = 0; i < _headObjects.Length; i++) {
+			_headShadowCasters[i] = CreateShadowOnlyCopy(_headObjects[i]);
 		}
 	}
 
@@ -48,6 +59,19 @@ public class PlayerRenderer : MonoBehaviour {
 	// 각자 자기 머리만 숨기는 용도라 대상만 골라 컬링할 수 없어 오브젝트를 끈다.
 	public void SetHeadObjectsActive(bool active) {
 		foreach (var obj in _headObjects) {
+			if (obj != null) {
+				obj.SetActive(active);
+			}
+		}
+	}
+
+	// 머리를 끄면 그림자도 같이 사라진다. 몸 쪽과 같은 방식으로 사본을 대신 켠다.
+	public void SetHeadShadowCastersActive(bool active) {
+		if (_headShadowCasters == null) {
+			return;
+		}
+
+		foreach (var obj in _headShadowCasters) {
 			if (obj != null) {
 				obj.SetActive(active);
 			}
