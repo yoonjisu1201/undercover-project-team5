@@ -46,10 +46,14 @@ public class FirstPersonHandMotion : MonoBehaviour {
 	[Tooltip("올려다볼 때 시야각 1도당 팔이 도는 각도. 0.5 면 50도 올려다볼 때 팔이 25도 돈다")]
 	[SerializeField] private float _pitchUpRatio = 0.5f;
 
-	// 내려다볼 때 손이 같이 내려가면 화면 밖으로 빠져 버린다. 발밑을 볼 때야말로 손이 보여야 해서,
-	// 위아래 어느 쪽을 보든 손은 올라오게 한다. 다만 올려다볼 때보다는 덜 올린다.
-	[Tooltip("내려다볼 때 시야각 1도당 팔이 도는 각도. 이쪽도 손이 올라간다")]
+	// 내려다볼 때도 손을 올리면, 시선은 아래인데 손만 위를 향해 따로 논다. 시선을 따라 같이
+	// 내린다. 너무 많이 내리면 화면 밖으로 빠지므로 올려다볼 때보다는 덜 움직인다.
+	[Tooltip("내려다볼 때 시야각 1도당 팔이 도는 각도. 이쪽은 손이 같이 내려간다")]
 	[SerializeField] private float _pitchDownRatio = 0.25f;
+
+	[Tooltip("정면을 볼 때 손의 기본 각도(도). 양수면 손이 아래를 향한다")]
+	[SerializeField] private float _restPitchAngle = 8f;
+
 
 	[Tooltip("아무리 올려다봐도 이 이상은 안 돈다(도)")]
 	[SerializeField] private float _maxPitchAngle = 30f;
@@ -197,11 +201,12 @@ public class FirstPersonHandMotion : MonoBehaviour {
 		Vector3 bobLeft = BobAt(0f);
 		Vector3 bobRight = BobAt(_rightBobPhaseOffset * Mathf.Deg2Rad);
 
-		// 위를 보면 pitch 가 음수다. 축이 손보다 뒤에 있어서 X 축 음의 회전이 손을 들어 올린다.
-		// 내려다볼 때는 pitch 가 양수라, 부호를 뒤집어야 그쪽에서도 손이 올라온다.
+		// 위를 보면 pitch 가 음수다. 축이 손보다 뒤에 있어서 X 축 음의 회전이 손을 들어 올리고,
+		// 양의 회전이 내린다. 그래서 부호를 그대로 쓰면 시선과 손이 같은 쪽으로 움직인다.
 		float viewPitch = _cameraController.ViewPitch;
-		float ratio = viewPitch < 0f ? _pitchUpRatio : -_pitchDownRatio;
-		float pitchAngle = Mathf.Clamp(viewPitch * ratio, -_maxPitchAngle, _maxPitchAngle);
+		float ratio = viewPitch < 0f ? _pitchUpRatio : _pitchDownRatio;
+		float pitchAngle = _restPitchAngle
+			+ Mathf.Clamp(viewPitch * ratio, -_maxPitchAngle, _maxPitchAngle);
 
 		// 점프도 같은 축으로 돌려서 올린다. 음의 회전이 손을 들어 올린다.
 		float leftAngle = pitchAngle - jumpLift01 * _jumpLeftDegrees;

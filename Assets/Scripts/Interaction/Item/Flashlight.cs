@@ -13,11 +13,21 @@ using UnityEngine;
 public class Flashlight : NetworkBehaviour
 {
     [SerializeField] private Vector3 _holdOffset;
-    [Tooltip("시야 피벗 기준 빛의 위치. 피벗이 플레이어 원점(허리 높이)이라, 왼손 높이만큼 올려야 한다")]
+
+    [Tooltip("캐릭터 손에 들렸을 때의 각도(도). 손 회전에 더한다. x 를 양수로 두면 손전등이 아래를 향한다")]
+    [SerializeField] private Vector3 _holdRotationOffset;
+    // 빛의 자리는 손전등 몸통 기준이다. 시야 피벗은 플레이어 발바닥에 있어서, 거기에 오프셋으로
+    // 매달면 피치가 돌 때마다 빛이 큰 호를 그린다. 위를 보면 뒤로 넘어가 팔에 맞고 아래를 보면
+    // 바닥에 처박힌다. 자리는 손전등에 두고 방향만 시야를 따라가게 한다.
+    [Tooltip("빛이 나오는 자리. 손전등 렌즈에 둔 앵커를 물린다")]
+    [SerializeField] private Transform _lensAnchor;
+
+    [Tooltip("앵커가 비었을 때만 쓰는 예비 자리. 손전등 몸통 기준")]
     [SerializeField] private Vector3 _headLightLocalOffset;
 
-    [Tooltip("빛이 향할 방향. x 를 양수로 두면 살짝 아래를 비춘다")]
+    [Tooltip("시야 방향에서 얼마나 틀어서 비출지(도). x 를 양수로 두면 살짝 아래를 비춘다")]
     [SerializeField] private Vector3 _headLightLocalEuler;
+
 
     // 캐릭터 손에 들렸을 때의 자리. 손 로컬 기준이라 손이 돌아도 같이 따라간다.
     // 플레이 중에 눈으로 맞출 수 있도록 열어 둔다.
@@ -26,10 +36,18 @@ public class Flashlight : NetworkBehaviour
         set => _holdOffset = value;
     }
 
+    // 위치와 마찬가지로 플레이 중에 눈으로 맞출 수 있도록 열어 둔다.
+    public Vector3 HoldRotationOffset {
+        get => _holdRotationOffset;
+        set => _holdRotationOffset = value;
+    }
+
     // On/Off 상태는 오너가 직접 토글하는 값이라 Owner 권한으로 쓴다.
     private readonly NetworkVariable<bool> _isOn =
         new(true, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
+    private Transform _lightPivot;
+    private PlayerCameraController _cameraController;
     private Transform _handAnchor;
     // 1인칭 뷰모델 손의 앵커는 그립 위치를 정확히 가리키고 있어서 _holdOffset을 더하지 않는다.
     // 캐릭터 손 슬롯은 대략적인 위치라 오프셋이 필요하다.
@@ -62,12 +80,12 @@ public class Flashlight : NetworkBehaviour
     {
         _handAnchor = handAnchor;
 
-        Transform lightAnchor = playerCameraController.LightFollowPivot;
+        // 몸통을 따라 움직이지 않도록 손전등 밖으로 빼 둔다. 자리와 방향은 LateUpdate 에서 직접 잡는다.
+        _cameraController = playerCameraController;
+        _lightPivot = playerCameraController.LightFollowPivot;
         foreach (Light light in _lights)
         {
-            light.transform.SetParent(lightAnchor, worldPositionStays: false);
-            light.transform.SetLocalPositionAndRotation(
-                _headLightLocalOffset, Quaternion.Euler(_headLightLocalEuler));
+            light.transform.SetParent(_lightPivot, worldPositionStays: false);
         }
     }
 
@@ -125,13 +143,53 @@ public class Flashlight : NetworkBehaviour
         }
     }
 
+    // 자리는 손전등, 방향은 시야. 손전등 몸통이 어디에 있든 빛은 항상 손전등에서 나가고,
+    // 회전 중심이 빛과 같은 자리라 시야를 올리고 내려도 빛이 휩쓸리지 않는다.
+    private void ApplyLightPose()
+    {
+        if (_cameraController == null)
+        {
+            return;
+        }
+
+        // 피벗을 그대로 쓰지 않고 yaw 와 pitch 를 다시 조립한다. 위쪽만 묶어야 하기 때문이다.
+        //
+        // 상한은 팔이 멈추는 각도를 그대로 쓴다. 천장을 올려다볼 때 눈은 더 올라가도 팔은
+        // 거기서 멈추는데, 빔만 계속 따라 올라가면 손전등은 앞을 보는데 빛은 위로 새어 나간다.
+        // 아래로는 묶지 않는다. 발밑을 살피는 건 손전등의 정상적인 쓰임이다.
+        float pitch = Mathf.Max(_cameraController.ViewPitch, _cameraController.ArmFollowMinPitch);
+        Quaternion rotation = _cameraController.ViewYawRotation
+            * Quaternion.Euler(pitch, 0f, 0f)
+            * Quaternion.Euler(_headLightLocalEuler);
+        Vector3 position = _lensAnchor != null
+            ? _lensAnchor.position
+            : transform.TransformPoint(_headLightLocalOffset);
+        foreach (Light light in _lights)
+        {
+            light.transform.SetPositionAndRotation(position, rotation);
+        }
+    }
+
     private void LateUpdate()
     {
-        if (_handAnchor != null)
+        if (_handAnchor == null)
         {
-            transform.SetPositionAndRotation(
-                _handAnchorIsExact ? _handAnchor.position : _handAnchor.TransformPoint(_holdOffset),
-                _handAnchor.rotation);
+            return;
         }
+
+        // 1인칭 뷰모델 앵커는 그립 자세를 정확히 가리키고 있어서 손대지 않는다.
+        // 캐릭터 손은 대략적인 자리라 위치도 각도도 보정이 필요하다.
+        if (_handAnchorIsExact)
+        {
+            transform.SetPositionAndRotation(_handAnchor.position, _handAnchor.rotation);
+            ApplyLightPose();
+            return;
+        }
+
+        transform.SetPositionAndRotation(
+            _handAnchor.TransformPoint(_holdOffset),
+            _handAnchor.rotation * Quaternion.Euler(_holdRotationOffset));
+
+        ApplyLightPose();
     }
 }

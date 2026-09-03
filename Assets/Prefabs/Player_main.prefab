@@ -3434,6 +3434,9 @@ MonoBehaviour:
   _minPitch: -60
   _maxPitch: 60
   _armFollowPivot: {fileID: 1105795469393611950}
+  _armFollowMinPitch: -60
+  _armFollowMaxPitch: 20
+  _armFollowUpGain: 1.6
   _lightFollowPivot: {fileID: 8638054919076455009}
   _exhaustedBreathEffect: {fileID: 4318145700278493756}
 --- !u!114 &4318145700278493756
@@ -4191,6 +4194,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LeftHandFingerPose
   _sourceHand: {fileID: 3688984393861938607}
   _targetHand: {fileID: 1647129513503882717}
+  _wristPitch: 60
+  _wristFollowViewRatio: 0.8
+  _wristFollowDownRatio: 0.2
+  _armLiftViewRatio: 1
+  _maxArmLift: 60
   _weight: 1
   _extraCurl: 15
 --- !u!114 &4767646033220599710
@@ -4214,6 +4222,7 @@ MonoBehaviour:
   _pitchPivotOffset: {x: -0.06, y: -0.15, z: -0.26}
   _pitchUpRatio: 0.5
   _pitchDownRatio: 0.25
+  _restPitchAngle: 8
   _maxPitchAngle: 30
   _jumpRightDegrees: 28
   _rightPivotOffset: {x: 0.06, y: -0.15, z: -0.26}
@@ -4703,7 +4712,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3040606140873614570}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.03758748, y: 0.055258255, z: -0.03325161, w: 0.99721014}
+  m_LocalRotation: {x: -0.037587482, y: 0.05525826, z: -0.033251613, w: 0.9972102}
   m_LocalPosition: {x: -0.00000002421414, y: 0.23713073, z: -0.00000006145426}
   m_LocalScale: {x: 1.0000001, y: 1, z: 0.9999999}
   m_ConstrainProportionsScale: 0
@@ -6791,7 +6800,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4760170422886688860}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.105470866, y: 0.11583214, z: 0.3358924, w: 0.92878157}
+  m_LocalRotation: {x: -0.105470866, y: 0.115832135, z: 0.33589244, w: 0.9287815}
   m_LocalPosition: {x: -0.000014118848, y: 0.23713025, z: 0.0000030640513}
   m_LocalScale: {x: 1.0000001, y: 1, z: 0.9999999}
   m_ConstrainProportionsScale: 0

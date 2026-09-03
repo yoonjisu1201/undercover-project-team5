@@ -35,10 +35,16 @@ public class PlayerCameraController : NetworkBehaviour
     // 손전등 등 손 IK가 따라가는 각도. 헤드 피벗(카메라)보다 좁게 잡아서 팔이 가동 범위를 넘어 꺾이지 않게 한다.
     [Header("팔 IK 따라가기 (헤드 피벗과 별도로 클램프)")]
     [SerializeField] private Transform _armFollowPivot;
-    // 카메라 상한(-50)까지 그대로 따라가게 둔다. -40 에서 잘리면 끝까지 올려다봤을 때
+    // 카메라 상한까지 그대로 따라가게 둔다. 중간에서 잘리면 끝까지 올려다봤을 때
     // 손만 멈춰 있어서 시선과 팔이 어긋난다.
-    private readonly float _armFollowMinPitch = -50f;
-    private readonly float _armFollowMaxPitch = 20f;
+    [Tooltip("팔이 올라갈 수 있는 최대 각도. 카메라 상한(-60)과 맞춰 둔다")]
+    [SerializeField] private float _armFollowMinPitch = -60f;
+    [SerializeField] private float _armFollowMaxPitch = 20f;
+
+    // 배율만 걸어 두면 중간에서 상한에 부딪혀 팔이 툭 멈춘다. 사인 곡선으로 태우면 초반에
+    // 빠르게 올라가고 끝에서 스르르 멎어서, 어디서도 끊기는 지점이 없다.
+    [Tooltip("올려다볼 때 팔이 올라가는 속도. 클수록 조금만 올려다봐도 팔이 많이 올라간다")]
+    [SerializeField, Range(0.5f, 3f)] private float _armFollowUpGain = 1.6f;
 
     // 헤드램프(Flashlight) 등 카메라와 동일한 시야각을 그대로 따라가야 하는 오브젝트가 붙는 피벗.
     // 헤드 피벗과 달리 오너/논오너 모두 이 시점에 갱신되므로, raycast 없이 파렌팅만으로 시선을 따라간다.
@@ -82,6 +88,9 @@ public class PlayerCameraController : NetworkBehaviour
 
     // 팔 IK와 레이저가 카메라 상하 조준을 따라가도록 소유자는 로컬 값, 다른 클라이언트는 동기화 값을 제공한다.
     public float ViewPitch => IsOwner ? _pitch : _networkPitch.Value;
+
+    // 손전등 빔이 팔보다 위로 올라가지 않도록, 팔이 멈추는 각도를 같이 쓴다.
+    public float ArmFollowMinPitch => _armFollowMinPitch;
 
     // 이동 컴포넌트가 물리 틱에서 몸체 회전과 이동 방향을 같은 yaw로 계산할 때 사용한다.
     // _yaw 는 오너의 Update 에서만 갱신된다. 다른 클라이언트에서는 스폰 당시 값에 멈춰 있어서
@@ -270,7 +279,17 @@ public class PlayerCameraController : NetworkBehaviour
         // 다른 클라이언트에서도 보여야 하므로 헤드 본과 동일하게 이 시점에 갱신한다.
         if (_armFollowPivot != null)
         {
-            float armPitch = Mathf.Clamp(pitch, _armFollowMinPitch, _armFollowMaxPitch);
+            // 올려다보는 쪽(음수)만 따로 태운다. 사인 곡선이라 상한에 부딪히지 않고 스르르 멎는다.
+            float armPitch;
+            if (pitch < 0f)
+            {
+                float t = Mathf.Clamp01(pitch / _minPitch * _armFollowUpGain);
+                armPitch = _armFollowMinPitch * Mathf.Sin(t * Mathf.PI * 0.5f);
+            }
+            else
+            {
+                armPitch = Mathf.Min(pitch, _armFollowMaxPitch);
+            }
             _armFollowPivot.rotation = ViewYawRotation * Quaternion.Euler(armPitch, 0f, 0f);
         }
 
