@@ -34,6 +34,9 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     public event Action<float, float> HpChanged;
     // #392: 다운과 소생의 전환 방향을 구독자가 구분할 수 있도록 이전 값과 현재 값을 함께 전달한다.
     public event Action<bool, bool> DownedStateChanged;
+    // 누가 쓰러졌는지는 각 클라이언트가 복제된 상태로 이미 안다. 화면 전체에서 한 번만 반응하면 되는 쪽이
+    // 플레이어 목록과 접속·퇴장을 직접 관리하지 않도록 정적 이벤트로 알린다.
+    public static event Action<PlayerHealth> DownedLocally;
 
     public float MaxHp => _maxHp;
     public float CurrentHp => _currentHp.Value;
@@ -270,5 +273,11 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     {
         // #392: PlayerHealth가 받은 NetworkVariable 변경값을 애니메이션 구독자까지 그대로 전달한다.
         DownedStateChanged?.Invoke(previousValue, newValue);
+
+        // 라운드 초기화(ResetForNewRound)로 다운이 풀리는 방향은 알리지 않는다.
+        if (!previousValue && newValue)
+        {
+            DownedLocally?.Invoke(this);
+        }
     }
 }
