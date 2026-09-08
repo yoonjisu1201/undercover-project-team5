@@ -112,6 +112,9 @@ public abstract class MontageSyncBase : NetworkBehaviour {
 
 				ApplyPart(part, currentId);
 			}
+
+			// 상태가 바뀔 때만 1회 렌더링
+			_montageCamera.Render();
 		}
 
 		OnMontageStateChanged?.Invoke(current);

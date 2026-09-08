@@ -105,9 +105,6 @@ public class MontageDressUpUI : ScreenBase {
 		_montageResetButton.onClick.AddListener(ResetMontage);
 		
 		SetActiveTab(_activePart);
-		
-		// 카메라 활성화
-		_syncManager.MontageCamera.enabled = true;
 	}
 
 	public override void DeactivateScreen() {
@@ -120,11 +117,6 @@ public class MontageDressUpUI : ScreenBase {
 		_syncManager.OnMontageStateChanged -= HandleMontageStateChanged;
 		_montageShareButton?.onClick.RemoveListener(ShareMontage);
 		_montageResetButton?.onClick.RemoveListener(ResetMontage);
-		
-		// 카메라 비활성화
-		if (_syncManager.MontageCamera != null) {
-			_syncManager.MontageCamera.enabled = false;
-		}
 	}
 
 	private void Update() {

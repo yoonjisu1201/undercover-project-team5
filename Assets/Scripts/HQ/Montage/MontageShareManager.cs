@@ -41,11 +41,4 @@ public class MontageShareManager : MontageSyncBase {
 
 		base.HandleRoundStateChanged(state);
 	}
-
-	protected override void HandleStateChanged(MontageState previous, MontageState current) {
-		base.HandleStateChanged(previous, current);
-		
-		// 몽타주 상태 변경한 후에 1회 렌더링해서 변경사항 반영하기
-		_montageCamera.Render();
-	}
 }
