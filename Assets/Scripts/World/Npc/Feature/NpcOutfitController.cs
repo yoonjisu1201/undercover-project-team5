@@ -30,40 +30,43 @@ public class NpcOutfitController : MonoBehaviour {
 	private Transform[] _bones;
 	private Transform _rootBone;
 
-	public OutfitFeature CreateRandomOutfitFeature() {
+	// 공통 라운드 시드와 NPC NetworkObjectId에서 유도한 seed로 생성한다. 이 함수는 서버와
+	// 모든 클라이언트에서 같은 순서로 같은 난수열을 소비해야 한다.
+	public OutfitFeature CreateDeterministicOutfit(int seed) {
+		NpcOutfitRandom random = new(seed);
 		OutfitFeature feature = new OutfitFeature();
 
-		feature.BeardNumber = GetRandomPartNumber(ClothPart.Beard, _beardPossibility);
-		feature.EyebrowsNumber = GetRandomPartNumber(ClothPart.Eyebrow, _eyebrowPossibility);
-		feature.GlassesNumber = GetRandomPartNumber(ClothPart.Glasses, _glassesPossibility);
-		feature.HairNumber = GetRandomPartNumber(ClothPart.Hair, _hairPossibility);
-		feature.HatNumber = GetRandomPartNumber(ClothPart.Hat, _hatPossibility);
-		feature.HeadphoneNumber = GetRandomPartNumber(ClothPart.Headphone, _headphonePossibility);
+		feature.BeardNumber = GetRandomPartNumber(ClothPart.Beard, _beardPossibility, random);
+		feature.EyebrowsNumber = GetRandomPartNumber(ClothPart.Eyebrow, _eyebrowPossibility, random);
+		feature.GlassesNumber = GetRandomPartNumber(ClothPart.Glasses, _glassesPossibility, random);
+		feature.HairNumber = GetRandomPartNumber(ClothPart.Hair, _hairPossibility, random);
+		feature.HatNumber = GetRandomPartNumber(ClothPart.Hat, _hatPossibility, random);
+		feature.HeadphoneNumber = GetRandomPartNumber(ClothPart.Headphone, _headphonePossibility, random);
 		feature.ArmNumber = DefaultArmClothId; // 손은 더 이상 랜덤/장식 대상이 아니라 항상 기본 손을 단다
-		feature.MaskNumber = GetRandomPartNumber(ClothPart.Mask, _maskPossibility);
-		feature.PantsNumber = GetRandomPartNumber(ClothPart.Pants, _pantPossibility);
-		feature.ShoesNumber = GetRandomPartNumber(ClothPart.Shoes, _shoePossibility);
-		feature.TorsoNumber = GetRandomPartNumber(ClothPart.Torso, _torsoPossibility);
+		feature.MaskNumber = GetRandomPartNumber(ClothPart.Mask, _maskPossibility, random);
+		feature.PantsNumber = GetRandomPartNumber(ClothPart.Pants, _pantPossibility, random);
+		feature.ShoesNumber = GetRandomPartNumber(ClothPart.Shoes, _shoePossibility, random);
+		feature.TorsoNumber = GetRandomPartNumber(ClothPart.Torso, _torsoPossibility, random);
 
-		ResolveHatAndHeadPhoneConflict(feature);
+		ResolveHatAndHeadPhoneConflict(feature, random);
 
 		return feature;
 	}
 	
-	private static int GetRandomPartNumber(ClothPart part, float possibility) {
+	private static int GetRandomPartNumber(ClothPart part, float possibility, NpcOutfitRandom random) {
 		// 해당 NPC가 이 부위 장비 입을지 말지 Possibility기반으로 먼저 결정.
 		// 입지 않기로 했다면, -1 반환
-		if (!ShouldEquip(possibility)) {
+		if (!random.NextBool(possibility)) {
 			return -1;
 		}
 
 		// 입기로 했다면, Index골라서 반환
-		return GetRandomNpcClothId(part);
+		return GetRandomNpcClothId(part, random);
 	}
 
 	// 카탈로그에는 몽타주 전용 항목(NpcPrefab 없음)도 섞여 있을 수 있으므로, NPC가 실제로
 	// 입을 수 있는 항목 중에서만 뽑는다. (예: Arm은 몽타주에만 있는 항목이 6개 있다.)
-	private static int GetRandomNpcClothId(ClothPart part) {
+	private static int GetRandomNpcClothId(ClothPart part, NpcOutfitRandom random) {
 		IReadOnlyList<ClothData> options = ClothCatalog.GetAll(part);
 		List<ClothData> usable = new List<ClothData>(options.Count);
 
@@ -77,24 +80,19 @@ public class NpcOutfitController : MonoBehaviour {
 
 		if (usable.Count == 0) { return -1; }
 
-		return usable[Random.Range(0, usable.Count)].Id;
+		return usable[random.NextInt(usable.Count)].Id;
 	}
 
-	// Possibility 기반으로 그 부위 입을지 말지
-	private static bool ShouldEquip(float possibility) {
-		return possibility >= 1f ||
-		       possibility > 0f && Random.value < possibility;
-	}
 
 	// 헤드폰, 모자 동시에 낄 수 없으니 확률로 둘 중 하나만 남기기
-	private void ResolveHatAndHeadPhoneConflict(OutfitFeature feature) {
+	private void ResolveHatAndHeadPhoneConflict(OutfitFeature feature, NpcOutfitRandom random) {
 		if (_headPhoneAndHatAtTheSameTime ||
 		    feature.HatNumber < 0 ||
 		    feature.HeadphoneNumber < 0) {
 			return;
 		}
 
-		if (Random.value < 0.5f) {
+		if (random.NextBool(0.5f)) {
 			feature.HatNumber = -1;
 			return;
 		}
@@ -105,7 +103,7 @@ public class NpcOutfitController : MonoBehaviour {
 	// 뽑힌 파츠만 생성해서 본체 스켈레톤에 다시 바인딩한다.
 	public void ApplyOutfit(OutfitFeature feature) {
 		if (feature == null) {
-			Debug.LogError("[NPC] 적용할 NpcFeature가 없습니다.", this);
+			Debug.LogError("[NPC] 적용할 OutfitFeature가 없습니다.", this);
 			return;
 		}
 

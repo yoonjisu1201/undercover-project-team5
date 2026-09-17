@@ -11,11 +11,7 @@ public class NpcFeatureController : NetworkBehaviour {
 	private const float IdentificationRimRange = 0.9f;
 
 	private NpcOutfitController _outfitController;
-	private readonly NetworkVariable<NpcFeature> _feature = new NetworkVariable<NpcFeature>(
-		new NpcFeature(),
-		NetworkVariableReadPermission.Everyone,
-		NetworkVariableWritePermission.Server
-	);
+	private OutfitFeature _outfit;
 
 	private void Awake() {
 		_outfitController = GetComponent<NpcOutfitController>();
@@ -63,25 +59,24 @@ public class NpcFeatureController : NetworkBehaviour {
 	}
 
 	// CCTV 호버 표시처럼 이 NPC의 착용 의상을 읽어야 하는 쪽에 공개한다.
-	public OutfitFeature Outfit => _feature.Value?.Outfit;
+	public OutfitFeature Outfit => _outfit;
 
 	public override void OnNetworkSpawn() {
-		// 서버에서만, 각 Npc의 Outfit을 설정해준다.
-		if (IsServer) {
-			_feature.Value = new NpcFeature {
-				Outfit = _outfitController.CreateRandomOutfitFeature()
-			};
+		if (RoundManager.Instance == null) {
+			Debug.LogError("[NPC] RoundManager가 없어 공통 시드 기반 의상을 생성할 수 없습니다.", this);
+			return;
 		}
 
-		// 각 플레이어들은 모두 외형을 적용한다.
-		_outfitController.ApplyOutfit(_feature.Value.Outfit);
+		// 세션 시드와 Netcode가 모두에게 동일하게 부여한 NetworkObjectId만 사용한다.
+		// NPC별 의상 값 또는 시드는 네트워크로 전송하지 않는다.
+		int seed = NpcOutfitSeed.Create(
+			RoundManager.Instance.ClothPoolSessionSeed,
+			NetworkObject.NetworkObjectId);
+		_outfit = _outfitController.CreateDeterministicOutfit(seed);
+		_outfitController.ApplyOutfit(_outfit);
 
 		// 의상 파츠가 만들어진 뒤에 CCTV 외곽선을 만들어야 옷까지 포함된다.
 		GetComponent<NpcCctvHighlight>()?.BuildOutline();
-	}
-
-	public void SendFeatureTo(CriminalNpcManager criminalManager) {
-		criminalManager.SetCriminalFeature(_feature.Value);
 	}
 
 }

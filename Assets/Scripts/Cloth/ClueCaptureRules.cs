@@ -13,14 +13,12 @@ public static class ClueCaptureRules
         return data != null && data.MontagePrefab != null;
     }
 
-    public static int CalculateCapturableClueCount(NpcFeature criminalFeature)
+    public static int CalculateCapturableClueCount(OutfitFeature outfit)
     {
-        if (criminalFeature?.Outfit == null)
+        if (outfit == null)
         {
             return 0;
         }
-
-        OutfitFeature outfit = criminalFeature.Outfit;
         int count = 0;
 
         count += IsCapturable(ClothPart.Beard, outfit.BeardNumber, out _) ? 1 : 0;

@@ -132,7 +132,7 @@ public sealed partial class DebugMenuController
         CriminalNpcManager criminalManager = FindFirstObjectByType<CriminalNpcManager>();
         MontageSyncManager syncManager = FindFirstObjectByType<MontageSyncManager>();
         MontageShareManager shareManager = FindFirstObjectByType<MontageShareManager>();
-        if (criminalManager?.CriminalFeature?.Outfit == null ||
+        if (criminalManager?.CriminalOutfit == null ||
             syncManager == null ||
             shareManager == null ||
             MontageStateField == null)
@@ -141,7 +141,7 @@ public sealed partial class DebugMenuController
             return;
         }
 
-        MontageState state = CreateCriminalMontageState(criminalManager.CriminalFeature.Outfit);
+        MontageState state = CreateCriminalMontageState(criminalManager.CriminalOutfit);
         SetMontageState(syncManager, state);
         shareManager.IsMontageShared.Value = true;
         SetMontageState(shareManager, state);

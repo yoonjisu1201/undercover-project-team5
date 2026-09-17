@@ -1,7 +1,7 @@
 using UnityEngine;
 
 // NPC 외형, 몽타주 조립, 단서 캡쳐가 전부 공유하는 옷 하나의 데이터.
-// Id는 부위별로 고유하며, NpcFeature/MontageState가 그대로 이 Id를 저장한다.
+// Id는 부위별로 고유하며, NPC가 시드로 조립한 OutfitFeature와 MontageState가 그대로 사용한다.
 [CreateAssetMenu(fileName = "ClothData", menuName = "Undercover/Cloth Data")]
 public class ClothData : ScriptableObject {
 	public int Id;
