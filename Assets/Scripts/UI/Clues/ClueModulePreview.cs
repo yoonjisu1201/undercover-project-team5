@@ -150,7 +150,11 @@ public class ClueModulePreview : MonoBehaviour
             return false;
         }
 
-        OutfitFeature outfit = criminalManager.CriminalFeature.Outfit;
+        OutfitFeature outfit = criminalManager.CriminalOutfit;
+        if (outfit == null)
+        {
+            return false;
+        }
         LogAndAddIfEquippedButNotCapturable(ClothPart.Beard, outfit.BeardNumber);
         LogAndAddIfEquippedButNotCapturable(ClothPart.Eyebrow, outfit.EyebrowsNumber);
         LogAndAddIfEquippedButNotCapturable(ClothPart.Glasses, outfit.GlassesNumber);

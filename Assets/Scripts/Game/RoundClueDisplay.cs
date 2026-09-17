@@ -58,7 +58,7 @@ public class RoundClueDisplay : MonoBehaviour {
 
 	private void RefreshClueProgress() {
 		int captured = _boundClueBook?.ClueNumbers.Count ?? 0;
-		int total = ClueCaptureRules.CalculateCapturableClueCount(_criminalNpcManager.CriminalFeature);
+		int total = ClueCaptureRules.CalculateCapturableClueCount(_criminalNpcManager.CriminalOutfit);
 		_clueCountText.text = $"{captured} / {total}";
 	}
 

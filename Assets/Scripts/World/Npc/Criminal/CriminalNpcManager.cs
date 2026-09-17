@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 
 public class CriminalNpcManager : NetworkBehaviour
 {
-    // CriminalFeature 동기화 값이 실제로 반영된 순간 서버/클라이언트 양쪽에서 발생한다.
+    // 범인 NPC 참조가 실제로 반영된 순간 서버/클라이언트 양쪽에서 발생한다.
     // ClueSpawner(서버)는 필드 단서 트림에, HQ UI(클라이언트)는 단서 진행률 표시에 쓴다.
     public event System.Action OnCriminalAssigned;
 
@@ -19,11 +19,6 @@ public class CriminalNpcManager : NetworkBehaviour
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server);
 
-    private readonly NetworkVariable<NpcFeature> _criminalFeature = new(
-        new NpcFeature(),
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server);
-
     // 이번 라운드에 등장할 외계인 종류. 범인 본모습과 분신이 같은 종류로 나오도록 양쪽이 이 값을 참조한다.
     // -1은 아직 추첨 전이라는 뜻이며, 클라이언트는 스폰 시 서버 값을 그대로 받는다.
     private readonly NetworkVariable<int> _roundAlienTypeIndex = new(
@@ -32,13 +27,16 @@ public class CriminalNpcManager : NetworkBehaviour
         NetworkVariableWritePermission.Server);
 
     public NetworkObject CriminalNpc { get; private set; }
-    public NpcFeature CriminalFeature => _criminalFeature.Value;
+    // 범인도 일반 NPC와 같이 공통 시드로 외형을 계산한다. 범인 의상 파츠를 별도로 동기화하지 않는다.
+    public OutfitFeature CriminalOutfit =>
+        CriminalNpc != null && CriminalNpc.TryGetComponent(out NpcFeatureController featureController)
+            ? featureController.Outfit
+            : null;
     public int RoundAlienTypeIndex => _roundAlienTypeIndex.Value;
 
     public override void OnNetworkSpawn()
     {
         _criminalNpcReference.OnValueChanged += HandleCriminalNpcChanged;
-        _criminalFeature.OnValueChanged += HandleCriminalFeatureChanged;
         ResolveCriminalNpc(_criminalNpcReference.Value);
 
         if (IsServer && RoundManager.Instance != null)
@@ -50,7 +48,6 @@ public class CriminalNpcManager : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         _criminalNpcReference.OnValueChanged -= HandleCriminalNpcChanged;
-        _criminalFeature.OnValueChanged -= HandleCriminalFeatureChanged;
 
         if (IsServer && RoundManager.Instance != null)
         {
@@ -149,15 +146,6 @@ public class CriminalNpcManager : NetworkBehaviour
         CriminalNpc.name = "Criminal_main";
         _criminalNpcReference.Value = networkObject;
 
-        if (CriminalNpc.TryGetComponent(out NpcFeatureController featureController))
-        {
-            featureController.SendFeatureTo(this);
-        }
-        else
-        {
-            Debug.LogError("[CriminalNpcManager] 범인 NPC에 NpcFeatureController가 없습니다.", CriminalNpc);
-        }
-
         Debug.Log(
             $"[CriminalNpcManager] 범인 지정 완료 | " +
             $"Name: {CriminalNpc.name}, " +
@@ -195,26 +183,11 @@ public class CriminalNpcManager : NetworkBehaviour
         return npc != null && npc == CriminalNpc;
     }
 
-    public void SetCriminalFeature(NpcFeature feature)
-    {
-        if (!IsServer)
-        {
-            return;
-        }
-
-        _criminalFeature.Value = feature;
-    }
-
     private void HandleCriminalNpcChanged(NetworkObjectReference previous, NetworkObjectReference current)
     {
         ResolveCriminalNpc(current);
-    }
-
-    private void HandleCriminalFeatureChanged(NpcFeature previous, NpcFeature current)
-    {
         OnCriminalAssigned?.Invoke();
     }
-
     private void ResolveCriminalNpc(NetworkObjectReference reference)
     {
         if (reference.TryGet(out NetworkObject criminalNpc))

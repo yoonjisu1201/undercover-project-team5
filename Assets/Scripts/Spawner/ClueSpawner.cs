@@ -144,7 +144,7 @@ public sealed class ClueSpawner : MonoBehaviour, IRoundSpawner
             return;
         }
 
-        int capturableCount = ClueCaptureRules.CalculateCapturableClueCount(_criminalManager.CriminalFeature);
+        int capturableCount = ClueCaptureRules.CalculateCapturableClueCount(_criminalManager.CriminalOutfit);
         _clueNumberCap = Mathf.Clamp(capturableCount, 0, _totalClueCount);
 
         for (int i = _spawnedClues.Count - 1; i >= 0; i--)
