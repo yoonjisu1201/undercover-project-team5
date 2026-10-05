@@ -6,6 +6,12 @@
   <img src="README.assets/main.png" alt="미확인 개체 대응반 대표 이미지" width="100%">
 </p>
 
+<p align="center">
+  <a href="https://store.onstove.com/ko/games/105710" target="_blank">
+    <img src="https://img.shields.io/badge/STOVE_STORE-출시_페이지_바로가기-FF5C00?style=for-the-badge&logo=gameandwatch&logoColor=white" alt="STOVE 스토어 바로가기" />
+  </a>
+</p>
+
 ## 게임 소개
 
 **미확인 개체 대응반**은 플레이어들이 함께 단서를 수집하고, 군중 속에 숨어든 외계인을 찾아 검거하는 협동 추리 게임입니다.
@@ -75,22 +81,21 @@
 
 | 항목 | 내용 |
 | --- | --- |
+| **공식 스토어** | [🛒 STOVE 스토어 바로가기](https://store.onstove.com/ko/games/105710) |
 | 장르 | 협동 추리 게임 |
 | 플레이 인원 | 최대 4인 |
-| 플랫폼 | PC |
-| 엔진 | Unity |
+| 플랫폼 | PC (Windows) |
+| 엔진 | Unity 6 (`6000.3.15f1`) |
 | 개발 기간 | 2026.07.09 - 2026.08.29 |
 | 팀 | 경일특공대 5팀 |
 
 ## 시작하기
 
-### 요구 사항
+### 1) STOVE 스토어에서 플레이 (공식 배포)
 
-- Unity Hub
-- Unity Editor `6000.3.15f1`
-- Git
+- **[STOVE 스토어 페이지 바로가기](https://store.onstove.com/ko/games/105710)**에서 게임을 다운로드하고 바로 플레이할 수 있습니다.
 
-### 실행 방법
+### 2) Unity 에디터에서 실행
 
 ```bash
 git clone https://github.com/yoonjisu1201/undercover-project-team5.git
@@ -110,4 +115,6 @@ git clone https://github.com/yoonjisu1201/undercover-project-team5.git
 - 박우빈
 - 정호종
 
+## 추가 정보 및 링크
 
+- 🛒 **공식 스토어**: [미확인 개체 대응반 - STOVE 스토어 바로가기](https://store.onstove.com/ko/games/105710)
