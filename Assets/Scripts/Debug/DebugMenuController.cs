@@ -64,7 +64,9 @@ public sealed partial class DebugMenuController : NetworkBehaviour
     // F9 토글, 위치 버튼 문구 갱신, 메뉴 바깥 클릭 닫기를 처리합니다.
     private void Update()
     {
-        if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
+        // 메뉴는 Awake 에서 닫힌 채로 시작하고 모든 버튼이 _menuRoot 하위에 있다.
+        // 그래서 여는 길만 막으면 디버그를 끈 빌드에서는 끝까지 안 보인다.
+        if (DebugFeatures.Enabled && Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
         {
             SetMenuVisible(_menuRoot != null && !_menuRoot.activeSelf);
         }

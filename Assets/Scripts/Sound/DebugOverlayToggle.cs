@@ -18,6 +18,10 @@ public static class DebugOverlayToggle
 
     public static void RequestToggle()
     {
+        // 디버그를 끈 빌드에서는 켜는 길을 여기서 막는다. F8 을 읽는 표시가 몇 개로 늘어나도
+        // 이 한 곳만 막으면 모두 꺼진 채로 남는다.
+        if (!DebugFeatures.Enabled) return;
+
         if (_toggledFrame == Time.frameCount) return;
 
         _toggledFrame = Time.frameCount;
